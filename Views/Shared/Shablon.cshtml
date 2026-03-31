@@ -1,0 +1,50 @@
+﻿<header>
+        <img src="/images/favicon.png" alt="Логотип" style="height: 50px;">
+        <h1 class="header-title" style="margin: 0;">Анкетирование</h1>
+        <p id="role" style='margin-left: -15px'></p>
+        <button class="logout-button" onClick="logout_account()">Выйти</button>
+    </header>
+
+      <nav>
+        <ul>
+            <li><a href="#statistics" id="statistic" onClick="open_vkladka('statistic')">Статистика</a></li>
+            <li>
+                <a href="#surveys" id="surveys" onClick="open_vkladka('surveys')">Анкеты</a>
+                <div class="submenu" id="submenu_survey">
+                    <a href="#list_surveys" id="list_surveys" onClick="open_vkladka('surveys')">Список анкет</a>
+                    <a href="#list_answers" id="list_answers" onClick="open_vkladka('list_answers_users')">Ответы на анкеты</a>
+                    <a href="#create_survey" id="create_survey" onClick="add_survey()">Создание анкеты</a>
+                </div>
+            </li>
+            <li>
+                <a href="#users" onClick="open_vkladka('users')" id="users">Пользователи</a>
+                <div class="submenu">
+                    <a href="#list_users" onClick="open_vkladka('users')">Список пользователей</a>
+                    <a href="#add_user" onClick="open_vkladka('add_user')">Добавление пользователя</a>
+                </div>
+            </li>
+            <li>
+                <a href="#organizations" onClick="open_vkladka('omsu')" id="omsu">Организации</a>
+                <div class="submenu">
+                    <a href="#list_organizations" onClick="open_vkladka('omsu')">Список организаций</a>
+                    <a href="#create_organization" onClick = "open_vkladka('add_omsu')">Добавление организации</a>
+                </div>
+            </li>
+            <li>
+                <a href="#organizations" id="prochee">Прочее</a>
+                <div class="submenu">
+                    <a href="#list_organizations" onClick="open_vkladka('logs')">Посмотреть логи</a>
+                    <a href="#create_organization" onClick = "dump_logs()">Выгрузить файл txt с логами</a>
+                    <a href="#list_organizations" style="display:none" onClick="open_vkladka('rassilka')">Настройка рассылки</a>
+                </div>
+            </li>
+                <li>
+                <a href="#organizations" onClick="" id="help">Помощь</a>
+                <div class="submenu">
+                    <a href="#list_organizations" id="file_docx" onClick="get_file('docx')">Работа с шаблоном отчёта DOCX</a>
+                    <a href="#create_organization" id="file_excel" onClick = "get_file('excel')">Работа с шаблоном отчёта EXCEL</a>
+                    <a href="#create_organization" id="file_csp" onClick = "get_file('csp')">Использование ЭЦП</a>
+                </div>
+            </li>
+        </ul>
+    </nav>}

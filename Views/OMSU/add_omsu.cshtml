@@ -1,0 +1,153 @@
+@{
+    ViewData["Title"] = "Добавление организации";
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <style>
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 8px 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .form-control.invalid {
+            border-color: #f44336;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ffb6b6;
+            background-color: #ffe6e6;
+            border-radius: 4px;
+        }
+        .success-message {
+            color: green;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #a0e0a0;
+            background-color: #e6ffe6;
+            border-radius: 4px;
+        }
+        
+        .button-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: #45a049;
+        }
+        
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            display: none;
+        }
+        
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        
+        @@media (max-width: 600px) {
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="note">
+        <h2>Добавление новой организации</h2>
+        <p>В форме ниже вы можете задать данные для новой организации</p>
+    </div>
+
+<form id="organizationForm">
+    @Html.AntiForgeryToken()
+    
+    <div class="form-group">
+        <label for="Name">Название организации</label>
+        <input type="text" class="form-control" id="Name" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="omsu_email">Email организации</label>
+        <input type="text" class="form-control" id="omsu_email" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="DateBegin">Дата начала</label>
+        <input type="date" class="form-control" id="DateBegin" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="DateEnd">Дата окончания</label>
+        <input type="date" class="form-control" id="DateEnd" required>
+    </div>
+    <div class="button-container">
+        <button type="button" class="btn btn-primary" onclick="add_omsu_bd()">Добавить</button>
+    </div>
+                    <div id="message"></div>
+</form>
+
+<div id="message" style="display:none; margin-top:20px;"></div>
+
+    @Html.AntiForgeryToken()
+
+    <script>
+
+    </script>
+</body>
+</html>

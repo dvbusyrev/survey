@@ -1,0 +1,96 @@
+@model main_project.Models.User
+@{
+    ViewData["Title"] = "Добавление пользователя";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - main_project</title>
+    <style>
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #ffb6b6;
+            background-color: #ffe6e6;
+            border-radius: 4px;
+        }
+        .success-message {
+            color: green;
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #a0e0a0;
+            background-color: #e6ffe6;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="content" id="default_content">
+        <div class="note">
+            <h2>Добавление нового пользователя</h2>
+        </div>
+        
+        <div class="form-container">
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="username">Логин</label>
+                    <input type="text" class="form-control" id="username" required />
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" class="form-control" id="password" required />
+                </div>
+                <div class="form-group">
+                    <label for="fullName">ФИО</label>
+                    <input type="text" class="form-control" id="fullName" required />
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="text" class="form-control" id="email_input" required />
+                </div>
+                <div class="form-group">
+                    <label for="organization">Организация</label>
+                    <select class="form-control" id="organization" required>
+                        @if (ViewBag.Ids != null && ViewBag.Names != null)
+                        {
+                            for (int i = 0; i < ViewBag.Ids.Count; i++)
+                            {
+                                <option value="@ViewBag.Ids[i]">@ViewBag.Names[i]</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="role">Роль</label>
+                    <select class="form-control" id="role_bd" required>
+                        <option value="user">Пользователь</option>
+                        <option value="Админ">Админ</option>
+                    </select>
+                </div>
+                <div class="button-container">
+                    <button type="button" class="btn" onclick="submitFormAdd()">Добавить</button>
+                </div>
+                <div id="message"></div>
+            </form>
+        </div>
+    </div>
+
+    @Html.AntiForgeryToken()
+
+    <script>
+    </script>
+</body>
+</html>

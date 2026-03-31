@@ -1,0 +1,118 @@
+@{
+    ViewData["Title"] = "Добавление анкеты";
+    var currentDate = DateTime.Now.ToString("yyyy-MM-dd");
+    var nextWeekDate = DateTime.Now.AddDays(7).ToString("yyyy-MM-dd");
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - main_project</title>
+</head>
+<body>
+    @Html.AntiForgeryToken()
+
+    <div class="content">
+        <div class="note">
+            <h2>Добавление анкеты</h2>
+            <p>Заполните форму ниже для создания новой анкеты</p>
+        </div>
+
+        <div class="step">
+            <h3>Шаг 1 - Основные параметры</h3>
+            
+            <div class="form-group">
+                <label for="surveyTitle">Название анкеты:</label>
+                <input type="text" class="form-control" id="surveyTitle" placeholder="Введите название анкеты" required />
+            </div>
+            
+            <div class="form-group">
+                <label for="surveyDescription">Описание:</label>
+                <input type="text" class="form-control" id="surveyDescription" placeholder="Введите описание анкеты" required />
+            </div>
+            
+            <div class="form-group">
+                <label for="startDate">Дата начала:</label>
+                <input type="date" class="form-control" id="startDate" value="@currentDate" required />
+            </div>
+            
+            <div class="form-group">
+                <label for="endDate">Дата окончания:</label>
+                <input type="date" class="form-control" id="endDate" value="@nextWeekDate" required />
+            </div>
+            
+            <div class="form-group">
+                <label>Выбор организаций:</label>
+                <button type="button" class="btn" onclick="openOmsuModal()">Выбрать ОМСУ</button>
+            </div>
+            
+            <div id="selectedOmsuContainer" class="selected-omsu" style="display: none;">
+                <h4>Выбранные организации:</h4>
+                <div id="selectedOmsuList"></div>
+            </div>
+        </div>
+        <br />
+
+        <div class="step" id="two_step">
+            <h3>Шаг 2 - Критерии оценки</h3>
+            
+            <div id="cont_criteries" class="cont_criteries">
+                <div class="form-group">
+                    <label for="criteriy1">Критерий оценки 1:</label>
+                    <input type="text" class="form-control criteriy" id="criteriy1" placeholder="Введите критерий оценки" required />
+                </div>
+            </div>
+        </div>
+
+        <div class="criteria-buttons-container">
+            <button type="button" class="criteria-btn btn-success" id="conf_btn" onclick="confirmCriteries()">Подтвердить критерии</button>
+            <button type="button" class="criteria-btn btn-info" id="add_crit" onclick="addRowCriteriy()">Добавить критерий</button>
+            <button type="button" class="criteria-btn btn-success" style="display: none;" id="add_survey_btn" onclick="addSurvey()">Создать анкету</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно для выбора организаций -->
+    <div id="omsuModal" class="modal-overlay">
+   <div class="modal-content">
+        <div class="modal-header">
+                <h3 class="h2_modal">Выбор организаций (ОМСУ)</h3>
+                <button class="modal-close" onclick="closeModal('omsuModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="loadingOrgs" style="text-align: center; padding: 20px;">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px; color: #7f8c8d;">Загрузка организаций...</p>
+                </div>
+                <div id="organizationList" class="organization-list" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+            <button type="button" class="modal_btn modal_btn-primary" onclick="saveSelectedOmsu()">Сохранить</button>
+                <button type="button" class="modal_btn modal_btn-secondary" onclick="closeModal('omsuModal')">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления -->
+    <div id="notification" class="notification-overlay">
+        <div class="notification-content">
+            <h3 id="notificationTitle" class="notification-title"></h3>
+            <div id="notificationMessage" class="notification-message"></div>
+            <button class="notification-close" onclick="hideNotification()">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Индикатор загрузки -->
+    <div id="loadingOverlay">
+        <div style="text-align: center;">
+            <div class="spinner"></div>
+            <div class="loading-text">Идет обработка данных...</div>
+        </div>
+    </div>
+
+    <script>
+
+    </script>
+</body>
+</html>

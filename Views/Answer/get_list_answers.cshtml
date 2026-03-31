@@ -1,0 +1,81 @@
+@model List<HistoryAnswer>
+@{
+    ViewData["Title"] = "Ответы на анкеты";
+}
+
+<div class="content" id="default_content">
+    <div class="note">
+        <h2>Ответы на анкеты</h2>
+        <p>На этой странице вы можете посмотреть ответы организаций на анкеты</p>
+    </div>
+    
+
+<div class="filter-sort">
+  <select id="filterOrganization" class="filter-select" 
+          onclick="populateOrganizationOptions()" 
+          onchange="filterTable()">
+    <option value="">Все организации</option>
+  </select>
+
+  <select id="filterSurvey" class="filter-select" 
+          onclick="populateSurveyOptions()" 
+          onchange="filterTable()">
+    <option value="">Все анкеты</option>
+  </select>
+</div>
+
+
+
+    <table id="data_table">
+        <thead>
+            <tr class="table_tr">
+                <th style="border-radius: 16px 0 0 0">Название организации <span class="sort-icon" id="sortIcon0"></span></th>
+                <th>Название анкеты <span style="display:none" class="sort-icon" id="sortIcon1"></span></th>
+                <th>Дата ответа <span class="sort-icon" id="sortIcon2"></span></th>
+                <th>Подпись</th>
+                <th style="border-radius: 0 16px 0 0">Ответы</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model != null && Model.Any())
+            {
+                foreach (var answer in Model)
+                {
+                    <tr class="active" style="cursor:pointer" onclick = "showAnswersModal(@answer.id_survey, @answer.id_omsu)">
+                        <td>@answer.name_omsu</td>
+                        <td>@answer.name_survey</td>
+                        <td>@answer.completion_date.ToString()</td>
+                        <td>
+                            @if (answer.csp == "Не подписано")
+                            {
+                                <span style="color: red;">❌</span>
+                            }
+                            else
+                            {
+                                <span style="color: green;">✔️</span>
+                            }
+                        </td>
+                        <td style="color:#8a9cf5">Смотреть</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="5" style='color:red' id="none_result">Результаты не найдены!</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+<div class='modal' id="answersModal" style="display:none">
+  <div class='modal-content'>
+    <div>
+      <h2 class="h2_modal" id="surveyAnswersTitle">Ответы на анкету</h2>
+      <br />
+      <span class="modal-close" onclick="document.getElementById('answersModal').style.display='none'">&times;</span>
+    </div>
+    <div id="answersContainer"></div>
+  </div>
+</div>
+

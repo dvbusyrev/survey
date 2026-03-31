@@ -1,0 +1,44 @@
+@model main_project.Models.OMSU
+@Html.AntiForgeryToken()
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - main_project</title>
+</head>
+<body>
+
+    <div class="content" id="default_content">
+        <div class="note">
+            <h2>Редактирование организации</h2>
+            <p>В форме ниже вы можете изменить данные организации</p>
+        </div>
+
+        <div class="form-group">
+            <label for="name">Наименование:</label>
+            <input type="text" class="form-control" id="name" placeholder="Введите наименование" value="@Model?.name_omsu" required />
+        </div>
+        <div class="form-group">
+            <label for="email">Почта:</label>
+            <input type="text" class="form-control" id="email" placeholder="Введите email" value="@Model?.email" required />
+        </div>
+
+<div class="form-group">
+    <label for="date_begin">Дата начала анкетирования:</label>
+    <input type="date" class="form-control" id="date_begin" name="date_begin" 
+           value="@(Model?.date_begin?.ToString("yyyy-MM-dd"))" required />
+</div>
+<div class="form-group">
+    <label for="date_end">Дата окончания:</label>
+    <input type="date" class="form-control" id="date_end" name="date_end" 
+           value="@(Model?.date_end?.ToString("yyyy-MM-dd"))" required />
+</div>
+        
+        <div class="button-container">
+           <button type="button" class="btn" onclick="update_omsu_bd(@Model.id_omsu)">Обновить организацию</button>
+        </div>
+    </div>
+
+</body>
+</html>

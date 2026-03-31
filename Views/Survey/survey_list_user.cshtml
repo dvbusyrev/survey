@@ -1,0 +1,2874 @@
+﻿@model Survey
+@{
+    ViewData["Title"] = "Активные анкеты";
+    int currentPage = ViewBag.CurrentPage ?? 1;
+    int totalPages = ViewBag.TotalPages ?? 1;
+    string searchTerm = ViewBag.SearchTerm ?? "";
+    var userRole = Context.Session.GetString("name_role") ?? "";
+    var userId = Context.Session.GetInt32("id_user") ?? 0;
+    int userOmsuId = ViewBag.UserOmsuId ?? 0;
+    var accessibleSurveys = ViewBag.AccessibleSurveys as List<Survey> ?? new List<Survey>();
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/css/components.css" />
+    <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" >
+</head>
+<body>
+    @if (string.IsNullOrEmpty(userRole))
+    {
+        <div class="access-denied" style="display: block;">
+            <h2>Доступ запрещён</h2>
+            <p>У вас нет прав для просмотра этой страницы.</p>
+            <br/>
+            <a href="/" class="btn">Вернуться на страницу авторизации</a>
+        </div>
+    }
+    else
+    {
+        <div id="root"></div>
+
+
+        <script src="~/js/react.development.js"></script>
+        <script src="~/js/react-dom.development.js"></script>
+        <script src="~/js/babel.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/cadesplugin/2.0.15400/cadesplugin_api.min.js"></script>
+        <script src="~/js/components/Header.js"></script>
+        <script src="/js/cadesplugin_api.js"></script>
+        <script src="~/js/components/Navigation.js"></script>
+        <script src="~/js/components/Footer.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+window.populateMonthOptions = function() {
+  const select = document.getElementById('filterOrganization');
+
+  const cards = document.querySelectorAll('.survey-card');
+  const months = new Set();
+
+  cards.forEach(card => {
+    const dateElement = card.querySelector('.dates');
+    const dateText = dateElement.textContent.trim();
+    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    const month = match[2];
+    months.add(month);
+  });
+
+
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">За все месяцы</option>';
+  Array.from(months).sort().forEach(month => {
+    const option = document.createElement('option');
+    option.value = month;
+    option.textContent = getMonthName(month);
+    select.appendChild(option);
+  });
+  select.value = currentValue;
+};
+
+window.populateYearOptions = function() {
+  console.info("[INFO] Запуск populateYearOptions");
+  const select = document.getElementById('filterSurvey');
+
+  const cards = document.querySelectorAll('.survey-card');
+  const years = new Set();
+
+  cards.forEach(card => {
+    const dateElement = card.querySelector('.dates');
+    const dateText = dateElement.textContent.trim();
+    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    const year = match[3];
+    years.add(year);
+  });
+
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">По всем годам</option>';
+  Array.from(years).sort().forEach(year => {
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    select.appendChild(option);
+  });
+  select.value = currentValue;
+
+};
+
+window.filterByDate = function() {
+  const monthSelect = document.getElementById('filterOrganization');
+  const yearSelect = document.getElementById('filterSurvey');
+
+  const month = monthSelect.value;
+  const year = yearSelect.value;
+
+  const cards = document.querySelectorAll('.survey-card');
+  let visibleCount = 0;
+
+  cards.forEach(card => {
+    const dateElement = card.querySelector('.dates');
+    if (!dateElement) {
+      card.style.display = 'none';
+      return;
+    }
+    const dateText = dateElement.textContent.trim();
+    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    if (!match) {
+      card.style.display = 'none';
+      return;
+    }
+    const rowDay = match[1];
+    const rowMonth = match[2];
+    const rowYear = match[3];
+
+    const matchMonth = !month || rowMonth === month;
+    const matchYear = !year || rowYear === year;
+
+    if (matchMonth && matchYear) {
+      card.style.display = '';
+      visibleCount++;
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  const noSurveysElement = document.querySelector('.no-surveys');
+  if (noSurveysElement) {
+    noSurveysElement.style.display = visibleCount === 0 ? '' : 'none';
+  }
+
+};
+
+function getMonthName(monthNum) {
+  const months = {
+    '01': 'Январь', '02': 'Февраль', '03': 'Март', '04': 'Апрель',
+    '05': 'Май', '06': 'Июнь', '07': 'Июль', '08': 'Август',
+    '09': 'Сентябрь', '10': 'Октябрь', '11': 'Ноябрь', '12': 'Декабрь'
+  };
+  return months[monthNum] || monthNum;
+}
+
+// Автоматический вызов при загрузке страницы (если нужно)
+window.onload = function() {
+  window.populateMonthOptions();
+  window.populateYearOptions();
+  window.filterByDate();
+};
+
+
+</script>
+
+
+        <script type="text/babel">
+
+const CADESCOM_CONTAINER_STORE = 100;
+const CAPICOM_STORE_OPEN_READ_ONLY = 0;
+const CAPICOM_CERTIFICATE_FIND_TIME_VALID = 9;
+const CADESCOM_CADES_BES = 1;
+
+async function CSP(id, id_omsu) {
+    console.log("Начало работы CSP");
+    try {
+        if (!await checkCSPAvailable()) {
+            console.error("CSP не доступен");
+            showCSPInstallInstructions();
+            return;
+        }
+
+        const dataToSign = await getDataForSignature(id, id_omsu);
+        
+        const signature = await createDigitalSignature(dataToSign);
+        
+        await sendSignatureToServer(id, id_omsu, signature);
+        
+        updateUISuccess();
+    } catch (error) {
+        console.error("Ошибка в CSP:", error);
+        showError(error.message);
+    }
+}
+
+async function listAllCertificates() {
+    try {
+        const store = await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
+        await store.Open(CADESCOM_CONTAINER_STORE, "My", CAPICOM_STORE_OPEN_READ_ONLY);
+        
+        const certs = await store.Certificates;
+        const count = await certs.Count;
+        
+        const certificates = [];
+        
+        for (let i = 1; i <= count; i++) {
+            const cert = await certs.Item(i);
+            const subj = await cert.SubjectName;
+            const issuer = await cert.IssuerName;
+            const validFrom = await cert.ValidFromDate;
+            const validTo = await cert.ValidToDate;
+            const thumbprint = await cert.Thumbprint;
+            
+            
+            certificates.push({
+                index: i,
+                subject: subj,
+                issuer: issuer,
+                validFrom: validFrom,
+                validTo: validTo,
+                thumbprint: thumbprint,
+                certificate: cert
+            });
+        }
+        
+        return certificates;
+    } catch (error) {
+        console.error("Ошибка при перечислении сертификатов:", error);
+        throw error;
+    }
+}
+
+async function listCertificates() {
+    try {
+        const store = await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
+        await store.Open(CADESCOM_CONTAINER_STORE, "My", CAPICOM_STORE_OPEN_READ_ONLY);
+        
+        const certs = await store.Certificates;
+        const count = await certs.Count;
+        
+        for (let i = 1; i <= count; i++) {
+            const cert = await certs.Item(i);
+            const subj = await cert.SubjectName;
+        }
+    } catch (error) {
+        console.error("Ошибка при перечислении сертификатов:", error);
+    }
+}
+
+async function checkCSPAvailable() {
+    try {console.log
+        ("1. Плагин обнаружен, версия:", await cadesplugin.version);
+
+        const about = await cadesplugin.CreateObjectAsync("CAdESCOM.About");
+        console.log("2. Объект About создан");
+
+        const store = await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
+        console.log("3. Хранилище сертификатов доступно");
+
+        return true;
+    } catch (error) {
+        console.error("❌ Ошибка при проверке CSP:", error);
+        return false;
+    }
+}
+
+
+async function getDataForSignature(id, id_omsu) {
+    const response = await fetch(`/get_signing_data/${id}/${id_omsu}`);
+    if (!response.ok) throw new Error('Ошибка получения данных');
+    return await response.text();
+}
+
+async function showCertificateSelectionDialog(certificates) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'csp-modal';
+        
+        const certItems = certificates.map(cert => `
+            <div class="cert-item" data-index="${cert.index}">
+                <div class="cert-subject">${cert.subject}</div>
+                <div class="cert-details">
+                    <div><strong>Издатель:</strong> ${cert.issuer}</div>
+                    <div><strong>Действителен:</strong> ${new Date(cert.validFrom).toLocaleDateString()} - ${new Date(cert.validTo).toLocaleDateString()}</div>
+                    <div><strong>Отпечаток:</strong> ${cert.thumbprint}</div>
+                </div>
+            </div>
+        `).join('');
+        
+        modal.innerHTML = `
+            <div class="csp-modal-content">
+                <h3>Выберите сертификат для подписи</h3>
+                <div class="csp-modal-body">
+                    <div class="cert-list-container">
+                        <div class="cert-list">
+                            ${certItems}
+                        </div>
+                    </div>
+                </div>
+                <div class="csp-modal-footer">
+                    <button class="csp-btn csp-btn-secondary" id="cert-cancel">Отмена</button>
+                </div>
+            </div>
+        `;
+        
+        modal.querySelectorAll('.cert-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const index = parseInt(item.getAttribute('data-index'));
+                const selectedCert = certificates.find(c => c.index === index);
+                document.body.removeChild(modal);
+                resolve(selectedCert);
+            });
+
+            item.addEventListener('mouseenter', () => {
+                item.style.backgroundColor = '#f0f7ff';
+            });
+            item.addEventListener('mouseleave', () => {
+                item.style.backgroundColor = '';
+            });
+        });
+        
+        modal.querySelector('#cert-cancel').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            resolve(null);
+        });
+
+        document.body.appendChild(modal);
+    });
+}
+
+// Создание подписи
+async function createDigitalSignature(data) {
+    try {
+
+        const certificates = await listAllCertificates();
+        
+        if (certificates.length === 0) {
+            throw new Error('Нет доступных сертификатов');
+        }
+        
+
+        const selectedCert = await showCertificateSelectionDialog(certificates);
+        
+        if (!selectedCert) {
+            throw new Error('Сертификат не выбран');
+        }
+        
+        const signer = await cadesplugin.CreateObjectAsync("CAdESCOM.CPSigner");
+        await signer.propset_Certificate(selectedCert.certificate);
+
+        const signedData = await cadesplugin.CreateObjectAsync("CAdESCOM.CadesSignedData");
+        await signedData.propset_Content(data);
+
+        return await signedData.SignCades(signer, CADESCOM_CADES_BES);
+    } catch (error) {
+        console.error("Ошибка при создании подписи:", error);
+        throw error;
+    }
+}
+
+
+async function getCertificateInfo(cert) {
+    try {
+        const subject = await cert.SubjectName;
+        const issuer = await cert.IssuerName;
+        const validFrom = await cert.ValidFromDate;
+        const validTo = await cert.ValidToDate;
+        
+        return {
+            subject,
+            issuer,
+            validFrom,
+            validTo
+        };
+    } catch {
+        return null;
+    }
+}
+
+
+async function sendSignatureToServer(id, id_omsu, signature) {
+    const response = await fetch(`/csp/${id}/${id_omsu}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature })
+    });
+    
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Ошибка сервера');
+    }
+}
+
+function showCSPInstallInstructions() {
+    const modal = document.createElement('div');
+    modal.className = 'csp-modal';
+    modal.innerHTML = `
+        <div class="csp-modal-content">
+            <h3>Требуется установка КриптоПРО</h3>
+            <div class="csp-modal-body">
+                <p>Для подписи документов необходимо:</p>
+                <ol>
+                    <li>Установить <a href="https://www.cryptopro.ru/products/cades/plugin" target="_blank">КриптоПРО ЭЦП Browser plug-in</a></li>
+                    <li>Установить <a href="https://www.cryptopro.ru/products/csp" target="_blank">КриптоПРО CSP</a> (версия 4.0+)</li>
+                    <li>Обновить страницу после установки</li>
+                </ol>
+            </div>
+            <div class="csp-modal-footer">
+                <button class="csp-modal-close">Закрыть</button>
+            </div>
+        </div>
+    `;
+
+    modal.querySelector('.csp-modal-close').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+
+    document.body.appendChild(modal);
+}
+
+
+
+async function showCertConfirmDialog(certInfo) {
+    return new Promise((resolve) => {
+        const modal = document.createElement('div');
+        modal.className = 'csp-modal';
+        
+        const certDetails = certInfo ? `
+            <div class="cert-details">
+                <p><strong>Владелец:</strong> ${certInfo.subject}</p>
+                <p><strong>Издатель:</strong> ${certInfo.issuer}</p>
+                <p><strong>Действителен:</strong> ${certInfo.validFrom} - ${certInfo.validTo}</p>
+            </div>
+        ` : '<p>Информация о сертификате недоступна</p>';
+
+        modal.innerHTML = `
+            <div class="csp-modal-content">
+                <h3>Подтверждение сертификата</h3>
+                <div class="csp-modal-body">
+                    ${certDetails}
+                    <p>Вы подтверждаете использование этого сертификата для подписи?</p>
+                </div>
+                <div class="csp-modal-footer">
+                    <button class="csp-btn csp-btn-secondary" id="cert-cancel">Отмена</button>
+                    <button class="csp-btn csp-btn-primary" id="cert-confirm">Подписать</button>
+                </div>
+            </div>
+        `;
+
+        modal.querySelector('#cert-confirm').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            resolve(true);
+        });
+
+        modal.querySelector('#cert-cancel').addEventListener('click', () => {
+            document.body.removeChild(modal);
+            resolve(false);
+        });
+
+        document.body.appendChild(modal);
+    });
+}
+
+
+function updateUISuccess() {
+    document.getElementById("block_btn_not_csp").style.display = "none";
+    document.getElementById("block_btn_csp").style.display = "block";
+    
+    const notification = document.createElement('div');
+    notification.className = 'csp-notification success';
+    notification.innerHTML = `
+        <span class="csp-notification-icon">✓</span>
+        <span class="csp-notification-text">Документ успешно подписан</span>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+function showError(message) {
+    const notification = document.createElement('div');
+    notification.className = 'csp-notification error';
+    notification.innerHTML = `
+        <span class="csp-notification-icon">!</span>
+        <span class="csp-notification-text">${message}</span>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+}
+
+async function initCadesPlugin() {
+    try {
+        if (typeof cadesplugin === 'undefined') {
+            throw new Error('CAdESCOM плагин не загружен! Установите КриптоПРО ЭЦП Browser plug-in.');
+        }
+
+        await cadesplugin;
+
+        const pluginVersion = await cadesplugin.version;
+        console.log("Версия cadesplugin:", pluginVersion);
+
+        return true;
+    } catch (error) {
+        console.error('Ошибка инициализации cadesplugin:', error);
+        return false;
+    }
+}
+
+initCadesPlugin().then((isReady) => {
+    if (isReady) {
+        console.log("CAdESCOM готов к работе!");
+    }
+});
+
+async function initCSP() {
+    try {
+        await window.cadesplugin;
+        console.log('CryptoPRO готов к работе');
+        return true;
+    } catch (error) {
+        console.error('Ошибка инициализации CSP:', error);
+        return false;
+    }
+}
+
+initCSP().then(available => {
+    if (available) {
+        console.log("CSP инициализирован, можно использовать функции подписи");
+    }
+});
+
+async function checkLicense() {
+    try {
+        const cadesAbout = await cadesplugin.CreateObjectAsync("CAdESCOM.About");
+        const licenseStatus = await cadesAbout.LicenseStatus;
+        console.log("Статус лицензии:", licenseStatus);
+        return licenseStatus === 0; // 0 означает, что лицензия активна
+    } catch (error) {
+        console.error("Ошибка проверки лицензии:", error);
+        return false;
+    }
+}
+        const SurveyCard = ({ survey, isArchived, onClick }) => {
+            const formatDate = (dateString) => {
+                if (!dateString) return 'Не указано';
+                try {
+                    const date = new Date(dateString);
+                    return isNaN(date.getTime()) ? 'Не указано' : date.toLocaleDateString('ru-RU');
+                } catch {
+                    return 'Не указано';
+                }
+            };
+
+            if (!survey) return null;
+
+            return (
+                <div className="survey-card">
+                    <div className="survey-card-content" onClick={() => onClick(survey)}>
+                        <h3>{survey.name_survey || 'Без названия'}</h3>
+                        <p className="description">{survey.description || 'Нет описания'}</p>
+                        
+                        {isArchived ? (
+                            <p className="date-info">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
+                                    <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+                                </svg>
+                                Заполнено: {formatDate(survey.completion_date)}
+                            </p>
+                        ) : (
+                            <p className="date-info">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                                До завершения: <span className="time-left"></span>
+                            </p>
+                        )}
+
+{isArchived && (
+    <>
+        <div className="date-info">
+                      <svg className="signature-icon" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M6 17L10 13L13 16L18 11M20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4C16.4183 4 20 7.58172 20 12Z" stroke="#5c6bc0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+                        </svg>
+            Подпись:
+            <span className={`signature-status ${survey.csp ? 'signed' : 'not-signed'}`}>
+                {survey.csp ? 'подписано' : 'не подписано'}
+            </span>
+        </div>
+    </>
+)}
+                        
+                        <div className="footer">
+                            <div className="dates">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                                {formatDate(survey.date_open)} - {formatDate(survey.date_close)}
+                            </div>
+                            <div className={`status ${isArchived ? 'archived' : 'active'}`}>
+                                {isArchived ? 'Завершена' : 'Активна'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+const SurveyContent = ({ 
+    activeTab, 
+    surveys, 
+    loading, 
+    error, 
+    currentPage, 
+    totalPages, 
+    searchTerm, 
+    handleSearch, 
+    setSearchTerm, 
+    handlePageChange, 
+    handleTabChange, 
+    activeCount, 
+    archivedCount,
+    onSurveyClick,
+    dateFilter,
+    handleDateChange,
+    filterSigned,
+    handleSignedFilterChange
+}) => {
+    // Функция для форматирования даты
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Не указано';
+        try {
+            const date = new Date(dateString);
+            return isNaN(date.getTime()) ? 'Не указано' : date.toLocaleDateString('ru-RU');
+        } catch {
+            return 'Не указано';
+        }
+    };
+
+    // Функция проверки вхождения даты в диапазон
+    const isDateInRange = (checkDate, rangeStart, rangeEnd) => {
+        if (!checkDate) return false;
+        
+        const date = new Date(checkDate);
+        if (isNaN(date.getTime())) return false;
+
+        const startDate = new Date(rangeStart);
+        const endDate = new Date(rangeEnd);
+        
+        // Устанавливаем время конца дня для endDate
+        endDate.setHours(23, 59, 59, 999);
+
+        return date >= startDate && date <= endDate;
+    };
+
+    // Фильтрация анкет
+    const filteredSurveys = React.useMemo(() => {
+        if (!dateFilter) return surveys;
+
+        try {
+            const filterDate = new Date(dateFilter);
+            if (isNaN(filterDate.getTime())) return surveys;
+
+            return surveys.filter(survey => {
+                // Для активных анкет проверяем вхождение filterDate в период активности анкеты
+                if (activeTab === 'active') {
+                    return isDateInRange(dateFilter, survey.date_open, survey.date_close);
+                }
+                // Для архивных проверяем точное совпадение с датой завершения
+                else {
+                    return survey.completion_date 
+                        ? new Date(survey.completion_date).toDateString() === filterDate.toDateString() 
+                        : false;
+                }
+            });
+        } catch {
+            return surveys;
+        }
+    }, [surveys, dateFilter, activeTab, filterSigned]);
+
+    // Применяем дополнительный фильтр по подписи
+    const finalSurveys = React.useMemo(() => {
+        let result = filteredSurveys;
+        
+        if (activeTab === 'archived' && filterSigned) {
+            result = result.filter(survey => survey.csp);
+        }
+        
+        return result;
+    }, [filteredSurveys, filterSigned, activeTab]);
+
+    return (
+        <div className="content-wrapper">
+            <div className="note">
+                <h2>{activeTab === 'active' ? 'Доступные анкеты' : 'Пройденные анкеты'}</h2>
+                <p>
+                    {activeTab === 'active' 
+                        ? 'Ниже вы можете ознакомиться с доступными вам анкетами' 
+                        : 'Ниже вы можете ознакомиться с пройденными вами анкетами'}
+                </p>
+            </div>
+
+            <div className="menu-bar">
+                <div 
+                    className={`menu-tab ${activeTab === 'active' ? 'active-tab' : ''}`}
+                    onClick={() => handleTabChange('active')}
+                >
+                    Активные анкеты
+                    <span className="count-badge">{activeCount}</span>
+                </div>
+                <div 
+                    className={`menu-tab ${activeTab === 'archived' ? 'active-tab' : ''}`}
+                    onClick={() => handleTabChange('archived')}
+                >
+                    Архив анкет
+                    <span className="count-badge">{archivedCount}</span>
+                </div>
+            </div>
+
+            {error && (
+                <div className="error-message">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    {error}
+                </div>
+            )}
+
+            <form onSubmit={handleSearch} className="search-container">
+                <input
+                    type="text"
+                    className="search-box"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Поиск по названию анкеты..."
+                />
+                
+<div className="filter-sort">
+  <select
+    id="filterOrganization"
+    className="filter-select"
+    onClick={() => window.populateMonthOptions && window.populateMonthOptions()}
+    onChange={() => window.filterByDate && window.filterByDate()}
+  >
+    <option value="">За все месяцы</option>
+  </select>
+
+  <select
+    id="filterSurvey"
+    className="filter-select"
+    onClick={() => window.populateYearOptions && window.populateYearOptions()}
+    onChange={() => window.filterByDate && window.filterByDate()}
+  >
+    <option value="">По всем годам</option>
+  </select>
+</div>
+
+
+
+
+                
+                {activeTab === 'archived' && (
+                    <label className="signed-filter">
+                        <input 
+                            type="checkbox" 
+                            checked={filterSigned}
+                            onChange={handleSignedFilterChange}
+                        />
+                        Только подписанные
+                    </label>
+                )}
+            </form>
+
+            {loading ? (
+                <div className="loading">
+                    <div className="loading-spinner"></div>
+                    Загрузка анкет...
+                </div>
+            ) : (
+                <>
+   <div className="survey-grid">
+  {finalSurveys.length > 0 ? (
+    finalSurveys.map((survey, index) => (
+      <div key={`survey-${survey.id_survey}-${index}`} className="survey-card">
+        <div className="survey-card-content" onClick={() => onSurveyClick(survey)}>
+          <h3>{survey.name_survey || 'Без названия'}</h3>
+          <p className="description">{survey.description || 'Нет описания'}</p>
+
+          {activeTab === 'archived' ? (
+            <p className="date-info">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path>
+                <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+              </svg>
+              Заполнено: {formatDate(survey.completion_date)}
+            </p>
+          ) : (
+            <p className="date-info">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              До завершения: <span className="time-left"></span>
+            </p>
+          )}
+
+          {activeTab === 'archived' && (
+            <div className="signature-info">
+              <svg
+                className="signature-icon"
+                xmlns="http://www.w3.org/2000/svg"
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  d="M6 17L10 13L13 16L18 11M20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4C16.4183 4 20 7.58172 20 12Z"
+                  stroke="#5c6bc0"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                ></path>
+                <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+              </svg>
+              Подпись:
+              <span className={`signature-status ${survey.csp ? 'signed' : 'not-signed'}`}>
+                {survey.csp ? 'подписано' : 'не подписано'}
+              </span>
+            </div>
+          )}
+
+          <div className="footer">
+            <div className="dates">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              {formatDate(survey.date_open)} - {formatDate(survey.date_close)}
+            </div>
+            <div className={`status ${activeTab === 'archived' ? 'archived' : 'active'}`}>
+              {activeTab === 'archived' ? 'Завершена' : 'Активна'}
+            </div>
+          </div>
+        </div>
+      </div>
+    ))
+  ) : (
+    <div className="no-surveys">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="48"
+        height="48"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="13" r="2"></circle>
+        <line x1="13.45" y1="11.55" x2="15.5" y2="9.5"></line>
+        <path d="M6.4 20.35a9 9 0 1 1 11.2 0"></path>
+      </svg>
+      <p>Нет анкет, соответствующих критериям фильтрации</p>
+    </div>
+  )}
+</div>
+
+
+                    {activeTab === 'active' && finalSurveys.length > 0 && (
+                        <div className="pagination">
+                            <button 
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage === 1}
+                            >
+                                Назад
+                            </button>
+                            <span>Страница {currentPage} из {totalPages}</span>
+                            <button 
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage >= totalPages}
+                            >
+                                Вперед
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+};
+
+const HelpContent = ({ content, loading, error }) => {
+  // Немедленно открываем документ при рендеринге
+  const openDoc = () => {
+    window.open('/help_files/instruction_for_user_anketirovanie.docx', '_blank');
+    return null; // Не возвращаем JSX, так как сразу открываем файл
+  };
+
+  // Обработка состояний
+  if (loading) return <div>Загрузка...</div>;
+  if (error) return <div>Проверьте, скачался ли файл. {error.message}</div>;
+
+  // Основной рендер
+  return openDoc();
+};
+
+
+ const SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
+    const [questions, setQuestions] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState(null);
+    const [answers, setAnswers] = React.useState({});
+    const [submissionState, setSubmissionState] = React.useState({
+        isSubmitted: false,
+        showResults: false,
+        resultsData: null
+    });
+
+    React.useEffect(() => {
+        const loadQuestions = async () => {
+            try {
+                const response = await fetch(`/zapolnenie_anketi/${survey.id_survey}/${survey.id_omsu}`);
+                if (!response.ok) throw new Error('Не удалось загрузить вопросы анкеты');
+                const data = await response.json();
+                setQuestions(data.questions || []);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadQuestions();
+    }, [survey.id_survey, survey.id_omsu]);
+
+    const submitAnswers = async () => {
+        try {
+            const answersArray = Object.entries(answers).map(([questionId, answer]) => ({
+                question_id: questionId,
+                question_text: questions.find(q => q.Id == questionId)?.Text || '',
+                rating: answer.rating,
+                comment: answer.comment || ''
+            }));
+
+            const response = await fetch('/api/insert_answer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id_omsu: omsuId,
+                    id_survey: survey.id_survey,
+                    answers: JSON.stringify(answersArray)
+                })
+            });
+
+            if (!response.ok) throw new Error('Ошибка при отправке ответов');
+
+            setSubmissionState({
+                isSubmitted: true,
+                showResults: false,
+                resultsData: {
+                    Survey: survey,
+                    Answers: answersArray,
+                    IdOmsu: omsuId
+                }
+            });
+
+
+            setTimeout(() => {
+                setSubmissionState(prev => ({
+                    ...prev,
+                    showResults: true
+                }));
+            }, 2000);
+
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    if (loading) return <div className="loading">Загрузка анкеты...</div>;
+    if (error) return <div className="error-message">{error}</div>;
+
+    if (submissionState.isSubmitted && !submissionState.showResults) {
+        return (
+            <div className="success-message">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <h2>Анкета успешно заполнена!</h2>
+                <p>Вы будете перенаправлены к результатам...</p>
+            </div>
+        );
+    }
+
+    if (submissionState.showResults && submissionState.resultsData) {
+        return <CheckAnswersView 
+            data={submissionState.resultsData} 
+            userRole={userRole} 
+            onBack={onBack} 
+        />;
+    }
+
+    return (
+        <div className="survey-fill-container">
+            <button onClick={onBack} className="back-button">
+                ← Вернуться к списку анкет
+            </button>
+            
+            <div className="note">
+                <h2>{survey.name_survey}</h2>
+                <p>{survey.description || 'Анкета без описания'}</p>
+            </div>
+            
+           {questions.map((question, qIndex) => (
+    <div key={`question-${question.Id}-${qIndex}`} className="question-container">
+        <h3>{question.Text}</h3>
+        <div className="rating-buttons">
+            {[1, 2, 3, 4, 5].map(rating => (
+                <button
+                    key={`rating-${question.Id}-${rating}`}
+                    className={`btn_crit ${answers[question.Id]?.rating === rating ? 'active' : ''}`}
+                    onClick={() => setAnswers(prev => ({
+                        ...prev,
+                        [question.Id]: {
+                            rating,
+                            comment: rating < 5 ? prev[question.Id]?.comment || '' : ''
+                        }
+                    }))}
+                >
+                    {rating}
+                </button>
+            ))}
+        </div>
+        {answers[question.Id]?.rating < 5 && (
+            <div className="comment-container">
+                <textarea 
+                    value={answers[question.Id]?.comment || ''}
+                    onChange={(e) => setAnswers(prev => ({
+                        ...prev,
+                        [question.Id]: {
+                            ...prev[question.Id],
+                            comment: e.target.value
+                        }
+                    }))}
+                    placeholder="Ваш комментарий..."
+                />
+            </div>
+        )}
+    </div>
+))}
+            
+            <div className="submit-container">
+                <button 
+                    onClick={submitAnswers}
+                    className="submit-button"
+                    disabled={!Object.values(answers).every(a => a.rating) || 
+                             Object.values(answers).some(a => a.rating < 5 && !a.comment)}
+                >
+                    Отправить ответы
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// Компонент для отображения результатов
+const CheckAnswersView = ({ data, userRole, onBack }) => {
+    return (
+        <div className="content" id="default_content">
+            <button onClick={onBack} className="back-button">
+                ← Вернуться к списку анкет
+            </button>
+            
+            <div className="note">
+                <h2>Вы успешно прошли анкету!</h2>
+                <p>На этой странице вы можете ознакомиться с ответами на анкету.</p>
+            </div>
+
+            <div className="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Вопрос</th>
+                            <th>Ответ</th>
+                            <th>Комментарий</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.Answers.map((answer, index) => (
+                            <tr key={`answer-${index}-${answer.question_id}`}>
+                                <td>{answer.question_text}</td>
+                                <td>{answer.rating}</td>
+                                <td>{answer.comment}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="block_btn_not_csp" className="button-container">
+                <button 
+                    className="submit-button" 
+                    onClick={() => CSP(data.Survey.id_survey, data.IdOmsu)}
+                >
+                    Подписать
+                </button>
+                <button 
+                    className="submit-button" 
+                    onClick={() => createPdfReport(data.Survey.id_survey, data.IdOmsu)}
+                >
+
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg><span> </span>
+
+                     Скачать PDF с анкетой
+                </button>
+            </div>
+
+<div id="block_btn_csp" className="button-container" style={{display: 'none'}}>
+    <button 
+        className="submit-button" 
+        onClick={() => downloadSignedArchive(data.Survey.id_survey, data.IdOmsu)}
+    >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg><span> </span>
+         Скачать архив (PDF + подпись)
+    </button>
+</div>
+        </div>
+    );
+};
+
+
+async function createPdfReport(surveyId, omsuId) {
+    try {
+        const response = await fetch(`/create_pdf_report/${surveyId}/${omsuId}`);
+        if (!response.ok) throw new Error('Ошибка создания PDF');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Анкета_${surveyId}_${new Date().toISOString().slice(0,10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Ошибка при создании PDF:', error);
+        showError('Не удалось создать PDF файл');
+    }
+}
+
+
+// Функция для генерации PDF на клиенте
+const generatePdf = (surveyData) => {
+    // Используем jsPDF для генерации PDF прямо в браузере
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Заголовок
+    doc.setFontSize(18);
+    doc.text(`Анкета: ${surveyData.Survey.name_survey}`, 10, 10);
+    doc.setFontSize(12);
+    doc.text(`Дата заполнения: ${new Date().toLocaleDateString()}`, 10, 20);
+    
+    // Ответы
+    let yPosition = 30;
+    surveyData.Answers.forEach((answer, index) => {
+        if (yPosition > 280) {
+            doc.addPage();
+            yPosition = 10;
+        }
+        
+        doc.setFontSize(14);
+        doc.text(`${index + 1}. ${answer.question_text}`, 10, yPosition);
+        yPosition += 10;
+        
+        doc.setFontSize(12);
+        doc.text(`Оценка: ${answer.rating}/5`, 15, yPosition);
+        yPosition += 7;
+        
+        if (answer.comment) {
+            const splitComments = doc.splitTextToSize(answer.comment, 180);
+            doc.text(splitComments, 15, yPosition);
+            yPosition += splitComments.length * 7;
+        }
+        
+        yPosition += 10;
+    });
+    
+    doc.save(`Анкета_${surveyData.Survey.id_survey}.pdf`);
+};
+
+// Функция для создания архива с подписью
+const downloadSigned = async (surveyData) => {
+    try {
+        // Сначала генерируем PDF
+        const pdfBlob = await generatePdfBlob(surveyData);
+        
+        // Создаем архив
+        const zip = new JSZip();
+        zip.file(`Анкета_${surveyData.Survey.id_survey}.pdf`, pdfBlob);
+        zip.file(`Подпись_${surveyData.Survey.id_survey}.sig`, surveyData.signature);
+        
+        // Генерируем архив
+        const content = await zip.generateAsync({ type: 'blob' });
+        
+        // Скачиваем
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Анкета_с_подписью_${surveyData.Survey.id_survey}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Ошибка при создании архива:', error);
+        alert('Не удалось создать архив');
+    }
+};
+
+
+
+async function downloadSignedArchive(surveyId, omsuId) {
+    try {
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'loading-overlay';
+        loadingIndicator.innerHTML = `
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <p>Подготовка архива...</p>
+            </div>
+        `;
+        document.body.appendChild(loadingIndicator);
+
+        const response = await fetch(`/download_signed_archive/${surveyId}/${omsuId}`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            const errorMessage = errorData?.error || 'Ошибка загрузки архива';
+            throw new Error(errorMessage);
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Анкета_с_подписью_${surveyId}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Ошибка при загрузке архива:', error);
+        
+        const errorMessage = error.message || 'Не удалось загрузить архив с подписью';
+        showError(errorMessage);
+        
+        if (error.details) {
+            console.error('Детали ошибки:', error.details);
+        }
+    } finally {
+        const overlay = document.querySelector('.loading-overlay');
+        if (overlay) {
+            document.body.removeChild(overlay);
+        }
+    }
+}
+
+
+const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
+    const [data, setData] = React.useState({
+        loading: true,
+        error: null,
+        surveyName: survey.name_survey || '',
+        answers: [],
+        csp: survey.csp || null
+    });
+
+    React.useEffect(() => {
+        const fetchSurveyAnswers = async () => {
+            try {
+                console.log(`Загрузка ответов для анкеты ${survey.id_survey}`);
+                setData(prev => ({ ...prev, loading: true, error: null }));
+                
+                const response = await fetch(`/answers/${survey.id_survey}/${omsuId}/${userRole}`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    const errorMsg = errorData?.error || `Ошибка ${response.status}`;
+                    throw new Error(errorMsg);
+                }
+
+                const result = await response.json();
+                
+                if (!result?.success) {
+                    throw new Error(result?.error || 'Неверный формат ответа');
+                }
+
+                setData({
+                    loading: false,
+                    error: null,
+                    surveyName: result.survey?.name || survey.name_survey || '',
+                    answers: result.answers || [],
+                    csp: result.survey?.csp || null
+                });
+
+            } catch (error) {
+                console.error('Ошибка:', error);
+                setData({
+                    loading: false,
+                    error: error.message,
+                    surveyName: survey.name_survey || '',
+                    answers: [],
+                    csp: null
+                });
+            }
+        };
+
+        fetchSurveyAnswers();
+    }, [survey.id_survey, omsuId, userRole]);
+
+    if (data.loading) {
+        return (
+            <div className="loading-container">
+                <p>Загрузка данных анкеты...</p>
+            </div>
+        );
+    }
+
+    if (data.error) {
+        return (
+            <div className="error-container">
+                <p>{data.error}</p>
+                <div onClick={onBack} className="back-link">
+                    ← Вернуться к списку анкет
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="answers-container">
+            <div onClick={onBack} className="back-link">
+                ← Вернуться к списку анкет
+            </div>
+            
+            <h1 className="survey-title">
+                Ответы на анкету: <span className="survey-name">{data.surveyName}</span>
+            </h1>
+
+            {data.csp && (
+                <div className="signature-info">
+                    <div className="signature-icon-container">
+                        <svg className="signature-icon" xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M6 17L10 13L13 16L18 11M20 12C20 16.4183 16.4183 20 12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4C16.4183 4 20 7.58172 20 12Z" stroke="#5c6bc0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon>
+                        </svg>
+                    </div>
+                    <div className="signature-label">Подпись:</div>
+                    <div className={`signature-status ${data.csp ? 'signed' : 'not-signed'}`}>
+                        {data.csp ? 'подписано' : 'не подписано'}
+                    </div>
+                </div>
+            )}
+
+            {data.answers.length === 0 ? (
+                <div className="empty-message">
+                    Нет данных для отображения
+                </div>
+            ) : (
+                <div className="answers-content">
+                    {data.answers.map((group, groupIndex) => (
+                        <div key={`group-${groupIndex}-${group.date}`} className="answer-block">
+                            <div className="answer-date">
+                                <span className="calendar-icon">📅</span> {group.date || 'Дата не указана'}
+                            </div>
+                            
+                            <table className="answers-table">
+                                <thead>
+                                    <tr>
+                                        <th>Вопрос</th>
+                                        <th>Оценка</th>
+                                        <th>Комментарий</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {group.answers.map((answer, answerIndex) => (
+                                        <tr key={`answer-${groupIndex}-${answerIndex}-${answer.question_text}`}>
+                                            <td data-label="Вопрос">{answer.question_text}</td>
+                                            <td data-label="Оценка" className="rating-cell">
+                                                <span className="rating-badge">
+                                                    {answer.rating}
+                                                </span>
+                                            </td>
+                                            <td data-label="Комментарий">{answer.comment}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+            const SurveyList = () => {
+                const initialData = {
+                    userId: @userId,
+                    userRole: '@userRole',
+                    userOmsuId: @userOmsuId,
+                    initialSurveys: @Html.Raw(Json.Serialize(accessibleSurveys)),
+                    initialPage: @currentPage,
+                    initialTotalPages: @totalPages,
+                    initialSearchTerm: '@searchTerm'
+                };
+
+            const [activeTab, setActiveTab] = React.useState('active');
+            const [currentContent, setCurrentContent] = React.useState('surveys');
+            const [currentView, setCurrentView] = React.useState('survey-list');
+            const [currentSurvey, setCurrentSurvey] = React.useState(null);
+            const [searchTerm, setSearchTerm] = React.useState(initialData.initialSearchTerm);
+            const [loading, setLoading] = React.useState(false);
+            const [error, setError] = React.useState(null);
+            const [surveys, setSurveys] = React.useState(initialData.initialSurveys || []);
+            const [currentPage, setCurrentPage] = React.useState(initialData.initialPage);
+            const [totalPages, setTotalPages] = React.useState(initialData.initialTotalPages);
+            const [activeCount, setActiveCount] = React.useState(0);
+            const [archivedCount, setArchivedCount] = React.useState(0);
+            const [helpContent, setHelpContent] = React.useState('');
+            const [dateFilter, setDateFilter] = React.useState('');
+            const [filterSigned, setFilterSigned] = React.useState(false);
+
+ const loadSurveyData = async (tab, page = 1, search = '', signedOnly = false, date = '') => {
+    setLoading(true);
+    setError(null);
+    try {
+        const endpoint = tab === 'active' 
+            ? `/survey_list_user/${initialData.userId}?page=${page}&searchTerm=${search}&date=${date}`
+            : `/get_list_archive/${initialData.userId}?searchTerm=${search}&signedOnly=${signedOnly}&date=${date}`;
+        
+        const response = await fetch(endpoint, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        if (!response.ok) throw new Error('Ошибка загрузки данных анкет');
+        
+        const data = await response.json();
+        
+        if (tab === 'archived') {
+            setSurveys(data.accessibleSurveys || []);
+            setArchivedCount(data.totalCount || 0);
+            setCurrentPage(1);
+            setTotalPages(1);
+        } else {
+            setSurveys(data.accessibleSurveys || []);
+            setActiveCount(data.totalCount || 0);
+            setCurrentPage(data.currentPage || 1);
+            setTotalPages(data.totalPages || 1);
+        }
+        
+    } catch (err) {
+        console.error('Ошибка:', err);
+        setError(err.message);
+    } finally {
+        setLoading(false);
+    }
+};
+
+    React.useEffect(() => {
+        const loadArchiveCount = async () => {
+            try {
+                const response = await fetch(`/get_list_archive/${initialData.userId}?countOnly=true`);
+                if (!response.ok) throw new Error('Ошибка загрузки количества архивных анкет');
+                const data = await response.json();
+                setArchivedCount(data.totalCount || 0);
+            } catch (err) {
+                console.error('Ошибка загрузки количества архивных анкет:', err);
+            }
+        };
+        
+        loadArchiveCount();
+    }, []);
+
+    const loadArchiveCount = async () => {
+    try {
+        const response = await fetch(`/get_list_archive/${initialData.userId}?countOnly=true`);
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            const errorMessage = errorData?.error || 'Ошибка сервера';
+            throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        setArchivedCount(data.totalCount || 0);
+    } catch (err) {
+        console.error('Ошибка загрузки количества архивных анкет:', err);
+        setError(`Не удалось загрузить количество архивных анкет: ${err.message}`);
+    }
+};
+
+            const loadHelpContent = async () => {
+                setLoading(true);
+                setError(null);
+                try {
+                    const response = await fetch(`/get_file/csp`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    
+                    if (!response.ok) throw new Error('Ошибка загрузки справочной информации');
+                    
+                    const content = await response.text();
+                    setHelpContent(content);
+                    
+                } catch (err) {
+                    console.error('Файл с руководством успешно скачан!:', err);
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const loadCounts = async () => {
+    try {
+        // Загрузка счетчика активных анкет
+        const activeResponse = await fetch(`/survey_list_user/${initialData.userId}?page=1&searchTerm=`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        if (activeResponse.ok) {
+            const activeData = await activeResponse.json();
+            setActiveCount(activeData.totalCount || activeData.accessibleSurveys?.length || 0);
+        }
+
+        // Загрузка счетчика архивных анкет
+        const archiveResponse = await fetch(`/get_list_archive/${initialData.userId}?searchTerm=`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        if (archiveResponse.ok) {
+            const archiveData = await archiveResponse.json();
+            setArchivedCount(archiveData.totalCount || archiveData.accessibleSurveys?.length || 0);
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки счетчиков:', err);
+    }
+};
+
+
+            // Загрузка счетчиков анкет
+            // В методе loadCounts компонента SurveyList:
+// const loadCounts = async () => {
+//     try {
+//         // Загрузка счетчика активных анкет
+//         const activeResponse = await fetch(`/survey_list_user/${initialData.userId}?page=1&searchTerm=`, {
+//             headers: { 'X-Requested-With': 'XMLHttpRequest' }
+//         });
+        
+//         if (activeResponse.ok) {
+//             const activeData = await activeResponse.json();
+//             setActiveCount(activeData.totalCount || activeData.accessibleSurveys?.length || 0);
+//         }
+
+//         // Загрузка счетчика архивных анкет
+//         const archiveResponse = await fetch(`/get_list_archive/${initialData.userId}?searchTerm=`, {
+//             headers: { 'X-Requested-With': 'XMLHttpRequest' }
+//         });
+        
+//         if (archiveResponse.ok) {
+//             const archiveData = await archiveResponse.json();
+//             setArchivedCount(archiveData.totalCount || archiveData.accessibleSurveys?.length || 0);
+//         }
+//     } catch (err) {
+//         console.error('Ошибка загрузки счетчиков:', err);
+//     }
+// };
+
+            const handleSurveyClick = (survey) => {
+                setCurrentSurvey(survey);
+                if (activeTab === 'active') {
+                    setCurrentView('survey-fill');
+                } else {
+                    setCurrentView('check-answers');
+                }
+            };
+
+            const handleBackToList = () => {
+                setCurrentView('survey-list');
+                setCurrentSurvey(null);
+                loadSurveyData(activeTab, currentPage, searchTerm);
+            };
+
+
+
+    const handleTabChange = (tab) => {
+        if (tab === 'help') {
+            setCurrentContent('help');
+            setCurrentView('survey-list');
+        } else {
+            setCurrentContent('surveys');
+            if (tab !== 'get_surveys') {
+                setActiveTab(tab);
+                setCurrentPage(1);
+                setCurrentView('survey-list');
+                loadSurveyData(tab, 1, searchTerm, filterSigned, dateFilter);
+            }
+        }
+    };
+
+            React.useEffect(() => {
+                if (activeTab === 'active' && currentView === 'survey-list') {
+                    const updateTimeLeft = () => {
+                        const now = new Date();
+                        document.querySelectorAll('.time-left').forEach((el, index) => {
+                            if (!surveys[index] || !surveys[index].date_close) return;
+                            
+                            const closeDate = new Date(surveys[index].date_close);
+                            const diff = closeDate - now;
+
+                            if (diff > 0) {
+                                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                el.textContent = `${days}д ${hours}ч`;
+                            } else {
+                                el.textContent = 'завершено';
+                            }
+                        });
+                    };
+
+                    updateTimeLeft();
+                    const interval = setInterval(updateTimeLeft, 3600000);
+                    return () => clearInterval(interval);
+                }
+            }, [surveys, activeTab, currentView]);
+
+    React.useEffect(() => {
+        if (currentView === 'survey-list') {
+            if (currentContent === 'surveys') {
+                loadSurveyData(activeTab, currentPage, searchTerm, filterSigned, dateFilter);
+            } else if (currentContent === 'help') {
+                loadHelpContent();
+            }
+        }
+    }, [currentContent, activeTab, currentPage, searchTerm, currentView, filterSigned, dateFilter]);
+
+const handleSearch = (e) => {
+    e.preventDefault();
+    loadSurveyData(activeTab, 1, searchTerm, filterSigned, dateFilter);
+};
+
+const handleDateChange = (e) => {
+    const date = e.target.value;
+    setDateFilter(date);
+    loadSurveyData(activeTab, currentPage, searchTerm, filterSigned, date);
+};
+
+const handleSignedFilterChange = (e) => {
+    const value = e.target.checked;
+    setFilterSigned(value);
+    if (activeTab === 'archived') {
+        loadSurveyData('archived', 1, searchTerm, value, dateFilter);
+    }
+};
+
+            const handlePageChange = (page) => // // Обработчик смены страницы
+            {
+                if (currentContent === 'surveys') {
+                    setCurrentPage(page);
+                }
+            };
+
+            // Если роль пользователя не подходит, показываем сообщение о запрете доступа
+            if (initialData.userRole !== "user" && initialData.userRole !== "Админ") {
+                return (
+                    <div className="page-container">
+                        <Header userRole={initialData.userRole} />
+                        <div className="admin-container">
+                            <Navigation openVkladka={handleTabChange} activeTab={activeTab === 'archived' ? 'archiv_surveys_for_user' : 'answers_tab'} userRole={initialData.userRole} />
+                            <div id="content_admin">
+                                <div className="access-denied">
+                                    <h2>Доступ запрещён</h2>
+                                    <p>У вас нет прав для просмотра этой страницы.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <Footer />
+                    </div>
+                );
+            }
+
+return (
+  <div className="page-container">
+    <Header userRole={initialData.userRole} />
+    <div className="admin-container">
+      <Navigation openVkladka={handleTabChange} activeTab={activeTab === 'archived' ? 'archiv_surveys_for_user' : 'answers_tab'} userRole={initialData.userRole} />
+      <div id="content_admin">
+        {currentView === 'survey-fill' ? (
+          <SurveyFillPage 
+            survey={currentSurvey} 
+            omsuId={initialData.userOmsuId}
+            onBack={handleBackToList}
+          />
+        ) : currentView === 'check-answers' ? (
+          <CheckAnswersPage
+            survey={currentSurvey}
+            omsuId={initialData.userOmsuId}
+            userRole={initialData.userRole}
+            onBack={handleBackToList}
+          />
+        ) : currentContent === 'surveys' ? (
+          <SurveyContent 
+      activeTab={activeTab}
+      surveys={surveys}
+      loading={loading}
+      error={error}
+      currentPage={currentPage}
+      totalPages={totalPages}
+      searchTerm={searchTerm}
+      handleSearch={handleSearch}
+      setSearchTerm={setSearchTerm}
+      handlePageChange={handlePageChange}
+      handleTabChange={handleTabChange}
+      activeCount={activeCount}
+      archivedCount={archivedCount}
+      onSurveyClick={handleSurveyClick}
+      dateFilter={dateFilter}
+      setDateFilter={setDateFilter}
+      dateFilter={dateFilter}
+      handleDateChange={handleDateChange}
+      filterSigned={filterSigned}
+      handleSignedFilterChange={handleSignedFilterChange}
+          />
+        ) : (
+          <HelpContent 
+            content={helpContent}
+            loading={loading}
+            error={error}
+          />
+        )}
+      </div>
+    </div>
+    <Footer />
+  </div>
+);};
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<SurveyList />);
+    </script>
+    }
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        .page-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .admin-container {
+            display: flex;
+            flex: 1;
+        }
+
+        #content_admin {
+            flex: 1;
+            padding: 2rem;
+            background-color: white;
+        }
+
+        /* Стили для заполнения анкеты */
+        .survey-fill-container,
+        .check-answers-container {
+            padding: 2rem;
+        }
+
+        .note {
+            margin-bottom: 2rem;
+        }
+
+        .note h2 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+
+        .note p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        .question-container {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background-color: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+
+        .question-container h3 {
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .rating-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn_crit {
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background-color: var(--primary-light);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+        }
+
+        .comment-container {
+            margin-top: 1rem;
+        }
+
+        .comment-container textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .submit-container {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .submit-button {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .submit-button:hover {
+            background-color: var(--primary-dark);
+            box-shadow: var(--shadow-md);
+        }
+
+        .submit-button:disabled {
+            background-color: var(--text-light);
+            cursor: not-allowed;
+        }
+
+        /* Сообщение об успешном заполнении */
+        .success-message {
+            text-align: center;
+            padding: 3rem;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .success-message svg {
+            color: var(--success);
+            margin-bottom: 1.5rem;
+        }
+
+        .success-message h2 {
+            color: var(--success-dark);
+            margin-bottom: 1rem;
+        }
+
+        .success-message p {
+            color: var(--text-secondary);
+        }
+
+        /* Стили для просмотра ответов */
+        .answer-container {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background-color: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+        }
+
+        .answer-info {
+            margin-top: 1rem;
+        }
+
+        .rating {
+            font-weight: 600;
+            color: var(--primary-dark);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .comment {
+            margin-top: 1rem;
+        }
+
+        .comment-text {
+            padding: 0.75rem;
+            background-color: var(--secondary);
+            border-radius: var(--radius-sm);
+        }
+
+        .survey-add{display:none;}
+        .survey-answers{display:none;}
+        .survey-archive{display:none;}
+        
+        .statistic{display:none;}
+        .organizations{display:none;}
+        .other{display:none;}
+        .users { display: none }
+        .survey-answers-for-user { display: none }
+        .survey-archive-for-user { display: none }
+        
+
+
+               /* Анимации */
+        @@keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @@keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @@keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+
+        /* Карточки анкет */
+        .survey-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .survey-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .survey-card:hover {
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-light);
+            z-index: 5;
+        }
+
+        .survey-card h3 {
+            margin-top: 0;
+            color: var(--text-main);
+            font-size: 1.35rem;
+            font-weight: 600;
+        }
+
+        .survey-card:hover h3 {
+            color: var(--primary-dark);
+        }
+
+        .survey-card .description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .survey-card .date-info {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: slideIn 0.4s ease-out;
+        }
+
+        .survey-card .date-info svg {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+
+        .survey-card:hover .date-info svg {
+            color: var(--primary);
+        }
+
+        .survey-card .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: auto;
+            padding-top: 1.25rem;
+            border-top: 1px dashed var(--border);
+        }
+
+        .survey-card .dates {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .survey-card .dates svg {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+
+        .survey-card:hover .dates svg {
+            color: var(--primary);
+        }
+
+        .survey-card .status {
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 0.5rem 1.2rem;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: var(--transition);
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        .status.active {
+            background-color: var(--primary-extra-light);
+            color: var(--primary-dark);
+            box-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .status.archived {
+            background-color: #f0fdf4;
+            color: #166534;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.1);
+        }
+
+        .survey-card:hover .status.active {
+            background-color: var(--primary-dark);
+            color: white;
+        }
+
+        .survey-card:hover .status.archived {
+            background-color: var(--success-dark);
+            color: white;
+        }
+
+        .time-left {
+            font-weight: 700;
+            color: var(--warning);
+            transition: var(--transition);
+        }
+
+        .survey-card:hover .time-left {
+            color: var(--primary-dark);
+        }
+
+    .search-container {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 1.5rem;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+
+    .search-box {
+        width: 220px; /* Уменьшенная ширина */
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+        transition: var(--transition);
+        height: 36px; /* Фиксированная высота */
+    }
+
+    .search-box:focus {
+        outline: none;
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+.filter-date {
+    padding: 6px 12px;
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 14px;
+    width: auto;
+}
+
+.filter-date:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+    /* Пагинация */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .pagination button {
+        padding: 0.5rem 1rem;
+        background-color: white;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .pagination button:hover:not(:disabled) {
+        background-color: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+        .pagination span {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Загрузка */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+            border: 3px solid var(--primary-extra-light);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1.5rem;
+        }
+
+        @@keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Ошибка */
+        .error-message {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--danger);
+            background-color: rgba(239, 68, 68, 0.1);
+            padding: 1.25rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--danger);
+            animation: slideIn 0.5s ease-out;
+        }
+
+.csp-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.csp-modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    overflow: hidden;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.csp-modal h3 {
+    margin: 0;
+    padding: 20px;
+    font-size: 1.25rem;
+    color: #333;
+    border-bottom: 1px solid #eee;
+}
+
+.csp-modal-body {
+    padding: 20px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.csp-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Кнопки */
+.csp-btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.csp-btn-primary {
+    background-color: #3182ce;
+    color: white;
+}
+
+.csp-btn-primary:hover {
+    background-color: #2c5282;
+}
+
+.csp-btn-secondary {
+    background-color: #e2e8f0;
+    color: #4a5568;
+}
+
+.csp-btn-secondary:hover {
+    background-color: #cbd5e0;
+}
+
+/* Центральные уведомления */
+.csp-notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    padding: 16px 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    max-width: 80%;
+    text-align: center;
+}
+
+.csp-notification.success {
+    background-color: #48bb78;
+    color: white;
+}
+
+.csp-notification.error {
+    background-color: #f56565;
+    color: white;
+}
+
+.csp-notification-icon {
+    margin-right: 12px;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Анимации */
+@@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-out {
+    animation: fadeOut 0.3s ease-out forwards;
+}
+
+@@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(10px); }
+}
+
+/* Детали сертификата */
+.cert-details {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.cert-details p {
+    margin: 5px 0;
+}
+
+        .podpis {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #4CAF50; /* Зеленый цвет для подписи */
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.podpis svg {
+    color: #4CAF50;
+}
+
+        .error-message svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        /* Нет анкет */
+        .no-surveys {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .no-surveys svg {
+            width: 3rem;
+            height: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-light);
+            opacity: 0.5;
+        }
+        /* Справочная информация */
+        .help-content {
+            padding: 2rem;
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            margin-top: 1.5rem;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .help-content h2, 
+        .help-content h3 {
+            color: var(--primary-dark);
+            margin-top: 1.5rem;
+        }
+
+        .help-content p {
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+        }
+
+        .help-content ul, 
+        .help-content ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+
+        .help-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Стили для блока подписи */
+.signature-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.signature-icon-container {
+    display: flex;
+    align-items: center;
+}
+
+.signature-icon {
+    width: 18px;
+    height: 18px;
+    color: #5c6bc0; /* Фиолетовый цвет иконки */
+}
+
+.signature-label {
+    color: #555;
+}
+
+.signature-status {
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.signature-status.signed {
+    color: green; /* Зеленый цвет текста */
+}
+
+.signature-status.not-signed {
+    color: red; /* Красный цвет текста */
+}
+
+        /* Адаптивность */
+        @@media (max-width: 768px) {
+            .survey-grid {
+                grid-template-columns: 1fr;
+            }
+
+
+            .search-container {
+                flex-direction: column;
+            }
+
+            .survey-fill-container,
+            .check-answers-container {
+                padding: 1rem;
+            }
+
+            .question-container {
+                padding: 1rem;
+            }
+
+            .rating-buttons {
+                flex-wrap: wrap;
+            }
+
+
+            .btn_crit {
+                width: 2.5rem;
+                height: 2.5rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        @@media (max-width: 480px) {
+            #content_admin {
+                padding: 1rem;
+            }
+
+            .survey-card {
+                padding: 1.25rem;
+            }
+
+            .pagination {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .pagination button {
+                width: 100%;
+            }
+        }
+
+
+        /* Стили для модального окна с сертификатами */
+.csp-modal-content {
+    width: 100%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Контейнер для списка с прокруткой */
+.cert-list-container {
+    max-height: 60vh;
+    overflow-y: auto;
+    margin: 10px -10px;
+    padding: 0 10px;
+}
+
+/* Кастомный скроллбар */
+.cert-list-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.cert-list-container::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.cert-list-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.cert-list-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Список сертификатов */
+.cert-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 5px 0;
+}
+
+/* Элемент сертификата */
+.cert-item {
+    padding: 15px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background-color: white;
+}
+
+.cert-item:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cert-item:active {
+    transform: translateY(0);
+}
+
+/* Детали сертификата */
+.cert-subject {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1e293b;
+    font-size: 15px;
+}
+
+.cert-details {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.cert-details div {
+    margin-bottom: 4px;
+}
+
+.cert-details strong {
+    color: #475569;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Стили для блока фильтров */
+.filters {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.signed-filter {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-left: auto;
+    }
+
+    .signed-filter input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--primary);
+        cursor: pointer;
+    }
+
+.filter-group label {
+    font-size: 14px;
+    color: #4a5568;
+}
+
+.filter-group input[type="text"],
+.filter-group input[type="date"] {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.filter-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+    .filter-button {
+        width: auto;
+        margin-left: 1rem;
+         padding: 6px 12px;
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        height: 36px; /* Фиксированная высота */
+        white-space: nowrap;
+    }
+    .filter-button:hover {
+        background-color: var(--primary-dark);
+    }
+    .date-filters input[type="date"] {
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        height: 36px; /* Фиксированная высота */
+        transition: var(--transition);
+    }
+
+    .date-filters input[type="date"]:focus {
+        border-color: var(--primary-light);
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+.search-button {
+    padding: 8px 16px;
+    background-color: #48bb78;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.search-button:hover {
+    background-color: #38a169;
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+
+
+    /* Анимации */
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Адаптивность */
+    @@media (max-width: 768px) {
+        .survey-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .search-container {
+            flex-direction: column;
+        }
+        
+    .date-filters {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .date-filters label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+    }
+
+    /* Календарные иконки для полей дат */
+    .date-filters input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: invert(0.5);
+        cursor: pointer;
+        padding: 4px;
+    }
+
+    .date-filters input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        filter: invert(0.3);
+    }
+        
+        #content_admin {
+            padding: 1rem;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .survey-card {
+            padding: 1rem;
+        }
+        
+        .pagination {
+            flex-direction: column;
+        }
+        
+        .rating-buttons {
+            flex-wrap: wrap;
+        }
+        
+        .btn_crit {
+            width: 2.25rem;
+            height: 2.25rem;
+            font-size: 0.9rem;
+        }
+    }
+    #otchets{display:none}
+     #email{display:none}
+    </style>
+</body>
+</html>

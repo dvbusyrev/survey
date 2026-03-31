@@ -1,0 +1,39 @@
+<style>
+#kvart{margin-left: 2%;}
+a{color: blue;
+text-decoration: underline;
+cursor: pointer}
+</style>
+<div class="content" id="default_content">
+    <div class="note">
+        <h2>Формирование отчётов</h2>
+    </div>
+
+    <span>Система подразумевает 2 вида формирования отчётов:</span><br /><br />
+
+    <span>Формирование сводного отчёта за месяц по всем анкетам:</span> <a onClick='create_otchetAll_month()'>сформировать</a><br /><br />
+
+    <span>Формирование квартального отчёта:</span><br /><br />
+        <a id="kvart" onClick='create_otchetAll_kvartal(1)'>1 квартал</a>
+        <select id="yearSelect" style="margin-left:10px; padding:2px 5px;" onclick="populateYears(1, this)" onchange="onYearChange(1, this)">
+  <option disabled selected>Выберите год</option>
+</select>
+        <br /><br />
+        <a id="kvart" onClick='create_otchetAll_kvartal(2)'>2 квартал</a>
+        <select id="yearSelect" style="margin-left:10px; padding:2px 5px;" onclick="populateYears(2, this)" onchange="onYearChange(2, this)">
+  <option disabled selected>Выберите год</option>
+</select>
+<br /><br />
+        <a id="kvart" onClick='create_otchetAll_kvartal(3)'>3 квартал</a>
+        <select id="yearSelect" style="margin-left:10px; padding:2px 5px;" onclick="populateYears(3, this)" onchange="onYearChange(3, this)">
+  <option disabled selected>Выберите год</option>
+</select>
+        <br /><br />
+        <a id="kvart" onClick='create_otchetAll_kvartal(4)'>4 квартал</a>
+<select id="yearSelect" style="margin-left:10px; padding:2px 5px;" onclick="populateYears(4, this)" onchange="onYearChange(4, this)">
+  <option disabled selected>Выберите год</option>
+</select>
+<br /><br />
+  
+
+</div>

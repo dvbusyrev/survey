@@ -1,0 +1,84 @@
+/* Локальная замена Font Awesome без CDN.
+   Базовые иконки — через системные символы, важные элементы меню — через встроенные SVG. */
+.fa,
+.fas,
+.fa-solid {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1;
+    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Noto Sans Symbols", "Arial Unicode MS", sans-serif;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.fa::before,
+.fas::before,
+.fa-solid::before {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    text-align: center;
+}
+
+.fa-user::before { content: "👤"; }
+.fa-lock::before { content: "🔒"; }
+.fa-chart-line::before { content: "📈"; }
+.fa-clipboard-list::before { content: "📋"; }
+.fa-list-check::before { content: "☑"; }
+.fa-box-archive::before { content: "🗃"; }
+.fa-users::before { content: "👥"; }
+.fa-list::before { content: "≣"; }
+.fa-building::before { content: "🏢"; }
+.fa-list-ul::before { content: "☰"; }
+.fa-file-alt::before { content: "📄"; }
+.fa-envelope::before { content: "✉"; }
+.fa-scroll::before { content: "📜"; }
+.fa-file-download::before { content: "⤓"; }
+.fa-chevron-left::before { content: "‹"; }
+.fa-chevron-right::before { content: "›"; }
+.fa-search::before { content: "⌕"; }
+
+/* Аккуратные локальные SVG для заметных элементов меню */
+.fa-plus::before,
+.fa-plus-circle::before,
+.fa-user-plus::before,
+.fa-question-circle::before,
+.fa-ellipsis-h::before {
+    content: "";
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+}
+
+.fa-plus::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+
+.fa-plus-circle::before,
+.fa-user-plus::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M12 8v8M8 12h8' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M12 8v8M8 12h8' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.fa-question-circle::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M9.8 9.2a2.7 2.7 0 1 1 4.3 2.1c-.9.7-1.6 1.2-1.6 2.2' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='17.4' r='1.1' fill='black'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M9.8 9.2a2.7 2.7 0 1 1 4.3 2.1c-.9.7-1.6 1.2-1.6 2.2' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='17.4' r='1.1' fill='black'/%3E%3C/svg%3E");
+}
+
+.fa-ellipsis-h::before {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='6' cy='12' r='1.8' fill='black'/%3E%3Ccircle cx='12' cy='12' r='1.8' fill='black'/%3E%3Ccircle cx='18' cy='12' r='1.8' fill='black'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='6' cy='12' r='1.8' fill='black'/%3E%3Ccircle cx='12' cy='12' r='1.8' fill='black'/%3E%3Ccircle cx='18' cy='12' r='1.8' fill='black'/%3E%3C/svg%3E");
+}

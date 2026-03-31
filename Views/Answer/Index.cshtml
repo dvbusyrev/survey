@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - main_project</title>
+    <style>
+        .table-container {
+            display: flex; /* Добавлено: для центрирования */
+            justify-content: center; /* Добавлено: центрирование */
+            margin-top: 20px; /* Отступ сверху для контейнера таблицы */
+        }
+
+        table {
+            width: 80%; /* Изменено: ширина таблицы на 80% */
+            max-width: 600px; /* Добавлено: максимальная ширина таблицы */
+            border-collapse: collapse; /* Убираем двойные границы */
+        }
+
+        th, td {
+            border: 1px solid #dee2e6; /* Граница ячеек */
+            padding: 10px; /* Отступы внутри ячеек */
+            text-align: left; /* Выравнивание текста в ячейках */
+        }
+
+        th {
+            background-color: #343a40; /* Затененный фон для заголовков */
+            color: white; /* Цвет текста заголовков */
+            position: relative; /* Для позиционирования значков сортировки */
+        }
+
+        th .sort-icon {
+            cursor: pointer; /* Указатель при наведении */
+            margin-left: 5px; /* Отступ слева от значка */
+        }
+
+        .pagination {
+            display: flex; /* Используем flex для горизонтального расположения */
+            justify-content: center; /* Центрируем пагинацию */
+            margin-top: 20px; /* Отступ сверху для пагинации */
+        }
+
+        .pagination button {
+            margin: 0 5px; /* Отступы между кнопками */
+            padding: 5px 10px; /* Отступы для кнопок */
+            border: 1px solid #007bff; /* Граница кнопок */
+            background-color: #ffffff; /* Белый фон для кнопок */
+            color: #007bff; /* Цвет текста кнопок */
+            border-radius: 5px; /* Закругленные углы */
+            cursor: pointer; /* Указатель при наведении */
+            transition: background-color 0.3s; /* Плавный переход цвета */
+        }
+
+        .pagination button:hover {
+            background-color: #0056b3; /* Цвет кнопки при наведении */
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="content">
+        <div class="note">
+            <h2>Просмотр подписания анкеты</h2>
+            <p>На данной странице вы можете посмотреть какие организации прошли и (или) подписали анкету</p>
+        </div>
+
+        <div class="table-container"> <!-- Добавлено: контейнер для таблицы -->
+            <table id="data_table">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Название организации <span class="sort-icon">🔼</span></th>
+                        <th onclick="sortTable(1)">Статус <span class="sort-icon"></span></th>
+                        <th onclick="sortTable(2)">Подпись <span class="sort-icon"></span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Организация 1</td>
+                        <td>Пройдена</td>
+                        <td>Подписана</td>
+                    </tr>
+                    <tr>
+                        <td>Организация 2</td>
+                        <td>Не пройдена</td>
+                        <td>Не подписана</td>
+                    </tr>
+                    <!-- Добавьте дополнительные строки по мере необходимости -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</body>
+</html>

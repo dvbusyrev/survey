@@ -1,0 +1,123 @@
+@model main_project.Models.Survey
+@{
+    ViewBag.SelectedOmsuNames = ViewBag.SelectedOmsuNames ?? new List<string>();
+    ViewBag.SelectedOmsuIds = ViewBag.SelectedOmsuIds ?? new List<int>();
+    ViewBag.Criteria = ViewBag.Criteria ?? new List<string>();
+    var allOmsu = ViewBag.AllOmsu as IEnumerable<dynamic> ?? new List<dynamic>();
+}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Обновление анкеты</title>
+    <style>
+        #conf_btn { background-color: #28a745; color: white; }
+        #add_crit { background-color: #17a2b8; color: white; }
+        .confirmed { background-color: rgba(40, 167, 69, 0.1); border-left: 4px solid #28a745; }
+        .error-message { color: #dc3545; font-size: 12px; margin-top: 5px; display: none; }
+    </style>
+</head>
+<body onload="surveyEditInit()">
+ @Html.AntiForgeryToken()
+    <div class="content" id="default_content">
+        <div class="note">
+            <h2>Обновление анкеты</h2>
+            <p>Заполните форму ниже для обновления анкеты</p>
+        </div>
+
+        <div class="step">
+            <h3>Шаг 1</h3>
+            <div class="form-group">
+                <label for="surveyTitle">Название:</label>
+                <input type="text" class="form-control" id="surveyTitle" value="@Model?.name_survey" required />
+                <div class="error-message" id="titleError">Поле обязательно для заполнения</div>
+            </div>
+            <div class="form-group">
+                <label for="surveyDescription">Описание:</label>
+                <textarea class="form-control" id="surveyDescription">@Model?.description</textarea>
+            </div>
+            <div class="form-group">
+                <label for="startDate">Дата начала:</label>
+                <input type="date" class="form-control" id="startDate" value="@Model?.date_open.ToString("yyyy-MM-dd")" required />
+                <div class="error-message" id="startDateError">Поле обязательно для заполнения</div>
+            </div>
+            <div class="form-group">
+                <label for="endDate">Дата окончания:</label>
+                <input type="date" class="form-control" id="endDate" value="@Model?.date_close.ToString("yyyy-MM-dd")" required />
+                <div class="error-message" id="endDateError">Поле обязательно для заполнения</div>
+            </div>
+
+            <div class="form-group">
+                <label>Организации:</label>
+                <button type="button" class="btn" onclick="surveyEditOpenOmsuModal()">Выбрать ОМСУ</button>
+                <input type="hidden" id="selectedOmsuIds" value="@string.Join(",", ViewBag.SelectedOmsuIds)" />
+                <div class="error-message" id="omsuError">Выберите хотя бы одну организацию</div>
+            </div>
+        </div>
+                <br />
+
+        <div class="step" id="two_step">
+            <h3>Шаг 2</h3>
+            <div id="cont_criteries">
+                @foreach (var criterion in ViewBag.Criteria)
+                {
+                    <div class="form-group cont_criteries">
+                        <label>Критерий оценки</label>
+                        <input type="text" class="form-control criteriy" value="@criterion" required />
+                        <div class="error-message">Это поле обязательно для заполнения.</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="criteria-buttons-container">
+            <button type="button" class="criteria-btn" id="add_crit" onclick="surveyEditAddCriteria()">Добавить еще критерий</button>
+            <button type="button" class="criteria-btn"  id="add_survey_btn" onclick="surveyEditUpdate()">Обновить анкету</button>
+                        <button type="button" class="criteria-btn"  id="send_email" onclick="send_email()">Отправить уведомление</button>
+        </div>
+    </div>
+
+<div id="omsuModal" class="modal">
+        <div class="modal-content">
+    <span class="modal-close" onclick="surveyEditCloseModal('omsuModal')">&times;</span>
+    <h2 class="h2_modal">Выбор организаций2 (ОМСУ)</h2>
+    
+ <div class="organization-list" id="organizationList">
+    @foreach (var omsu in ViewBag.AllOmsu)
+    {
+        var isSelected = ViewBag.SelectedOmsuIds.Contains(omsu.Id);
+        if (isSelected)
+        {
+            <div class="organization-item selected"
+                 onclick="surveyEditToggleOmsuSelection(this)"
+                 data-id="@omsu.Id"
+                 data-name="@omsu.Name"
+                 data-selected="true">
+                @omsu.Name
+            </div>
+        }
+        else
+        {
+            <div class="organization-item"
+                 onclick="surveyEditToggleOmsuSelection(this)"
+                 data-id="@omsu.Id"
+                 data-name="@omsu.Name"
+                 data-selected="false">
+                @omsu.Name
+            </div>
+        }
+    }
+</div>
+
+
+    
+    <div class="modal-footer">
+        <button type="button" class="modal_btn modal_btn-primary" onclick="surveyEditSaveSelectedOmsu()">Сохранить</button>
+        <button type="button" class="modal_btn modal_btn-secondary" onclick="surveyEditCloseModal('omsuModal')">Отмена</button>
+    </div>
+</div>
+
+<input type="hidden" id="surveyId" value="@Model?.id_survey" />
+</body>
+</html>

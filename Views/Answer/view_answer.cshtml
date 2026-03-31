@@ -1,0 +1,58 @@
+@{
+    ViewData["Title"] = "Проверка ответов";
+}
+
+<title>@ViewData["Title"]</title>
+<div class="content" id="default_content">
+    <div class="note">
+        <h2>Просмотр ответов</h2>
+        <p>На этой странице вы можете ознакомиться с ответами на анкету.</p>
+    </div>
+
+    <div class="table-container">
+        <table class="answers-table">
+            <thead>
+                <tr>
+                    <th>Вопрос</th>
+                    <th>Ответ</th>
+                    <th>Комментарий</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var answer in Model.Answers)
+                {
+                    <tr>
+                        <td colspan="3" class="survey-header">
+                            <strong>Ответы на анкету: @Model.Survey.name_survey</strong>
+                            <br />
+                            <span class="completion-date">Дата ответа: @answer.completion_date?.ToString("dd.MM.yyyy HH:mm:ss")</span>
+                        </td>
+                    </tr>
+                    @foreach (var detail in answer.DeserializedAnswers)
+                    {
+                        <tr>
+                            <td>@detail.question_text</td>
+                            <td>@detail.rating</td>
+                            <td>@detail.comment</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    <br />
+
+    <div id="block_btn_not_csp" class="button-container">
+        <br />
+        @if (Model.Role == "user"){
+        <button class="submit-button" onClick="window.history.back()">Вернуться к списку анкет</button>}
+        else {<button class="submit-button" onClick="window.history.back()">Вернуться к списку анкет</button>}
+    </div>
+</div>
+
+<style>
+    .completion-date {
+        font-size: 12px;
+        color: #888;
+    }
+</style>

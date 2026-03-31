@@ -1,0 +1,131 @@
+@{
+    ViewData["Title"] = "Проверка ответов";
+    var survey = ViewBag.Survey as Survey;
+    var answers = ViewBag.Answers as List<dynamic>;
+    var idOmsu = ViewBag.IdOmsu as int? ?? 0;
+}
+
+<div class="content">
+    @if (survey == null)
+    {
+        <div class="error">
+            <h2>Ошибка</h2>
+            <p>Информация об анкете не найдена</p>
+        </div>
+    }
+    else
+    {
+        <div class="note">
+            <h2>Вы успешно прошли анкету!</h2>
+            <p>На этой странице вы можете ознакомиться с ответами на анкету.</p>
+        </div>
+
+        <h3>@survey.name_survey</h3>
+        
+        @if (!string.IsNullOrEmpty(survey.description))
+        {
+            <p>@survey.description</p>
+        }
+
+        <div class="table-container">
+            @if (answers == null || !answers.Any())
+            {
+                <p>Ответы не найдены</p>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Вопрос</th>
+                            <th>Оценка</th>
+                            <th>Комментарий</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var answer in answers)
+                        {
+                            <tr>
+                                <td>@answer.QuestionText</td>
+                                <td>@answer.Rating</td>
+                                <td>@answer.Comment</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <div class="button-container">
+            <button class="submit-button" onclick="CSP(@survey.id_survey, @idOmsu)">Подписать</button>
+            <button class="submit-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'file')">Скачать файл с анкетой</button>
+        </div>
+
+        <div id="block_btn_csp" class="button-container" style="display:none">
+            <button class="submit-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'archiv')">Скачать файл с анкетой и подписью</button>
+        </div>
+    }
+</div>
+
+<style>
+    .content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    .note {
+        background: #f5f5f5;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-left: 4px solid #004e88;
+    }
+    .table-container {
+        overflow-x: auto;
+        margin: 20px 0;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+    }
+    th {
+        background: #004e88;
+        color: white;
+    }
+    .button-container {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .submit-button {
+        padding: 10px 20px;
+        background: #004e88;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .submit-button:hover {
+        background: #003366;
+    }
+    .error {
+        color: #dc3545;
+        padding: 20px;
+        text-align: center;
+    }
+</style>
+
+<script>
+    function CSP(idSurvey, idOmsu) {
+        // Логика подписания
+        document.getElementById('block_btn_csp').style.display = 'flex';
+    }
+
+    function create_otchet_for_me(idSurvey, idOmsu, type) {
+        window.location.href = `/Answer/create_otchet_for_me?idSurvey=${idSurvey}&idOmsu=${idOmsu}&type=${type}`;
+    }
+</script>

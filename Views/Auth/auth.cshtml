@@ -1,0 +1,513 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Авторизация</title>
+    <script src="/js/react.development.js"></script>
+    <script src="/js/react-dom.development.js"></script>
+    <script src="/js/babel.min.js"></script>
+    <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" >
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .content {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+background: 
+    linear-gradient(135deg, #b7c4f8 0%, #c8b0dd 100%),
+    radial-gradient(circle at 10% 20%, rgba(255,255,255,0.8) 0%, transparent 25%);
+            padding: 20px;
+        }
+
+        .inner-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 3rem;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1),
+                        0 16px 48px rgba(0, 0, 0, 0.1),
+                        0 0 0 1px rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            transform: translateY(10px);
+            animation: 0.6s ease-out forwards form-fade-in;
+        }
+
+        .form-title {
+            color: #1a1a1a;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            text-align: center;
+            line-height: 1.2;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .welcome-text {
+            font-size: 1.75rem;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            padding-left: 0;
+        }
+
+        .form-group:focus-within .form-label {
+            transform: scale(1.1);
+            font-weight: 600;
+            color: #667eea;
+            padding-left: 1px;
+            transform-origin: left;
+        }
+
+        .input-container {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            transition: all 0.2s ease;
+        }
+
+        .icon-container {
+            width: 46px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px 0 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #667eea;
+            border: 2px solid #e2e8f0;
+            transition: all 0.2s ease;
+            transform-origin: left center;
+        }
+
+        .icon-container i {
+            font-size: 1.4rem;
+            opacity: 0.9;
+            transition: all 0.2s ease;
+        }
+
+        .form-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 0 8px 8px 0;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            background: white;
+            margin-left: -2px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            width: calc(100% - 6px);
+            margin-left: 4px;
+        }
+
+        .input-container:focus-within .icon-container {
+            transform: scale(1.1);
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.25);
+        }
+
+        .input-container:focus-within .icon-container i {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .checkbox-input {
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 4px;
+            margin-right: 0.75rem;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .checkbox-input:checked {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+
+        .checkbox-input:checked::after {
+            content: '✓';
+            position: absolute;
+            color: white;
+            font-size: 0.875rem;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .checkbox-label {
+            color: #4a5568;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+
+        .submit-button {
+            width: 100%;
+             background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 
+        0 4px 6px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+        }
+
+        .submit-button:hover {
+            background: linear-gradient(145deg, #8a6dff 0%, #5a4acd 100%);
+    box-shadow: 
+        0 6px 8px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+        }
+
+        @@keyframes buttonShine {
+            0% {
+                transform: translateX(-100%);
+            }
+            20% {
+                transform: translateX(100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+
+        .submit-button:hover::before {
+            animation: hoverShine 1.2s ease-in-out infinite;
+        }
+
+        @@keyframes form-fade-in {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            animation: modal-fade-in 0.3s ease-out;
+        }
+
+        .modal-title {
+            color: #ff4c5b;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-message {
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .modal-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .modal-button:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        @@keyframes modal-fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+ 
+    <script type="text/babel">
+        const Modal = ({ isOpen, onClose, title, message }) => {
+            if (!isOpen) return null;
+
+            return (
+                <div className="modal-overlay" onClick={onClose}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h2 className="modal-title">{title}</h2>
+                        <p className="modal-message">{message}</p>
+                        <button className="modal-button" onClick={onClose}>
+                            Закрыть
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const LoginForm = () => {
+            const [formData, setFormData] = React.useState({
+                username: '',
+                password: '',
+                rememberMe: false
+            });
+            const [modal, setModal] = React.useState({
+                isOpen: false,
+                title: '',
+                message: ''
+            });
+
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: type === 'checkbox' ? checked : value
+                }));
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    const data_user = [formData.username, formData.password];
+                    const xhr = new XMLHttpRequest();
+
+                    xhr.onreadystatechange = function() {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status === 200) {
+                                try {
+                                    console.log('Ответ от сервера:', xhr.responseText);
+                                    const response = JSON.parse(xhr.responseText);
+                                    console.log('Распарсенный ответ:', response);
+                                    if (response.role === "Админ") {
+                                        window.location.href = '/get_surveys';
+                                    } else if (response.role === "user") {
+                                        const url = `/survey_list_user/${response.userId}`;
+                                        console.log('Открываем URL:', url);
+                                        window.location.href = url;
+                                    } else {
+                                        setModal({
+                                            isOpen: true,
+                                            title: 'Ошибка',
+                                            message: 'Неизвестная роль пользователя'
+                                        });
+                                    }
+                                } catch (error) {
+                                    console.error('Ошибка при обработке ответа:', error);
+                                    setModal({
+                                        isOpen: true,
+                                        title: 'Ошибка',
+                                        message: 'Ошибка при обработке ответа от сервера'
+                                    });
+                                }
+                            } else {
+                                console.error("Ошибка авторизации: " + xhr.status);
+                                console.error("Текст ответа: " + xhr.responseText);
+                                setModal({
+                                    isOpen: true,
+                                    title: 'Ошибка авторизации',
+                                    message: xhr.responseText || 'Проверьте правильность введенных данных.'
+                                });
+                            }
+                        }
+                    };
+
+                    xhr.onerror = function() {
+                        console.error("Проблемы с интернетом");
+                        setModal({
+                            isOpen: true,
+                            title: 'Ошибка',
+                            message: 'Проблемы с интернетом. Проверьте подключение.'
+                        });
+                    };
+
+                    xhr.open("POST", "/Auth/login", true);
+                    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+                    xhr.send(JSON.stringify(data_user));
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    setModal({
+                        isOpen: true,
+                        title: 'Ошибка',
+                        message: 'Произошла ошибка при попытке входа. Попробуйте позже.'
+                    });
+                }
+            };
+
+            return (
+                <div className="content">
+                    <div className="inner-container">
+                        <form onSubmit={handleSubmit}>
+                            <h1 className="form-title">
+                                <span className="welcome-text">АНКЕТИРОВАНИЕ</span>
+                            </h1>
+                            
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="username">
+                                    Имя пользователя
+                                </label>
+                                <div className="input-container">
+                                    <div className="icon-container">
+                                        <i className="fas fa-user"></i>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        id="username"
+                                        name="username"
+                                        value={formData.username}
+                                        onChange={handleChange}
+                                        required
+                                        placeholder="Введите имя пользователя.."
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="password">
+                                    Пароль
+                                </label>
+                                <div className="input-container">
+                                    <div className="icon-container">
+                                        <i className="fas fa-lock"></i>
+                                    </div>
+                                    <input
+                                        type="password"
+                                        className="form-input"
+                                        id="password"
+                                        name="password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        required
+                                        placeholder="Введите пароль.."
+                                    />
+                                </div>
+                            </div>
+
+                            <button type="submit" className="submit-button">
+                                Войти
+                            </button>
+                        </form>
+                    </div>
+                    <Modal
+                        isOpen={modal.isOpen}
+                        onClose={() => setModal({ ...modal, isOpen: false })}
+                        title={modal.title}
+                        message={modal.message}
+                    />
+                </div>
+            );
+        };
+
+        const App = () => <LoginForm />;
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+        function logout_account() {
+            const xhr = new XMLHttpRequest();
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        window.location.href = '/Auth/display_auth';
+                    } else {
+                        console.error("Ошибка при выходе: " + xhr.status);
+                    }
+                }
+            };
+
+            xhr.onerror = function() {
+                console.error("Проблемы с интернетом");
+            };
+
+            xhr.open("GET", "/Auth/logout_account", true);
+            xhr.send();
+        }
+    </script>
+</body>
+</html> 
+
+
+ <!-- <div className="checkbox-group">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox-input"
+                                    id="rememberMe"
+                                    name="rememberMe"
+                                    checked={formData.rememberMe}
+                                    onChange={handleChange}
+                                />
+                                 <label className="checkbox-label" htmlFor="rememberMe">
+                                    Запомнить меня
+                                </label>
+                            </div> -->
