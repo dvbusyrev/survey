@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
 using System.Data;
 using Npgsql;
@@ -53,7 +53,7 @@ public class AuthController : Controller
         Console.WriteLine("Сессия удалена");
         HttpContext.Session.Remove("id_user"); // Удаляем id_user
         HttpContext.Session.Remove("name_role"); // Удаляем name_role
-        HttpContext.Session.Remove("name_omsu"); // Удаляем название организации
+        HttpContext.Session.Remove("name_omsu"); // Удаляем name_omsu
         Console.WriteLine("=== Процесс выхода завершен ===");
 
         return RedirectToAction("display_auth");

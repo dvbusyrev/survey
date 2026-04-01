@@ -1,10 +1,11 @@
-﻿@model Survey
+@model Survey
 @{
     ViewData["Title"] = "Активные анкеты";
     int currentPage = ViewBag.CurrentPage ?? 1;
     int totalPages = ViewBag.TotalPages ?? 1;
     string searchTerm = ViewBag.SearchTerm ?? "";
     var userRole = Context.Session.GetString("name_role") ?? "";
+    var displayName = Context.Session.GetString("name_omsu") ?? userRole;
     var userId = Context.Session.GetInt32("id_user") ?? 0;
     int userOmsuId = ViewBag.UserOmsuId ?? 0;
     var accessibleSurveys = ViewBag.AccessibleSurveys as List<Survey> ?? new List<Survey>();
@@ -17,7 +18,7 @@
     <title>@ViewData["Title"]</title>
     <link rel="stylesheet" href="~/css/components.css" />
     <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" >
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     @if (string.IsNullOrEmpty(userRole))
@@ -1472,6 +1473,7 @@ const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
                 const initialData = {
                     userId: @userId,
                     userRole: '@userRole',
+                    displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName)),
                     userOmsuId: @userOmsuId,
                     initialSurveys: @Html.Raw(Json.Serialize(accessibleSurveys)),
                     initialPage: @currentPage,
@@ -1738,9 +1740,9 @@ const handleSignedFilterChange = (e) => {
             if (initialData.userRole !== "user" && initialData.userRole !== "Админ") {
                 return (
                     <div className="page-container">
-                        <Header userRole={initialData.userRole} />
+                        <Header userRole={initialData.userRole} displayName={initialData.displayName} />
                         <div className="admin-container">
-                            <Navigation openVkladka={handleTabChange} activeTab={activeTab === 'archived' ? 'archiv_surveys_for_user' : 'answers_tab'} userRole={initialData.userRole} />
+                            <Navigation openVkladka={handleTabChange} activeTab={activeTab} userRole={initialData.userRole} />
                             <div id="content_admin">
                                 <div className="access-denied">
                                     <h2>Доступ запрещён</h2>
@@ -1755,9 +1757,9 @@ const handleSignedFilterChange = (e) => {
 
 return (
   <div className="page-container">
-    <Header userRole={initialData.userRole} />
+    <Header userRole={initialData.userRole} displayName={initialData.displayName} />
     <div className="admin-container">
-      <Navigation openVkladka={handleTabChange} activeTab={activeTab === 'archived' ? 'archiv_surveys_for_user' : 'answers_tab'} userRole={initialData.userRole} />
+      <Navigation openVkladka={handleTabChange} activeTab={activeTab} userRole={initialData.userRole} />
       <div id="content_admin">
         {currentView === 'survey-fill' ? (
           <SurveyFillPage 
@@ -2002,7 +2004,7 @@ return (
         .users { display: none }
         .survey-answers-for-user { display: none }
         .survey-archive-for-user { display: none }
-        
+        .nav-link::after{display: none}
 
 
                /* Анимации */
@@ -2176,9 +2178,7 @@ return (
         gap: 12px;
         margin-bottom: 1.5rem;
         align-items: center;
-        justify-content: center;
         flex-wrap: wrap;
-        width: 100%;
     }
 
 

@@ -1,25 +1,59 @@
-window.Navigation = ({ openVkladka, activeTab }) => {
+window.Navigation = ({ openVkladka, activeTab, userRole }) => {
+    const isAdmin = userRole === 'Админ';
+
+    const isSurveySectionActive = isAdmin
+        ? ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)
+        : ['active', 'archived', 'answers_tab', 'archiv_surveys_for_user'].includes(activeTab);
+
+    const navigate = (tab) => {
+        if (typeof openVkladka === 'function') {
+            openVkladka(tab);
+            return;
+        }
+
+        const routes = {
+            active: '/Survey/survey_list_user',
+            archived: '/Survey/archiv_surveys_for_user',
+            get_surveys: '/Survey/get_surveys',
+            open_statistic: '/Answer/open_statistic',
+            get_users: '/User/get_users',
+            get_omsu: '/OMSU/get_omsu',
+            email: '/Email/update_settings',
+            get_logs: '/Log/get_logs',
+            help: '/Help/page_help'
+        };
+
+        if (routes[tab]) {
+            window.location.href = routes[tab];
+        }
+    };
+
     const navItems = [
-        { 
-            id: 'open_statistic', 
+        {
+            id: 'open_statistic',
             label: 'Статистика',
             class: 'statistic',
-            icon: 'fa-chart-line' 
+            icon: 'fa-chart-line'
         },
-        { 
-            id: 'get_surveys', 
-            label: 'Анкеты',
-            class: 'surveys',
-            icon: 'fa-clipboard-list',
-            submenu: [
-                { id: 'add_survey', label: 'Добавить анкету', class: 'survey-add', icon: 'fa-plus-circle' },
-                { id: 'list_answers_users', label: 'Ответы на анкеты', class: 'survey-answers', icon: 'fa-list-check' },
-                { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-box-archive' },
-                { id: 'answers_tab', label: 'Активные анкеты', class: 'survey-answers-for-user', icon: 'fa-list-check' },
-                { id: 'archiv_surveys_for_user', label: 'Архив анкет', class: 'survey-archive-for-user', icon: 'fa-box-archive' }
-            ]
-        },
-        { 
+        isAdmin
+            ? {
+                id: 'get_surveys',
+                label: 'Анкеты',
+                class: 'surveys',
+                icon: 'fa-clipboard-list',
+                submenu: [
+                    { id: 'add_survey', label: 'Добавить анкету', class: 'survey-add', icon: 'fa-plus-circle' },
+                    { id: 'list_answers_users', label: 'Ответы на анкеты', class: 'survey-answers', icon: 'fa-list-check' },
+                    { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-box-archive' }
+                ]
+            }
+            : {
+                id: 'active',
+                label: 'Анкеты',
+                class: 'surveys',
+                icon: 'fa-clipboard-list'
+            },
+        {
             id: 'get_users',
             label: 'Пользователи',
             class: 'users',
@@ -29,8 +63,8 @@ window.Navigation = ({ openVkladka, activeTab }) => {
                 { id: 'get_users', label: 'Список пользователей', class: 'user-list', icon: 'fa-list' }
             ]
         },
-        { 
-            id: 'get_omsu', 
+        {
+            id: 'get_omsu',
             label: 'Организации',
             class: 'organizations',
             icon: 'fa-building',
@@ -39,9 +73,8 @@ window.Navigation = ({ openVkladka, activeTab }) => {
                 { id: 'get_omsu', label: 'Список организаций', class: 'org-list', icon: 'fa-list-ul' }
             ]
         },
-
-        { 
-            id: 'otchets', 
+        {
+            id: 'otchets',
             label: 'Отчёты',
             class: 'otchets',
             icon: 'fa-file-alt',
@@ -53,16 +86,14 @@ window.Navigation = ({ openVkladka, activeTab }) => {
                 { id: 'otchet-4kv', label: 'Отчёт за 4 квартал', class: 'otchet-4kv', icon: 'fa-list-ul' }
             ]
         },
-
-        { 
-            id: 'email', 
+        {
+            id: 'email',
             label: 'Почта',
             class: 'email',
-            icon: 'fa-envelope' 
+            icon: 'fa-envelope'
         },
-
-        { 
-            id: 'get_logs', 
+        {
+            id: 'get_logs',
             label: 'Прочее',
             class: 'other',
             icon: 'fa-ellipsis-h',
@@ -71,52 +102,52 @@ window.Navigation = ({ openVkladka, activeTab }) => {
                 { id: 'download_logs', label: 'Выгрузить файл txt с логами', class: 'logs-download', icon: 'fa-file-download' }
             ]
         },
-
-        { 
-            id: 'help', 
+        {
+            id: 'help',
             label: 'Помощь',
             class: 'help',
-            icon: 'fa-question-circle' 
+            icon: 'fa-question-circle'
         }
     ];
 
     return React.createElement('nav', { className: 'admin-nav' },
         React.createElement('ul', { className: 'nav-list' },
-            navItems.map(item => 
-                React.createElement('li', { 
+            navItems.map(item => {
+                const itemActive = item.class === 'surveys' ? isSurveySectionActive : item.id === activeTab;
+
+                return React.createElement('li', {
                     key: item.id,
                     className: [
                         'nav-item',
                         item.class || '',
-                        item.id === activeTab ? 'active' : '',
+                        itemActive ? 'active' : '',
                         item.submenu ? 'has-submenu' : ''
                     ].join(' ').trim(),
                     id: item.id
                 },
-                    React.createElement('a', { 
-                        href: '#', 
+                    React.createElement('a', {
+                        href: '#',
                         className: 'nav-link',
-                        onClick: (e) => { 
-                            e.preventDefault(); 
-                            openVkladka(item.id); 
+                        onClick: (e) => {
+                            e.preventDefault();
+                            navigate(item.id);
                         },
-                        style: { 
-                            fontWeight: item.id === activeTab ? 'bold' : 'normal',
+                        style: {
+                            fontWeight: itemActive ? 'bold' : 'normal',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px'
                         }
-                    }, 
-                        item.icon && React.createElement('i', { 
+                    },
+                        item.icon && React.createElement('i', {
                             className: `fas ${item.icon}`,
                             style: { fontSize: '16px', minWidth: '20px' }
                         }),
                         item.label
                     ),
-                    
                     item.submenu && React.createElement('ul', { className: 'submenu-list' },
                         item.submenu.map(subItem =>
-                            React.createElement('li', { 
+                            React.createElement('li', {
                                 key: subItem.id,
                                 className: [
                                     'submenu-item',
@@ -124,21 +155,21 @@ window.Navigation = ({ openVkladka, activeTab }) => {
                                     subItem.id === activeTab ? 'active' : ''
                                 ].join(' ').trim()
                             },
-                                React.createElement('a', { 
-                                    href: '#', 
+                                React.createElement('a', {
+                                    href: '#',
                                     className: 'submenu-link',
-                                    onClick: (e) => { 
-                                        e.preventDefault(); 
-                                        openVkladka(subItem.id); 
+                                    onClick: (e) => {
+                                        e.preventDefault();
+                                        navigate(subItem.id);
                                     },
-                                    style: { 
+                                    style: {
                                         fontWeight: subItem.id === activeTab ? 'bold' : 'normal',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px'
                                     }
-                                }, 
-                                    subItem.icon && React.createElement('i', { 
+                                },
+                                    subItem.icon && React.createElement('i', {
                                         className: `fas ${subItem.icon}`,
                                         style: { fontSize: '14px', minWidth: '20px' }
                                     }),
@@ -147,8 +178,8 @@ window.Navigation = ({ openVkladka, activeTab }) => {
                             )
                         )
                     )
-                )
-            )
+                );
+            })
         )
     );
-}; 
+};

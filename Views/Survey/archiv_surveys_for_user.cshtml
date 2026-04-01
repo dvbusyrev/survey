@@ -1,10 +1,9 @@
-﻿@model List<Survey>
+@model List<Survey>
 @{
     ViewData["Title"] = "Архив анкет";
     var userOmsuId = ViewBag.UserOmsuId;
     var userId = Context.Session.GetInt32("id_user") ?? 0;
     var userRole = Context.Session.GetString("name_role") ?? "";
-    var userOmsuName = Context.Session.GetString("name_omsu") ?? "";
     var searchTerm = ViewBag.SearchTerm ?? "";
 }
 
@@ -62,7 +61,6 @@
                 surveys: @Html.Raw(Json.Serialize(Model ?? new List<Survey>())),
                 userId: @userId,
                 userRole: '@userRole',
-                displayName: '@Html.Raw(userOmsuName)',
                 userOmsuId: @userOmsuId,
                 searchTerm: '@searchTerm'
             };
@@ -115,7 +113,7 @@
                 <div className="page-container">
                     <Header userRole={initialData.userRole} displayName={initialData.displayName} />
                     <div className="admin-container">
-                        <Navigation />
+                        <Navigation activeTab="archived" userRole={initialData.userRole} />
                         <div id="content_admin">
                             <div className="note">
                                 <h2>Архив анкет</h2>

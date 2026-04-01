@@ -3,7 +3,6 @@
 @using System.Text.Json
 @{
     var userRole = Context.Session.GetString("name_role");
-    var userOmsuName = Context.Session.GetString("name_omsu") ?? "";
     var userId = Context.Session.GetInt32("id_user");
     var jsonOptions = new JsonSerializerOptions { 
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -81,7 +80,6 @@ var newPage = "";
 
         const initialData = {
             userRole: userRole,
-            displayName: '@Html.Raw(userOmsuName)',
             userId: @(userId ?? 0),
             surveys: @Html.Raw(JsonSerializer.Serialize(Model, jsonOptions))
         };
@@ -1216,8 +1214,8 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 <div className="admin-container">
                     <Navigation 
                         openVkladka={openVkladka} 
-                        activeTab={activeTab} 
-                        userRole={initialData.userRole}
+                        activeTab={activeTab}
+                        userRole={initialData.userRole} 
                     />
                     <div id="content_admin">
                         {loading ? (

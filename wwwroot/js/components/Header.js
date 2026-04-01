@@ -1,7 +1,7 @@
-﻿window.Header = ({ userRole, displayName }) => {
-    const headerLabel = displayName && displayName.trim() ? displayName : userRole;
+window.Header = ({ userRole, displayName }) => {
+    const headerLabel = displayName && String(displayName).trim() ? displayName : userRole;
     return React.createElement('header', null,
-        React.createElement('img', { src: '/images/favicon.png', alt: 'Логотип'}),
+        React.createElement('img', { src: '/images/favicon.svg', alt: 'Логотип'}),
         React.createElement('h1', { className: 'header-title'}, 'Анкетирование'),
         React.createElement('div', { className: 'header-right' },
             React.createElement('p', { id: 'role'}, headerLabel),

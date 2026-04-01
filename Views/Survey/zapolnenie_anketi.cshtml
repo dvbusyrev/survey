@@ -1,7 +1,6 @@
-﻿@model Survey
+@model Survey
 @{
     var userRole = Context.Session.GetString("name_role") ?? "";
-    var userOmsuName = Context.Session.GetString("name_omsu") ?? "";
     var userId = Context.Session.GetInt32("id_user") ?? 0;
     var questions = ViewBag.Questions as List<Dictionary<string, object>> ?? new List<Dictionary<string, object>>();
     var surveyId = ViewBag.Id;
@@ -155,7 +154,6 @@
             const initialData = {
                 userId: @userId,
                 userRole: '@userRole',
-                displayName: '@Html.Raw(userOmsuName)',
                 omsuId: @omsuId,
                 surveyId: @surveyId,
                 questions: @Html.Raw(Json.Serialize(questions))
@@ -251,7 +249,7 @@
                 <div className="page-container">
                     <Header userRole={initialData.userRole} displayName={initialData.displayName} />
                     <div className="admin-container">
-                        <Navigation />
+                        <Navigation activeTab="active" userRole={initialData.userRole} />
                         <div id="content_admin">
                             <div className="survey-fill-container">
                                 <button onClick={handleBackToList} className="back-button">

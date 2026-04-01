@@ -2,7 +2,7 @@
     const headerLabel = displayName && displayName.trim() ? displayName : userRole;
     return (
         <header>
-            <img src="~/images/favicon.png" alt="Логотип"/>
+            <img src="~/images/favicon.svg" alt="Логотип"/>
             <h1 className="header-title">Анкетирование</h1>
             <p id="role">{headerLabel}</p>
             <button className="logout-button" onClick={() => window.location.href = '/Auth/logout'}>Выйти</button>
