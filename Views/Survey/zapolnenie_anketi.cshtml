@@ -1,6 +1,11 @@
-@model Survey
+﻿@model Survey
 @{
     var userRole = Context.Session.GetString("name_role") ?? "";
+    var nameOmsu = Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = Context.Session.GetString("name_user") ?? "";
+    var displayName = userRole == "Админ" && !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
+        ? $"{nameOmsu}: {nameUser}"
+        : userRole;
     var userId = Context.Session.GetInt32("id_user") ?? 0;
     var questions = ViewBag.Questions as List<Dictionary<string, object>> ?? new List<Dictionary<string, object>>();
     var surveyId = ViewBag.Id;
@@ -156,7 +161,8 @@
                 userRole: '@userRole',
                 omsuId: @omsuId,
                 surveyId: @surveyId,
-                questions: @Html.Raw(Json.Serialize(questions))
+                questions: @Html.Raw(Json.Serialize(questions)),
+                displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName))
             };
 
             const handleRatingClick = (questionId, rating) => {
@@ -249,7 +255,7 @@
                 <div className="page-container">
                     <Header userRole={initialData.userRole} displayName={initialData.displayName} />
                     <div className="admin-container">
-                        <Navigation activeTab="active" userRole={initialData.userRole} />
+                        <Navigation activeTab="answers_tab" userRole={initialData.userRole} userId={initialData.userId} />
                         <div id="content_admin">
                             <div className="survey-fill-container">
                                 <button onClick={handleBackToList} className="back-button">

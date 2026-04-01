@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
 using System.Data;
 using Npgsql;
@@ -54,6 +54,7 @@ public class AuthController : Controller
         HttpContext.Session.Remove("id_user"); // Удаляем id_user
         HttpContext.Session.Remove("name_role"); // Удаляем name_role
         HttpContext.Session.Remove("name_omsu"); // Удаляем name_omsu
+        HttpContext.Session.Remove("name_user"); // Удаляем name_user
         Console.WriteLine("=== Процесс выхода завершен ===");
 
         return RedirectToAction("display_auth");
@@ -107,7 +108,7 @@ public class AuthController : Controller
 
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = @"SELECT u.id_user, u.name_role, COALESCE(o.name_omsu, '') AS name_omsu
+                    command.CommandText = @"SELECT u.id_user, u.name_role, u.name_user, COALESCE(o.name_omsu, '') AS name_omsu
                                             FROM public.users u
                                             LEFT JOIN public.omsu o ON u.id_omsu = o.id_omsu
                                             WHERE u.name_user = @username AND u.hash_password = @password";
@@ -121,19 +122,23 @@ public class AuthController : Controller
                         {
                             int idUser = reader.GetInt32(0);
                             string nameRole = reader.GetString(1);
-                            string nameOmsu = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+                            string nameUser = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+                            string nameOmsu = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
                             Console.WriteLine($"=== Успешная авторизация ===");
                             Console.WriteLine($"ID пользователя: {idUser}");
                             Console.WriteLine($"Роль: {nameRole}");
+                            Console.WriteLine($"Пользователь: {nameUser}");
                             Console.WriteLine($"ОМСУ: {nameOmsu}");
 
                             HttpContext.Session.SetInt32("id_user", idUser);
                             HttpContext.Session.SetString("name_role", nameRole);
+                            HttpContext.Session.SetString("name_user", nameUser);
                             HttpContext.Session.SetString("name_omsu", nameOmsu);
 
                             return Json(new { 
                                 role = nameRole,
                                 userId = idUser,
+                                nameUser = nameUser,
                                 nameOmsu = nameOmsu
                             });
                         }

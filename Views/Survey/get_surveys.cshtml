@@ -4,6 +4,11 @@
 @{
     var userRole = Context.Session.GetString("name_role");
     var userId = Context.Session.GetInt32("id_user");
+    var nameOmsu = Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = Context.Session.GetString("name_user") ?? "";
+    var displayName = userRole == "Админ" && !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
+        ? $"{nameOmsu}: {nameUser}"
+        : userRole;
     var jsonOptions = new JsonSerializerOptions { 
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true
@@ -81,6 +86,7 @@ var newPage = "";
         const initialData = {
             userRole: userRole,
             userId: @(userId ?? 0),
+            displayName: @Html.Raw(JsonSerializer.Serialize(displayName)),
             surveys: @Html.Raw(JsonSerializer.Serialize(Model, jsonOptions))
         };
 
@@ -1215,7 +1221,8 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                     <Navigation 
                         openVkladka={openVkladka} 
                         activeTab={activeTab}
-                        userRole={initialData.userRole} 
+                        userRole={initialData.userRole}
+                        userId={initialData.userId}
                     />
                     <div id="content_admin">
                         {loading ? (

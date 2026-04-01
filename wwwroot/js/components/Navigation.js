@@ -1,4 +1,4 @@
-window.Navigation = ({ openVkladka, activeTab, userRole }) => {
+﻿window.Navigation = ({ openVkladka, activeTab, userRole, userId }) => {
     const isAdmin = userRole === 'Админ';
 
     const isSurveySectionActive = isAdmin
@@ -11,16 +11,28 @@ window.Navigation = ({ openVkladka, activeTab, userRole }) => {
             return;
         }
 
+        if (tab === 'help') {
+            window.location.href = '/page_help';
+            return;
+        }
+
+        if ((tab === 'active' || tab === 'answers_tab') && userId) {
+            window.location.href = `/survey_list_user/${userId}`;
+            return;
+        }
+
+        if ((tab === 'archived' || tab === 'archiv_surveys_for_user') && userId) {
+            window.location.href = `/Survey/archiv_surveys_for_user`;
+            return;
+        }
+
         const routes = {
-            active: '/Survey/survey_list_user',
-            archived: '/Survey/archiv_surveys_for_user',
             get_surveys: '/Survey/get_surveys',
             open_statistic: '/Answer/open_statistic',
             get_users: '/User/get_users',
             get_omsu: '/OMSU/get_omsu',
             email: '/Email/update_settings',
-            get_logs: '/Log/get_logs',
-            help: '/Help/page_help'
+            get_logs: '/Log/get_logs'
         };
 
         if (routes[tab]) {
@@ -114,6 +126,7 @@ window.Navigation = ({ openVkladka, activeTab, userRole }) => {
         React.createElement('ul', { className: 'nav-list' },
             navItems.map(item => {
                 const itemActive = item.class === 'surveys' ? isSurveySectionActive : item.id === activeTab;
+                const isNonAdminSurveyButton = !isAdmin && item.class === 'surveys';
 
                 return React.createElement('li', {
                     key: item.id,
@@ -136,7 +149,11 @@ window.Navigation = ({ openVkladka, activeTab, userRole }) => {
                             fontWeight: itemActive ? 'bold' : 'normal',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px'
+                            gap: '8px',
+                            ...(isNonAdminSurveyButton ? {
+                                borderTopLeftRadius: '16px',
+                                borderTopRightRadius: '16px'
+                            } : {})
                         }
                     },
                         item.icon && React.createElement('i', {

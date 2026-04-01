@@ -1,9 +1,14 @@
-@model List<Survey>
+﻿@model List<Survey>
 @{
     ViewData["Title"] = "Архив анкет";
     var userOmsuId = ViewBag.UserOmsuId;
     var userId = Context.Session.GetInt32("id_user") ?? 0;
     var userRole = Context.Session.GetString("name_role") ?? "";
+    var nameOmsu = Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = Context.Session.GetString("name_user") ?? "";
+    var displayName = userRole == "Админ" && !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
+        ? $"{nameOmsu}: {nameUser}"
+        : userRole;
     var searchTerm = ViewBag.SearchTerm ?? "";
 }
 
@@ -62,7 +67,8 @@
                 userId: @userId,
                 userRole: '@userRole',
                 userOmsuId: @userOmsuId,
-                searchTerm: '@searchTerm'
+                searchTerm: '@searchTerm',
+                displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName))
             };
 
             const [searchTerm, setSearchTerm] = React.useState(initialData.searchTerm);
@@ -113,7 +119,7 @@
                 <div className="page-container">
                     <Header userRole={initialData.userRole} displayName={initialData.displayName} />
                     <div className="admin-container">
-                        <Navigation activeTab="archived" userRole={initialData.userRole} />
+                        <Navigation activeTab="archiv_surveys_for_user" userRole={initialData.userRole} userId={initialData.userId} />
                         <div id="content_admin">
                             <div className="note">
                                 <h2>Архив анкет</h2>

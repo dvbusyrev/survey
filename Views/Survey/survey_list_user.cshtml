@@ -1,11 +1,15 @@
-@model Survey
+﻿@model Survey
 @{
     ViewData["Title"] = "Активные анкеты";
     int currentPage = ViewBag.CurrentPage ?? 1;
     int totalPages = ViewBag.TotalPages ?? 1;
     string searchTerm = ViewBag.SearchTerm ?? "";
     var userRole = Context.Session.GetString("name_role") ?? "";
-    var displayName = Context.Session.GetString("name_omsu") ?? userRole;
+    var nameOmsu = Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = Context.Session.GetString("name_user") ?? "";
+    var displayName = userRole == "Админ" && !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
+        ? $"{nameOmsu}: {nameUser}"
+        : userRole;
     var userId = Context.Session.GetInt32("id_user") ?? 0;
     int userOmsuId = ViewBag.UserOmsuId ?? 0;
     var accessibleSurveys = ViewBag.AccessibleSurveys as List<Survey> ?? new List<Survey>();
@@ -1473,12 +1477,12 @@ const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
                 const initialData = {
                     userId: @userId,
                     userRole: '@userRole',
-                    displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName)),
                     userOmsuId: @userOmsuId,
                     initialSurveys: @Html.Raw(Json.Serialize(accessibleSurveys)),
                     initialPage: @currentPage,
                     initialTotalPages: @totalPages,
-                    initialSearchTerm: '@searchTerm'
+                    initialSearchTerm: '@searchTerm',
+                    displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName))
                 };
 
             const [activeTab, setActiveTab] = React.useState('active');
@@ -1661,6 +1665,7 @@ const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
 
     const handleTabChange = (tab) => {
         if (tab === 'help') {
+            setActiveTab('help');
             setCurrentContent('help');
             setCurrentView('survey-list');
         } else {
@@ -1742,7 +1747,7 @@ const handleSignedFilterChange = (e) => {
                     <div className="page-container">
                         <Header userRole={initialData.userRole} displayName={initialData.displayName} />
                         <div className="admin-container">
-                            <Navigation openVkladka={handleTabChange} activeTab={activeTab} userRole={initialData.userRole} />
+                            <Navigation openVkladka={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
                             <div id="content_admin">
                                 <div className="access-denied">
                                     <h2>Доступ запрещён</h2>
@@ -1759,7 +1764,7 @@ return (
   <div className="page-container">
     <Header userRole={initialData.userRole} displayName={initialData.displayName} />
     <div className="admin-container">
-      <Navigation openVkladka={handleTabChange} activeTab={activeTab} userRole={initialData.userRole} />
+      <Navigation openVkladka={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
       <div id="content_admin">
         {currentView === 'survey-fill' ? (
           <SurveyFillPage 
