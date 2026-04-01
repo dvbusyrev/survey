@@ -3,7 +3,7 @@
     var userRole = Context.Session.GetString("name_role") ?? "";
     var nameOmsu = Context.Session.GetString("name_omsu") ?? "";
     var nameUser = Context.Session.GetString("name_user") ?? "";
-    var displayName = userRole == "Админ" && !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
+    var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : userRole;
     var userId = Context.Session.GetInt32("id_user") ?? 0;
