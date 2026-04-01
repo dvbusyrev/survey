@@ -25,7 +25,7 @@
 
     <link rel="stylesheet" href="~/css/components.css" />
     <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
 </head>
 <body>
     @if (string.IsNullOrEmpty(userRole))
@@ -46,11 +46,8 @@
         <script src="~/js/react-dom.development.js"></script>
         <script src="~/js/babel.min.js"></script>
         <script src="~/js/components/Header.js"></script>
-        <script src="/js/cadesplugin_api.js"></script>
         <script src="~/js/components/Navigation.js"></script>
         <script src="~/js/components/Footer.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
 window.populateMonthOptions = function() {
@@ -177,9 +174,58 @@ const CAPICOM_STORE_OPEN_READ_ONLY = 0;
 const CAPICOM_CERTIFICATE_FIND_TIME_VALID = 9;
 const CADESCOM_CADES_BES = 1;
 
+let cadesPluginLoadPromise = null;
+
+function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
+        if (existing) {
+            if (existing.dataset.loaded === 'true') {
+                resolve();
+                return;
+            }
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error(`Не удалось загрузить скрипт ${src}`)), { once: true });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.dataset.dynamicSrc = src;
+        script.onload = () => {
+            script.dataset.loaded = 'true';
+            resolve();
+        };
+        script.onerror = () => reject(new Error(`Не удалось загрузить скрипт ${src}`));
+        document.head.appendChild(script);
+    });
+}
+
+async function ensureCadesPluginLoaded() {
+    if (typeof window.cadesplugin !== 'undefined') {
+        await window.cadesplugin;
+        return window.cadesplugin;
+    }
+
+    if (!cadesPluginLoadPromise) {
+        cadesPluginLoadPromise = loadScriptOnce('/js/cadesplugin_api.js').then(async () => {
+            if (typeof window.cadesplugin === 'undefined') {
+                throw new Error('CAdESCOM плагин не загружен! Установите КриптоПРО ЭЦП Browser plug-in.');
+            }
+            await window.cadesplugin;
+            return window.cadesplugin;
+        });
+    }
+
+    return cadesPluginLoadPromise;
+}
+
 async function CSP(id, id_omsu) {
     console.log("Начало работы CSP");
     try {
+        await ensureCadesPluginLoaded();
+
         if (!await checkCSPAvailable()) {
             console.error("CSP не доступен");
             showCSPInstallInstructions();
@@ -254,7 +300,9 @@ async function listCertificates() {
 }
 
 async function checkCSPAvailable() {
-    try {console.log
+    try {
+        await ensureCadesPluginLoaded();
+        console.log
         ("1. Плагин обнаружен, версия:", await cadesplugin.version);
 
         const about = await cadesplugin.CreateObjectAsync("CAdESCOM.About");
@@ -505,6 +553,8 @@ function showError(message) {
 
 async function initCadesPlugin() {
     try {
+        await ensureCadesPluginLoaded();
+
         if (typeof cadesplugin === 'undefined') {
             throw new Error('CAdESCOM плагин не загружен! Установите КриптоПРО ЭЦП Browser plug-in.');
         }
@@ -521,14 +571,10 @@ async function initCadesPlugin() {
     }
 }
 
-initCadesPlugin().then((isReady) => {
-    if (isReady) {
-        console.log("CAdESCOM готов к работе!");
-    }
-});
 
 async function initCSP() {
     try {
+        await ensureCadesPluginLoaded();
         await window.cadesplugin;
         console.log('CryptoPRO готов к работе');
         return true;
@@ -538,11 +584,6 @@ async function initCSP() {
     }
 }
 
-initCSP().then(available => {
-    if (available) {
-        console.log("CSP инициализирован, можно использовать функции подписи");
-    }
-});
 
 async function checkLicense() {
     try {
