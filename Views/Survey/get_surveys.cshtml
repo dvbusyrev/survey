@@ -33,7 +33,6 @@
         <script src="~/js/components/Header.js"></script>
         <script src="~/js/components/Navigation.js"></script>
         <script src="~/js/components/Footer.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
             .survey-answers-for-user {
                 display: none;
@@ -61,6 +60,29 @@ var newPage = "";
 
  const { useState, useEffect, useRef } = React;
     const { Header, Footer, Navigation } = window;
+
+        const chartJsLoader = (() => {
+            let promise = null;
+            return () => {
+                if (window.Chart) return Promise.resolve(window.Chart);
+                if (promise) return promise;
+
+                promise = new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                    script.async = true;
+                    script.onload = () => resolve(window.Chart);
+                    script.onerror = () => {
+                        promise = null;
+                        reject(new Error('Не удалось загрузить библиотеку графиков'));
+                    };
+                    document.head.appendChild(script);
+                });
+
+                return promise;
+            };
+        })();
+
 
     const App = () => {
         // Константы должны быть объявлены внутри компонента
@@ -663,6 +685,7 @@ const radarChartRef = useRef(null);
                 useEffect(() => {
                     const loadData = async () => {
                         try {
+                            await chartJsLoader();
                             await fetch('/open_statistic');
                             const response = await fetch('/get_data_statistic');
                             if (!response.ok) throw new Error('Ошибка загрузки данных');

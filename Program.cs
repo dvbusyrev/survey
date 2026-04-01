@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using main_project.Data;
 using main_project.Models;
@@ -20,6 +21,17 @@ builder.Services.AddScoped<DatabaseController>();
 builder.Services.AddSingleton<DatabaseConnection>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
+
+// Сжатие ответов для ускорения загрузки
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/javascript",
+        "text/javascript"
+    });
+});
 
 // Настройки сессии
 builder.Services.AddSession(options =>
@@ -46,6 +58,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
