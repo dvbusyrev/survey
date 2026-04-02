@@ -1,15 +1,14 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
+using System.Data;
 using Npgsql;
 using NpgsqlTypes;
-using System.Data;
+using System.Security.Cryptography;
 using System.Text;
 
 public class UserController : Controller
 {
     private readonly DatabaseController _db;
-    private static readonly PasswordHasher<string> _passwordHasher = new();
 
     public UserController(DatabaseController db)
     {
@@ -28,6 +27,7 @@ command.CommandText = @"
     SELECT 
         id_user,
         (SELECT name_omsu FROM public.omsu WHERE public.users.id_omsu = public.omsu.id_omsu) AS name_omsu,
+        id_omsu,
         name_user,
         name_role,
         hash_password,
@@ -50,13 +50,14 @@ command.CommandText = @"
                             {
                                 id_user = reader.GetInt32(0),
                                 name_omsu = reader.IsDBNull(1) ? "" : reader.GetString(1),
-                                name_user = reader.GetString(2),
-                                name_role = reader.GetString(3),
-                                hash_password = reader.GetString(4),
-date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
-date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
-                                full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                email = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                id_omsu = reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
+                                name_user = reader.GetString(3),
+                                name_role = reader.GetString(4),
+                                hash_password = reader.GetString(5),
+date_begin = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
+date_end = reader.IsDBNull(7) ? null : (DateTime?)reader.GetDateTime(7),
+                                full_name = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                email = reader.IsDBNull(9) ? null : reader.GetString(9),
                             };
                             users.Add(user);
                         }
@@ -181,7 +182,7 @@ public IActionResult add_user_bd([FromBody] Dictionary<string, string> formData)
         Console.WriteLine($"Обработанные данные: {username}, {password}, {fullName}, {email}");
 
 
-             string hashedPassword = _passwordHasher.HashPassword(username, password);
+             string hashedPassword = HashPassword(password);
 
         using (var connection = _db.CreateConnection())
         {
@@ -230,12 +231,11 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
         // Проверка наличия обязательных данных
         if (formData == null || 
             !formData.ContainsKey("username") || 
-            !formData.ContainsKey("fullName") ||
-            !formData.ContainsKey("organizationId"))
+            !formData.ContainsKey("fullName"))
         {
             return BadRequest(new { 
                 success = false, 
-                message = "Не указаны обязательные данные (логин, ФИО, организация)" 
+                message = "Не указаны обязательные данные (логин, ФИО)" 
             });
         }
 
@@ -248,10 +248,18 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
                 var parameters = new List<NpgsqlParameter>();
                 
                 // Обязательные поля
-                query.Append("name_user = @username, full_name = @fullName, id_omsu = @organization, ");
+                query.Append("name_user = @username, full_name = @fullName, ");
                 parameters.Add(new NpgsqlParameter("@username", formData["username"]));
                 parameters.Add(new NpgsqlParameter("@fullName", formData["fullName"]));
-                parameters.Add(new NpgsqlParameter("@organization", int.Parse(formData["organizationId"])));
+
+                // Организация обновляется только если пришел корректный id
+                if (formData.ContainsKey("organizationId") &&
+                    !string.IsNullOrWhiteSpace(formData["organizationId"]) &&
+                    int.TryParse(formData["organizationId"], out var organizationId))
+                {
+                    query.Append("id_omsu = @organization, ");
+                    parameters.Add(new NpgsqlParameter("@organization", organizationId));
+                }
 
                 // Опциональные поля
                 if (formData.ContainsKey("role"))
@@ -264,7 +272,7 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
                 if (formData.ContainsKey("password") && formData["password"] != "keep_original")
                 {
                     query.Append("hash_password = @password, ");
-                    parameters.Add(new NpgsqlParameter("@password", _passwordHasher.HashPassword(formData["username"], formData["password"])));
+                    parameters.Add(new NpgsqlParameter("@password", HashPassword(formData["password"])));
                 }
 
                 // Даты
@@ -370,13 +378,14 @@ List<User> users = new List<User>();
                             {
                                 id_user = reader.GetInt32(0),
                                 name_omsu = reader.IsDBNull(1) ? "" : reader.GetString(1),
-                                name_user = reader.GetString(2),
-                                name_role = reader.GetString(3),
-                                hash_password = reader.GetString(4),
-date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
-date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
-                                full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                email = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                id_omsu = reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
+                                name_user = reader.GetString(3),
+                                name_role = reader.GetString(4),
+                                hash_password = reader.GetString(5),
+date_begin = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
+date_end = reader.IsDBNull(7) ? null : (DateTime?)reader.GetDateTime(7),
+                                full_name = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                email = reader.IsDBNull(9) ? null : reader.GetString(9),
                             };
                             users.Add(user);
                         }
@@ -390,6 +399,16 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                     return View("Error", new ErrorViewModel { Message = $"Ошибка при получении пользователей: {ex.Message}" });
                 }
             }
+        }
+    }
+
+        private string HashPassword(string password)
+    {
+        using (SHA512 sha512 = SHA512.Create())
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(password);
+            byte[] hash = sha512.ComputeHash(bytes);
+            return Convert.ToBase64String(hash);
         }
     }
 }

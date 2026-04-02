@@ -49,7 +49,7 @@
                         <td>@user.date_begin?.ToString("dd.MM.yyyy")</td>
                         <td>@user.date_end?.ToString("dd.MM.yyyy")</td>
                         <td class="action-icons">
-                            <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', '@Html.Raw(user.name_omsu)', '@Html.Raw(user.name_role)', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
+                            <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.id_omsu, '@Html.Raw(user.name_role)', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
                                 <span>✏️</span><span class="icon-tooltip">Редактировать</span>
                             </div>
                             <div class="icon-container" onclick="deleteUser(@user.id_user, '@Html.Raw(user.full_name)')">
