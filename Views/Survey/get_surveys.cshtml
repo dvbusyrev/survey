@@ -3,11 +3,11 @@
 @using System.Text.Json
 @using System.Security.Claims
 @{
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
@@ -1381,7 +1381,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                     <div id="content_admin">
                         {showLoader ? (
                             <div className="loading-overlay">
-                                <div></div>
+                                <div>Загрузка...</div>
                             </div>
                         ) : (
                             <>
@@ -2203,8 +2203,8 @@ async function showAnswersModal(surveyId, omsuId = null) {
     
     try {
         // Очищаем предыдущие данные
-        container.innerHTML = '<div class="loading"></div>';
-        title.textContent = '';
+        container.innerHTML = '<div class="loading">Загрузка данных...</div>';
+        title.textContent = 'Загрузка...';
         modal.style.display = 'block';
         
         // Определяем тип запроса (архив или обычная анкета)
@@ -2537,7 +2537,9 @@ if (password.length < 12) {
         role: document.getElementById('role_bd')?.value || 'user'
     };
 
-        console.log("Фактические данные формы:", formData);
+    console.log("Email value:", document.getElementById('email').value); // Правильный способ получения значения
+
+    console.log("Фактические данные формы:", formData);
 
     fetch('/add_user_bd', {
         method: 'POST',
@@ -2686,6 +2688,44 @@ function deleteUser(id, fullName) {
     });
 }
 
+
+// Глобальное открытие модалки добавления пользователя.
+// Важно: HTML вкладки пользователей вставляется через React/dangerouslySetInnerHTML,
+// поэтому <script> внутри partial view может не выполниться.
+// Держим функцию здесь, в основном скрипте страницы.
+window.openAddUserModal = function () {
+    const modal = document.getElementById('addUserModal');
+    if (!modal) {
+        console.error('addUserModal not found in DOM');
+        alert('Форма добавления пользователя не загружена. Обновите вкладку "Список пользователей".');
+        return;
+    }
+
+    const messageElement = document.getElementById('message');
+    if (messageElement) {
+        messageElement.textContent = '';
+        messageElement.className = '';
+    }
+
+    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    const roleEl = document.getElementById('role_bd');
+    if (roleEl) roleEl.value = 'user';
+
+    const orgEl = document.getElementById('organization');
+    if (orgEl) orgEl.selectedIndex = 0;
+
+    modal.style.display = 'block';
+
+    if (typeof initUserModalPasswordEyes === 'function') {
+        setTimeout(initUserModalPasswordEyes, 0);
+    }
+};
+
+
 // Вспомогательная функция для безопасного получения элементов
 function getSafeElement(id) {
     const element = document.getElementById(id);
@@ -2701,7 +2741,7 @@ async function loadOrganizations2(selectedOrgId = null) {
     const orgSelect = getSafeElement('editOrganization');
     
     try {
-        orgSelect.innerHTML = '<option value=""></option>';
+        orgSelect.innerHTML = '<option value="">Загрузка организаций...</option>';
         
         const response = await fetch('/get_omsu/data');
         if (!response.ok) throw new Error('Не удалось загрузить организации');
@@ -2807,7 +2847,6 @@ if (startDate >= endDate) {
             id: getSafeElement('editUserId'),
             fullName: getSafeElement('editFullName'),
             username: getSafeElement('editUsername'),
-            email: document.getElementById('editEmail'),
             password: getSafeElement('editPassword'),
             organization: getSafeElement('editOrganization'),
             role: getSafeElement('editRole'),
@@ -2833,7 +2872,6 @@ if (startDate >= endDate) {
             username: elements.username.value,
             password: elements.password.value || 'keep_original',
             fullName: elements.fullName.value,
-            email: elements.email ? elements.email.value : '',
             organizationId: elements.organization.value,
             role: elements.role.value,
             dateBegin: elements.dateBegin.value,
@@ -3098,7 +3136,7 @@ if (startDate >= endDate) {
         const title = document.getElementById('surveyAnswersTitle');
         
         title.textContent = `Ответы: ${surveyName}`;
-        container.innerHTML = '<div class="loading"></div>';
+        container.innerHTML = '<div class="loading">Загрузка данных...</div>';
         openAnswersModal();
         
         try {
