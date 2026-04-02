@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
 using Npgsql;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using NpgsqlTypes;
 
+[Authorize(Roles = "Админ")]
 public class OMSUController : Controller
 {
     private readonly DatabaseController _db;

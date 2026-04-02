@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using main_project.Data;
@@ -16,11 +17,25 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddControllersWithViews();
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Auth";
+        options.LogoutPath = "/Auth/logout_account";
+        options.AccessDeniedPath = "/Auth";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+    });
+
 builder.Services.AddHostedService<SurveyExpirationService>(); // Регистрируем фоновую службу
 builder.Services.AddScoped<DatabaseController>();
 builder.Services.AddSingleton<DatabaseConnection>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<CurrentUserService>();
 
 // Сжатие ответов для ускорения загрузки
 builder.Services.AddResponseCompression(options =>
@@ -62,6 +77,7 @@ app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseSession();
+app.UseAuthentication();
 app.UseAuthorization();
 
 // НИЖЕ ПРЕДСТАВЛЕН СПИСОК МАРШРУТОВ(РОУТОВ) ДЛЯ МЕТОДОВ КОНТРОЛЛЕРОВ

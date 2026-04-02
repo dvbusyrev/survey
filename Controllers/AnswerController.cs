@@ -1,3 +1,5 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -37,8 +39,51 @@ using WordDocument = DocumentFormat.OpenXml.Wordprocessing.Document;
 
 
 
+[Authorize]
 public class AnswerController : Controller
 {
+
+    private int? GetCurrentUserId()
+    {
+        return int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+    }
+
+    private bool IsAdmin()
+    {
+        return User.IsInRole("Админ");
+    }
+
+    private int? GetCurrentUserOmsuId()
+    {
+        var currentUserId = GetCurrentUserId();
+        if (!currentUserId.HasValue)
+            return null;
+
+        using (var connection = _db.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT id_omsu FROM public.users WHERE id_user = @userId";
+            command.Parameters.Add(new NpgsqlParameter("@userId", currentUserId.Value));
+            var result = command.ExecuteScalar();
+            return result == null || result == DBNull.Value ? null : Convert.ToInt32(result);
+        }
+    }
+
+    private IActionResult? EnsureOmsuAccess(int requestedOmsuId)
+    {
+        if (IsAdmin())
+            return null;
+
+        var currentOmsuId = GetCurrentUserOmsuId();
+        if (!currentOmsuId.HasValue)
+            return Forbid();
+
+        if (currentOmsuId.Value != requestedOmsuId)
+            return Forbid();
+
+        return null;
+    }
+
     private readonly DatabaseController _db;
     private readonly string _connectionString;
     private readonly ILogger<AnswerController> _logger;
@@ -786,8 +831,12 @@ private string GetSafeString(dynamic obj, string propertyName)
 }
 
 [HttpGet("get_signing_data/{id}/{idOmsu}")]
+[Authorize]
 public IActionResult GetSigningData(int id, int idOmsu)
 {
+    var omsuAccessResult = EnsureOmsuAccess(idOmsu);
+    if (omsuAccessResult != null)
+        return omsuAccessResult;
     try
     {
         var data = $"Данные для подписи анкеты {id} организации {idOmsu}";
@@ -801,8 +850,12 @@ public IActionResult GetSigningData(int id, int idOmsu)
 }
 
 [HttpPost("csp/{id}/{idOmsu}")]
+[Authorize]
 public IActionResult CSP_answer([FromRoute] int id, [FromRoute] int idOmsu, [FromBody] CSPRequest request)
 {
+    var omsuAccessResult = EnsureOmsuAccess(idOmsu);
+    if (omsuAccessResult != null)
+        return omsuAccessResult;
     try
     {
 
@@ -1866,6 +1919,7 @@ private Survey GetSurveyInfo(int idSurvey)
     return survey;
 }
 
+[Authorize(Roles = "Админ")]
 public IActionResult open_statistic()
 {
     return View();
@@ -1874,8 +1928,12 @@ public IActionResult open_statistic()
 private readonly string _templatePath = @"wwwroot\docx\shablon_docx.docx";
 
 [HttpGet]
+[Authorize]
 public IActionResult create_otchet_for_me(int idSurvey, int idOmsu, string type)
 {
+    var omsuAccessResult = EnsureOmsuAccess(idOmsu);
+    if (omsuAccessResult != null)
+        return omsuAccessResult;
     string surveyName = "";
     List<string> criteriaList = new List<string>();
     int criteriaCount = 0;

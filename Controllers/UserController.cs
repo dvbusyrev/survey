@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
 using System.Data;
@@ -6,6 +7,7 @@ using NpgsqlTypes;
 using System.Security.Cryptography;
 using System.Text;
 
+[Authorize(Roles = "Админ")]
 public class UserController : Controller
 {
     private readonly DatabaseController _db;

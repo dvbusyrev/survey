@@ -1,12 +1,14 @@
 ﻿@model Survey
+@using System.Security.Claims
 @{
-    var userRole = Context.Session.GetString("name_role") ?? "";
-    var nameOmsu = Context.Session.GetString("name_omsu") ?? "";
-    var nameUser = Context.Session.GetString("name_user") ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
-        : userRole;
-    var userId = Context.Session.GetInt32("id_user") ?? 0;
+        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
+    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
     var questions = ViewBag.Questions as List<Dictionary<string, object>> ?? new List<Dictionary<string, object>>();
     var surveyId = ViewBag.Id;
     var omsuId = ViewBag.Omsu_id;

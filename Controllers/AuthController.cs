@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
 using System.Data;
 using Npgsql;
@@ -6,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
+using System.Security.Claims;
 
 //http://localhost:5161/create_otchet_kvartal
 
@@ -20,6 +23,28 @@ public class AuthController : Controller
 
     public IActionResult display_auth()
     {
+        if (User.Identity != null && User.Identity.IsAuthenticated)
+        {
+            var userRole = User.FindFirstValue(ClaimTypes.Role);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (userRole == "Админ")
+            {
+                return RedirectToAction("get_surveys", "Survey");
+            }
+            else if (userRole == "user" && !string.IsNullOrEmpty(userId))
+            {
+                Console.WriteLine("открываем вкладку польз");
+                return RedirectToAction("survey_list_user", "Survey", new { id = userId });
+            }
+            else
+            {
+                Console.WriteLine("Неизвестная роль пользователя.");
+                return Ok();
+            }
+        }
+
+        // Временная обратная совместимость со старой session-схемой
         if (HttpContext.Session.GetInt32("id_user").HasValue && !string.IsNullOrEmpty(HttpContext.Session.GetString("name_role")))
         {
             var userRole = HttpContext.Session.GetString("name_role");
@@ -40,28 +65,26 @@ public class AuthController : Controller
                 return Ok();
             }
         }
-        else
-        {
-            Console.WriteLine("Открытие начально страницы авторизации");
-            return View("Auth");
-        }
+
+        Console.WriteLine("Открытие начально страницы авторизации");
+        return View("Auth");
     }
 
-    public IActionResult logout_account()
+    public async Task<IActionResult> logout_account()
     {
         Console.WriteLine("=== Начало процесса выхода ===");
-        Console.WriteLine("Сессия удалена");
-        HttpContext.Session.Remove("id_user"); // Удаляем id_user
-        HttpContext.Session.Remove("name_role"); // Удаляем name_role
-        HttpContext.Session.Remove("name_omsu"); // Удаляем name_omsu
-        HttpContext.Session.Remove("name_user"); // Удаляем name_user
+        HttpContext.Session.Remove("id_user");
+        HttpContext.Session.Remove("name_role");
+        HttpContext.Session.Remove("name_omsu");
+        HttpContext.Session.Remove("name_user");
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         Console.WriteLine("=== Процесс выхода завершен ===");
 
         return RedirectToAction("display_auth");
     }
 
     [HttpPost]
-    public IActionResult login([FromBody] string[] data_user)
+    public async Task<IActionResult> login([FromBody] string[] data_user)
     {
         Console.WriteLine("=== Начало метода login ===");
         
@@ -130,10 +153,24 @@ public class AuthController : Controller
                             Console.WriteLine($"Пользователь: {nameUser}");
                             Console.WriteLine($"ОМСУ: {nameOmsu}");
 
+                            // Временная обратная совместимость со старой session-схемой
                             HttpContext.Session.SetInt32("id_user", idUser);
                             HttpContext.Session.SetString("name_role", nameRole);
                             HttpContext.Session.SetString("name_user", nameUser);
                             HttpContext.Session.SetString("name_omsu", nameOmsu);
+
+                            var claims = new List<Claim>
+                            {
+                                new Claim(ClaimTypes.NameIdentifier, idUser.ToString()),
+                                new Claim(ClaimTypes.Name, nameUser ?? string.Empty),
+                                new Claim(ClaimTypes.Role, nameRole ?? string.Empty),
+                                new Claim("omsu_name", nameOmsu ?? string.Empty)
+                            };
+
+                            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+                            var principal = new ClaimsPrincipal(identity);
+
+                            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
                             return Json(new { 
                                 role = nameRole,

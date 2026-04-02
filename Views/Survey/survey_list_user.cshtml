@@ -1,16 +1,19 @@
 ﻿@model Survey
+@using System.Security.Claims
 @{
     ViewData["Title"] = "Активные анкеты";
     int currentPage = ViewBag.CurrentPage ?? 1;
     int totalPages = ViewBag.TotalPages ?? 1;
     string searchTerm = ViewBag.SearchTerm ?? "";
-    var userRole = Context.Session.GetString("name_role") ?? "";
-    var nameOmsu = Context.Session.GetString("name_omsu") ?? "";
-    var nameUser = Context.Session.GetString("name_user") ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
-        : userRole;
-    var userId = Context.Session.GetInt32("id_user") ?? 0;
+        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
+    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+    var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
     int userOmsuId = ViewBag.UserOmsuId ?? 0;
     var accessibleSurveys = ViewBag.AccessibleSurveys as List<Survey> ?? new List<Survey>();
 }
@@ -28,7 +31,7 @@
     <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
 </head>
 <body>
-    @if (string.IsNullOrEmpty(userRole))
+    @if (!isAuthenticated)
     {
         <div class="access-denied" style="display: block;">
             <h2>Доступ запрещён</h2>

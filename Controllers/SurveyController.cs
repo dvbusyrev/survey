@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
 using main_project.Data;
@@ -47,8 +48,64 @@ using Text = DocumentFormat.OpenXml.Wordprocessing.Text;
 using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
 using Bold = DocumentFormat.OpenXml.Wordprocessing.Bold;
 using Break = DocumentFormat.OpenXml.Wordprocessing.Break;
+[Authorize]
 public class SurveyController : Controller
 {
+
+    private int? GetCurrentUserId()
+    {
+        return int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+    }
+
+    private bool IsAdmin()
+    {
+        return User.IsInRole("Админ");
+    }
+
+    private IActionResult? EnsureUserRouteAccess(int requestedUserId)
+    {
+        var currentUserId = GetCurrentUserId();
+
+        if (!currentUserId.HasValue)
+            return Challenge();
+
+        if (!IsAdmin() && currentUserId.Value != requestedUserId)
+            return Forbid();
+
+        return null;
+    }
+
+    private int? GetCurrentUserOmsuId()
+    {
+        var currentUserId = GetCurrentUserId();
+        if (!currentUserId.HasValue)
+            return null;
+
+        using (var connection = _db.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT id_omsu FROM public.users WHERE id_user = @userId";
+            command.Parameters.Add(new NpgsqlParameter("@userId", currentUserId.Value));
+            var result = command.ExecuteScalar();
+            return result == null || result == DBNull.Value ? null : Convert.ToInt32(result);
+        }
+    }
+
+    private IActionResult? EnsureOmsuAccess(int requestedOmsuId)
+    {
+        if (IsAdmin())
+            return null;
+
+        var currentOmsuId = GetCurrentUserOmsuId();
+        if (!currentOmsuId.HasValue)
+            return Forbid();
+
+        if (currentOmsuId.Value != requestedOmsuId)
+            return Forbid();
+
+        return null;
+    }
+
     private readonly DatabaseController _db;
     private readonly IConfiguration _configuration;
     private readonly ILogger<SurveyController> _logger;
@@ -70,6 +127,7 @@ public class SurveyController : Controller
     }
 
     [HttpGet("view_answer/{idSurvey}/{idOmsu}/{type}")]
+[Authorize(Roles = "Админ")]
 public IActionResult ViewAnswer(int idSurvey, int idOmsu, string type)
 {
     try
@@ -111,6 +169,7 @@ public IActionResult ViewAnswer(int idSurvey, int idOmsu, string type)
     }
 }
 
+ [Authorize(Roles = "Админ")]
  public IActionResult get_surveys()
 {
     Console.WriteLine("Айди из сессии:" + HttpContext.Session.GetInt32("id_user"));
@@ -174,12 +233,14 @@ public IActionResult ViewAnswer(int idSurvey, int idOmsu, string type)
 
 
 [HttpGet("add_survey")]
+[Authorize(Roles = "Админ")]
 public IActionResult add_survey()
 {
     return View();
 }
 
 [HttpGet("view_otchets")]
+[Authorize(Roles = "Админ")]
 public IActionResult view_otchets()
 {
     return View();
@@ -195,6 +256,7 @@ public class SurveyAddRequest
     public List<string> Criteria { get; set; }
 }
 
+[Authorize(Roles = "Админ")]
 [HttpPost("add_survey_bd")]
 [ValidateAntiForgeryToken]
 public async Task<IActionResult> add_survey_bd([FromBody] SurveyAddRequest request)
@@ -343,7 +405,8 @@ private async Task LogSurveyCreation(IDbConnection connection, int surveyId, str
 
 
 
- public IActionResult create_otchet_month(int id, int idOmsu, string type)
+ [Authorize]
+public IActionResult create_otchet_month(int id, int idOmsu, string type)
     {
         Console.WriteLine(id);
         string surveyName = "";
@@ -1353,6 +1416,7 @@ public class SurveyCopyRequest
 
 
 [HttpPost]
+[Authorize(Roles = "Админ")]
 public IActionResult delete_survey([FromBody] DeleteSurveyRequest request)
 {
     if (request == null || request.surveyId <= 0)
@@ -1611,9 +1675,14 @@ public class DeleteSurveyRequest
     public int surveyId { get; set; }
 }
 
+[Authorize]
 [HttpGet("survey_list_user/{id}")]
 public IActionResult survey_list_user(int id, int? page, string searchTerm)
 {
+    var accessResult = EnsureUserRouteAccess(id);
+    if (accessResult != null)
+        return accessResult;
+
     try
     {
         _logger.LogInformation($"Запрос активных анкет. UserId: {id}, Page: {page}, Search: '{searchTerm}'");
@@ -1950,6 +2019,7 @@ public IActionResult copy_survey(int id)
 
 
 
+[Authorize]
 [HttpGet("get_list_archive/{id}")]
 public IActionResult GetListArchive(
     int id, 
@@ -1959,6 +2029,10 @@ public IActionResult GetListArchive(
     bool signedOnly = false,
     bool countOnly = false)
 {
+    var accessResult = EnsureUserRouteAccess(id);
+    if (accessResult != null)
+        return accessResult;
+
     try
     {
         _logger.LogInformation($"Запрос архивных анкет. UserId: {id}, CountOnly: {countOnly}");
@@ -2199,6 +2273,7 @@ OFFSET @offset LIMIT @pageSize";
     }
 }
 
+[Authorize(Roles = "Админ")]
 public IActionResult archiv_surveys()
 {
     List<HistorySurvey> archivedSurveys = new List<HistorySurvey>();
@@ -2242,8 +2317,13 @@ public IActionResult archiv_surveys()
     return View(archivedSurveys);
 }
 
+[Authorize]
 public IActionResult zapolnenie_anketi(int id, int omsuId)
 {
+    var omsuAccessResult = EnsureOmsuAccess(omsuId);
+    if (omsuAccessResult != null)
+        return omsuAccessResult;
+
     List<Dictionary<string, object>> questions = new List<Dictionary<string, object>>();
     string? questionsJson = null;
     bool isHistorySurvey = false;
@@ -2319,6 +2399,7 @@ public IActionResult zapolnenie_anketi(int id, int omsuId)
 
     return Json(new { questions });
 }
+[Authorize(Roles = "Админ")]
 public IActionResult create_otchet_kvartal(int kvartal, int year)
 {
 
@@ -2697,6 +2778,7 @@ public class SurveyUpdateModel
     public List<string> Criteria { get; set; } = new List<string>();
 }
 
+[Authorize(Roles = "Админ")]
 [HttpPost("/copy_archive_survey")]
 public async Task<IActionResult> copy_archive_survey()
 {

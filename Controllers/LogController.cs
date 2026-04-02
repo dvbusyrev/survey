@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
 using Newtonsoft.Json.Linq;
@@ -6,6 +7,7 @@ using System.Text;
 using Npgsql;
 
 
+[Authorize(Roles = "Админ")]
 public class LogController : Controller
 {
     private readonly DatabaseController _db;

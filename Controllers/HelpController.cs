@@ -1,9 +1,11 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
 using System.IO;
 using System.Text;
 
+[Authorize]
 public class HelpController : Controller
 {
     string docxFilePath = "";
@@ -99,6 +101,7 @@ public class HelpController : Controller
     return View();
 }
 
+[Authorize(Roles = "Админ")]
 [HttpPost]
     public async Task<IActionResult> upload_instruction(IFormFile file, string role)
     {

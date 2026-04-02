@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Net;
 using System.Net.Mail;
@@ -7,6 +8,7 @@ using main_project.Models;
 
 namespace main_project.Controllers
 {
+    [Authorize(Roles = "Админ")]
     public class EmailController : Controller
     {
 

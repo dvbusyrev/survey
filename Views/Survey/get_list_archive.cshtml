@@ -1,3 +1,4 @@
+﻿@using System.Security.Claims
 @model Survey
 @{
     ViewData["Title"] = "Список анкет";
@@ -14,7 +15,11 @@
     <title>@ViewData["Title"]</title>
 </head>
 <body>
-    <div class="content" id="content_user" value="@Context.Session.GetInt32("id_user")">
+    @{
+    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var currentUserId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+}
+    <div class="content" id="content_user" value="@currentUserId">
                 <div class="note">
             <h2>Список пройденных анкет</h2>
             <p>Ниже вы можете ознакомиться с пройденными вами анкетами</p>
