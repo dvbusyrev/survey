@@ -50,6 +50,61 @@
     animation: spin 0.8s linear infinite;
     margin-right: 8px;
 }
+
+.password-eye-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.password-eye-wrap input[type="password"],
+.password-eye-wrap input[type="text"] {
+    padding-right: 44px !important;
+}
+
+.password-eye-btn {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-eye-btn:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.05);
+}
+
+.password-eye-btn:focus {
+    outline: none;
+}
+
+.password-eye-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: #6b7280;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.password-eye-btn.is-visible .eye-open {
+    display: none;
+}
+
+.password-eye-btn:not(.is-visible) .eye-closed {
+    display: none;
+}
         </style>
     </head>
     <body>
@@ -61,6 +116,50 @@ var newPage = "";
 
  const { useState, useEffect, useRef } = React;
     const { Header, Footer, Navigation } = window;
+
+    function createPasswordEyeSvg(isVisible) {
+        if (isVisible) {
+            return `
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 3l18 18"></path>
+                    <path d="M10.6 10.7a3 3 0 0 0 4 4"></path>
+                    <path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path>
+                    <path d="M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3"></path>
+                </svg>
+            `;
+        }
+
+        return `
+            <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+        `;
+    }
+
+    function initPasswordToggles(root = document) {
+        const scope = root && root.querySelectorAll ? root : document;
+        scope.querySelectorAll('.password-toggle-btn').forEach((btn) => {
+            if (btn.dataset.eyeInit === 'true') return;
+
+            const targetId = btn.getAttribute('data-target');
+            const input = targetId ? document.getElementById(targetId) : null;
+            if (!input) return;
+
+            btn.innerHTML = createPasswordEyeSvg(input.type === 'text');
+            btn.dataset.eyeInit = 'true';
+
+            btn.addEventListener('click', function () {
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.innerHTML = createPasswordEyeSvg(show);
+                btn.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
+                btn.setAttribute('title', show ? 'Скрыть пароль' : 'Показать пароль');
+            });
+        });
+    }
+
+    window.initPasswordToggles = initPasswordToggles;
 
     const App = () => {
         // Константы должны быть объявлены внутри компонента
@@ -103,6 +202,16 @@ var newPage = "";
 useEffect(() => {
   window.handleTabClick = handleTabClick;
 }, [handleTabClick]);
+
+useEffect(() => {
+  const timer = setTimeout(() => {
+    if (window.initPasswordToggles) {
+      window.initPasswordToggles(document);
+    }
+  }, 0);
+
+  return () => clearTimeout(timer);
+}, [content]);
 
         useEffect(() => {
             if (loading) {
@@ -3382,6 +3491,72 @@ function onYearChange(kvartal, select) {
 
             const root = ReactDOM.createRoot(document.getElementById('root'));
             root.render(<App />);
+
+            function addPasswordEye(input) {
+    if (!input || input.dataset.eyeApplied === 'true') return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'password-eye-wrap';
+
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'password-eye-btn';
+    btn.setAttribute('aria-label', 'Показать пароль');
+    btn.innerHTML = `
+        <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 3l18 18"></path>
+            <path d="M10.6 10.7a3 3 0 0 0 4 4"></path>
+            <path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path>
+            <path d="M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3"></path>
+        </svg>
+    `;
+
+    btn.addEventListener('click', function () {
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        btn.classList.toggle('is-visible', isPassword);
+        btn.setAttribute('aria-label', isPassword ? 'Скрыть пароль' : 'Показать пароль');
+    });
+
+    wrapper.appendChild(btn);
+    input.dataset.eyeApplied = 'true';
+}
+
+function initUserModalPasswordEyes() {
+    const passwordFields = document.querySelectorAll(
+        '#addUserModal input[type="password"], #editUserModal input[type="password"], input[name="password"]'
+    );
+    passwordFields.forEach(addPasswordEye);
+}
+
+// вызвать после открытия модалок
+const _originalOpenAddUserModal = window.openAddUserModal;
+if (typeof _originalOpenAddUserModal === 'function') {
+    window.openAddUserModal = function (...args) {
+        const result = _originalOpenAddUserModal.apply(this, args);
+        setTimeout(initUserModalPasswordEyes, 0);
+        return result;
+    };
+}
+
+const _originalOpenEditUserModal = window.openEditUserModal;
+if (typeof _originalOpenEditUserModal === 'function') {
+    window.openEditUserModal = function (...args) {
+        const result = _originalOpenEditUserModal.apply(this, args);
+        setTimeout(initUserModalPasswordEyes, 0);
+        return result;
+    };
+}
+
+// на случай, если поля уже есть на странице
+setTimeout(initUserModalPasswordEyes, 0);
         </script>
     </body>
     </html>

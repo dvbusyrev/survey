@@ -204,6 +204,55 @@ background:
     transform: translateY(-2px);
         }
 
+
+        .input-container.has-toggle {
+            position: relative;
+        }
+
+        .input-container.has-toggle .form-input {
+            padding-right: 3rem;
+        }
+
+        .password-toggle-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            cursor: pointer;
+            opacity: 0.85;
+            transition: color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+            z-index: 2;
+        }
+
+        .password-toggle-btn:hover {
+            color: #667eea;
+            opacity: 1;
+            transform: translateY(-50%) scale(1.05);
+        }
+
+        .password-toggle-btn:focus {
+            outline: none;
+        }
+
+        .password-toggle-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
         @@keyframes buttonShine {
             0% {
                 transform: translateX(-100%);
@@ -316,12 +365,29 @@ background:
             );
         };
 
+        const EyeIcon = ({ visible }) => (
+            visible ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 3l18 18"></path>
+                    <path d="M10.6 10.7a3 3 0 0 0 4 4"></path>
+                    <path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path>
+                    <path d="M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3"></path>
+                </svg>
+            ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            )
+        );
+
         const LoginForm = () => {
             const [formData, setFormData] = React.useState({
                 username: '',
                 password: '',
                 rememberMe: false
             });
+            const [showPassword, setShowPassword] = React.useState(false);
             const [modal, setModal] = React.useState({
                 isOpen: false,
                 title: '',
@@ -437,12 +503,12 @@ background:
                                 <label className="form-label" htmlFor="password">
                                     Пароль
                                 </label>
-                                <div className="input-container">
+                                <div className="input-container has-toggle">
                                     <div className="icon-container">
                                         <i className="fas fa-lock"></i>
                                     </div>
                                     <input
-                                        type="password"
+                                        type={showPassword ? "text" : "password"}
                                         className="form-input"
                                         id="password"
                                         name="password"
@@ -451,6 +517,15 @@ background:
                                         required
                                         placeholder="Введите пароль.."
                                     />
+                                    <button
+                                        type="button"
+                                        className="password-toggle-btn"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                                        title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                                    >
+                                        <EyeIcon visible={showPassword} />
+                                    </button>
                                 </div>
                             </div>
 
