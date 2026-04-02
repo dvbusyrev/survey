@@ -6,6 +6,36 @@
         : ['active', 'archived', 'answers_tab', 'archiv_surveys_for_user'].includes(activeTab);
 
     const navigate = (tab) => {
+        if (tab === 'add_user') {
+            const tryOpenAddUserModal = () => {
+                if (typeof window.openAddUserModal === 'function' && document.getElementById('addUserModal')) {
+                    window.openAddUserModal();
+                    return true;
+                }
+                return false;
+            };
+
+            if (tryOpenAddUserModal()) {
+                return;
+            }
+
+            if (typeof openVkladka === 'function') {
+                openVkladka('get_users');
+
+                let attempts = 0;
+                const timer = window.setInterval(() => {
+                    attempts += 1;
+                    if (tryOpenAddUserModal() || attempts >= 30) {
+                        window.clearInterval(timer);
+                    }
+                }, 200);
+                return;
+            }
+
+            window.location.href = '/User/get_users';
+            return;
+        }
+
         if (typeof openVkladka === 'function') {
             openVkladka(tab);
             return;
