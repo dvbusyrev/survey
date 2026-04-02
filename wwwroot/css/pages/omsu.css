@@ -1,49 +1,12 @@
-.omsu-page__note {
-    margin-bottom: 16px;
+.omsu-page .note,
+#default_content .note {
+  box-sizing: border-box;
 }
 
-.omsu-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
+#editOmsuModal .modal-content {
+  max-width: 640px;
 }
 
-.omsu-toolbar__archive-link {
-    cursor: pointer;
-    margin: 0;
-}
-
-.omsu-form {
-    max-width: 720px;
-}
-
-.omsu-form__row {
-    display: flex;
-    gap: 16px;
-}
-
-.omsu-form__row .form-group {
-    flex: 1 1 0;
-}
-
-.omsu-form__actions {
-    margin-top: 20px;
-}
-
-.omsu-form__message {
-    margin-top: 16px;
-}
-
-.omsu-table td,
-.omsu-table th {
-    vertical-align: middle;
-}
-
-@media (max-width: 768px) {
-    .omsu-form__row {
-        flex-direction: column;
-        gap: 0;
-    }
+#editOmsuModal .form-group {
+  margin-bottom: 12px;
 }

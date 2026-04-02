@@ -1,15 +1,93 @@
-@model IEnumerable<main_project.Models.OMSU>
-@{
-    var omsus = Model ?? (ViewBag.Omsus as IEnumerable<main_project.Models.OMSU>) ?? Enumerable.Empty<main_project.Models.OMSU>();
-}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - main_project</title>
+</head>
+<body>
 
-<div class="content omsu-page omsu-page--archive" id="default_content" data-page="omsu-archive">
-    <p class="back-button omsu-page__back" onclick="handleTabClick('get_omsu')">← Вернуться к списку организаций</p>
+<div class="content" id="default_content">
 
-    <div class="note omsu-page__note">
+<p class="back-button" onClick="handleTabClick('get_omsu')">← Вернуться на страницу списка анкет</p>
+
+    <div class="note">
         <h2>Список архивных организаций</h2>
         <p>Ниже представлена таблица с архивными организациями</p>
     </div>
 
-    @await Html.PartialAsync("Partials/_ArchiveOmsuTable", omsus)
+
+    <table id="data_table">
+        <thead>
+          <tr class='table_tr'>
+              <th style="border-radius: 16px 0 0 0">Название организации</th>
+              <th>Дата начала</th>
+              <th>Дата окончания</th>
+              <th>Email</th>
+          </tr>
+      </thead>
+      <tbody id="userTableBody">
+@if (ViewBag.Omsus != null)
+{
+    var omsus = ViewBag.Omsus as IEnumerable<main_project.Models.OMSU>;
+    var count = omsus?.Count() ?? 0;
+
+    @if (@count == 0){
+    <tr>
+        <td colspan="6" style='color:red'>Результаты не найдены!</td>
+    </tr>}
+    else
+    {
+        foreach (var omsu in ViewBag.Omsus)
+        {
+            <tr>
+                <td>@omsu.name_omsu</td>
+                <td>@(omsu.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
+                <td>@(omsu.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
+                <td>@omsu.email</td>
+            </tr>
+        }
+    }
+}
+      </tbody>
+    </table>
 </div>
+
+<!-- Модальное окно редактирования организации -->
+<div id="editOmsuModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="h2_modal">Редактирование организации</h2>
+        </div>
+        <span class="modal-close" onclick="document.getElementById('editOmsuModal').style.display='none'">&times;</span>
+        <div class="modal-body">
+            <input type="hidden" id="editOmsuId">
+            <div class="form-group">
+                <label>Название организации:</label>
+                <input type="text" id="omsuName" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="omsuEmail" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Дата начала:</label>
+                <input type="date" id="omsuDateBegin" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Дата окончания:</label>
+                <input type="date" id="omsuDateEnd" class="form-control">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="saveOmsuBtn" onclick="updateOmsu()" class="modal_btn modal_btn-primary">Сохранить</button>
+            <button onclick="document.getElementById('editOmsuModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+</script>
+
+</body>
+</html>
