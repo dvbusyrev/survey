@@ -331,7 +331,6 @@ body {
   background: 
     linear-gradient(135deg, #b7c4f8 0%, #c8b0dd 100%),
     radial-gradient(circle at 10% 20%, rgba(255,255,255,0.8) 0%, transparent 25%);
-  padding: 20px;
   color: #4a5568; /* Цвет текста */
 }
 
@@ -1341,7 +1340,7 @@ nav ul li:hover .submenu-list {
 /* Стили для основного контента - без изменений */
 #content_admin {
   width: 80%;
-  margin-left: 240px;
+  margin: 21px 50px 28px 258px;
   padding: 3rem;
   flex: 1;
   background: rgba(255, 255, 255, 0.95);
@@ -1825,13 +1824,10 @@ footer {
   color: white;
   text-align: center;
   padding: 20px;
-  position: fixed;
-  bottom: 0;
   width: 100%;
   z-index: 1000;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
   margin-top: auto;
-  margin-left: -20px;
 }
 .note {
     margin-bottom: 20px; /* Отступ снизу */
