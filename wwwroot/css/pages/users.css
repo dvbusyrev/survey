@@ -1,0 +1,26 @@
+.users-page__note {
+    margin-bottom: 16px;
+}
+
+.users-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.users-toolbar__archive-link {
+    cursor: pointer;
+    margin: 0;
+}
+
+.users-table td,
+.users-table th {
+    vertical-align: middle;
+}
+
+.users-page .success-message,
+.users-page .error-message {
+    margin-bottom: 12px;
+}
