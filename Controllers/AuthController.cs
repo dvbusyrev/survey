@@ -1,13 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
-using System.Data;
 using Npgsql;
 using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
-using System.Text;
+using System.Data;
 using System.Security.Claims;
 
 //http://localhost:5161/create_otchet_kvartal
@@ -15,6 +14,7 @@ using System.Security.Claims;
 public class AuthController : Controller
 {
     private readonly DatabaseController _db;
+    private static readonly PasswordHasher<string> _passwordHasher = new();
 
     public AuthController(DatabaseController db)
     {
@@ -34,180 +34,84 @@ public class AuthController : Controller
             }
             else if (userRole == "user" && !string.IsNullOrEmpty(userId))
             {
-                Console.WriteLine("открываем вкладку польз");
                 return RedirectToAction("survey_list_user", "Survey", new { id = userId });
-            }
-            else
-            {
-                Console.WriteLine("Неизвестная роль пользователя.");
-                return Ok();
             }
         }
 
-        // Временная обратная совместимость со старой session-схемой
-        if (HttpContext.Session.GetInt32("id_user").HasValue && !string.IsNullOrEmpty(HttpContext.Session.GetString("name_role")))
-        {
-            var userRole = HttpContext.Session.GetString("name_role");
-
-            if (userRole == "Админ")
-            {
-                return RedirectToAction("get_surveys", "Survey");
-            }
-            else if (userRole == "user")
-            {
-                var userId = HttpContext.Session.GetInt32("id_user");
-                Console.WriteLine("открываем вкладку польз");
-                return RedirectToAction("survey_list_user", "Survey", new { id = userId });
-            }
-            else
-            {
-                Console.WriteLine("Неизвестная роль пользователя.");
-                return Ok();
-            }
-        }
-
-        Console.WriteLine("Открытие начально страницы авторизации");
         return View("Auth");
     }
 
     public async Task<IActionResult> logout_account()
     {
-        Console.WriteLine("=== Начало процесса выхода ===");
-        HttpContext.Session.Remove("id_user");
-        HttpContext.Session.Remove("name_role");
-        HttpContext.Session.Remove("name_omsu");
-        HttpContext.Session.Remove("name_user");
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        Console.WriteLine("=== Процесс выхода завершен ===");
-
         return RedirectToAction("display_auth");
     }
 
     [HttpPost]
     public async Task<IActionResult> login([FromBody] string[] data_user)
     {
-        Console.WriteLine("=== Начало метода login ===");
-        
-        if (data_user == null)
-        {
-            Console.WriteLine("Ошибка: data_user is null");
+        if (data_user == null || data_user.Length != 2)
             return StatusCode(400, "Неверный формат данных");
-        }
-
-        Console.WriteLine($"Получены данные: длина массива = {data_user.Length}");
-        
-        if (data_user.Length != 2)
-        {
-            Console.WriteLine($"Ошибка: Неверная длина массива: {data_user.Length}");
-            return StatusCode(400, "Неверный формат данных");
-        }
 
         string username = data_user[0];
         string password = data_user[1];
 
-        Console.WriteLine($"Получены данные - username: {username}, password length: {password?.Length ?? 0}");
-
-        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-        {
-            Console.WriteLine("Ошибка: Пустые данные авторизации");
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return StatusCode(400, "Имя пользователя и пароль не могут быть пустыми");
-        }
 
-        string hashedPassword = HashPassword(password);
-        Console.WriteLine($"=== Данные для авторизации ===");
-        Console.WriteLine($"Пользователь: {username}");
-        Console.WriteLine($"Хеш пароля: {hashedPassword}");
+        using var connection = _db.CreateConnection();
 
-        using (var connection = _db.CreateConnection())
+        try
         {
-            try
+            if (connection.State != ConnectionState.Open)
+                connection.Open();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = @"SELECT u.id_user, u.name_role, u.name_user, COALESCE(o.name_omsu, '') AS name_omsu, u.hash_password
+                                    FROM public.users u
+                                    LEFT JOIN public.omsu o ON u.id_omsu = o.id_omsu
+                                    WHERE u.name_user = @username";
+            command.Parameters.Add(new NpgsqlParameter("@username", NpgsqlTypes.NpgsqlDbType.Text) { Value = username });
+
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+                return StatusCode(401, "Неверное имя пользователя или пароль");
+
+            int idUser = reader.GetInt32(0);
+            string nameRole = reader.GetString(1);
+            string nameUser = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+            string nameOmsu = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+            string storedHash = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
+
+            var verify = _passwordHasher.VerifyHashedPassword(username, storedHash, password);
+            if (verify == PasswordVerificationResult.Failed)
+                return StatusCode(401, "Неверное имя пользователя или пароль");
+
+            var claims = new List<Claim>
             {
-                Console.WriteLine("Попытка подключения к БД");
-                if (connection.State != ConnectionState.Open)
-                {
-                    connection.Open();
-                    Console.WriteLine("Подключение к БД успешно");
-                }
+                new Claim(ClaimTypes.NameIdentifier, idUser.ToString()),
+                new Claim(ClaimTypes.Name, nameUser ?? string.Empty),
+                new Claim(ClaimTypes.Role, nameRole ?? string.Empty),
+                new Claim("omsu_name", nameOmsu ?? string.Empty)
+            };
 
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText = @"SELECT u.id_user, u.name_role, u.name_user, COALESCE(o.name_omsu, '') AS name_omsu
-                                            FROM public.users u
-                                            LEFT JOIN public.omsu o ON u.id_omsu = o.id_omsu
-                                            WHERE u.name_user = @username AND u.hash_password = @password";
-                    command.Parameters.Add(new NpgsqlParameter("@username", NpgsqlTypes.NpgsqlDbType.Text) { Value = username });
-                    command.Parameters.Add(new NpgsqlParameter("@password", NpgsqlTypes.NpgsqlDbType.Text) { Value = hashedPassword });
-                    Console.WriteLine($"Выполняется запрос для пользователя: {username}");
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
 
-                    using (var reader = command.ExecuteReader())
-                    {
-                        if (reader.Read())
-                        {
-                            int idUser = reader.GetInt32(0);
-                            string nameRole = reader.GetString(1);
-                            string nameUser = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
-                            string nameOmsu = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
-                            Console.WriteLine($"=== Успешная авторизация ===");
-                            Console.WriteLine($"ID пользователя: {idUser}");
-                            Console.WriteLine($"Роль: {nameRole}");
-                            Console.WriteLine($"Пользователь: {nameUser}");
-                            Console.WriteLine($"ОМСУ: {nameOmsu}");
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 
-                            // Временная обратная совместимость со старой session-схемой
-                            HttpContext.Session.SetInt32("id_user", idUser);
-                            HttpContext.Session.SetString("name_role", nameRole);
-                            HttpContext.Session.SetString("name_user", nameUser);
-                            HttpContext.Session.SetString("name_omsu", nameOmsu);
-
-                            var claims = new List<Claim>
-                            {
-                                new Claim(ClaimTypes.NameIdentifier, idUser.ToString()),
-                                new Claim(ClaimTypes.Name, nameUser ?? string.Empty),
-                                new Claim(ClaimTypes.Role, nameRole ?? string.Empty),
-                                new Claim("omsu_name", nameOmsu ?? string.Empty)
-                            };
-
-                            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-                            var principal = new ClaimsPrincipal(identity);
-
-                            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-
-                            return Json(new { 
-                                role = nameRole,
-                                userId = idUser,
-                                nameUser = nameUser,
-                                nameOmsu = nameOmsu
-                            });
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Пользователь не найден в БД: {username}");
-                            return StatusCode(401, "Неверное имя пользователя или пароль");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
+            return Json(new
             {
-                Console.WriteLine($"=== ОШИБКА ПРИ АВТОРИЗАЦИИ ===");
-                Console.WriteLine($"Тип ошибки: {ex.GetType().Name}");
-                Console.WriteLine($"Сообщение: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return StatusCode(500, "Ошибка сервера при попытке авторизации");
-            }
+                role = nameRole,
+                userId = idUser,
+                nameUser,
+                nameOmsu
+            });
+        }
+        catch
+        {
+            return StatusCode(500, "Ошибка сервера при попытке авторизации");
         }
     }
 
-    private string HashPassword(string password)
-    {
-        Console.WriteLine("=== Начало хеширования пароля ===");
-        using (SHA512 sha512 = SHA512.Create())
-        {
-            byte[] bytes = Encoding.UTF8.GetBytes(password);
-            byte[] hash = sha512.ComputeHash(bytes);
-            string result = Convert.ToBase64String(hash);
-            Console.WriteLine($"Хеш пароля создан: {result}");
-            return result;
-        }
-    }
-} 
+}

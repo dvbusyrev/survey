@@ -1,16 +1,15 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Models;
-using System.Data;
 using Npgsql;
 using NpgsqlTypes;
-using System.Security.Cryptography;
+using System.Data;
 using System.Text;
 
-[Authorize(Roles = "Админ")]
 public class UserController : Controller
 {
     private readonly DatabaseController _db;
+    private static readonly PasswordHasher<string> _passwordHasher = new();
 
     public UserController(DatabaseController db)
     {
@@ -182,7 +181,7 @@ public IActionResult add_user_bd([FromBody] Dictionary<string, string> formData)
         Console.WriteLine($"Обработанные данные: {username}, {password}, {fullName}, {email}");
 
 
-             string hashedPassword = HashPassword(password);
+             string hashedPassword = _passwordHasher.HashPassword(username, password);
 
         using (var connection = _db.CreateConnection())
         {
@@ -265,7 +264,7 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
                 if (formData.ContainsKey("password") && formData["password"] != "keep_original")
                 {
                     query.Append("hash_password = @password, ");
-                    parameters.Add(new NpgsqlParameter("@password", HashPassword(formData["password"])));
+                    parameters.Add(new NpgsqlParameter("@password", _passwordHasher.HashPassword(formData["username"], formData["password"])));
                 }
 
                 // Даты
@@ -391,16 +390,6 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                     return View("Error", new ErrorViewModel { Message = $"Ошибка при получении пользователей: {ex.Message}" });
                 }
             }
-        }
-    }
-
-        private string HashPassword(string password)
-    {
-        using (SHA512 sha512 = SHA512.Create())
-        {
-            byte[] bytes = Encoding.UTF8.GetBytes(password);
-            byte[] hash = sha512.ComputeHash(bytes);
-            return Convert.ToBase64String(hash);
         }
     }
 }
