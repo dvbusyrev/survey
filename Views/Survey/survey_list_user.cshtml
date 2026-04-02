@@ -29,6 +29,7 @@
     <link rel="stylesheet" href="~/css/components.css" />
     <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
 </head>
 <body>
     @if (!isAuthenticated)
@@ -52,122 +53,7 @@
         <script src="~/js/components/Navigation.js"></script>
         <script src="~/js/components/Footer.js"></script>
 
-<script>
-window.populateMonthOptions = function() {
-  const select = document.getElementById('filterOrganization');
-
-  const cards = document.querySelectorAll('.survey-card');
-  const months = new Set();
-
-  cards.forEach(card => {
-    const dateElement = card.querySelector('.dates');
-    const dateText = dateElement.textContent.trim();
-    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    const month = match[2];
-    months.add(month);
-  });
-
-
-  const currentValue = select.value;
-  select.innerHTML = '<option value="">За все месяцы</option>';
-  Array.from(months).sort().forEach(month => {
-    const option = document.createElement('option');
-    option.value = month;
-    option.textContent = getMonthName(month);
-    select.appendChild(option);
-  });
-  select.value = currentValue;
-};
-
-window.populateYearOptions = function() {
-  console.info("[INFO] Запуск populateYearOptions");
-  const select = document.getElementById('filterSurvey');
-
-  const cards = document.querySelectorAll('.survey-card');
-  const years = new Set();
-
-  cards.forEach(card => {
-    const dateElement = card.querySelector('.dates');
-    const dateText = dateElement.textContent.trim();
-    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    const year = match[3];
-    years.add(year);
-  });
-
-  const currentValue = select.value;
-  select.innerHTML = '<option value="">По всем годам</option>';
-  Array.from(years).sort().forEach(year => {
-    const option = document.createElement('option');
-    option.value = year;
-    option.textContent = year;
-    select.appendChild(option);
-  });
-  select.value = currentValue;
-
-};
-
-window.filterByDate = function() {
-  const monthSelect = document.getElementById('filterOrganization');
-  const yearSelect = document.getElementById('filterSurvey');
-
-  const month = monthSelect.value;
-  const year = yearSelect.value;
-
-  const cards = document.querySelectorAll('.survey-card');
-  let visibleCount = 0;
-
-  cards.forEach(card => {
-    const dateElement = card.querySelector('.dates');
-    if (!dateElement) {
-      card.style.display = 'none';
-      return;
-    }
-    const dateText = dateElement.textContent.trim();
-    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    if (!match) {
-      card.style.display = 'none';
-      return;
-    }
-    const rowDay = match[1];
-    const rowMonth = match[2];
-    const rowYear = match[3];
-
-    const matchMonth = !month || rowMonth === month;
-    const matchYear = !year || rowYear === year;
-
-    if (matchMonth && matchYear) {
-      card.style.display = '';
-      visibleCount++;
-    } else {
-      card.style.display = 'none';
-    }
-  });
-
-  const noSurveysElement = document.querySelector('.no-surveys');
-  if (noSurveysElement) {
-    noSurveysElement.style.display = visibleCount === 0 ? '' : 'none';
-  }
-
-};
-
-function getMonthName(monthNum) {
-  const months = {
-    '01': 'Январь', '02': 'Февраль', '03': 'Март', '04': 'Апрель',
-    '05': 'Май', '06': 'Июнь', '07': 'Июль', '08': 'Август',
-    '09': 'Сентябрь', '10': 'Октябрь', '11': 'Ноябрь', '12': 'Декабрь'
-  };
-  return months[monthNum] || monthNum;
-}
-
-// Автоматический вызов при загрузке страницы (если нужно)
-window.onload = function() {
-  window.populateMonthOptions();
-  window.populateYearOptions();
-  window.filterByDate();
-};
-
-
-</script>
+        <script src="~/js/pages/survey-user-bridge.js" asp-append-version="true"></script>
 
 
         <script type="text/babel">
