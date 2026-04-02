@@ -1,0 +1,31 @@
+<div id="editOmsuModal" class="modal omsu-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="h2_modal">Редактирование организации</h2>
+        </div>
+        <span class="modal-close" onclick="closeOmsuModal('editOmsuModal')">&times;</span>
+        <div class="modal-body">
+            <input type="hidden" id="editOmsuId">
+            <div class="form-group">
+                <label>Название организации:</label>
+                <input type="text" id="omsuName" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="omsuEmail" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Дата начала:</label>
+                <input type="date" id="omsuDateBegin" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Дата окончания:</label>
+                <input type="date" id="omsuDateEnd" class="form-control">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="saveOmsuBtn" onclick="updateOmsu()" class="modal_btn modal_btn-primary">Сохранить</button>
+            <button onclick="closeOmsuModal('editOmsuModal')" class="modal_btn modal_btn-secondary">Отмена</button>
+        </div>
+    </div>
+</div>

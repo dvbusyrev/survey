@@ -1,0 +1,32 @@
+@model IEnumerable<main_project.Models.OMSU>
+
+<table id="data_table" class="omsu-table omsu-table--archive">
+    <thead>
+        <tr class='table_tr'>
+            <th style="border-radius: 16px 0 0 0">Название организации</th>
+            <th>Дата начала</th>
+            <th>Дата окончания</th>
+            <th style="border-radius: 0 16px 0 0">Email</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model == null || !Model.Any())
+        {
+            <tr>
+                <td colspan="4" style='color:red'>Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var omsu in Model)
+            {
+                <tr>
+                    <td>@omsu.name_omsu</td>
+                    <td>@(omsu.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(omsu.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@omsu.email</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

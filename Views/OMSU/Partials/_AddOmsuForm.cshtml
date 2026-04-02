@@ -1,0 +1,31 @@
+<form id="organizationForm" class="omsu-form">
+    @Html.AntiForgeryToken()
+
+    <div class="form-group">
+        <label for="Name">Название организации</label>
+        <input type="text" class="form-control" id="Name" required>
+    </div>
+
+    <div class="form-group">
+        <label for="omsu_email">Email организации</label>
+        <input type="text" class="form-control" id="omsu_email" required>
+    </div>
+
+    <div class="omsu-form__row">
+        <div class="form-group">
+            <label for="DateBegin">Дата начала</label>
+            <input type="date" class="form-control" id="DateBegin" required>
+        </div>
+
+        <div class="form-group">
+            <label for="DateEnd">Дата окончания</label>
+            <input type="date" class="form-control" id="DateEnd" required>
+        </div>
+    </div>
+
+    <div class="button-container omsu-form__actions">
+        <button type="button" class="btn btn-primary" onclick="add_omsu_bd()">Добавить</button>
+    </div>
+
+    <div id="message" class="omsu-form__message" style="display:none;"></div>
+</form>

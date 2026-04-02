@@ -1,0 +1,36 @@
+@model List<main_project.Models.User>
+
+<table id="data_table" class="users-table users-table--archive">
+    <thead>
+        <tr class="table_tr">
+            <th style="border-radius: 16px 0 0 0">ФИО пользователя</th>
+            <th>Имя пользователя</th>
+            <th>Организация</th>
+            <th>Роль</th>
+            <th>Дата начала</th>
+            <th style="border-radius: 0 16px 0 0">Дата окончания</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model == null || !Model.Any())
+        {
+            <tr>
+                <td colspan="6" style="color:red">Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var user in Model)
+            {
+                <tr>
+                    <td>@(string.IsNullOrWhiteSpace(user.full_name) ? "Не указано" : user.full_name)</td>
+                    <td>@user.name_user</td>
+                    <td>@(string.IsNullOrWhiteSpace(user.name_omsu) ? "Не указано" : user.name_omsu)</td>
+                    <td>@user.name_role</td>
+                    <td>@(user.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(user.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

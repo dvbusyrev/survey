@@ -1,0 +1,54 @@
+@model IEnumerable<main_project.Models.OMSU>
+
+<table id="data_table" class="omsu-table">
+    <thead>
+        <tr class='table_tr'>
+            <th style="border-radius: 16px 0 0 0">Название организации</th>
+            <th>Дата начала</th>
+            <th>Дата окончания</th>
+            <th>Доступные анкеты</th>
+            <th>Email</th>
+            <th style="border-radius: 0 16px 0 0">Действия</th>
+        </tr>
+    </thead>
+    <tbody id="omsuTableBody">
+        @if (Model == null || !Model.Any())
+        {
+            <tr>
+                <td colspan="6" style='color:red'>Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var omsu in Model)
+            {
+                var encodedName = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(omsu.name_omsu ?? "");
+                var encodedEmail = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(omsu.email ?? "");
+                <tr>
+                    <td>@omsu.name_omsu</td>
+                    <td>@(omsu.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(omsu.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
+                    @if (omsu.list_surveys == "Не указано")
+                    {
+                        <td style="color:red">@omsu.list_surveys</td>
+                    }
+                    else
+                    {
+                        <td>@omsu.list_surveys</td>
+                    }
+                    <td>@omsu.email</td>
+                    <td class="action-icons">
+                        <div class="icon-container" onclick="openEditOmsuModal(@omsu.id_omsu, '@encodedName', '@encodedEmail', '@omsu.date_begin?.ToString("yyyy-MM-dd")', '@omsu.date_end?.ToString("yyyy-MM-dd")')">
+                            <span>✏️</span>
+                            <span class="icon-tooltip">Редактировать</span>
+                        </div>
+                        <div class="icon-container" onclick="delete_omsu(@omsu.id_omsu)">
+                            <span>🗑️</span>
+                            <span class="icon-tooltip">Удалить</span>
+                        </div>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

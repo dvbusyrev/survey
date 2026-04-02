@@ -1,0 +1,12 @@
+@model List<main_project.Models.User>
+
+<div class="content users-page users-page--archive" id="default_content" data-page="users-archive">
+    <p class="back-button users-page__back" onclick="handleTabClick('get_users')">← Вернуться к списку пользователей</p>
+
+    <div class="note users-page__note">
+        <h2>Архив пользователей</h2>
+        <p>Ниже представлена таблица с архивными пользователями</p>
+    </div>
+
+    @await Html.PartialAsync("Partials/_ArchiveUsersTable", Model)
+</div>
