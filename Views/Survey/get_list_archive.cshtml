@@ -17,7 +17,7 @@
 <body>
     @{
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var currentUserId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+    var currentUserId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
 }
     <div class="content" id="content_user" value="@currentUserId">
                 <div class="note">

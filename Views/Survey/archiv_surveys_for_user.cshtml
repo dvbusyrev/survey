@@ -3,11 +3,11 @@
 @{
     ViewData["Title"] = "Архив анкет";
     var userOmsuId = ViewBag.UserOmsuId;
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);

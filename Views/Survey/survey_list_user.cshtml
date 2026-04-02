@@ -5,14 +5,14 @@
     int currentPage = ViewBag.CurrentPage ?? 1;
     int totalPages = ViewBag.TotalPages ?? 1;
     string searchTerm = ViewBag.SearchTerm ?? "";
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
     var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
     int userOmsuId = ViewBag.UserOmsuId ?? 0;
     var accessibleSurveys = ViewBag.AccessibleSurveys as List<Survey> ?? new List<Survey>();

@@ -172,8 +172,6 @@ public IActionResult ViewAnswer(int idSurvey, int idOmsu, string type)
  [Authorize(Roles = "Админ")]
  public IActionResult get_surveys()
 {
-    Console.WriteLine("Айди из сессии:" + HttpContext.Session.GetInt32("id_user"));
-    Console.WriteLine("Роль из сессии:" + HttpContext.Session.GetString("name_role"));
     List<Survey> surveys = new List<Survey>();
 
     using (var connection = _db.CreateConnection())
