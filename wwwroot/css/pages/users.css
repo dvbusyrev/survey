@@ -1,4 +1,15 @@
-/* Безопасный первый этап миграции стилей пользователей. */
-.users-page{position:relative;}
-.users-page-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;}
-.users-page .action-icons{white-space:nowrap;}
+.users-page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.users-page [data-users-modal] .modal-content {
+  max-width: 720px;
+}
+
+.users-page .action-icons {
+  white-space: nowrap;
+}

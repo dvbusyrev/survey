@@ -1,4 +1,4 @@
-@model List<main_project.Models.User>
+﻿@model List<main_project.Models.User>
 
 <div class="content users-page" id="default_content">
     <div class="note">
@@ -66,7 +66,7 @@
 
 
 <!-- Модальное окно добавления -->
-<div id="addUserModal" class="modal">
+<div id="addUserModal" class="modal" data-users-modal="add">
     <div class="modal-content">
         <div class="modal-header">
             <h2 class="h2_modal">Добавление пользователя</h2>
@@ -120,7 +120,7 @@
 </div>
 
  <!-- Модальное окно редактирования -->
-<div id="editUserModal" class="modal">
+<div id="editUserModal" class="modal" data-users-modal="edit">
     <div class="modal-content">
         <div class="modal-header">
             <h2 class="h2_modal">Редактирование пользователя</h2>
@@ -181,7 +181,7 @@
 </div>
 
     <!-- Модальное окно удаления -->
-    <div id="deleteUserModal" class="modal">
+    <div id="deleteUserModal" class="modal" data-users-modal="delete">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Удаление пользователя</h2>
@@ -199,118 +199,3 @@
         </div>
     </div>
 </div>
-
-<script>
-(function(){
-    window.openAddUserModal = window.openAddUserModal || function(){
-        var modal = document.getElementById('addUserModal');
-        if (modal) modal.style.display = 'block';
-    };
-
-    var originalEdit = window.openEditUserModal;
-    window.openEditUserModal = async function(id, fullName, username, email, orgId, role, dateBegin, dateEnd) {
-        if (typeof originalEdit === 'function') {
-            await originalEdit(id, fullName, username, email, orgId, role, dateBegin, dateEnd);
-        } else {
-            document.getElementById('editUserId').value = id || '';
-            document.getElementById('editFullName').value = fullName || '';
-            document.getElementById('editUsername').value = username || '';
-            document.getElementById('editRole').value = role || 'user';
-            document.getElementById('editDateBegin').value = (dateBegin || '').split('T')[0];
-            document.getElementById('editDateEnd').value = (dateEnd || '').split('T')[0];
-            document.getElementById('editOrganization').value = orgId || '';
-            document.getElementById('editUserModal').style.display = 'block';
-        }
-
-        var emailEl = document.getElementById('editEmail');
-        if (emailEl) emailEl.value = email || '';
-    };
-
-    if (!window.submitFormAdd) {
-        window.submitFormAdd = async function() {
-            const messageElement = document.getElementById('message');
-            const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
-            const formData = {
-                username: document.getElementById('username')?.value || '',
-                password: document.getElementById('password')?.value || '',
-                fullName: document.getElementById('fullName')?.value || '',
-                email: document.getElementById('email_input')?.value || '',
-                organizationId: document.getElementById('organization')?.value || '0',
-                role: document.getElementById('role_bd')?.value || 'user'
-            };
-
-            try {
-                const response = await fetch('/add_user_bd', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...(tokenEl ? { 'RequestVerificationToken': tokenEl.value } : {})
-                    },
-                    body: JSON.stringify(formData)
-                });
-                const data = await response.json();
-                if (messageElement) {
-                    messageElement.textContent = data.message || '';
-                    messageElement.className = data.success ? 'success-message' : 'error-message';
-                }
-                if (data.success) {
-                    document.getElementById('addUserModal').style.display = 'none';
-                    if (typeof handleTabClick === 'function') handleTabClick('get_users');
-                    else location.reload();
-                }
-            } catch (error) {
-                if (messageElement) {
-                    messageElement.textContent = 'Ошибка соединения';
-                    messageElement.className = 'error-message';
-                }
-            }
-        };
-    }
-
-    var originalUpdate = window.updateUser;
-    window.updateUser = async function() {
-        const emailEl = document.getElementById('editEmail');
-        const tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
-        const idEl = document.getElementById('editUserId');
-
-        if (!emailEl || !idEl) {
-            if (typeof originalUpdate === 'function') return originalUpdate();
-            return;
-        }
-
-        const formData = {
-            username: document.getElementById('editUsername')?.value || '',
-            password: document.getElementById('editPassword')?.value || 'keep_original',
-            fullName: document.getElementById('editFullName')?.value || '',
-            email: emailEl.value || '',
-            organizationId: document.getElementById('editOrganization')?.value || '0',
-            role: document.getElementById('editRole')?.value || 'user',
-            dateBegin: document.getElementById('editDateBegin')?.value || '',
-            dateEnd: document.getElementById('editDateEnd')?.value || ''
-        };
-
-        try {
-            const response = await fetch(`/update_user_bd/${idEl.value}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(tokenEl ? { 'RequestVerificationToken': tokenEl.value } : {})
-                },
-                body: JSON.stringify(formData)
-            });
-            const result = await response.json();
-            if (!response.ok || !result.success) throw new Error(result.message || 'Ошибка обновления');
-            document.getElementById('editUserModal').style.display = 'none';
-            if (typeof handleTabClick === 'function') handleTabClick('get_users');
-            else location.reload();
-        } catch (e) {
-            alert(e.message || 'Ошибка обновления');
-        }
-    };
-
-    var openAdd = @((ViewBag.OpenAddUserModal ?? false).ToString().ToLower());
-    if (openAdd) {
-        setTimeout(function(){ window.openAddUserModal(); }, 0);
-    }
-})();
-</script>
