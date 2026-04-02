@@ -1537,6 +1537,8 @@ const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
             const [currentSurvey, setCurrentSurvey] = React.useState(null);
             const [searchTerm, setSearchTerm] = React.useState(initialData.initialSearchTerm);
             const [loading, setLoading] = React.useState(false);
+            const [showLoader, setShowLoader] = React.useState(false);
+            const firstDataRenderRef = React.useRef(true);
             const [error, setError] = React.useState(null);
             const [surveys, setSurveys] = React.useState(initialData.initialSurveys || []);
             const [currentPage, setCurrentPage] = React.useState(initialData.initialPage);
@@ -1546,6 +1548,15 @@ const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
             const [helpContent, setHelpContent] = React.useState('');
             const [dateFilter, setDateFilter] = React.useState('');
             const [filterSigned, setFilterSigned] = React.useState(false);
+
+React.useEffect(() => {
+    if (loading) {
+        const timer = setTimeout(() => setShowLoader(true), 180);
+        return () => clearTimeout(timer);
+    }
+
+    setShowLoader(false);
+}, [loading]);
 
  const loadSurveyData = async (tab, page = 1, search = '', signedOnly = false, date = '') => {
     setLoading(true);
@@ -1711,17 +1722,23 @@ const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
 
     const handleTabChange = (tab) => {
         if (tab === 'help') {
+            if (currentContent === 'help') return;
             setActiveTab('help');
             setCurrentContent('help');
             setCurrentView('survey-list');
-        } else {
-            setCurrentContent('surveys');
-            if (tab !== 'get_surveys') {
-                setActiveTab(tab);
-                setCurrentPage(1);
-                setCurrentView('survey-list');
-                loadSurveyData(tab, 1, searchTerm, filterSigned, dateFilter);
-            }
+            return;
+        }
+
+        if (currentContent === 'surveys' && activeTab === tab && currentView === 'survey-list') {
+            return;
+        }
+
+        setCurrentContent('surveys');
+        if (tab !== 'get_surveys') {
+            setActiveTab(tab);
+            setCurrentPage(1);
+            setCurrentView('survey-list');
+            loadSurveyData(tab, 1, searchTerm, filterSigned, dateFilter);
         }
     };
 
@@ -1752,12 +1769,19 @@ const CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
             }, [surveys, activeTab, currentView]);
 
     React.useEffect(() => {
-        if (currentView === 'survey-list') {
-            if (currentContent === 'surveys') {
-                loadSurveyData(activeTab, currentPage, searchTerm, filterSigned, dateFilter);
-            } else if (currentContent === 'help') {
-                loadHelpContent();
-            }
+        if (currentView !== 'survey-list') return;
+
+        if (firstDataRenderRef.current && currentContent === 'surveys' && activeTab === 'active' && currentPage === initialData.initialPage && searchTerm === initialData.initialSearchTerm && !filterSigned && !dateFilter) {
+            firstDataRenderRef.current = false;
+            return;
+        }
+
+        firstDataRenderRef.current = false;
+
+        if (currentContent === 'surveys') {
+            loadSurveyData(activeTab, currentPage, searchTerm, filterSigned, dateFilter);
+        } else if (currentContent === 'help') {
+            loadHelpContent();
         }
     }, [currentContent, activeTab, currentPage, searchTerm, currentView, filterSigned, dateFilter]);
 
@@ -1829,7 +1853,7 @@ return (
           <SurveyContent 
       activeTab={activeTab}
       surveys={surveys}
-      loading={loading}
+      loading={showLoader}
       error={error}
       currentPage={currentPage}
       totalPages={totalPages}
@@ -1851,7 +1875,7 @@ return (
         ) : (
           <HelpContent 
             content={helpContent}
-            loading={loading}
+            loading={showLoader}
             error={error}
           />
         )}

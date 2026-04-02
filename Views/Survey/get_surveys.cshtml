@@ -70,6 +70,7 @@ var newPage = "";
         const [activeTab, setActiveTab] = useState('get_surveys');
         const [content, setContent] = useState(null);
         const [loading, setLoading] = useState(false);
+        const [showLoader, setShowLoader] = useState(false);
         const [monthFilter, setMonthFilter] = useState('');
         const [omsuFilter, setOmsuFilter] = useState('');
         const [currentPage, setCurrentPage] = useState(1);
@@ -103,13 +104,14 @@ useEffect(() => {
   window.handleTabClick = handleTabClick;
 }, [handleTabClick]);
 
-
-
         useEffect(() => {
-            if (hasAccess) {
-                openVkladka('get_surveys');
+            if (loading) {
+                const timer = setTimeout(() => setShowLoader(true), 180);
+                return () => clearTimeout(timer);
             }
-        }, [hasAccess]);
+
+            setShowLoader(false);
+        }, [loading]);
 
         if (!hasAccess) {
             return (
@@ -919,8 +921,14 @@ const radarChartRef = useRef(null);
     }; history.pushState({}, '');
     
     const openVkladka = async (tab, id = null) => {
+        const tabAlreadyOpen = !id && (activeTab === tab || (tab === 'get_surveys' && ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)));
+        if (tabAlreadyOpen) return;
+
         setActiveTab(tab);
-        setLoading(true);
+
+        if (tab !== 'get_surveys') {
+            setLoading(true);
+        }
 
         try {
                 if (tab === 'open_statistic') // вкладка статистики
@@ -1262,7 +1270,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                         userId={initialData.userId}
                     />
                     <div id="content_admin">
-                        {loading ? (
+                        {showLoader ? (
                             <div className="loading-overlay">
                                 <div>Загрузка...</div>
                             </div>
