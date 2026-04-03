@@ -119,13 +119,5 @@
     }
 </style>
 
-<script>
-    function CSP(idSurvey, idOmsu) {
-        // Логика подписания
-        document.getElementById('block_btn_csp').style.display = 'flex';
-    }
 
-    function create_otchet_for_me(idSurvey, idOmsu, type) {
-        window.location.href = `/Answer/create_otchet_for_me?idSurvey=${idSurvey}&idOmsu=${idOmsu}&type=${type}`;
-    }
-</script>
+<script src="~/js/pages/check-answers.js" asp-append-version="true"></script>

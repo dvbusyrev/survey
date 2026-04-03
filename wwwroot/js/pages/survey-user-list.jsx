@@ -734,8 +734,6 @@ return (
       archivedCount={archivedCount}
       onSurveyClick={handleSurveyClick}
       dateFilter={dateFilter}
-      setDateFilter={setDateFilter}
-      dateFilter={dateFilter}
       handleDateChange={handleDateChange}
       filterSigned={filterSigned}
       handleSignedFilterChange={handleSignedFilterChange}
