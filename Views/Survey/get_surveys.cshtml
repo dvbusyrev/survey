@@ -3,11 +3,11 @@
 @using System.Text.Json
 @using System.Security.Claims
 @{
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
@@ -34,8 +34,6 @@
         <script src="~/js/components/Navigation.js"></script>
         <script src="~/js/components/Footer.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="~/js/pages/admin-reports-settings.js"></script>
-        <script src="~/js/pages/admin-survey-crud.js"></script>
         <style>
             .survey-answers-for-user {
                 display: none;
@@ -108,7 +106,9 @@
     display: none;
 }
         </style>
-    </head>
+    
+    <link rel="stylesheet" href="~/css/pages/omsu.css" asp-append-version="true" />
+</head>
     <body>
         <div id="root"></div>
 
@@ -1628,8 +1628,509 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 notification.classList.remove('active');
             }
 
-            window.selectedOmsuNames = @Html.Raw(Json.Serialize(ViewBag.SelectedOmsuNames));
-            // survey CRUD вынесен в ~/js/pages/admin-survey-crud.js
+            function addSurvey() {
+                if (!validateForm()) {
+                    return;
+                }
+                
+                const surveyData = {
+                    Title: safeGetElement('surveyTitle').value.trim(),
+                    Description: safeGetElement('surveyDescription').value.trim(),
+                    StartDate: safeGetElement('startDate').value,
+                    EndDate: safeGetElement('endDate').value,
+                    Organizations: selectedOmsu.map(org => org.id),
+                    Criteria: Array.from(document.querySelectorAll('.criteriy')).map(input => input.value.trim())
+                };
+                
+                safeGetElement('loadingOverlay').style.display = 'flex';
+                
+                fetch('/add_survey_bd', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                    },
+                    body: JSON.stringify(surveyData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.message || 'Ошибка сервера');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        showSuccess('Успех', 'Анкета успешно создана! Пожалуйста, перезагрузите страницу!');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        throw new Error(data.message || 'Ошибка при создании анкеты');
+                    }
+                })
+                .catch(error => {
+                    showError('Ошибка', error.message);
+                    console.error('Error:', error);
+                })
+                .finally(() => {
+                    safeGetElement('loadingOverlay').style.display = 'none';
+                });
+            }
+
+            function validateForm() {
+                let isValid = true;
+                
+                ['surveyTitle', 'surveyDescription', 'startDate', 'endDate'].forEach(id => {
+                    const el = safeGetElement(id);
+                    if (!el.value.trim()) {
+                        el.classList.add('invalid');
+                        isValid = false;
+                    } else {
+                        el.classList.remove('invalid');
+                    }
+                });
+                
+                const startDate = new Date(safeGetElement('startDate').value);
+                const endDate = new Date(safeGetElement('endDate').value);
+                
+                if (endDate <= startDate) {
+                    safeGetElement('endDate').classList.add('invalid');
+                    showError('Ошибка', 'Дата окончания должна быть позже даты начала');
+                    isValid = false;
+                } else {
+                    safeGetElement('endDate').classList.remove('invalid');
+                }
+                
+                if (selectedOmsu.length === 0) {
+                    showError('Ошибка', 'Выберите хотя бы одну организацию');
+                    isValid = false;
+                }
+                
+                if (!criteriaConfirmed) {
+                    showError('Ошибка', 'Подтвердите критерии оценки');
+                    isValid = false;
+                }
+                
+                return isValid;
+            }
+
+            // СКРИПТЫ ДЛЯ ВКЛАДКИ РЕДАКТИРОВАНИЯ АНКЕТЫ
+            
+            var surveyEditSelectedOmsu = [];
+            var surveyEditModalOpen = false;
+            var surveyEditAllOrganizations = [];
+
+            function surveyEditInit() {
+                var selectedIdsInput = document.getElementById('selectedOmsuIds');
+                if (selectedIdsInput && selectedIdsInput.value) {
+                    var ids = selectedIdsInput.value.split(',');
+                    var names = @Html.Raw(Json.Serialize(ViewBag.SelectedOmsuNames));
+                    
+                    for (var i = 0; i < ids.length; i++) {
+                        if (ids[i] && names[i]) {
+                            surveyEditSelectedOmsu.push({
+                                id: parseInt(ids[i]),
+                                name: names[i]
+                            });
+                        }
+                    }
+                }
+                
+                var orgItems = document.querySelectorAll('.organization-item');
+                orgItems.forEach(item => {
+                    if (item.dataset.selected === 'true') {
+                        item.classList.add('selected');
+                    }
+                });
+            }
+
+            function surveyEditOpenOmsuModal() {
+                document.getElementById('omsuModal').style.display = 'block';
+                surveyEditModalOpen = true;
+            }
+
+            function surveyEditCloseModal(modalId) {
+                document.getElementById(modalId).style.display = 'none';
+                surveyEditModalOpen = false;
+            }
+
+// Переключение выделения организации по клику
+function surveyEditToggleOmsuSelection(element) {
+    const orgId = parseInt(element.dataset.id, 10);
+    const orgName = element.dataset.name;
+
+
+    const index = surveyEditSelectedOmsu.findIndex(org => org.id === orgId);
+
+       if (element.dataset.selected === 'true') {
+    element.dataset.selected = 'false';
+    element.classList.remove('selected'); // убираем выделение
+} else {
+     surveyEditSelectedOmsu.push({ id: orgId, name: orgName });
+    element.dataset.selected = 'true';
+    element.classList.add('selected'); // добавляем выделение
+}
+}
+
+            function surveyEditSaveSelectedOmsu() {
+                surveyEditCloseModal('omsuModal');
+                surveyEditUpdateSelectedOmsuDisplay();
+            }
+
+ function surveyEditUpdateSelectedOmsuDisplay() {
+    var container = document.getElementById('selectedOmsuContainer');
+    var list = document.getElementById('selectedOmsuList');
+    var idsInput = document.getElementById('selectedOmsuIds');
+
+    // Находим все выбранные элементы
+    var selectedElements = document.querySelectorAll('.organization-item.selected');
+
+    // Очищаем массив выбранных организаций
+    surveyEditSelectedOmsu = [];
+
+    // Заполняем массив из выбранных элементов
+    selectedElements.forEach(function(el) {
+        var id = parseInt(el.dataset.id, 10);
+        var name = el.dataset.name;
+        surveyEditSelectedOmsu.push({ id: id, name: name });
+    });
+
+    console.log('Выбрано организаций:', surveyEditSelectedOmsu.length);
+
+    if (surveyEditSelectedOmsu.length === 0) {
+        container.style.display = 'none';
+        if (idsInput) idsInput.value = '';
+        list.innerHTML = '';
+        return;
+    }
+
+    container.style.display = 'block';
+    list.innerHTML = '';
+
+    // Создаем элементы с выбранными организациями
+    surveyEditSelectedOmsu.forEach(function(org) {
+        var item = document.createElement('span');
+        item.className = 'selected-omsu-item';
+        item.innerHTML = org.name + ' <button type="button" onclick="surveyEditRemoveOmsu(this, \'' + org.name.replace(/'/g, "\\'") + '\')">×</button>';
+        list.appendChild(item);
+    });
+
+    // Обновляем скрытое поле с id выбранных организаций
+    if (idsInput) {
+        idsInput.value = surveyEditSelectedOmsu.map(function(org) { return org.id; }).join(',');
+    }
+}
+
+
+            function surveyEditRemoveOmsu(button, name) {
+                for (var i = 0; i < surveyEditSelectedOmsu.length; i++) {
+                    if (surveyEditSelectedOmsu[i].name === name) {
+                        surveyEditSelectedOmsu.splice(i, 1);
+                        break;
+                    }
+                }
+                surveyEditUpdateSelectedOmsuDisplay();
+                
+                if (surveyEditModalOpen) {
+                    var orgItems = document.querySelectorAll('.organization-item');
+                    for (var i = 0; i < orgItems.length; i++) {
+                        if (orgItems[i].dataset.name === name) {
+                            orgItems[i].dataset.selected = 'false';
+                            orgItems[i].classList.remove('selected');
+                        }
+                    }
+                }
+            }
+
+            function surveyEditAddCriteria() {
+                var container = document.getElementById('cont_criteries');
+                if (!container) return;
+                
+                var count = container.querySelectorAll('.criteriy').length + 1;
+                var div = document.createElement('div');
+                div.className = 'form-group cont_criteries';
+                div.innerHTML = '<label>Критерий оценки</label><input type="text" class="form-control criteriy" required /><div class="error-message">Это поле обязательно для заполнения.</div>';
+                container.appendChild(div);
+            }
+
+            function surveyEditConfirmCriteria() {
+                var criteriaInputs = document.querySelectorAll('.criteriy');
+                var hasValidCriteria = false;
+                
+                for (var i = 0; i < criteriaInputs.length; i++) {
+                    if (criteriaInputs[i].value.trim() !== '') {
+                        hasValidCriteria = true;
+                        break;
+                    }
+                }
+                
+                if (!hasValidCriteria) {
+                    alert('Пожалуйста, добавьте и заполните хотя бы один критерий оценки');
+                    return;
+                }
+                
+                var allCriteriaValid = true;
+                for (var i = 0; i < criteriaInputs.length; i++) {
+                    if (criteriaInputs[i].value.trim() === '') {
+                        criteriaInputs[i].classList.add('invalid');
+                        allCriteriaValid = false;
+                    } else {
+                        criteriaInputs[i].classList.remove('invalid');
+                    }
+                }
+                
+                if (!allCriteriaValid) {
+                    alert('Пожалуйста, заполните все добавленные критерии оценки');
+                    return;
+                }
+                
+                var container = document.getElementById('two_step');
+                var criteriyInputs = container.querySelectorAll('.criteriy');
+                for (var i = 0; i < criteriyInputs.length; i++) {
+                    criteriyInputs[i].readOnly = true;
+                }
+                
+                container.classList.add('confirmed');
+                document.getElementById('add_survey_btn').style.display = 'inline-block';
+                document.getElementById('send_email').style.display = 'inline-block';
+                document.getElementById('add_crit').style.display = 'none';
+                document.getElementById('conf_btn').style.display = 'none';
+                alert('Критерии подтверждены. Теперь вы можете обновить анкету.');
+            }
+
+    async function surveyEditUpdate() {
+        const surveyTitle = document.getElementById('surveyTitle');
+        const surveyDescription = document.getElementById('surveyDescription');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const surveyId = document.getElementById('surveyId')?.value;
+            console.log(surveyEditSelectedOmsu);
+        try {
+            if (!surveyTitle?.value.trim() || !startDate?.value || !endDate?.value) {
+                alert('Пожалуйста, заполните все обязательные поля');
+                return;
+            }
+
+            if (new Date(endDate.value) <= new Date(startDate.value)) {
+                alert('Дата окончания должна быть позже даты начала');
+                return;
+            }
+
+            if (!token || !surveyId) {
+                alert('Ошибка безопасности. Пожалуйста, обновите страницу.');
+                return;
+            }
+
+            if(surveyEditSelectedOmsu.length==0)
+            {
+                alert('Пожалуйста, выберите хотя бы одну организацию!');
+                return;
+            }
+
+
+            const formData = {
+                Title: surveyTitle.value.trim(),
+                Description: surveyDescription?.value.trim() || '',
+                StartDate: new Date(startDate.value).toISOString(),
+                EndDate: new Date(endDate.value).toISOString(),
+                Organizations: surveyEditSelectedOmsu.map(org => org.id),
+                Criteria: Array.from(document.querySelectorAll('.criteriy'))
+                    .map(input => input.value.trim())
+                    .filter(text => text !== '')
+            };
+
+            const response = await fetch(`/update_survey_bd/${surveyId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            if (!response.ok) {
+                let errorMessage = 'Ошибка сервера';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || errorMessage;
+                } catch (e) {
+                    console.error('Ошибка при чтении ответа:', e);
+                }
+                throw new Error(errorMessage);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message || 'Анкета успешно обновлена!');
+                window.location.reload();
+            } else {
+                throw new Error(result.message || 'Неизвестная ошибка');
+            }
+
+        } catch (error) {
+            console.error('Ошибка при обновлении анкеты:', error);
+            
+            let userMessage = error.message;
+            
+            if (error.message.includes('jsonb') && error.message.includes('text')) {
+                userMessage = 'Ошибка формата данных. Пожалуйста, обновите страницу и попробуйте снова.';
+            } else if (error.message.includes('date')) {
+                userMessage = 'Ошибка в датах. Проверьте правильность введенных дат.';
+            } else if (error.message.includes('validation')) {
+                userMessage = 'Ошибка валидации данных: ' + error.message;
+            }
+            
+            alert(`Ошибка: ${userMessage}`);
+            
+            // Дополнительно можно показать кнопку "Подробности" для разработчика
+            if (confirm('Показать подробности ошибки? (для разработчиков)')) {
+                alert(`Техническая информация:\n${error.stack || error.message}`);
+            }
+        }
+    }
+
+    function surveyEditValidateForm() {
+        let isValid = true;
+        
+        const requiredFields = [
+            { element: document.getElementById('surveyTitle'), errorId: 'titleError' },
+            { element: document.getElementById('startDate'), errorId: 'startDateError' },
+            { element: document.getElementById('endDate'), errorId: 'endDateError' }
+        ];
+
+        requiredFields.forEach(field => {
+            const errorElement = document.getElementById(field.errorId);
+            if (!field.element.value.trim()) {
+                field.element.classList.add('invalid');
+                if (errorElement) errorElement.style.display = 'block';
+                isValid = false;
+            } else {
+                field.element.classList.remove('invalid');
+                if (errorElement) errorElement.style.display = 'none';
+            }
+        });
+
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const endDateError = document.getElementById('endDateError');
+        
+        if (startDate.value && endDate.value && new Date(endDate.value) <= new Date(startDate.value)) {
+            endDate.classList.add('invalid');
+            if (endDateError) {
+                endDateError.textContent = 'Дата окончания должна быть позже даты начала';
+                endDateError.style.display = 'block';
+            }
+            isValid = false;
+        }
+
+        const omsuError = document.getElementById('omsuError');
+        if (surveyEditSelectedOmsu.length === 0) {
+            if (omsuError) omsuError.style.display = 'block';
+            isValid = false;
+        } else {
+            if (omsuError) omsuError.style.display = 'none';
+        }
+
+        return isValid;
+    }
+    function handleResponse(response) {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    function handleError(error) {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка: ' + (error.message || 'Попробуйте снова или обратитесь в поддержку'));
+    }
+
+        function getValueSafe(elementId) {
+            const element = document.getElementById(elementId);
+            return element ? element.value : '';
+        }
+
+
+        // СКРИПТЫ ДЛЯ ВКЛАДКИ КОПИРОВАНИЯ АНКЕТЫ
+
+            function showNotification(message, isSuccess) {
+                const notification = document.getElementById('notification');
+                const messageElement = document.getElementById('notificationMessage');
+                
+                messageElement.textContent = message;
+                messageElement.className = isSuccess 
+                    ? 'notification-message notification-success' 
+                    : 'notification-message notification-error';
+                
+                notification.style.display = 'flex';
+            }
+
+            function hideNotification2() {
+                document.getElementById('notification').style.display = 'none';
+                
+                const messageElement = document.getElementById('notificationMessage');
+                if (messageElement.className.includes('notification-success')) {
+                    window.location.reload();
+                }
+            }
+
+            function copySurvey(id) {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                
+                if (!startDate || !endDate) {
+                    showNotification('Пожалуйста, заполните все обязательные поля', false);
+                    return;
+                }
+                
+                if (new Date(endDate) <= new Date(startDate)) {
+                    showNotification('Дата окончания должна быть позже даты начала', false);
+                    return;
+                }
+
+                document.getElementById('loadingOverlay').style.display = 'flex';
+                
+                fetch('/Survey/copy_survey_bd/' + id, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({
+                        StartDate: startDate,
+                        EndDate: endDate
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.message || 'Ошибка сервера');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    
+                    if (data.success) {
+                        alert("Анкета успешно скопирована!");
+                        window.location.reload();
+                    } else {
+                        throw new Error(data.message || 'Ошибка при копировании анкеты');
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    showNotification(error.message, false);
+                    console.error('Error:', error);
+                });
+            }
+
 
 // СКРИПТЫ ДЛЯ ВКЛАДКИ ПРОСМОТРА ОТВЕТОВ (АДМИН)
 
@@ -1765,6 +2266,191 @@ window.addEventListener('click', function(event) {
     }
 });
 
+function downloadReport(url, defaultFileName) {
+    const loader = document.createElement('div');
+    loader.style.position = 'fixed';
+    loader.style.top = '0';
+    loader.style.left = '0';
+    loader.style.width = '100%';
+    loader.style.height = '3px';
+    loader.style.backgroundColor = '#007bff';
+    loader.style.zIndex = '9999';
+    document.body.appendChild(loader);
+
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // Получаем имя файла из заголовка или используем default
+            let fileName = defaultFileName;
+            const contentDisposition = response.headers.get('Content-Disposition');
+            
+            if (contentDisposition) {
+                const utf8FilenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+                if (utf8FilenameMatch) {
+                    fileName = decodeURIComponent(utf8FilenameMatch[1]);
+                } else {
+                    const regularMatch = contentDisposition.match(/filename="(.+)"/);
+                    if (regularMatch) {
+                        fileName = regularMatch[1];
+                    }
+                }
+            }
+            
+            return response.blob().then(blob => ({ blob, fileName }));
+        })
+        .then(({ blob, fileName }) => {
+            // Создаем ссылку для скачивания
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = sanitizeFileName(fileName);
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(loader);
+            }, 100);
+        })
+        .catch(error => {
+            console.error('Ошибка при скачивании файла:', error);
+            document.body.removeChild(loader);
+            alert('Произошла ошибка при скачивании отчета. Пожалуйста, попробуйте позже.');
+        });
+}
+
+function create_otchet_month(id) {
+    downloadReport(`/create_otchet_month/${id}`, 'Отчет.docx');
+}
+
+function create_otchetAll_month() {
+    downloadReport('/create_otchetAll_month', 'Отчет_по_всем_анкетам.docx');
+}
+
+function sanitizeFileName(name) {
+    return name
+        .replace(/[/\\?%*:|"<>]/g, '_') // Замена запрещенных символов
+        .replace(/\s+/g, ' ') // Удаление лишних пробелов
+        .trim() // Удаление пробелов в начале и конце
+        .substring(0, 255); // Ограничение длины имени файла
+}
+
+
+function create_otchetAll_kvartal(kvartal, year) {
+    const xhr = new XMLHttpRequest();
+    xhr.responseType = 'blob';
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                const contentDisposition = xhr.getResponseHeader('Content-Disposition');
+                let fileName = `Otchet_za_${kvartal}_kvartal.xlsx`;
+                
+                if (contentDisposition) {
+                    const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                    if (fileNameMatch && fileNameMatch[1]) {
+                        fileName = fileNameMatch[1];
+                    }
+                }
+                
+                const blob = new Blob([xhr.response], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                console.error("Ошибочка: " + xhr.status);
+            }
+        }
+    };
+
+    xhr.onerror = function() {
+        console.error("Проблемы с интернетом");
+    };
+
+    xhr.open("GET", `/create_otchet_kvartal/${kvartal}/${year}`, true);
+    xhr.send();
+}
+
+function submitExtension(id) {
+    const rows = document.querySelectorAll('.form-row');
+    const data = [];
+
+    if (rows.length === 0) {
+        alert("Пожалуйста, добавьте хотя бы одну организацию для продления.");
+        return;
+    }
+
+    let isValid = true;
+    rows.forEach(row => {
+        const organizationSelect = row.querySelector('select.form-control');
+        const endDateInput = row.querySelector('input.form-control[type="date"]');
+
+        if (organizationSelect && endDateInput) {
+            const organization = organizationSelect.value;
+            const endDate = endDateInput.value;
+
+            if (!organization || !endDate) {
+                isValid = false;
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            if (endDate <= today) {
+                alert("Дата окончания должна быть в будущем!");
+                isValid = false;
+                return;
+            }
+
+            data.push({ 
+                id_omsu: parseInt(organization), 
+                new_end_date: endDate, 
+                id_survey: id 
+            });
+        }
+    });
+
+    if (!isValid) {
+        alert("Пожалуйста, заполните все поля перед применением.");
+        return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/prodlenie_omsus", true);
+    xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                alert("Доступ к анкете успешно продлён!");
+                closeModal();
+                window.location.reload();
+            } else {
+                console.error("Ошибка при отправке данных:", xhr.status, xhr.responseText);
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    alert("Ошибка: " + (response.message || xhr.statusText));
+                } catch {
+                    alert("Ошибка при отправке данных: " + xhr.status);
+                }
+            }
+        }
+    };
+    
+    try {
+        xhr.send(JSON.stringify(data));
+    } catch (error) {
+        console.error("Ошибка при отправке запроса:", error);
+        alert("Произошла ошибка при отправке запроса");
+    }
+}
+
+
 function delete_omsu(id) {
     if (confirm("Вы уверены, что хотите удалить эту организацию?")) {
         const xhr = new XMLHttpRequest();
@@ -1898,6 +2584,83 @@ if (password.length < 12) {
     }
 
     
+// Путь к файлу настроек
+const settingsFilePath = '/email_settings.txt';
+
+// Функция загрузки настроек
+function loadEmailSettings() {
+    fetch(settingsFilePath)
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 404) {
+                    return Promise.resolve('Кому:\nТема:\nСодержание:');
+                }
+                throw new Error('Ошибка загрузки файла');
+            }
+            return response.text();
+        })
+        .then(text => {
+            const settings = parseSettingsFile(text);
+            document.getElementById('email-to').value = settings.to || '';
+            document.getElementById('email-subject').value = settings.subject || '';
+            document.getElementById('email-content').value = settings.content || '';
+            alert('Настройки успешно загружены!');
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Ошибка при загрузке настроек');
+        });
+}
+
+// Функция сохранения настроек
+function saveEmailSettings() {
+    const emailTo = document.getElementById('email-to').value;
+    const emailSubject = document.getElementById('email-subject').value;
+    const emailContent = document.getElementById('email-content').value;
+    
+    const settingsData = {
+        to: emailTo,
+        subject: emailSubject,
+        content: emailContent
+    };
+
+    fetch('/save_email_settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settingsData)
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Ошибка сохранения');
+        return response.json();
+    })
+    .then(data => {
+        alert('Настройки успешно сохранены!');
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        alert('Ошибка при сохранении настроек');
+    });
+}
+
+// Парсинг файла настроек
+function parseSettingsFile(text) {
+    const lines = text.split('\n');
+    const settings = { to: '', subject: '', content: '' };
+    
+    lines.forEach(line => {
+        if (line.startsWith('Кому:')) settings.to = line.replace('Кому:', '').trim();
+        else if (line.startsWith('Тема:')) settings.subject = line.replace('Тема:', '').trim();
+        else if (line.startsWith('Содержание:')) settings.content = line.replace('Содержание:', '').trim();
+        else if (settings.content) settings.content += '\n' + line.trim();
+    });
+    
+    return settings;
+}
+
+
+
 function deleteUser(id, fullName) {
     
     if (!confirm(`Вы уверены, что хотите удалить пользователя?`)) {
@@ -1926,6 +2689,44 @@ function deleteUser(id, fullName) {
         alert("Произошла ошибка: " + error.message);
     });
 }
+
+
+// Глобальное открытие модалки добавления пользователя.
+// Важно: HTML вкладки пользователей вставляется через React/dangerouslySetInnerHTML,
+// поэтому <script> внутри partial view может не выполниться.
+// Держим функцию здесь, в основном скрипте страницы.
+window.openAddUserModal = function () {
+    const modal = document.getElementById('addUserModal');
+    if (!modal) {
+        console.error('addUserModal not found in DOM');
+        alert('Форма добавления пользователя не загружена. Обновите вкладку "Список пользователей".');
+        return;
+    }
+
+    const messageElement = document.getElementById('message');
+    if (messageElement) {
+        messageElement.textContent = '';
+        messageElement.className = '';
+    }
+
+    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    const roleEl = document.getElementById('role_bd');
+    if (roleEl) roleEl.value = 'user';
+
+    const orgEl = document.getElementById('organization');
+    if (orgEl) orgEl.selectedIndex = 0;
+
+    modal.style.display = 'block';
+
+    if (typeof initUserModalPasswordEyes === 'function') {
+        setTimeout(initUserModalPasswordEyes, 0);
+    }
+};
+
 
 // Вспомогательная функция для безопасного получения элементов
 function getSafeElement(id) {
@@ -2493,181 +3294,68 @@ function loadAndUploadFile(role) {
   input.click();
 }
 
-// archive restore helpers вынесены в ~/js/pages/admin-survey-crud.js
+function restoreSurveys(){handleTabClick("get_surveys");}
+
 function archive_list_omsus(){handleTabClick("archive_list_omsus");}
 function archive_list_users(){handleTabClick("archive_list_users");}
 
 
-// СКРИПТЫ ДЛЯ ФИЛЬТРАЦИИ ОТВЕТОВ НА ВКЛАДКЕ ОТВЕТЫ
 
-function populateOrganizationOptions() {
-  const select = document.getElementById('filterOrganization');
-  const tbody = document.querySelector('#data_table tbody');
-  const rows = tbody.rows;
+// Табличные фильтры вынесены во внешний модуль admin-table-filters.js
 
-  const orgSet = new Set();
+function copy_archive_survey(name_survey, description, date_begin, date_end, file_questions) {
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.classList.contains('active')) continue;
-    const orgName = row.cells[0].textContent.trim();
-    orgSet.add(orgName);
-  }
+const data = {
+  name_survey,
+  description,
+  date_open: date_begin,
+  date_close: date_end,
+  questions: file_questions,
+};
 
-  fillSelectOptions(select, orgSet, "Все организации");
-}
-
-// Функция для заполнения опций анкет при клике на селект
-function populateSurveyOptions() {
-  const select = document.getElementById('filterSurvey');
-  const tbody = document.querySelector('#data_table tbody');
-  const rows = tbody.rows;
-
-  const surveySet = new Set();
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.classList.contains('active')) continue;
-    const surveyName = row.cells[1].textContent.trim();
-    surveySet.add(surveyName);
-  }
-
-  fillSelectOptions(select, surveySet, "Все анкеты");
-}
-
-// Общая функция для заполнения селекта опциями
-function fillSelectOptions(selectElem, valuesSet, defaultText) {
-  // Сохраним текущее выбранное значение
-  const currentValue = selectElem.value;
-
-  // Очистим все опции
-  selectElem.innerHTML = '';
-
-  // Добавим опцию по умолчанию
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = defaultText;
-  selectElem.appendChild(defaultOption);
-
-  // Добавим уникальные значения
-  valuesSet.forEach(value => {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = value;
-    selectElem.appendChild(option);
+  fetch('/copy_archive_survey', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('Ошибка при добавлении анкеты');
+    return response.json();
+  })
+  .then(result => {
+    alert('Анкета успешно добавлена!');
+    window.location.reload();
+  })
+  .catch(err => {
+    alert(err.message);
   });
+}
 
-  // Восстановим выбранное значение, если оно есть в новом списке
-  if (Array.from(selectElem.options).some(opt => opt.value === currentValue)) {
-    selectElem.value = currentValue;
-  } else {
-    selectElem.value = '';
+
+function populateYears(kvartal, select) {
+  // Если уже есть опции кроме заглушки — не добавляем снова
+  if (select.options.length > 1) return;
+
+  const currentYear = new Date().getFullYear();
+  for (let i = 1; i <= 4; i++) {
+    const year = currentYear - i;
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    select.appendChild(option);
   }
 }
 
-// Функция фильтрации таблицы по выбранным значениям селектов
-function filterTable() {
-  const orgSelect = document.getElementById('filterOrganization');
-  const surveySelect = document.getElementById('filterSurvey');
-  const tbody = document.querySelector('#data_table tbody');
-  const rows = tbody.rows;
-  const noneResultRow = document.getElementById('none_result');
-
-  const selectedOrg = orgSelect.value;
-  const selectedSurvey = surveySelect.value;
-
-  let visibleCount = 0;
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.classList.contains('active')) continue;
-
-    const orgName = row.cells[0].textContent.trim();
-    const surveyName = row.cells[1].textContent.trim();
-
-    const matchOrg = !selectedOrg || orgName === selectedOrg;
-    const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
-
-    if (matchOrg && matchSurvey) {
-      row.style.display = '';
-      visibleCount++;
-    } else {
-      row.style.display = 'none';
-    }
-  }
-
-  if (noneResultRow) {
-    noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
+function onYearChange(kvartal, select) {
+  const year = select.value;
+  if (year) {
+    create_otchetAll_kvartal(kvartal, year);
+    select.selectedIndex = 0;
   }
 }
 
- function loadSurveyOptions() {
-        const select = document.getElementById('filterSurvey');
-        const tbody = document.querySelector('#data_table tbody');
-        const rows = tbody.querySelectorAll('tr.active'); // только строки с данными
-
-        const surveySet = new Set();
-
-        rows.forEach(row => {
-            const surveyName = row.cells[0].textContent.trim();
-            surveySet.add(surveyName);
-        });
-
-        // Сохраняем текущее выбранное значение
-        const currentValue = select.value;
-
-        // Очищаем все опции
-        select.innerHTML = '';
-
-        // Добавляем опцию по умолчанию
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Все анкеты';
-        select.appendChild(defaultOption);
-
-        // Добавляем уникальные значения
-        surveySet.forEach(value => {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = value;
-            select.appendChild(option);
-        });
-
-        // Восстанавливаем выбранное значение, если оно осталось
-        if ([...select.options].some(opt => opt.value === currentValue)) {
-            select.value = currentValue;
-        } else {
-            select.value = '';
-        }
-    }
-
-    // Функция фильтрации таблицы по выбранному значению селекта
-    function applySurveyFilter() {
-        const select = document.getElementById('filterSurvey');
-        const tbody = document.querySelector('#data_table tbody');
-        const rows = tbody.querySelectorAll('tr.active');
-        const noneResultRow = document.getElementById('none_result');
-
-        const selectedSurvey = select.value;
-        let visibleCount = 0;
-
-        rows.forEach(row => {
-            const surveyName = row.cells[0].textContent.trim();
-            const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
-
-            if (matchSurvey) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Показать или скрыть строку "Результаты не найдены!"
-        if (noneResultRow) {
-            noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
-        }
-    }
 
 
 
@@ -2740,5 +3428,8 @@ if (typeof _originalOpenEditUserModal === 'function') {
 // на случай, если поля уже есть на странице
 setTimeout(initUserModalPasswordEyes, 0);
         </script>
-    </body>
+    
+    <script src="~/js/pages/admin-table-filters.js" asp-append-version="true"></script>
+    <script src="~/js/pages/omsu-bridge.js" asp-append-version="true"></script>
+</body>
     </html>
