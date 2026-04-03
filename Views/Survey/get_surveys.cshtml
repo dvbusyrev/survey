@@ -3,11 +3,11 @@
 @using System.Text.Json
 @using System.Security.Claims
 @{
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
@@ -1201,14 +1201,6 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 {renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)}
             </>
             );
-
-            if (tab === 'add_user') {
-                setTimeout(() => {
-                    if (typeof window.openAddUserModal === 'function') {
-                        window.openAddUserModal();
-                    }
-                }, 0);
-            }
         } catch (error) {
             console.error('Ошибка:', error);
             setModal({
@@ -2696,6 +2688,44 @@ function deleteUser(id, fullName) {
     });
 }
 
+
+// Глобальное открытие модалки добавления пользователя.
+// Важно: HTML вкладки пользователей вставляется через React/dangerouslySetInnerHTML,
+// поэтому <script> внутри partial view может не выполниться.
+// Держим функцию здесь, в основном скрипте страницы.
+window.openAddUserModal = function () {
+    const modal = document.getElementById('addUserModal');
+    if (!modal) {
+        console.error('addUserModal not found in DOM');
+        alert('Форма добавления пользователя не загружена. Обновите вкладку "Список пользователей".');
+        return;
+    }
+
+    const messageElement = document.getElementById('message');
+    if (messageElement) {
+        messageElement.textContent = '';
+        messageElement.className = '';
+    }
+
+    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    const roleEl = document.getElementById('role_bd');
+    if (roleEl) roleEl.value = 'user';
+
+    const orgEl = document.getElementById('organization');
+    if (orgEl) orgEl.selectedIndex = 0;
+
+    modal.style.display = 'block';
+
+    if (typeof initUserModalPasswordEyes === 'function') {
+        setTimeout(initUserModalPasswordEyes, 0);
+    }
+};
+
+
 // Вспомогательная функция для безопасного получения элементов
 function getSafeElement(id) {
     const element = document.getElementById(id);
@@ -3268,178 +3298,7 @@ function archive_list_omsus(){handleTabClick("archive_list_omsus");}
 function archive_list_users(){handleTabClick("archive_list_users");}
 
 
-// СКРИПТЫ ДЛЯ ФИЛЬТРАЦИИ ОТВЕТОВ НА ВКЛАДКЕ ОТВЕТЫ
-
-function populateOrganizationOptions() {
-  const select = document.getElementById('filterOrganization');
-  const tbody = document.querySelector('#data_table tbody');
-  const rows = tbody.rows;
-
-  const orgSet = new Set();
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.classList.contains('active')) continue;
-    const orgName = row.cells[0].textContent.trim();
-    orgSet.add(orgName);
-  }
-
-  fillSelectOptions(select, orgSet, "Все организации");
-}
-
-// Функция для заполнения опций анкет при клике на селект
-function populateSurveyOptions() {
-  const select = document.getElementById('filterSurvey');
-  const tbody = document.querySelector('#data_table tbody');
-  const rows = tbody.rows;
-
-  const surveySet = new Set();
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.classList.contains('active')) continue;
-    const surveyName = row.cells[1].textContent.trim();
-    surveySet.add(surveyName);
-  }
-
-  fillSelectOptions(select, surveySet, "Все анкеты");
-}
-
-// Общая функция для заполнения селекта опциями
-function fillSelectOptions(selectElem, valuesSet, defaultText) {
-  // Сохраним текущее выбранное значение
-  const currentValue = selectElem.value;
-
-  // Очистим все опции
-  selectElem.innerHTML = '';
-
-  // Добавим опцию по умолчанию
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = defaultText;
-  selectElem.appendChild(defaultOption);
-
-  // Добавим уникальные значения
-  valuesSet.forEach(value => {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = value;
-    selectElem.appendChild(option);
-  });
-
-  // Восстановим выбранное значение, если оно есть в новом списке
-  if (Array.from(selectElem.options).some(opt => opt.value === currentValue)) {
-    selectElem.value = currentValue;
-  } else {
-    selectElem.value = '';
-  }
-}
-
-// Функция фильтрации таблицы по выбранным значениям селектов
-function filterTable() {
-  const orgSelect = document.getElementById('filterOrganization');
-  const surveySelect = document.getElementById('filterSurvey');
-  const tbody = document.querySelector('#data_table tbody');
-  const rows = tbody.rows;
-  const noneResultRow = document.getElementById('none_result');
-
-  const selectedOrg = orgSelect.value;
-  const selectedSurvey = surveySelect.value;
-
-  let visibleCount = 0;
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.classList.contains('active')) continue;
-
-    const orgName = row.cells[0].textContent.trim();
-    const surveyName = row.cells[1].textContent.trim();
-
-    const matchOrg = !selectedOrg || orgName === selectedOrg;
-    const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
-
-    if (matchOrg && matchSurvey) {
-      row.style.display = '';
-      visibleCount++;
-    } else {
-      row.style.display = 'none';
-    }
-  }
-
-  if (noneResultRow) {
-    noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
-  }
-}
-
- function loadSurveyOptions() {
-        const select = document.getElementById('filterSurvey');
-        const tbody = document.querySelector('#data_table tbody');
-        const rows = tbody.querySelectorAll('tr.active'); // только строки с данными
-
-        const surveySet = new Set();
-
-        rows.forEach(row => {
-            const surveyName = row.cells[0].textContent.trim();
-            surveySet.add(surveyName);
-        });
-
-        // Сохраняем текущее выбранное значение
-        const currentValue = select.value;
-
-        // Очищаем все опции
-        select.innerHTML = '';
-
-        // Добавляем опцию по умолчанию
-        const defaultOption = document.createElement('option');
-        defaultOption.value = '';
-        defaultOption.textContent = 'Все анкеты';
-        select.appendChild(defaultOption);
-
-        // Добавляем уникальные значения
-        surveySet.forEach(value => {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = value;
-            select.appendChild(option);
-        });
-
-        // Восстанавливаем выбранное значение, если оно осталось
-        if ([...select.options].some(opt => opt.value === currentValue)) {
-            select.value = currentValue;
-        } else {
-            select.value = '';
-        }
-    }
-
-    // Функция фильтрации таблицы по выбранному значению селекта
-    function applySurveyFilter() {
-        const select = document.getElementById('filterSurvey');
-        const tbody = document.querySelector('#data_table tbody');
-        const rows = tbody.querySelectorAll('tr.active');
-        const noneResultRow = document.getElementById('none_result');
-
-        const selectedSurvey = select.value;
-        let visibleCount = 0;
-
-        rows.forEach(row => {
-            const surveyName = row.cells[0].textContent.trim();
-            const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
-
-            if (matchSurvey) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        // Показать или скрыть строку "Результаты не найдены!"
-        if (noneResultRow) {
-            noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
-        }
-    }
-
-
+// Табличные фильтры вынесены во внешний модуль admin-table-filters.js
 
 function copy_archive_survey(name_survey, description, date_begin, date_end, file_questions) {
 
@@ -3544,37 +3403,6 @@ function initUserModalPasswordEyes() {
     passwordFields.forEach(addPasswordEye);
 }
 
-// Глобальное открытие модалки добавления пользователя.
-// HTML вкладки пользователей вставляется через dangerouslySetInnerHTML,
-// поэтому script внутри partial-view может не выполниться.
-window.openAddUserModal = function () {
-    const modal = document.getElementById('addUserModal');
-    if (!modal) {
-        console.error('addUserModal not found in DOM');
-        alert('Форма добавления пользователя не загружена. Сначала откройте вкладку "Список пользователей".');
-        return;
-    }
-
-    const messageElement = document.getElementById('message');
-    if (messageElement) {
-        messageElement.textContent = '';
-        messageElement.className = '';
-    }
-
-    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-
-    const roleEl = document.getElementById('role_bd');
-    if (roleEl) roleEl.value = 'user';
-
-    const orgEl = document.getElementById('organization');
-    if (orgEl) orgEl.selectedIndex = 0;
-
-    modal.style.display = 'block';
-};
-
 // вызвать после открытия модалок
 const _originalOpenAddUserModal = window.openAddUserModal;
 if (typeof _originalOpenAddUserModal === 'function') {
@@ -3597,5 +3425,6 @@ if (typeof _originalOpenEditUserModal === 'function') {
 // на случай, если поля уже есть на странице
 setTimeout(initUserModalPasswordEyes, 0);
         </script>
-    </body>
+    
+    <script src="~/js/pages/admin-table-filters.js" asp-append-version="true"></script></body>
     </html>
