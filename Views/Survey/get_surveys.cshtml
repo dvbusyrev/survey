@@ -26,6 +26,7 @@
         <title>Список анкет</title>
         <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
         <link rel="stylesheet" href="~/css/components.css" />
+        <link rel="stylesheet" href="~/css/pages/admin-main.css" asp-append-version="true" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <script src="~/js/react.development.js"></script>
         <script src="~/js/react-dom.development.js"></script>
@@ -34,78 +35,7 @@
         <script src="~/js/components/Navigation.js"></script>
         <script src="~/js/components/Footer.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <style>
-            .survey-answers-for-user {
-                display: none;
-            }
-            .survey-archive-for-user{display:none;}
 
-            .loading-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid #fff;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 8px;
-}
-
-.password-eye-wrap {
-    position: relative;
-    width: 100%;
-}
-
-.password-eye-wrap input[type="password"],
-.password-eye-wrap input[type="text"] {
-    padding-right: 44px !important;
-}
-
-.password-eye-btn {
-    position: absolute;
-    top: 50%;
-    right: 12px;
-    transform: translateY(-50%);
-    width: 22px;
-    height: 22px;
-    border: none;
-    background: transparent;
-    padding: 0;
-    cursor: pointer;
-    opacity: 0.75;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.password-eye-btn:hover {
-    opacity: 1;
-    transform: translateY(-50%) scale(1.05);
-}
-
-.password-eye-btn:focus {
-    outline: none;
-}
-
-.password-eye-btn svg {
-    width: 20px;
-    height: 20px;
-    stroke: #6b7280;
-    fill: none;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.password-eye-btn.is-visible .eye-open {
-    display: none;
-}
-
-.password-eye-btn:not(.is-visible) .eye-closed {
-    display: none;
-}
-        </style>
     </head>
     <body>
         <div id="root"></div>
@@ -1714,7 +1644,327 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 return isValid;
             }
 
-                        // Логика редактирования анкеты вынесена во внешний файл admin-survey-edit.js
+            // СКРИПТЫ ДЛЯ ВКЛАДКИ РЕДАКТИРОВАНИЯ АНКЕТЫ
+            
+            var surveyEditSelectedOmsu = [];
+            var surveyEditModalOpen = false;
+            var surveyEditAllOrganizations = [];
+
+            function surveyEditInit() {
+                var selectedIdsInput = document.getElementById('selectedOmsuIds');
+                if (selectedIdsInput && selectedIdsInput.value) {
+                    var ids = selectedIdsInput.value.split(',');
+                    var names = @Html.Raw(Json.Serialize(ViewBag.SelectedOmsuNames));
+                    
+                    for (var i = 0; i < ids.length; i++) {
+                        if (ids[i] && names[i]) {
+                            surveyEditSelectedOmsu.push({
+                                id: parseInt(ids[i]),
+                                name: names[i]
+                            });
+                        }
+                    }
+                }
+                
+                var orgItems = document.querySelectorAll('.organization-item');
+                orgItems.forEach(item => {
+                    if (item.dataset.selected === 'true') {
+                        item.classList.add('selected');
+                    }
+                });
+            }
+
+            function surveyEditOpenOmsuModal() {
+                document.getElementById('omsuModal').style.display = 'block';
+                surveyEditModalOpen = true;
+            }
+
+            function surveyEditCloseModal(modalId) {
+                document.getElementById(modalId).style.display = 'none';
+                surveyEditModalOpen = false;
+            }
+
+// Переключение выделения организации по клику
+function surveyEditToggleOmsuSelection(element) {
+    const orgId = parseInt(element.dataset.id, 10);
+    const orgName = element.dataset.name;
+
+
+    const index = surveyEditSelectedOmsu.findIndex(org => org.id === orgId);
+
+       if (element.dataset.selected === 'true') {
+    element.dataset.selected = 'false';
+    element.classList.remove('selected'); // убираем выделение
+} else {
+     surveyEditSelectedOmsu.push({ id: orgId, name: orgName });
+    element.dataset.selected = 'true';
+    element.classList.add('selected'); // добавляем выделение
+}
+}
+
+            function surveyEditSaveSelectedOmsu() {
+                surveyEditCloseModal('omsuModal');
+                surveyEditUpdateSelectedOmsuDisplay();
+            }
+
+ function surveyEditUpdateSelectedOmsuDisplay() {
+    var container = document.getElementById('selectedOmsuContainer');
+    var list = document.getElementById('selectedOmsuList');
+    var idsInput = document.getElementById('selectedOmsuIds');
+
+    // Находим все выбранные элементы
+    var selectedElements = document.querySelectorAll('.organization-item.selected');
+
+    // Очищаем массив выбранных организаций
+    surveyEditSelectedOmsu = [];
+
+    // Заполняем массив из выбранных элементов
+    selectedElements.forEach(function(el) {
+        var id = parseInt(el.dataset.id, 10);
+        var name = el.dataset.name;
+        surveyEditSelectedOmsu.push({ id: id, name: name });
+    });
+
+    console.log('Выбрано организаций:', surveyEditSelectedOmsu.length);
+
+    if (surveyEditSelectedOmsu.length === 0) {
+        container.style.display = 'none';
+        if (idsInput) idsInput.value = '';
+        list.innerHTML = '';
+        return;
+    }
+
+    container.style.display = 'block';
+    list.innerHTML = '';
+
+    // Создаем элементы с выбранными организациями
+    surveyEditSelectedOmsu.forEach(function(org) {
+        var item = document.createElement('span');
+        item.className = 'selected-omsu-item';
+        item.innerHTML = org.name + ' <button type="button" onclick="surveyEditRemoveOmsu(this, \'' + org.name.replace(/'/g, "\\'") + '\')">×</button>';
+        list.appendChild(item);
+    });
+
+    // Обновляем скрытое поле с id выбранных организаций
+    if (idsInput) {
+        idsInput.value = surveyEditSelectedOmsu.map(function(org) { return org.id; }).join(',');
+    }
+}
+
+
+            function surveyEditRemoveOmsu(button, name) {
+                for (var i = 0; i < surveyEditSelectedOmsu.length; i++) {
+                    if (surveyEditSelectedOmsu[i].name === name) {
+                        surveyEditSelectedOmsu.splice(i, 1);
+                        break;
+                    }
+                }
+                surveyEditUpdateSelectedOmsuDisplay();
+                
+                if (surveyEditModalOpen) {
+                    var orgItems = document.querySelectorAll('.organization-item');
+                    for (var i = 0; i < orgItems.length; i++) {
+                        if (orgItems[i].dataset.name === name) {
+                            orgItems[i].dataset.selected = 'false';
+                            orgItems[i].classList.remove('selected');
+                        }
+                    }
+                }
+            }
+
+            function surveyEditAddCriteria() {
+                var container = document.getElementById('cont_criteries');
+                if (!container) return;
+                
+                var count = container.querySelectorAll('.criteriy').length + 1;
+                var div = document.createElement('div');
+                div.className = 'form-group cont_criteries';
+                div.innerHTML = '<label>Критерий оценки</label><input type="text" class="form-control criteriy" required /><div class="error-message">Это поле обязательно для заполнения.</div>';
+                container.appendChild(div);
+            }
+
+            function surveyEditConfirmCriteria() {
+                var criteriaInputs = document.querySelectorAll('.criteriy');
+                var hasValidCriteria = false;
+                
+                for (var i = 0; i < criteriaInputs.length; i++) {
+                    if (criteriaInputs[i].value.trim() !== '') {
+                        hasValidCriteria = true;
+                        break;
+                    }
+                }
+                
+                if (!hasValidCriteria) {
+                    alert('Пожалуйста, добавьте и заполните хотя бы один критерий оценки');
+                    return;
+                }
+                
+                var allCriteriaValid = true;
+                for (var i = 0; i < criteriaInputs.length; i++) {
+                    if (criteriaInputs[i].value.trim() === '') {
+                        criteriaInputs[i].classList.add('invalid');
+                        allCriteriaValid = false;
+                    } else {
+                        criteriaInputs[i].classList.remove('invalid');
+                    }
+                }
+                
+                if (!allCriteriaValid) {
+                    alert('Пожалуйста, заполните все добавленные критерии оценки');
+                    return;
+                }
+                
+                var container = document.getElementById('two_step');
+                var criteriyInputs = container.querySelectorAll('.criteriy');
+                for (var i = 0; i < criteriyInputs.length; i++) {
+                    criteriyInputs[i].readOnly = true;
+                }
+                
+                container.classList.add('confirmed');
+                document.getElementById('add_survey_btn').style.display = 'inline-block';
+                document.getElementById('send_email').style.display = 'inline-block';
+                document.getElementById('add_crit').style.display = 'none';
+                document.getElementById('conf_btn').style.display = 'none';
+                alert('Критерии подтверждены. Теперь вы можете обновить анкету.');
+            }
+
+    async function surveyEditUpdate() {
+        const surveyTitle = document.getElementById('surveyTitle');
+        const surveyDescription = document.getElementById('surveyDescription');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const surveyId = document.getElementById('surveyId')?.value;
+            console.log(surveyEditSelectedOmsu);
+        try {
+            if (!surveyTitle?.value.trim() || !startDate?.value || !endDate?.value) {
+                alert('Пожалуйста, заполните все обязательные поля');
+                return;
+            }
+
+            if (new Date(endDate.value) <= new Date(startDate.value)) {
+                alert('Дата окончания должна быть позже даты начала');
+                return;
+            }
+
+            if (!token || !surveyId) {
+                alert('Ошибка безопасности. Пожалуйста, обновите страницу.');
+                return;
+            }
+
+            if(surveyEditSelectedOmsu.length==0)
+            {
+                alert('Пожалуйста, выберите хотя бы одну организацию!');
+                return;
+            }
+
+
+            const formData = {
+                Title: surveyTitle.value.trim(),
+                Description: surveyDescription?.value.trim() || '',
+                StartDate: new Date(startDate.value).toISOString(),
+                EndDate: new Date(endDate.value).toISOString(),
+                Organizations: surveyEditSelectedOmsu.map(org => org.id),
+                Criteria: Array.from(document.querySelectorAll('.criteriy'))
+                    .map(input => input.value.trim())
+                    .filter(text => text !== '')
+            };
+
+            const response = await fetch(`/update_survey_bd/${surveyId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            if (!response.ok) {
+                let errorMessage = 'Ошибка сервера';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || errorMessage;
+                } catch (e) {
+                    console.error('Ошибка при чтении ответа:', e);
+                }
+                throw new Error(errorMessage);
+            }
+
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message || 'Анкета успешно обновлена!');
+                window.location.reload();
+            } else {
+                throw new Error(result.message || 'Неизвестная ошибка');
+            }
+
+        } catch (error) {
+            console.error('Ошибка при обновлении анкеты:', error);
+            
+            let userMessage = error.message;
+            
+            if (error.message.includes('jsonb') && error.message.includes('text')) {
+                userMessage = 'Ошибка формата данных. Пожалуйста, обновите страницу и попробуйте снова.';
+            } else if (error.message.includes('date')) {
+                userMessage = 'Ошибка в датах. Проверьте правильность введенных дат.';
+            } else if (error.message.includes('validation')) {
+                userMessage = 'Ошибка валидации данных: ' + error.message;
+            }
+            
+            alert(`Ошибка: ${userMessage}`);
+            
+            // Дополнительно можно показать кнопку "Подробности" для разработчика
+            if (confirm('Показать подробности ошибки? (для разработчиков)')) {
+                alert(`Техническая информация:\n${error.stack || error.message}`);
+            }
+        }
+    }
+
+    function surveyEditValidateForm() {
+        let isValid = true;
+        
+        const requiredFields = [
+            { element: document.getElementById('surveyTitle'), errorId: 'titleError' },
+            { element: document.getElementById('startDate'), errorId: 'startDateError' },
+            { element: document.getElementById('endDate'), errorId: 'endDateError' }
+        ];
+
+        requiredFields.forEach(field => {
+            const errorElement = document.getElementById(field.errorId);
+            if (!field.element.value.trim()) {
+                field.element.classList.add('invalid');
+                if (errorElement) errorElement.style.display = 'block';
+                isValid = false;
+            } else {
+                field.element.classList.remove('invalid');
+                if (errorElement) errorElement.style.display = 'none';
+            }
+        });
+
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const endDateError = document.getElementById('endDateError');
+        
+        if (startDate.value && endDate.value && new Date(endDate.value) <= new Date(startDate.value)) {
+            endDate.classList.add('invalid');
+            if (endDateError) {
+                endDateError.textContent = 'Дата окончания должна быть позже даты начала';
+                endDateError.style.display = 'block';
+            }
+            isValid = false;
+        }
+
+        const omsuError = document.getElementById('omsuError');
+        if (surveyEditSelectedOmsu.length === 0) {
+            if (omsuError) omsuError.style.display = 'block';
+            isValid = false;
+        } else {
+            if (omsuError) omsuError.style.display = 'none';
+        }
+
+        return isValid;
+    }
     function handleResponse(response) {
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -3276,8 +3526,5 @@ if (typeof _originalOpenEditUserModal === 'function') {
 // на случай, если поля уже есть на странице
 setTimeout(initUserModalPasswordEyes, 0);
         </script>
-    
-    <script>window.selectedOmsuNames = @Html.Raw(Json.Serialize(ViewBag.SelectedOmsuNames ?? new List<string>()));</script>
-    <script src="~/js/pages/admin-survey-edit.js" asp-append-version="true"></script>
-</body>
+    </body>
     </html>

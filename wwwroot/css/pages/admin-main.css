@@ -1,3 +1,4 @@
+/* Extracted from Views/Survey/get_surveys.cshtml */
 .survey-answers-for-user {
     display: none;
 }
@@ -70,8 +71,4 @@
 
 .password-eye-btn:not(.is-visible) .eye-closed {
     display: none;
-}
-
-.admin-app-root {
-    min-height: 100vh;
 }
