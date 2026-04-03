@@ -1,6 +1,4 @@
 (function () {
-  'use strict';
-
   function loadFileAdmin() {
     loadAndUploadFile('administrator');
   }
@@ -24,8 +22,8 @@
   function loadAndUploadFile(role) {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.doc,.docx';
-    input.onchange = async function (e) {
+    input.accept = 'docx';
+    input.onchange = async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
 
@@ -45,7 +43,7 @@
           alert('Ошибка загрузки файла');
         }
       } catch (error) {
-        alert('Ошибка: ' + (error && error.message ? error.message : error));
+        alert('Ошибка: ' + error.message);
       }
     };
     input.click();
@@ -108,9 +106,7 @@
   function onYearChange(kvartal, select) {
     const year = select && select.value;
     if (year) {
-      if (typeof window.create_otchetAll_kvartal === 'function') {
-        window.create_otchetAll_kvartal(kvartal, year);
-      }
+      create_otchetAll_kvartal(kvartal, year);
       select.selectedIndex = 0;
     }
   }
