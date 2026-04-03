@@ -34,7 +34,6 @@
         <script src="~/js/components/Navigation.js"></script>
         <script src="~/js/components/Footer.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="~/js/pages/admin-survey-table-tools.js" asp-append-version="true"></script>
         <style>
             .survey-answers-for-user {
                 display: none;
@@ -235,15 +234,14 @@ useEffect(() => {
         }
 
         const getCurrentRecords = (surveys) => {
-            return window.AdminSurveyTableTools.paginateSurveys(
-                window.AdminSurveyTableTools.filterSurveys(surveys, {
-                    searchTerm,
-                    monthFilter,
-                    omsuFilter
-                }),
-                currentPage,
-                recordsPerPage
-            );
+            const filtered = filterSurveys(surveys);
+            const indexOfLastRecord = currentPage * recordsPerPage;
+            const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+            return {
+                currentRecords: filtered.slice(indexOfFirstRecord, indexOfLastRecord),
+                totalPages: Math.ceil(filtered.length / recordsPerPage),
+                totalRecords: filtered.length
+            };
         };
 
 const ExtensionModal = ({ survey, onClose }) => {
@@ -580,7 +578,7 @@ const ExtensionModal = ({ survey, onClose }) => {
 
     const renderSurveys = () => {
     const surveysToRender = initialData.surveys;
-       const { currentRecords, totalPages, totalRecords, currentPage: safeCurrentPage } = getCurrentRecords(initialData.surveys);
+       const { currentRecords, totalPages, totalRecords } = getCurrentRecords(initialData.surveys);
     let filteredSurveys = filterSurveys(initialData.surveys);
     
     filteredSurveys = filteredSurveys.filter(survey => 
@@ -635,7 +633,11 @@ const ExtensionModal = ({ survey, onClose }) => {
                     className="filter-select"
                 >
                     <option value="">Все ОМСУ</option>
-                    {window.AdminSurveyTableTools.getOmsuOptions(initialData.surveys).map((omsu, index) => (
+                    {Array.from(new Set(
+                        initialData.surveys
+                            .flatMap(s => s.name_omsu?.split(',').map(name => name.trim()) || [])
+                            .filter(Boolean)
+                    )).map((omsu, index) => (
                         <option key={index} value={omsu}>{omsu}</option>
                     ))}
                 </select>
@@ -713,23 +715,23 @@ const ExtensionModal = ({ survey, onClose }) => {
                     
   {totalRecords > 0 && (
                     <div className="pagination-container">
-                        {safeCurrentPage > 1 && (
+                        {currentPage > 1 && (
                             <button 
                                 className="pagination-button prev"
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                onClick={() => setCurrentPage(p => p - 1)}
                             >
                                 <i className="fas fa-chevron-left"></i> Предыдущая
                             </button>
                         )}
                         
                         <div className="page-info">
-                            Страница {safeCurrentPage} из {totalPages}
+                            Страница {currentPage} из {totalPages}
                         </div>
                         
-                        {safeCurrentPage < totalPages && (
+                        {currentPage < totalPages && (
                             <button 
                                 className="pagination-button next"
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                onClick={() => setCurrentPage(p => p + 1)}
                             >
                                 Следующая <i className="fas fa-chevron-right"></i>
                             </button>
@@ -1623,94 +1625,8 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 const notification = safeGetElement('notification');
                 notification.classList.remove('active');
             }
+            // addSurvey/validateForm вынесены в wwwroot/js/pages/admin-survey-create-copy.js
 
-            function addSurvey() {
-                if (!validateForm()) {
-                    return;
-                }
-                
-                const surveyData = {
-                    Title: safeGetElement('surveyTitle').value.trim(),
-                    Description: safeGetElement('surveyDescription').value.trim(),
-                    StartDate: safeGetElement('startDate').value,
-                    EndDate: safeGetElement('endDate').value,
-                    Organizations: selectedOmsu.map(org => org.id),
-                    Criteria: Array.from(document.querySelectorAll('.criteriy')).map(input => input.value.trim())
-                };
-                
-                safeGetElement('loadingOverlay').style.display = 'flex';
-                
-                fetch('/add_survey_bd', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
-                    },
-                    body: JSON.stringify(surveyData)
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => {
-                            throw new Error(err.message || 'Ошибка сервера');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        showSuccess('Успех', 'Анкета успешно создана! Пожалуйста, перезагрузите страницу!');
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                    } else {
-                        throw new Error(data.message || 'Ошибка при создании анкеты');
-                    }
-                })
-                .catch(error => {
-                    showError('Ошибка', error.message);
-                    console.error('Error:', error);
-                })
-                .finally(() => {
-                    safeGetElement('loadingOverlay').style.display = 'none';
-                });
-            }
-
-            function validateForm() {
-                let isValid = true;
-                
-                ['surveyTitle', 'surveyDescription', 'startDate', 'endDate'].forEach(id => {
-                    const el = safeGetElement(id);
-                    if (!el.value.trim()) {
-                        el.classList.add('invalid');
-                        isValid = false;
-                    } else {
-                        el.classList.remove('invalid');
-                    }
-                });
-                
-                const startDate = new Date(safeGetElement('startDate').value);
-                const endDate = new Date(safeGetElement('endDate').value);
-                
-                if (endDate <= startDate) {
-                    safeGetElement('endDate').classList.add('invalid');
-                    showError('Ошибка', 'Дата окончания должна быть позже даты начала');
-                    isValid = false;
-                } else {
-                    safeGetElement('endDate').classList.remove('invalid');
-                }
-                
-                if (selectedOmsu.length === 0) {
-                    showError('Ошибка', 'Выберите хотя бы одну организацию');
-                    isValid = false;
-                }
-                
-                if (!criteriaConfirmed) {
-                    showError('Ошибка', 'Подтвердите критерии оценки');
-                    isValid = false;
-                }
-                
-                return isValid;
-            }
 
             // СКРИПТЫ ДЛЯ ВКЛАДКИ РЕДАКТИРОВАНИЯ АНКЕТЫ
             
@@ -2033,100 +1949,7 @@ function surveyEditToggleOmsuSelection(element) {
 
         return isValid;
     }
-    function handleResponse(response) {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    }
-
-    function handleError(error) {
-        console.error('Ошибка:', error);
-        alert('Произошла ошибка: ' + (error.message || 'Попробуйте снова или обратитесь в поддержку'));
-    }
-
-        function getValueSafe(elementId) {
-            const element = document.getElementById(elementId);
-            return element ? element.value : '';
-        }
-
-
-        // СКРИПТЫ ДЛЯ ВКЛАДКИ КОПИРОВАНИЯ АНКЕТЫ
-
-            function showNotification(message, isSuccess) {
-                const notification = document.getElementById('notification');
-                const messageElement = document.getElementById('notificationMessage');
-                
-                messageElement.textContent = message;
-                messageElement.className = isSuccess 
-                    ? 'notification-message notification-success' 
-                    : 'notification-message notification-error';
-                
-                notification.style.display = 'flex';
-            }
-
-            function hideNotification2() {
-                document.getElementById('notification').style.display = 'none';
-                
-                const messageElement = document.getElementById('notificationMessage');
-                if (messageElement.className.includes('notification-success')) {
-                    window.location.reload();
-                }
-            }
-
-            function copySurvey(id) {
-                const startDate = document.getElementById('startDate').value;
-                const endDate = document.getElementById('endDate').value;
-                const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-                
-                if (!startDate || !endDate) {
-                    showNotification('Пожалуйста, заполните все обязательные поля', false);
-                    return;
-                }
-                
-                if (new Date(endDate) <= new Date(startDate)) {
-                    showNotification('Дата окончания должна быть позже даты начала', false);
-                    return;
-                }
-
-                document.getElementById('loadingOverlay').style.display = 'flex';
-                
-                fetch('/Survey/copy_survey_bd/' + id, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': token
-                    },
-                    body: JSON.stringify({
-                        StartDate: startDate,
-                        EndDate: endDate
-                    })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => {
-                            throw new Error(err.message || 'Ошибка сервера');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    
-                    if (data.success) {
-                        alert("Анкета успешно скопирована!");
-                        window.location.reload();
-                    } else {
-                        throw new Error(data.message || 'Ошибка при копировании анкеты');
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    showNotification(error.message, false);
-                    console.error('Error:', error);
-                });
-            }
-
+    // handleResponse/handleError/getValueSafe/showNotification/hideNotification2/copySurvey вынесены в wwwroot/js/pages/admin-survey-create-copy.js
 
 // СКРИПТЫ ДЛЯ ВКЛАДКИ ПРОСМОТРА ОТВЕТОВ (АДМИН)
 
@@ -3594,5 +3417,6 @@ if (typeof _originalOpenEditUserModal === 'function') {
 // на случай, если поля уже есть на странице
 setTimeout(initUserModalPasswordEyes, 0);
         </script>
-    </body>
+            <script src="~/js/pages/admin-survey-create-copy.js" asp-append-version="true"></script>
+</body>
     </html>
