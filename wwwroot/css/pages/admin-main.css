@@ -1,0 +1,77 @@
+.survey-answers-for-user {
+    display: none;
+}
+
+.survey-archive-for-user {
+    display: none;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+}
+
+.password-eye-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.password-eye-wrap input[type="password"],
+.password-eye-wrap input[type="text"] {
+    padding-right: 44px !important;
+}
+
+.password-eye-btn {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.password-eye-btn:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.05);
+}
+
+.password-eye-btn:focus {
+    outline: none;
+}
+
+.password-eye-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: #6b7280;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.password-eye-btn.is-visible .eye-open {
+    display: none;
+}
+
+.password-eye-btn:not(.is-visible) .eye-closed {
+    display: none;
+}
+
+.admin-app-root {
+    min-height: 100vh;
+}

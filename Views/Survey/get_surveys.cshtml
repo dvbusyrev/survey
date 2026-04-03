@@ -3,11 +3,11 @@
 @using System.Text.Json
 @using System.Security.Claims
 @{
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
@@ -106,9 +106,7 @@
     display: none;
 }
         </style>
-    
-    <link rel="stylesheet" href="~/css/pages/omsu.css" asp-append-version="true" />
-</head>
+    </head>
     <body>
         <div id="root"></div>
 
@@ -1203,6 +1201,14 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 {renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)}
             </>
             );
+
+            if (tab === 'add_user') {
+                setTimeout(() => {
+                    if (typeof window.openAddUserModal === 'function') {
+                        window.openAddUserModal();
+                    }
+                }, 0);
+            }
         } catch (error) {
             console.error('Ошибка:', error);
             setModal({
@@ -2690,44 +2696,6 @@ function deleteUser(id, fullName) {
     });
 }
 
-
-// Глобальное открытие модалки добавления пользователя.
-// Важно: HTML вкладки пользователей вставляется через React/dangerouslySetInnerHTML,
-// поэтому <script> внутри partial view может не выполниться.
-// Держим функцию здесь, в основном скрипте страницы.
-window.openAddUserModal = function () {
-    const modal = document.getElementById('addUserModal');
-    if (!modal) {
-        console.error('addUserModal not found in DOM');
-        alert('Форма добавления пользователя не загружена. Обновите вкладку "Список пользователей".');
-        return;
-    }
-
-    const messageElement = document.getElementById('message');
-    if (messageElement) {
-        messageElement.textContent = '';
-        messageElement.className = '';
-    }
-
-    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-
-    const roleEl = document.getElementById('role_bd');
-    if (roleEl) roleEl.value = 'user';
-
-    const orgEl = document.getElementById('organization');
-    if (orgEl) orgEl.selectedIndex = 0;
-
-    modal.style.display = 'block';
-
-    if (typeof initUserModalPasswordEyes === 'function') {
-        setTimeout(initUserModalPasswordEyes, 0);
-    }
-};
-
-
 // Вспомогательная функция для безопасного получения элементов
 function getSafeElement(id) {
     const element = document.getElementById(id);
@@ -3242,8 +3210,291 @@ async function send_email() {
 
 // СКРИПТ ДЛЯ ЗАГРУЗКИ ИНСТРУКЦИИ
 
+function loadFileAdmin() {
+  loadAndUploadFile('administrator');
+}
 
-// Архивные и служебные действия вынесены во внешний модуль admin-archive-tools.js
+function loadFileUser() {
+  loadAndUploadFile('user');
+}
+
+ function handleSelectChange(select) {
+    const value = select.value;
+    if (value === 'administrator') {
+      loadFileAdmin();
+    } else if (value === 'user') {
+      loadFileUser();
+    }
+    // Сброс выбора, если нужно
+    select.value = "";
+  }
+
+function loadAndUploadFile(role) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'docx'; // можно настроить нужные типы файлов
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Создаем FormData для отправки файла
+    const formData = new FormData();
+
+    // Переименовывать файл на клиенте нельзя, поэтому отправляем оригинал и роль
+    formData.append('file', file);
+    formData.append('role', role);
+
+    try {
+      const response = await fetch('/upload-instruction', { // URL вашего эндпоинта на сервере
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        alert('Файл успешно загружен');
+      } else {
+        alert('Ошибка загрузки файла');
+      }
+    } catch (error) {
+      alert('Ошибка: ' + error.message);
+    }
+  };
+  input.click();
+}
+
+function restoreSurveys(){handleTabClick("get_surveys");}
+
+function archive_list_omsus(){handleTabClick("archive_list_omsus");}
+function archive_list_users(){handleTabClick("archive_list_users");}
+
+
+// СКРИПТЫ ДЛЯ ФИЛЬТРАЦИИ ОТВЕТОВ НА ВКЛАДКЕ ОТВЕТЫ
+
+function populateOrganizationOptions() {
+  const select = document.getElementById('filterOrganization');
+  const tbody = document.querySelector('#data_table tbody');
+  const rows = tbody.rows;
+
+  const orgSet = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.classList.contains('active')) continue;
+    const orgName = row.cells[0].textContent.trim();
+    orgSet.add(orgName);
+  }
+
+  fillSelectOptions(select, orgSet, "Все организации");
+}
+
+// Функция для заполнения опций анкет при клике на селект
+function populateSurveyOptions() {
+  const select = document.getElementById('filterSurvey');
+  const tbody = document.querySelector('#data_table tbody');
+  const rows = tbody.rows;
+
+  const surveySet = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.classList.contains('active')) continue;
+    const surveyName = row.cells[1].textContent.trim();
+    surveySet.add(surveyName);
+  }
+
+  fillSelectOptions(select, surveySet, "Все анкеты");
+}
+
+// Общая функция для заполнения селекта опциями
+function fillSelectOptions(selectElem, valuesSet, defaultText) {
+  // Сохраним текущее выбранное значение
+  const currentValue = selectElem.value;
+
+  // Очистим все опции
+  selectElem.innerHTML = '';
+
+  // Добавим опцию по умолчанию
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = defaultText;
+  selectElem.appendChild(defaultOption);
+
+  // Добавим уникальные значения
+  valuesSet.forEach(value => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    selectElem.appendChild(option);
+  });
+
+  // Восстановим выбранное значение, если оно есть в новом списке
+  if (Array.from(selectElem.options).some(opt => opt.value === currentValue)) {
+    selectElem.value = currentValue;
+  } else {
+    selectElem.value = '';
+  }
+}
+
+// Функция фильтрации таблицы по выбранным значениям селектов
+function filterTable() {
+  const orgSelect = document.getElementById('filterOrganization');
+  const surveySelect = document.getElementById('filterSurvey');
+  const tbody = document.querySelector('#data_table tbody');
+  const rows = tbody.rows;
+  const noneResultRow = document.getElementById('none_result');
+
+  const selectedOrg = orgSelect.value;
+  const selectedSurvey = surveySelect.value;
+
+  let visibleCount = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.classList.contains('active')) continue;
+
+    const orgName = row.cells[0].textContent.trim();
+    const surveyName = row.cells[1].textContent.trim();
+
+    const matchOrg = !selectedOrg || orgName === selectedOrg;
+    const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
+
+    if (matchOrg && matchSurvey) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  }
+
+  if (noneResultRow) {
+    noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
+  }
+}
+
+ function loadSurveyOptions() {
+        const select = document.getElementById('filterSurvey');
+        const tbody = document.querySelector('#data_table tbody');
+        const rows = tbody.querySelectorAll('tr.active'); // только строки с данными
+
+        const surveySet = new Set();
+
+        rows.forEach(row => {
+            const surveyName = row.cells[0].textContent.trim();
+            surveySet.add(surveyName);
+        });
+
+        // Сохраняем текущее выбранное значение
+        const currentValue = select.value;
+
+        // Очищаем все опции
+        select.innerHTML = '';
+
+        // Добавляем опцию по умолчанию
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Все анкеты';
+        select.appendChild(defaultOption);
+
+        // Добавляем уникальные значения
+        surveySet.forEach(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+        });
+
+        // Восстанавливаем выбранное значение, если оно осталось
+        if ([...select.options].some(opt => opt.value === currentValue)) {
+            select.value = currentValue;
+        } else {
+            select.value = '';
+        }
+    }
+
+    // Функция фильтрации таблицы по выбранному значению селекта
+    function applySurveyFilter() {
+        const select = document.getElementById('filterSurvey');
+        const tbody = document.querySelector('#data_table tbody');
+        const rows = tbody.querySelectorAll('tr.active');
+        const noneResultRow = document.getElementById('none_result');
+
+        const selectedSurvey = select.value;
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const surveyName = row.cells[0].textContent.trim();
+            const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
+
+            if (matchSurvey) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Показать или скрыть строку "Результаты не найдены!"
+        if (noneResultRow) {
+            noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
+        }
+    }
+
+
+
+function copy_archive_survey(name_survey, description, date_begin, date_end, file_questions) {
+
+const data = {
+  name_survey,
+  description,
+  date_open: date_begin,
+  date_close: date_end,
+  questions: file_questions,
+};
+
+  fetch('/copy_archive_survey', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('Ошибка при добавлении анкеты');
+    return response.json();
+  })
+  .then(result => {
+    alert('Анкета успешно добавлена!');
+    window.location.reload();
+  })
+  .catch(err => {
+    alert(err.message);
+  });
+}
+
+
+function populateYears(kvartal, select) {
+  // Если уже есть опции кроме заглушки — не добавляем снова
+  if (select.options.length > 1) return;
+
+  const currentYear = new Date().getFullYear();
+  for (let i = 1; i <= 4; i++) {
+    const year = currentYear - i;
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    select.appendChild(option);
+  }
+}
+
+function onYearChange(kvartal, select) {
+  const year = select.value;
+  if (year) {
+    create_otchetAll_kvartal(kvartal, year);
+    select.selectedIndex = 0;
+  }
+}
+
+
 
 
             const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -3293,6 +3544,37 @@ function initUserModalPasswordEyes() {
     passwordFields.forEach(addPasswordEye);
 }
 
+// Глобальное открытие модалки добавления пользователя.
+// HTML вкладки пользователей вставляется через dangerouslySetInnerHTML,
+// поэтому script внутри partial-view может не выполниться.
+window.openAddUserModal = function () {
+    const modal = document.getElementById('addUserModal');
+    if (!modal) {
+        console.error('addUserModal not found in DOM');
+        alert('Форма добавления пользователя не загружена. Сначала откройте вкладку "Список пользователей".');
+        return;
+    }
+
+    const messageElement = document.getElementById('message');
+    if (messageElement) {
+        messageElement.textContent = '';
+        messageElement.className = '';
+    }
+
+    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    const roleEl = document.getElementById('role_bd');
+    if (roleEl) roleEl.value = 'user';
+
+    const orgEl = document.getElementById('organization');
+    if (orgEl) orgEl.selectedIndex = 0;
+
+    modal.style.display = 'block';
+};
+
 // вызвать после открытия модалок
 const _originalOpenAddUserModal = window.openAddUserModal;
 if (typeof _originalOpenAddUserModal === 'function') {
@@ -3315,9 +3597,5 @@ if (typeof _originalOpenEditUserModal === 'function') {
 // на случай, если поля уже есть на странице
 setTimeout(initUserModalPasswordEyes, 0);
         </script>
-    
-    <script src="~/js/pages/admin-archive-tools.js" asp-append-version="true"></script>
-    <script src="~/js/pages/admin-table-filters.js" asp-append-version="true"></script>
-    <script src="~/js/pages/omsu-bridge.js" asp-append-version="true"></script>
-</body>
+    </body>
     </html>

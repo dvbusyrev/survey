@@ -1,12 +1,12 @@
-﻿@model List<main_project.Models.User>
+@model List<main_project.Models.User>
 
-<div class="content users-page" id="default_content">
+<div class="content" id="default_content">
     <div class="note">
         <h2>Список пользователей</h2>
         <p>Ниже представлена таблица с существующими пользователями</p>
     </div>
 
-    <div class="users-page-toolbar" style="display:flex; justify-content: space-between; align-items:center; gap:12px; margin-bottom:12px;">
+    <div style="display:flex; justify-content: space-between; align-items:center; gap:12px; margin-bottom:12px;">
     <button type="button" class="modal_btn modal_btn-primary" onclick="openAddUserModal()">Добавить пользователя</button>
     <p class="back-button" id="check_archive_omsu" onclick="archive_list_users()" style="cursor: pointer; margin:0;">
         Посмотреть архив ->
@@ -64,9 +64,8 @@
     </table>
 
 
-
 <!-- Модальное окно добавления -->
-<div id="addUserModal" class="modal" data-users-modal="add">
+<div id="addUserModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2 class="h2_modal">Добавление пользователя</h2>
@@ -120,7 +119,7 @@
 </div>
 
  <!-- Модальное окно редактирования -->
-<div id="editUserModal" class="modal" data-users-modal="edit">
+<div id="editUserModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2 class="h2_modal">Редактирование пользователя</h2>
@@ -181,7 +180,7 @@
 </div>
 
     <!-- Модальное окно удаления -->
-    <div id="deleteUserModal" class="modal" data-users-modal="delete">
+    <div id="deleteUserModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Удаление пользователя</h2>
@@ -199,3 +198,19 @@
         </div>
     </div>
 </div>
+
+
+<script>
+(function(){
+    if (@((ViewBag.OpenAddUserModal ?? false).ToString().ToLower())) {
+        setTimeout(function(){
+            if (typeof window.openAddUserModal === 'function') {
+                window.openAddUserModal();
+            } else {
+                var modal = document.getElementById('addUserModal');
+                if (modal) modal.style.display = 'block';
+            }
+        }, 0);
+    }
+})();
+</script>
