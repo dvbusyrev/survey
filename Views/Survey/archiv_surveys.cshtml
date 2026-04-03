@@ -1,4 +1,4 @@
-@model List<main_project.Models.HistorySurvey>
+﻿@model List<main_project.Models.HistorySurvey>
 @{
     ViewData["Title"] = "Архив анкет";
 }
@@ -55,7 +55,7 @@
                     }
                 }
             </td>
-            <td class="action-icons archive-actions">
+            <td class="action-icons">
 <div class="icon-container" onclick="create_otchet_month(@survey.id_survey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
   <span class="icon" aria-hidden="true">📋</span>
   <span class="icon-tooltip" data-tooltip="Сформировать отчёт по анкете">Сформировать отчёт</span>
@@ -90,5 +90,4 @@
 @await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
 
 <script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>
-
 
