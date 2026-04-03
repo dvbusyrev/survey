@@ -749,9 +749,9 @@ return (
     </div>
     <Footer />
   </div>
-);};
+);
 };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<SurveyList />);
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<SurveyList />);
 };

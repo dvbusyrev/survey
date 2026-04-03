@@ -111,7 +111,7 @@ window.addEventListener('load', function() {
   window.populateMonthOptions();
   window.populateYearOptions();
   window.filterByDate();
-};
+});
 
 
 
