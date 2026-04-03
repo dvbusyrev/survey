@@ -34,6 +34,7 @@
         <script src="~/js/components/Navigation.js"></script>
         <script src="~/js/components/Footer.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="~/js/pages/admin-survey-table-tools.js" asp-append-version="true"></script>
         <style>
             .survey-answers-for-user {
                 display: none;
@@ -234,14 +235,15 @@ useEffect(() => {
         }
 
         const getCurrentRecords = (surveys) => {
-            const filtered = filterSurveys(surveys);
-            const indexOfLastRecord = currentPage * recordsPerPage;
-            const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-            return {
-                currentRecords: filtered.slice(indexOfFirstRecord, indexOfLastRecord),
-                totalPages: Math.ceil(filtered.length / recordsPerPage),
-                totalRecords: filtered.length
-            };
+            return window.AdminSurveyTableTools.paginateSurveys(
+                window.AdminSurveyTableTools.filterSurveys(surveys, {
+                    searchTerm,
+                    monthFilter,
+                    omsuFilter
+                }),
+                currentPage,
+                recordsPerPage
+            );
         };
 
 const ExtensionModal = ({ survey, onClose }) => {
@@ -578,7 +580,7 @@ const ExtensionModal = ({ survey, onClose }) => {
 
     const renderSurveys = () => {
     const surveysToRender = initialData.surveys;
-       const { currentRecords, totalPages, totalRecords } = getCurrentRecords(initialData.surveys);
+       const { currentRecords, totalPages, totalRecords, currentPage: safeCurrentPage } = getCurrentRecords(initialData.surveys);
     let filteredSurveys = filterSurveys(initialData.surveys);
     
     filteredSurveys = filteredSurveys.filter(survey => 
@@ -633,11 +635,7 @@ const ExtensionModal = ({ survey, onClose }) => {
                     className="filter-select"
                 >
                     <option value="">Все ОМСУ</option>
-                    {Array.from(new Set(
-                        initialData.surveys
-                            .flatMap(s => s.name_omsu?.split(',').map(name => name.trim()) || [])
-                            .filter(Boolean)
-                    )).map((omsu, index) => (
+                    {window.AdminSurveyTableTools.getOmsuOptions(initialData.surveys).map((omsu, index) => (
                         <option key={index} value={omsu}>{omsu}</option>
                     ))}
                 </select>
@@ -715,23 +713,23 @@ const ExtensionModal = ({ survey, onClose }) => {
                     
   {totalRecords > 0 && (
                     <div className="pagination-container">
-                        {currentPage > 1 && (
+                        {safeCurrentPage > 1 && (
                             <button 
                                 className="pagination-button prev"
-                                onClick={() => setCurrentPage(p => p - 1)}
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                             >
                                 <i className="fas fa-chevron-left"></i> Предыдущая
                             </button>
                         )}
                         
                         <div className="page-info">
-                            Страница {currentPage} из {totalPages}
+                            Страница {safeCurrentPage} из {totalPages}
                         </div>
                         
-                        {currentPage < totalPages && (
+                        {safeCurrentPage < totalPages && (
                             <button 
                                 className="pagination-button next"
-                                onClick={() => setCurrentPage(p => p + 1)}
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                             >
                                 Следующая <i className="fas fa-chevron-right"></i>
                             </button>
@@ -3238,7 +3236,292 @@ async function send_email() {
 }
 
 
-// Инструменты архивов, загрузки инструкций и выбора года вынесены во внешний модуль admin-archive-tools.js
+// СКРИПТ ДЛЯ ЗАГРУЗКИ ИНСТРУКЦИИ
+
+function loadFileAdmin() {
+  loadAndUploadFile('administrator');
+}
+
+function loadFileUser() {
+  loadAndUploadFile('user');
+}
+
+ function handleSelectChange(select) {
+    const value = select.value;
+    if (value === 'administrator') {
+      loadFileAdmin();
+    } else if (value === 'user') {
+      loadFileUser();
+    }
+    // Сброс выбора, если нужно
+    select.value = "";
+  }
+
+function loadAndUploadFile(role) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'docx'; // можно настроить нужные типы файлов
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Создаем FormData для отправки файла
+    const formData = new FormData();
+
+    // Переименовывать файл на клиенте нельзя, поэтому отправляем оригинал и роль
+    formData.append('file', file);
+    formData.append('role', role);
+
+    try {
+      const response = await fetch('/upload-instruction', { // URL вашего эндпоинта на сервере
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        alert('Файл успешно загружен');
+      } else {
+        alert('Ошибка загрузки файла');
+      }
+    } catch (error) {
+      alert('Ошибка: ' + error.message);
+    }
+  };
+  input.click();
+}
+
+function restoreSurveys(){handleTabClick("get_surveys");}
+
+function archive_list_omsus(){handleTabClick("archive_list_omsus");}
+function archive_list_users(){handleTabClick("archive_list_users");}
+
+
+// СКРИПТЫ ДЛЯ ФИЛЬТРАЦИИ ОТВЕТОВ НА ВКЛАДКЕ ОТВЕТЫ
+
+function populateOrganizationOptions() {
+  const select = document.getElementById('filterOrganization');
+  const tbody = document.querySelector('#data_table tbody');
+  const rows = tbody.rows;
+
+  const orgSet = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.classList.contains('active')) continue;
+    const orgName = row.cells[0].textContent.trim();
+    orgSet.add(orgName);
+  }
+
+  fillSelectOptions(select, orgSet, "Все организации");
+}
+
+// Функция для заполнения опций анкет при клике на селект
+function populateSurveyOptions() {
+  const select = document.getElementById('filterSurvey');
+  const tbody = document.querySelector('#data_table tbody');
+  const rows = tbody.rows;
+
+  const surveySet = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.classList.contains('active')) continue;
+    const surveyName = row.cells[1].textContent.trim();
+    surveySet.add(surveyName);
+  }
+
+  fillSelectOptions(select, surveySet, "Все анкеты");
+}
+
+// Общая функция для заполнения селекта опциями
+function fillSelectOptions(selectElem, valuesSet, defaultText) {
+  // Сохраним текущее выбранное значение
+  const currentValue = selectElem.value;
+
+  // Очистим все опции
+  selectElem.innerHTML = '';
+
+  // Добавим опцию по умолчанию
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = defaultText;
+  selectElem.appendChild(defaultOption);
+
+  // Добавим уникальные значения
+  valuesSet.forEach(value => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    selectElem.appendChild(option);
+  });
+
+  // Восстановим выбранное значение, если оно есть в новом списке
+  if (Array.from(selectElem.options).some(opt => opt.value === currentValue)) {
+    selectElem.value = currentValue;
+  } else {
+    selectElem.value = '';
+  }
+}
+
+// Функция фильтрации таблицы по выбранным значениям селектов
+function filterTable() {
+  const orgSelect = document.getElementById('filterOrganization');
+  const surveySelect = document.getElementById('filterSurvey');
+  const tbody = document.querySelector('#data_table tbody');
+  const rows = tbody.rows;
+  const noneResultRow = document.getElementById('none_result');
+
+  const selectedOrg = orgSelect.value;
+  const selectedSurvey = surveySelect.value;
+
+  let visibleCount = 0;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.classList.contains('active')) continue;
+
+    const orgName = row.cells[0].textContent.trim();
+    const surveyName = row.cells[1].textContent.trim();
+
+    const matchOrg = !selectedOrg || orgName === selectedOrg;
+    const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
+
+    if (matchOrg && matchSurvey) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  }
+
+  if (noneResultRow) {
+    noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
+  }
+}
+
+ function loadSurveyOptions() {
+        const select = document.getElementById('filterSurvey');
+        const tbody = document.querySelector('#data_table tbody');
+        const rows = tbody.querySelectorAll('tr.active'); // только строки с данными
+
+        const surveySet = new Set();
+
+        rows.forEach(row => {
+            const surveyName = row.cells[0].textContent.trim();
+            surveySet.add(surveyName);
+        });
+
+        // Сохраняем текущее выбранное значение
+        const currentValue = select.value;
+
+        // Очищаем все опции
+        select.innerHTML = '';
+
+        // Добавляем опцию по умолчанию
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Все анкеты';
+        select.appendChild(defaultOption);
+
+        // Добавляем уникальные значения
+        surveySet.forEach(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            select.appendChild(option);
+        });
+
+        // Восстанавливаем выбранное значение, если оно осталось
+        if ([...select.options].some(opt => opt.value === currentValue)) {
+            select.value = currentValue;
+        } else {
+            select.value = '';
+        }
+    }
+
+    // Функция фильтрации таблицы по выбранному значению селекта
+    function applySurveyFilter() {
+        const select = document.getElementById('filterSurvey');
+        const tbody = document.querySelector('#data_table tbody');
+        const rows = tbody.querySelectorAll('tr.active');
+        const noneResultRow = document.getElementById('none_result');
+
+        const selectedSurvey = select.value;
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const surveyName = row.cells[0].textContent.trim();
+            const matchSurvey = !selectedSurvey || surveyName === selectedSurvey;
+
+            if (matchSurvey) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Показать или скрыть строку "Результаты не найдены!"
+        if (noneResultRow) {
+            noneResultRow.style.display = visibleCount === 0 ? '' : 'none';
+        }
+    }
+
+
+
+function copy_archive_survey(name_survey, description, date_begin, date_end, file_questions) {
+
+const data = {
+  name_survey,
+  description,
+  date_open: date_begin,
+  date_close: date_end,
+  questions: file_questions,
+};
+
+  fetch('/copy_archive_survey', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('Ошибка при добавлении анкеты');
+    return response.json();
+  })
+  .then(result => {
+    alert('Анкета успешно добавлена!');
+    window.location.reload();
+  })
+  .catch(err => {
+    alert(err.message);
+  });
+}
+
+
+function populateYears(kvartal, select) {
+  // Если уже есть опции кроме заглушки — не добавляем снова
+  if (select.options.length > 1) return;
+
+  const currentYear = new Date().getFullYear();
+  for (let i = 1; i <= 4; i++) {
+    const year = currentYear - i;
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    select.appendChild(option);
+  }
+}
+
+function onYearChange(kvartal, select) {
+  const year = select.value;
+  if (year) {
+    create_otchetAll_kvartal(kvartal, year);
+    select.selectedIndex = 0;
+  }
+}
+
 
 
 
@@ -3311,7 +3594,5 @@ if (typeof _originalOpenEditUserModal === 'function') {
 // на случай, если поля уже есть на странице
 setTimeout(initUserModalPasswordEyes, 0);
         </script>
-    
-    <script src="~/js/pages/admin-table-filters.js" asp-append-version="true"></script>
-    <script src="~/js/pages/admin-archive-tools.js" asp-append-version="true"></script></body>
+    </body>
     </html>
