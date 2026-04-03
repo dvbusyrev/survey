@@ -1593,7 +1593,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 var selectedIdsInput = document.getElementById('selectedOmsuIds');
                 if (selectedIdsInput && selectedIdsInput.value) {
                     var ids = selectedIdsInput.value.split(',');
-                    var names = @Html.Raw(Json.Serialize(ViewBag.SelectedOmsuNames));
+                    var names = initialData.selectedOmsuNames || []; // вынесено в bootstrap partial
                     
                     for (var i = 0; i < ids.length; i++) {
                         if (ids[i] && names[i]) {
@@ -2530,41 +2530,7 @@ function deleteUser(id, fullName) {
 }
 
 
-// Глобальное открытие модалки добавления пользователя.
-// Важно: HTML вкладки пользователей вставляется через React/dangerouslySetInnerHTML,
-// поэтому <script> внутри partial view может не выполниться.
-// Держим функцию здесь, в основном скрипте страницы.
-window.openAddUserModal = function () {
-    const modal = document.getElementById('addUserModal');
-    if (!modal) {
-        console.error('addUserModal not found in DOM');
-        alert('Форма добавления пользователя не загружена. Обновите вкладку "Список пользователей".');
-        return;
-    }
-
-    const messageElement = document.getElementById('message');
-    if (messageElement) {
-        messageElement.textContent = '';
-        messageElement.className = '';
-    }
-
-    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-
-    const roleEl = document.getElementById('role_bd');
-    if (roleEl) roleEl.value = 'user';
-
-    const orgEl = document.getElementById('organization');
-    if (orgEl) orgEl.selectedIndex = 0;
-
-    modal.style.display = 'block';
-
-    if (typeof initUserModalPasswordEyes === 'function') {
-        setTimeout(initUserModalPasswordEyes, 0);
-    }
-};
+// Глобальное открытие addUserModal вынесено в ~/js/pages/admin-password-tools.js
 
 
 // Вспомогательная функция для безопасного получения элементов

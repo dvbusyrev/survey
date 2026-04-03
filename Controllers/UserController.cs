@@ -33,7 +33,8 @@ command.CommandText = @"
         date_begin,
         date_end,
         full_name,
-        email
+        email,
+        id_omsu
     FROM public.users
     WHERE date_end IS NULL OR date_end >= CURRENT_DATE;
 ";
@@ -56,6 +57,7 @@ date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
 date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                                 full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
                                 email = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                id_omsu = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                             };
                             users.Add(user);
                         }
@@ -412,7 +414,7 @@ List<User> users = new List<User>();
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = "SELECT id_user, (SELECT name_omsu FROM public.omsu WHERE public.users.id_omsu = public.omsu.id_omsu) AS name_omsu, "+
-                "name_user, name_role, hash_password, date_begin, date_end, full_name, email FROM public.users WHERE date_end < CURRENT_DATE";
+                "name_user, name_role, hash_password, date_begin, date_end, full_name, email, id_omsu FROM public.users WHERE date_end < CURRENT_DATE";
 
                 try
                 {
@@ -431,6 +433,7 @@ date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
 date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                                 full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
                                 email = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                id_omsu = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                             };
                             users.Add(user);
                         }
