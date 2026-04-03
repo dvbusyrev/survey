@@ -1,13 +1,12 @@
-﻿@model List<main_project.Models.Survey>
-@using Microsoft.AspNetCore.Http
+@model List<main_project.Models.Survey>
 @using System.Text.Json
 @using System.Security.Claims
 @{
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
+    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
@@ -17,149 +16,18 @@
         WriteIndented = true
     };
 }
+<!DOCTYPE html>
+<html lang="ru">
+@await Html.PartialAsync("~/Views/Survey/Partials/_AdminHeadResources.cshtml")
+<body>
+    @await Html.PartialAsync("~/Views/Survey/Partials/_AdminAppHost.cshtml")
 
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Список анкет</title>
-        <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-        <link rel="stylesheet" href="~/css/components.css" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-        <script src="~/js/react.development.js"></script>
-        <script src="~/js/react-dom.development.js"></script>
-        <script src="~/js/babel.min.js"></script>
-        <script src="~/js/components/Header.js"></script>
-        <script src="~/js/components/Navigation.js"></script>
-        <script src="~/js/components/Footer.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <style>
-            .survey-answers-for-user {
-                display: none;
-            }
-            .survey-archive-for-user{display:none;}
-
-            .loading-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid #fff;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 8px;
-}
-
-.password-eye-wrap {
-    position: relative;
-    width: 100%;
-}
-
-.password-eye-wrap input[type="password"],
-.password-eye-wrap input[type="text"] {
-    padding-right: 44px !important;
-}
-
-.password-eye-btn {
-    position: absolute;
-    top: 50%;
-    right: 12px;
-    transform: translateY(-50%);
-    width: 22px;
-    height: 22px;
-    border: none;
-    background: transparent;
-    padding: 0;
-    cursor: pointer;
-    opacity: 0.75;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.password-eye-btn:hover {
-    opacity: 1;
-    transform: translateY(-50%) scale(1.05);
-}
-
-.password-eye-btn:focus {
-    outline: none;
-}
-
-.password-eye-btn svg {
-    width: 20px;
-    height: 20px;
-    stroke: #6b7280;
-    fill: none;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.password-eye-btn.is-visible .eye-open {
-    display: none;
-}
-
-.password-eye-btn:not(.is-visible) .eye-closed {
-    display: none;
-}
-        </style>
-    </head>
-    <body>
-        <div id="root"></div>
-
-        <script type="text/babel">
+    <script type="text/babel">
         var last_page = "";
 var newPage = "";
 
  const { useState, useEffect, useRef } = React;
     const { Header, Footer, Navigation } = window;
-
-    function createPasswordEyeSvg(isVisible) {
-        if (isVisible) {
-            return `
-                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M3 3l18 18"></path>
-                    <path d="M10.6 10.7a3 3 0 0 0 4 4"></path>
-                    <path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path>
-                    <path d="M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3"></path>
-                </svg>
-            `;
-        }
-
-        return `
-            <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-        `;
-    }
-
-    function initPasswordToggles(root = document) {
-        const scope = root && root.querySelectorAll ? root : document;
-        scope.querySelectorAll('.password-toggle-btn').forEach((btn) => {
-            if (btn.dataset.eyeInit === 'true') return;
-
-            const targetId = btn.getAttribute('data-target');
-            const input = targetId ? document.getElementById(targetId) : null;
-            if (!input) return;
-
-            btn.innerHTML = createPasswordEyeSvg(input.type === 'text');
-            btn.dataset.eyeInit = 'true';
-
-            btn.addEventListener('click', function () {
-                const show = input.type === 'password';
-                input.type = show ? 'text' : 'password';
-                btn.innerHTML = createPasswordEyeSvg(show);
-                btn.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
-                btn.setAttribute('title', show ? 'Скрыть пароль' : 'Показать пароль');
-            });
-        });
-    }
-
-    window.initPasswordToggles = initPasswordToggles;
 
     const App = () => {
         // Константы должны быть объявлены внутри компонента
@@ -203,15 +71,6 @@ useEffect(() => {
   window.handleTabClick = handleTabClick;
 }, [handleTabClick]);
 
-useEffect(() => {
-  const timer = setTimeout(() => {
-    if (window.initPasswordToggles) {
-      window.initPasswordToggles(document);
-    }
-  }, 0);
-
-  return () => clearTimeout(timer);
-}, [content]);
 
         useEffect(() => {
             if (loading) {
@@ -2035,9 +1894,37 @@ function surveyEditToggleOmsuSelection(element) {
 
         return isValid;
     }
-    // Общие helper-функции вынесены в ~/js/pages/admin-common-helpers.js
+    function handleResponse(response) {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    }
+
+    function handleError(error) {
+        console.error('Ошибка:', error);
+        alert('Произошла ошибка: ' + (error.message || 'Попробуйте снова или обратитесь в поддержку'));
+    }
+
+        function getValueSafe(elementId) {
+            const element = document.getElementById(elementId);
+            return element ? element.value : '';
+        }
+
 
         // СКРИПТЫ ДЛЯ ВКЛАДКИ КОПИРОВАНИЯ АНКЕТЫ
+
+            function showNotification(message, isSuccess) {
+                const notification = document.getElementById('notification');
+                const messageElement = document.getElementById('notificationMessage');
+                
+                messageElement.textContent = message;
+                messageElement.className = isSuccess 
+                    ? 'notification-message notification-success' 
+                    : 'notification-message notification-error';
+                
+                notification.style.display = 'flex';
+            }
 
             function hideNotification2() {
                 document.getElementById('notification').style.display = 'none';
@@ -2104,7 +1991,137 @@ function surveyEditToggleOmsuSelection(element) {
 
 // СКРИПТЫ ДЛЯ ВКЛАДКИ ПРОСМОТРА ОТВЕТОВ (АДМИН)
 
-// Helpers просмотра ответов в админке вынесены в ~/js/pages/admin-answers-tools.js
+function renderAnswers2(data, isArchive, container, title) {
+    // Устанавливаем заголовок
+    title.textContent = `Ответы на архивную анкету: ${data.survey.name}`;
+    
+    let html = `
+        <div class="survey-info">
+            ${data.survey.description ? `<p class="survey-description">Описание: ${data.survey.description}</p><br />` : ''}
+        </div>
+        <div class="answers-table-container">
+            <table class="answers-table">
+                <thead>
+                    <tr class="table-tr">
+                        ${isArchive ? '<th>Организация</th>' : ''}
+                        <th>Вопрос</th>
+                        <th>Оценка</th>
+                        <th>Комментарий</th>
+                        <th>Дата</th>
+                        <th>Подпись</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+    data.answers.forEach(answer => {
+        const answerItems = Array.isArray(answer.answers) ? answer.answers : [];
+        const rowSpan = answerItems.length > 0 ? answerItems.length : 1;
+        
+        if (answerItems.length > 0) {
+            answerItems.forEach((item, index) => {
+                html += `
+                    <tr>
+                        ${index === 0 && isArchive ? `<td rowspan="${rowSpan}" class="omsu-cell">${answer.omsu_name || 'Не указано'}</td>` : ''}
+                        <td class="question-cell">${item.question_text || 'Не указан'}</td>
+                        <td class="rating-cell">${item.rating || '0'}/5</td>
+                        <td class="comment-cell">${item.comment || 'Нет комментария'}</td>
+                        ${index === 0 ? `
+                        <td rowspan="${rowSpan}" class="date-cell">${answer.date || 'Не указана'}</td>
+                        <td rowspan="${rowSpan}" class="signature-cell">
+                            ${answer.is_signed ? '<span class="signed">✓</span>' : '<span class="not-signed">✗</span>'}
+                        </td>` : ''}
+                    </tr>`;
+            });
+        } else {
+            html += `
+                <tr>
+                    ${isArchive ? '<td class="omsu-cell">' + (answer.omsu_name || 'Не указано') + '</td>' : ''}
+                    <td class="question-cell">Нет данных</td>
+                    <td class="rating-cell">-</td>
+                    <td class="comment-cell">-</td>
+                    <td class="date-cell">${answer.date || 'Не указана'}</td>
+                    <td class="signature-cell">
+                        ${answer.is_signed ? '<span class="signed">✓</span>' : '<span class="not-signed">✗</span>'}
+                    </td>
+                </tr>`;
+        }
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>`;
+    
+    container.innerHTML = html;
+}
+
+async function showAnswersModal(surveyId, omsuId = null) {
+    const modal = document.getElementById('answersModal');
+    const container = document.getElementById('answersContainer');
+    const title = document.getElementById('surveyAnswersTitle');
+    
+    try {
+        // Очищаем предыдущие данные
+        container.innerHTML = '<div class="loading">Загрузка данных...</div>';
+        title.textContent = 'Загрузка...';
+        modal.style.display = 'block';
+        
+        // Определяем тип запроса (архив или обычная анкета)
+        const isArchive = omsuId === null;
+        
+        // Формируем URL согласно API
+        const url = isArchive 
+            ? `/answers/${surveyId}/0/archive` 
+            : `/answers/${surveyId}/${omsuId}/regular`;
+        
+        console.log('Fetching data from:', url); // Для отладки
+        
+        const response = await fetch(url, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Ошибка сервера: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Неизвестная ошибка сервера');
+        }
+        
+        // Проверяем структуру данных
+        if (!data.survey || !data.answers) {
+            throw new Error('Неверный формат данных от сервера');
+        }
+        
+        // Отображаем полученные данные
+        renderAnswers2(data, isArchive, container, title);
+    } catch (error) {
+        console.error('Ошибка:', error);
+        container.innerHTML = `
+            <div class="error-message">
+                <p>Ошибка загрузки данных:</p>
+                <br />
+                <p><strong>${error.message}</strong></p>
+                            <br />
+                <button onclick="showAnswersModal(${surveyId}, ${omsuId || 'null'})" class="retry-btn">
+                    Повторить попытку
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Закрытие модального окна при клике вне его
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('answersModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+});
 
 function downloadReport(url, defaultFileName) {
     const loader = document.createElement('div');
@@ -2530,44 +2547,6 @@ function deleteUser(id, fullName) {
     });
 }
 
-
-// Глобальное открытие модалки добавления пользователя.
-// Важно: HTML вкладки пользователей вставляется через React/dangerouslySetInnerHTML,
-// поэтому <script> внутри partial view может не выполниться.
-// Держим функцию здесь, в основном скрипте страницы.
-window.openAddUserModal = function () {
-    const modal = document.getElementById('addUserModal');
-    if (!modal) {
-        console.error('addUserModal not found in DOM');
-        alert('Форма добавления пользователя не загружена. Обновите вкладку "Список пользователей".');
-        return;
-    }
-
-    const messageElement = document.getElementById('message');
-    if (messageElement) {
-        messageElement.textContent = '';
-        messageElement.className = '';
-    }
-
-    ['fullName', 'username', 'password', 'email_input'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-
-    const roleEl = document.getElementById('role_bd');
-    if (roleEl) roleEl.value = 'user';
-
-    const orgEl = document.getElementById('organization');
-    if (orgEl) orgEl.selectedIndex = 0;
-
-    modal.style.display = 'block';
-
-    if (typeof initUserModalPasswordEyes === 'function') {
-        setTimeout(initUserModalPasswordEyes, 0);
-    }
-};
-
-
 // Вспомогательная функция для безопасного получения элементов
 function getSafeElement(id) {
     const element = document.getElementById(id);
@@ -2962,7 +2941,96 @@ if (startDate >= endDate) {
 }
 
 
-    // Модалка ответов и рендер ответов вынесены в ~/js/pages/admin-answers-tools.js
+    // Открытие модального окна
+    function openAnswersModal() {
+        document.getElementById('answersModal').style.display = 'block';
+    }
+    
+    // Закрытие модального окна
+    function closeAnswersModal() {
+        document.getElementById('answersModal').style.display = 'none';
+    }
+    
+    // Показать ответы по анкете
+    async function showAnswers(surveyId, surveyName) {
+        const container = document.getElementById('answersContainer');
+        const title = document.getElementById('surveyAnswersTitle');
+        
+        title.textContent = `Ответы: ${surveyName}`;
+        container.innerHTML = '<div class="loading">Загрузка данных...</div>';
+        openAnswersModal();
+        
+        try {
+            const response = await fetch(`/Survey/GetSurveyAnswers?id=${surveyId}`);
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Ошибка загрузки данных');
+            }
+            
+            renderAnswers(data.survey, data.answers);
+        } catch (error) {
+            container.innerHTML = `<div class="error">${error.message}</div>`;
+        }
+    }
+    
+    // Отрисовка ответов
+    function renderAnswers(survey, answers) {
+        const container = document.getElementById('answersContainer');
+        
+        let html = `
+            <div class="survey-info">
+                <h3>${survey.name_survey}</h3>
+                <p><strong>Описание:</strong> ${survey.description || 'Нет описания'}</p>
+                <p><strong>Период:</strong> 
+                    ${new Date(survey.date_begin).toLocaleDateString()} - 
+                    ${new Date(survey.date_end).toLocaleDateString()}
+                </p>
+                <hr>
+            </div>`;
+        
+        if (answers && answers.length > 0) {
+            html += `
+                <table class="answers-table">
+                    <thead>
+                        <tr>
+                            <th>Организация</th>
+                            <th>Дата ответа</th>
+                            <th>Ответы</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            answers.forEach(answer => {
+                const answersText = formatAnswers(answer.answers);
+                html += `
+                    <tr>
+                        <td>${answer.name_omsu}</td>
+                        <td>${new Date(answer.completion_date).toLocaleDateString()}</td>
+                        <td>${answersText}</td>
+                    </tr>`;
+            });
+            
+            html += `</tbody></table>`;
+        } else {
+            html += '<p>Нет данных об ответах</p>';
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    // Форматирование ответов
+    function formatAnswers(answersJson) {
+        try {
+            const answers = JSON.parse(answersJson);
+            return Object.entries(answers)
+                .map(([question, answer]) => `<strong>${question}:</strong> ${answer}`)
+                .join('<br>');
+        } catch {
+            return 'Ошибка формата ответов';
+        }
+    }
+
 
 async function send_email() {
     try {
@@ -3282,73 +3350,7 @@ function onYearChange(kvartal, select) {
 
             const root = ReactDOM.createRoot(document.getElementById('root'));
             root.render(<App />);
-
-            function addPasswordEye(input) {
-    if (!input || input.dataset.eyeApplied === 'true') return;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'password-eye-wrap';
-
-    input.parentNode.insertBefore(wrapper, input);
-    wrapper.appendChild(input);
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'password-eye-btn';
-    btn.setAttribute('aria-label', 'Показать пароль');
-    btn.innerHTML = `
-        <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-        </svg>
-        <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 3l18 18"></path>
-            <path d="M10.6 10.7a3 3 0 0 0 4 4"></path>
-            <path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path>
-            <path d="M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3"></path>
-        </svg>
-    `;
-
-    btn.addEventListener('click', function () {
-        const isPassword = input.type === 'password';
-        input.type = isPassword ? 'text' : 'password';
-        btn.classList.toggle('is-visible', isPassword);
-        btn.setAttribute('aria-label', isPassword ? 'Скрыть пароль' : 'Показать пароль');
-    });
-
-    wrapper.appendChild(btn);
-    input.dataset.eyeApplied = 'true';
-}
-
-function initUserModalPasswordEyes() {
-    const passwordFields = document.querySelectorAll(
-        '#addUserModal input[type="password"], #editUserModal input[type="password"], input[name="password"]'
-    );
-    passwordFields.forEach(addPasswordEye);
-}
-
-// вызвать после открытия модалок
-const _originalOpenAddUserModal = window.openAddUserModal;
-if (typeof _originalOpenAddUserModal === 'function') {
-    window.openAddUserModal = function (...args) {
-        const result = _originalOpenAddUserModal.apply(this, args);
-        setTimeout(initUserModalPasswordEyes, 0);
-        return result;
-    };
-}
-
-const _originalOpenEditUserModal = window.openEditUserModal;
-if (typeof _originalOpenEditUserModal === 'function') {
-    window.openEditUserModal = function (...args) {
-        const result = _originalOpenEditUserModal.apply(this, args);
-        setTimeout(initUserModalPasswordEyes, 0);
-        return result;
-    };
-}
-
-// на случай, если поля уже есть на странице
-setTimeout(initUserModalPasswordEyes, 0);
         </script>
-        <script src="~/js/pages/admin-answers-tools.js" asp-append-version="true"></script>
-    </body>
-    </html>
+    @await Html.PartialAsync("~/Views/Survey/Partials/_AdminScriptRefs.cshtml")
+</body>
+</html>
