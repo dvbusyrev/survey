@@ -3,7 +3,8 @@
     ViewData["Title"] = "Архив анкет";
 }
         <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-<div class="content">
+<link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
+<div class="content archive-page">
     <div class="note">
         <h2>Архив анкет</h2>
         <p>На этой странице вы можете посмотреть архивные анкеты</p>
@@ -54,7 +55,7 @@
                     }
                 }
             </td>
-            <td class="action-icons">
+            <td class="action-icons archive-actions">
 <div class="icon-container" onclick="create_otchet_month(@survey.id_survey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
   <span class="icon" aria-hidden="true">📋</span>
   <span class="icon-tooltip" data-tooltip="Сформировать отчёт по анкете">Сформировать отчёт</span>
@@ -86,32 +87,8 @@
     </table>
 </div>
 
-<div class='modal' id="answersModal" style="display:none">
-  <div class='modal-content'>
-    <div>
-      <h2 class="h2_modal" id="surveyAnswersTitle">Ответы на анкету</h2>
-      <br />
-      <span class="modal-close" onclick="document.getElementById('answersModal').style.display='none'">&times;</span>
-    </div>
-    <div id="answersContainer"></div>
-  </div>
-</div>
+@await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
 
-<style>
-    .all_table tr {
-        cursor: pointer;
-    }
-    
-    .all_table tr:hover {
-        background-color: #f5f5f5;
-    }
-    
-    .loading {
-        text-align: center;
-        padding: 20px;
-    }
-</style>
+<script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>
 
-<script>
-</script>
 

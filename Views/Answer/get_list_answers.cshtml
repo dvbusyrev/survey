@@ -3,7 +3,8 @@
     ViewData["Title"] = "Ответы на анкеты";
 }
 
-<div class="content" id="default_content">
+<link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
+<div class="content answers-page" id="default_content">
     <div class="note">
         <h2>Ответы на анкеты</h2>
         <p>На этой странице вы можете посмотреть ответы организаций на анкеты</p>
@@ -68,14 +69,6 @@
         </tbody>
     </table>
 
-<div class='modal' id="answersModal" style="display:none">
-  <div class='modal-content'>
-    <div>
-      <h2 class="h2_modal" id="surveyAnswersTitle">Ответы на анкету</h2>
-      <br />
-      <span class="modal-close" onclick="document.getElementById('answersModal').style.display='none'">&times;</span>
-    </div>
-    <div id="answersContainer"></div>
-  </div>
-</div>
+@await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
 
+<script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>

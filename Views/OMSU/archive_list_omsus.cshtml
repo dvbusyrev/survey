@@ -4,12 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - main_project</title>
+    <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
 </head>
 <body>
 
 <div class="content" id="default_content">
 
-<p class="back-button" onClick="handleTabClick('get_omsu')">← Вернуться на страницу списка анкет</p>
+<p class="back-button archive-back-button" onClick="handleTabClick('get_omsu')">← Вернуться на страницу списка анкет</p>
 
     <div class="note">
         <h2>Список архивных организаций</h2>
@@ -86,8 +87,7 @@
     </div>
 </div>
 
-<script>
-</script>
+<script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>
 
 </body>
 </html>
