@@ -1,0 +1,14 @@
+@using System.Text.Json
+@model dynamic
+<script>
+window.__adminBootstrap = {
+    userRole: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserRole ?? "")),
+    userId: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserId ?? 0)),
+    displayName: @Html.Raw(JsonSerializer.Serialize(ViewBag.DisplayName ?? "")),
+    surveys: @Html.Raw(JsonSerializer.Serialize(Model ?? new List<object>(), new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    }))
+};
+</script>

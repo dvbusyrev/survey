@@ -16,6 +16,9 @@
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true
     };
+    ViewBag.UserRole = userRole;
+    ViewBag.UserId = userId;
+    ViewBag.DisplayName = displayName;
 }
 
     <!DOCTYPE html>
@@ -23,6 +26,7 @@
     @await Html.PartialAsync("~/Views/Survey/Partials/_AdminHeadResources.cshtml")
     <body>
         @await Html.PartialAsync("~/Views/Survey/Partials/_AdminAppHost.cshtml")
+        @await Html.PartialAsync("~/Views/Survey/Partials/_AdminBootstrapData.cshtml", Model)
         @await Html.PartialAsync("~/Views/Survey/Partials/_AdminScriptRefs.cshtml")
 
         <script type="text/babel">
@@ -54,15 +58,9 @@ var newPage = "";
         const [searchTerm, setSearchTerm] = useState('');
         
         // Проверка доступа
-        const userRole = '@Html.Raw(userRole)';
+        const initialData = window.__adminBootstrap || {};
+        const userRole = initialData.userRole || '';
         const hasAccess = !!userRole;
-
-        const initialData = {
-            userRole: userRole,
-            userId: @userId,
-            displayName: @Html.Raw(JsonSerializer.Serialize(displayName)),
-            surveys: @Html.Raw(JsonSerializer.Serialize(Model, jsonOptions))
-        };
 
         if (userRole == "Админ") {
     last_page = "get_surveys";
