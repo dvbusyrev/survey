@@ -1,0 +1,8 @@
+#root[data-admin-foundation="ready"] {
+    --admin-foundation-ready: 1;
+}
+
+/*
+    Stage 1 foundation styles.
+    Intentionally scoped and non-invasive so they do not override the current UI.
+*/

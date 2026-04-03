@@ -1,8 +1,26 @@
-(function(){
-  window.ModalHelpers = window.ModalHelpers || {
-    open: function(id){ var modal = document.getElementById(id); if (modal) modal.style.display = 'block'; return modal; },
-    close: function(id){ var modal = document.getElementById(id); if (modal) modal.style.display = 'none'; return modal; },
-    clearMessage: function(id){ var el = document.getElementById(id); if (!el) return; el.textContent = ''; el.className = ''; },
-    setMessage: function(id, text, isSuccess){ var el = document.getElementById(id); if (!el) return; el.textContent = text || ''; el.className = isSuccess ? 'success-message' : 'error-message'; }
-  };
-})();
+(function (window) {
+    'use strict';
+
+    function setDisplay(element, value) {
+        if (!element) return;
+        element.style.display = value;
+    }
+
+    window.AppCore = window.AppCore || {};
+    window.AppCore.modal = {
+        open(elementOrId, displayMode) {
+            const element = typeof elementOrId === 'string'
+                ? document.getElementById(elementOrId)
+                : elementOrId;
+            setDisplay(element, displayMode || 'block');
+            return element;
+        },
+        close(elementOrId) {
+            const element = typeof elementOrId === 'string'
+                ? document.getElementById(elementOrId)
+                : elementOrId;
+            setDisplay(element, 'none');
+            return element;
+        }
+    };
+})(window);

@@ -1,29 +1,33 @@
-(function(){
-  async function requestJson(url, options){
-    var response = await fetch(url, options || {});
-    var data;
-    try { data = await response.json(); } catch (e) { data = { success: false, message: 'Сервер вернул не JSON' }; }
-    if (!response.ok) {
-      throw new Error((data && data.message) || ('HTTP ' + response.status));
+(function (window) {
+    'use strict';
+
+    async function requestJson(url, options) {
+        const response = await fetch(url, options || {});
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        const payload = isJson ? await response.json() : await response.text();
+
+        if (!response.ok) {
+            const error = new Error(typeof payload === 'string' ? payload : 'HTTP request failed');
+            error.status = response.status;
+            error.payload = payload;
+            throw error;
+        }
+
+        return payload;
     }
-    return data;
-  }
 
-  function antiforgeryToken(){
-    var tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
-    return tokenEl ? tokenEl.value : '';
-  }
-
-  function jsonHeaders(){
-    var token = antiforgeryToken();
-    var headers = { 'Content-Type': 'application/json' };
-    if (token) headers['RequestVerificationToken'] = token;
-    return headers;
-  }
-
-  window.Http = window.Http || {
-    requestJson: requestJson,
-    antiforgeryToken: antiforgeryToken,
-    jsonHeaders: jsonHeaders
-  };
-})();
+    window.AppCore = window.AppCore || {};
+    window.AppCore.http = {
+        getJson(url, options) {
+            return requestJson(url, Object.assign({ method: 'GET' }, options));
+        },
+        postJson(url, body, options) {
+            return requestJson(url, Object.assign({
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }, options));
+        }
+    };
+})(window);

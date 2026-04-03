@@ -1,10 +1,34 @@
-(function(){
-  window.DomUtils = window.DomUtils || {
-    byId: function(id){ return document.getElementById(id); },
-    setValue: function(id, value){ var el = document.getElementById(id); if (el) el.value = value == null ? '' : value; return el; },
-    setText: function(id, value){ var el = document.getElementById(id); if (el) el.textContent = value == null ? '' : value; return el; },
-    show: function(id){ var el = document.getElementById(id); if (el) el.style.display = 'block'; return el; },
-    hide: function(id){ var el = document.getElementById(id); if (el) el.style.display = 'none'; return el; },
-    exists: function(id){ return !!document.getElementById(id); }
-  };
-})();
+(function (window) {
+    'use strict';
+
+    const DomUtils = {
+        byId(id) {
+            return document.getElementById(id);
+        },
+        qs(selector, root) {
+            return (root || document).querySelector(selector);
+        },
+        qsa(selector, root) {
+            return Array.from((root || document).querySelectorAll(selector));
+        },
+        on(target, eventName, handler, options) {
+            if (!target || !eventName || typeof handler !== 'function') return;
+            target.addEventListener(eventName, handler, options || false);
+        },
+        ready(callback) {
+            if (typeof callback !== 'function') return;
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', callback, { once: true });
+                return;
+            }
+            callback();
+        },
+        toggleClass(target, className, force) {
+            if (!target || !className) return false;
+            return target.classList.toggle(className, force);
+        }
+    };
+
+    window.AppCore = window.AppCore || {};
+    window.AppCore.dom = DomUtils;
+})(window);
