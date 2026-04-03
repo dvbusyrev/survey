@@ -20,25 +20,9 @@
 
     <!DOCTYPE html>
     <html lang="ru">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Список анкет</title>
-        <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-        <link rel="stylesheet" href="~/css/components.css" />
-        <link rel="stylesheet" href="~/css/pages/admin-main.css" asp-append-version="true" />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-        <script src="~/js/react.development.js"></script>
-        <script src="~/js/react-dom.development.js"></script>
-        <script src="~/js/babel.min.js"></script>
-        <script src="~/js/components/Header.js"></script>
-        <script src="~/js/components/Navigation.js"></script>
-        <script src="~/js/components/Footer.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    </head>
+            @await Html.PartialAsync("~/Views/Survey/Partials/_AdminHeadResources.cshtml")
     <body>
-        <div id="root"></div>
+                @await Html.PartialAsync("~/Views/Survey/Partials/_AdminAppHost.cshtml")
 
         <script type="text/babel">
         var last_page = "";
