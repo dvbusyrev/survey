@@ -57,7 +57,7 @@
         }
 
         const routes = {
-            get_surveys: '/Survey/get_surveys',
+            get_surveys: '/get_surveys',
             open_statistic: '/Answer/open_statistic',
             get_users: '/User/get_users',
             get_omsu: '/OMSU/get_omsu',

@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using main_project.Data;
+using main_project.Features.Surveys.Admin;
+using main_project.Infrastructure.Database;
 using main_project.Models;
 using main_project.Services;
 
@@ -32,10 +34,12 @@ builder.Services
 
 builder.Services.AddHostedService<SurveyExpirationService>(); // Регистрируем фоновую службу
 builder.Services.AddScoped<DatabaseController>();
+builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services.AddSingleton<DatabaseConnection>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<SurveyAdminService>();
 
 // Сжатие ответов для ускорения загрузки
 builder.Services.AddResponseCompression(options =>
@@ -84,7 +88,7 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "get_surveys",
     pattern: "get_surveys",
-    defaults: new { controller = "Survey", action = "get_surveys" }
+    defaults: new { controller = "SurveyAdmin", action = "get_surveys" }
 );
 
 app.MapControllerRoute(
@@ -150,7 +154,7 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "add_survey",
     pattern: "add_survey",
-    defaults: new { controller = "Survey", action = "add_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "add_survey" }
 );
 
 
@@ -175,7 +179,7 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "add_survey_bd",
     pattern: "add_survey_bd",
-    defaults: new { controller = "Survey", action = "add_survey_bd" }
+    defaults: new { controller = "SurveyAdmin", action = "add_survey_bd" }
 );
 
 app.MapControllerRoute(
@@ -285,30 +289,30 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "update_survey",
     pattern: "update_survey/{id}",
-    defaults: new { controller = "Survey", action = "update_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "update_survey" }
 );
 
 app.MapControllerRoute(
     name: "update_survey_bd",
     pattern: "update_survey_bd/{id}",
-    defaults: new { controller = "Survey", action = "update_survey_bd" }
+    defaults: new { controller = "SurveyAdmin", action = "update_survey_bd" }
 );
 app.MapControllerRoute(
     name: "copy_survey",
     pattern: "copy_survey/{id}",
-    defaults: new { controller = "Survey", action = "copy_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "copy_survey" }
 );
 
 app.MapControllerRoute(
     name: "copy_survey_bd",
     pattern: "copy_survey_bd/{id}",
-    defaults: new { controller = "Survey", action = "copy_survey_bd" }
+    defaults: new { controller = "SurveyAdmin", action = "copy_survey_bd" }
 );
 
 app.MapControllerRoute(
     name: "delete_survey",
     pattern: "surveys/delete/{id}",
-    defaults: new { controller = "Survey", action = "delete_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "delete_survey" }
 );
 
 app.MapControllerRoute(

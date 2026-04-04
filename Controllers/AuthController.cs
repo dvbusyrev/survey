@@ -27,7 +27,7 @@ public class AuthController : Controller
 
             if (userRole == "Админ")
             {
-                return RedirectToAction("get_surveys", "Survey");
+                return RedirectToRoute("get_surveys");
             }
             else if (userRole == "user" && !string.IsNullOrEmpty(userId))
             {
