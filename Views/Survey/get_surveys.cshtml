@@ -97,7 +97,7 @@ useEffect(() => {
                     <h2>Доступ запрещён</h2>
                     <p>У вас нет прав для просмотра этой страницы.</p>
                      <br/>
-                    <a href="/" class="btn">Вернуться на страницу авторизации</a>
+                    <a href="/" className="btn">Вернуться на страницу авторизации</a>
                 </div>
             );
         }
@@ -516,7 +516,7 @@ const ExtensionModal = ({ survey, onClose }) => {
                 <div className="content-wrapper">
                     <table id="data_table">
                         <thead>
-                            <tr class="table_tr">
+                            <tr className="table_tr">
                                 <th>Название анкеты</th>
                                 <th>Анкета за месяц</th>
                                 <th>ОМСУ</th>
@@ -845,7 +845,7 @@ const radarChartRef = useRef(null);
 
                 return (
                     <div style={{maxWidth: '1200px', margin: '0 auto', padding: '20px'}}>
-                            <div class="note">
+                            <div className="note">
             <h2>Статистика</h2>
         </div>
                         
@@ -1178,7 +1178,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                         case 'copy':
                             return (
                                 <div>
-                                    <h2 class="h2_modal">Копирование анкеты</h2>
+                                    <h2 className="h2_modal">Копирование анкеты</h2>
                                     <br />
                                     <p>Вы уверены, что хотите создать копию анкеты "{modal.data?.name_survey}"?</p>
                                     <div className="modal-footer">
@@ -1190,7 +1190,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                         case 'update':
                             return (
                                 <div>
-                                    <h2 class="h2_modal">Редактирование анкеты</h2>
+                                    <h2 className="h2_modal">Редактирование анкеты</h2>
                                     <br />
                                     <p>Вы переходите к редактированию анкеты "{modal.data?.name_survey}"</p>
                                     <div className="modal-footer">
@@ -1202,7 +1202,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                         case 'delete':
                             return (
                                 <div>
-                                    <h2 class="h2_modal">Удаление анкеты</h2>
+                                    <h2 className="h2_modal">Удаление анкеты</h2>
                                     <br />
                                     <p>Вы уверены, что хотите удалить анкету "{modal.data?.name_survey}"?</p>
                                     <div className="modal-footer">

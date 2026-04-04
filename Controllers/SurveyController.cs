@@ -1832,7 +1832,17 @@ public IActionResult update_survey(int id)
             var survey = new Survey();
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "SELECT * FROM public.surveys WHERE id_survey = @id";
+                command.CommandText = @"
+                    SELECT
+                        id_survey,
+                        name_survey,
+                        questions,
+                        date_create,
+                        date_open,
+                        date_close,
+                        description
+                    FROM public.surveys
+                    WHERE id_survey = @id";
                 command.Parameters.Add(new NpgsqlParameter("@id", id));
 
                 using (var reader = command.ExecuteReader())
