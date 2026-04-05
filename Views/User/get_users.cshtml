@@ -16,55 +16,59 @@
         </p>
     </div>
 
-    <table id="data_table" class="users-table">
-        <thead>
-            <tr class='table_tr'>
-                <th class="table-th--start">ФИО</th>
-                <th>Логин</th>
-                <th>Организация</th>
-                <th>Роль</th>
-                 <th>Почта</th>
-                <th>Дата начала</th>
-                <th>Дата конца</th>
-                <th class="table-th--end">Действия</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (Model == null || !Model.Any()) {
-                <tr>
-                    <td colspan="8" class="table-empty-cell">Результаты не найдены!</td>
+    <div class="table-responsive">
+        <table id="data_table" class="users-table">
+            <thead>
+                <tr class='table_tr'>
+                    <th class="table-th--start">ФИО</th>
+                    <th>Логин</th>
+                    <th>Организация</th>
+                    <th>Роль</th>
+                    <th>Почта</th>
+                    <th>Дата начала</th>
+                    <th>Дата конца</th>
+                    <th class="table-th--end">Действия</th>
                 </tr>
-            } else {
-                @foreach (var user in Model)
-                {
+            </thead>
+            <tbody>
+                @if (Model == null || !Model.Any()) {
                     <tr>
-                        <td>@user.full_name</td>
-                        <td>@user.name_user</td>
-                        <td>@user.name_omsu</td>
-                        <td>                            @if (user.name_role == "user")
-                            {
-                                @:Пользователь
-                            }
-                            else
-                            {
-                                @:Админ
-                            }</td>
-                        <td>@user.email</td>
-                        <td>@user.date_begin?.ToString("dd.MM.yyyy")</td>
-                        <td>@user.date_end?.ToString("dd.MM.yyyy")</td>
-                        <td class="action-icons">
-                            <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.id_omsu, '@Html.Raw(user.name_role)', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
-                                <span>✏️</span><span class="icon-tooltip">Редактировать</span>
-                            </div>
-                            <div class="icon-container" onclick="deleteUser(@user.id_user, '@Html.Raw(user.full_name)')">
-                                <span>🗑️</span><span class="icon-tooltip">Удалить</span>
-                            </div>
-                        </td>
+                        <td colspan="8" class="table-empty-cell">Результаты не найдены!</td>
                     </tr>
+                } else {
+                    @foreach (var user in Model)
+                    {
+                        <tr>
+                            <td>@user.full_name</td>
+                            <td>@user.name_user</td>
+                            <td>@user.name_omsu</td>
+                            <td>
+                                @if (user.name_role == "user")
+                                {
+                                    @:Пользователь
+                                }
+                                else
+                                {
+                                    @:Админ
+                                }
+                            </td>
+                            <td>@user.email</td>
+                            <td>@user.date_begin?.ToString("dd.MM.yyyy")</td>
+                            <td>@user.date_end?.ToString("dd.MM.yyyy")</td>
+                            <td class="action-icons">
+                                <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.id_omsu, '@Html.Raw(user.name_role)', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
+                                    <span><i class="fas fa-pen-to-square"></i></span><span class="icon-tooltip">Редактировать</span>
+                                </div>
+                                <div class="icon-container" onclick="deleteUser(@user.id_user, '@Html.Raw(user.full_name)')">
+                                    <span><i class="fas fa-trash"></i></span><span class="icon-tooltip">Удалить</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
                 }
-            }
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </div>
 
 
 <!-- Модальное окно добавления -->
@@ -73,7 +77,7 @@
         <div class="modal-header">
             <h2 class="h2_modal">Добавление пользователя</h2>
         </div>
-        <span class="modal-close" onclick="document.getElementById('addUserModal').style.display='none'">&times;</span>
+        <span class="modal-close" onclick="window.hideSiteModal ? window.hideSiteModal('addUserModal') : document.getElementById('addUserModal').style.display='none'"><i class="fas fa-xmark"></i></span>
         <div class="modal-body">
             <div id="message"></div>
             <div class="form-group">
@@ -116,7 +120,7 @@
         </div>
         <div class="modal-footer">
             <button type="button" onclick="submitFormAdd()" class="modal_btn modal_btn-primary">Сохранить</button>
-            <button type="button" onclick="document.getElementById('addUserModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
+            <button type="button" onclick="window.hideSiteModal ? window.hideSiteModal('addUserModal') : document.getElementById('addUserModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
         </div>
     </div>
 </div>
@@ -127,7 +131,7 @@
         <div class="modal-header">
             <h2 class="h2_modal">Редактирование пользователя</h2>
         </div>
-        <span class="modal-close" onclick="document.getElementById('editUserModal').style.display='none'">&times;</span>
+        <span class="modal-close" onclick="window.hideSiteModal ? window.hideSiteModal('editUserModal') : document.getElementById('editUserModal').style.display='none'"><i class="fas fa-xmark"></i></span>
         <div class="modal-body">
             <input type="hidden" id="editUserId">
             <div class="form-group">
@@ -140,7 +144,7 @@
             </div>
             <div class="form-group">
                 <label>Пароль:</label>
-                <input type="password" id="editPassword" class="form-control" placeholder="Оставьте пустым, чтобы не изменять">
+                <input type="password" id="editPassword" class="form-control" placeholder="Оставьте пустым">
             </div>
             <div class="form-group">
                 <label>Email:</label>
@@ -177,7 +181,7 @@
         </div>
         <div class="modal-footer">
             <button onclick="updateUser()" class="modal_btn modal_btn-primary">Сохранить</button>
-            <button onclick="document.getElementById('editUserModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
+            <button onclick="window.hideSiteModal ? window.hideSiteModal('editUserModal') : document.getElementById('editUserModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
         </div>
     </div>
 </div>
@@ -187,7 +191,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Удаление пользователя</h2>
-                <span class="modal-close" onclick="document.getElementById('deleteUserModal').style.display='none'">&times;</span>
+                <span class="modal-close" onclick="window.hideSiteModal ? window.hideSiteModal('deleteUserModal') : document.getElementById('deleteUserModal').style.display='none'"><i class="fas fa-xmark"></i></span>
             </div>
             <div class="modal-body">
                 <p>Вы действительно хотите удалить пользователя <span id="deleteUserName"></span>?</p>
@@ -196,7 +200,7 @@
             </div>
             <div class="modal-footer">
                 <button onclick="deleteUser()" class="modal_btn modal_btn-danger">Удалить</button>
-                <button onclick="document.getElementById('deleteUserModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
+                <button onclick="window.hideSiteModal ? window.hideSiteModal('deleteUserModal') : document.getElementById('deleteUserModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
             </div>
         </div>
     </div>
@@ -211,7 +215,13 @@
                 window.openAddUserModal();
             } else {
                 var modal = document.getElementById('addUserModal');
-                if (modal) modal.style.display = 'block';
+                if (modal) {
+                    if (window.showSiteModal) {
+                        window.showSiteModal(modal);
+                    } else {
+                        modal.style.display = 'flex';
+                    }
+                }
             }
         }, 0);
     }

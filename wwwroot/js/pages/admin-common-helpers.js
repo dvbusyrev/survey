@@ -8,7 +8,10 @@
 
     function handleError(error) {
         console.error('Ошибка:', error);
-        alert('Произошла ошибка: ' + (error.message || 'Попробуйте снова или обратитесь в поддержку'));
+        window.siteNotify(
+            'Произошла ошибка: ' + (error.message || 'Попробуйте снова или обратитесь в поддержку'),
+            'error'
+        );
     }
 
     function getValueSafe(elementId) {
@@ -19,7 +22,10 @@
     function showNotification(message, isSuccess) {
         const notification = document.getElementById('notification');
         const messageElement = document.getElementById('notificationMessage');
-        if (!notification || !messageElement) return;
+        if (!notification || !messageElement) {
+            window.siteNotify(message, isSuccess ? 'success' : 'error');
+            return;
+        }
 
         messageElement.textContent = message;
         messageElement.className = isSuccess

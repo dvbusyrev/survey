@@ -11,6 +11,11 @@
 }
 
 .omsu-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 
@@ -52,6 +57,10 @@
 .omsu-modal .modal-content,
 #editOmsuModal .modal-content {
   max-width: 640px;
+}
+
+.omsu-table {
+  width: 100%;
 }
 
 .omsu-modal .form-group,

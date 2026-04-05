@@ -1,6 +1,6 @@
 .users-page,
 .users-page--archive {
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -21,10 +21,27 @@
 .users-table .action-icons,
 .users-page .action-icons {
   white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .users-table td:last-child {
-  width: 1%;
+  width: 92px;
+  overflow: visible;
+}
+
+.users-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.users-table th,
+.users-table td {
+  white-space: nowrap;
+  padding: 0.5rem 0.55rem;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .users-table__empty,
@@ -38,6 +55,28 @@
 #deleteUserModal .modal-content {
   max-width: 720px;
 }
+
+#addUserModal .modal-body,
+#editUserModal .modal-body {
+  padding-top: 12px;
+}
+
+.users-table th:nth-child(1),
+.users-table td:nth-child(1) { width: 17%; }
+.users-table th:nth-child(2),
+.users-table td:nth-child(2) { width: 10%; }
+.users-table th:nth-child(3),
+.users-table td:nth-child(3) { width: 17%; }
+.users-table th:nth-child(4),
+.users-table td:nth-child(4) { width: 9%; }
+.users-table th:nth-child(5),
+.users-table td:nth-child(5) { width: 15%; }
+.users-table th:nth-child(6),
+.users-table td:nth-child(6) { width: 10%; }
+.users-table th:nth-child(7),
+.users-table td:nth-child(7) { width: 10%; }
+.users-table th:nth-child(8),
+.users-table td:nth-child(8) { width: 84px; }
 
 @media (max-width: 720px) {
   .users-page-toolbar,

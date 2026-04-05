@@ -1,11 +1,25 @@
 ﻿window.Navigation = ({ openVkladka, activeTab, userRole, userId }) => {
     const isAdmin = userRole === 'Админ';
+    const [openSubmenu, setOpenSubmenu] = React.useState(null);
+
+    React.useEffect(() => {
+        const handlePointerDown = (event) => {
+            if (!event.target.closest('.admin-nav')) {
+                setOpenSubmenu(null);
+            }
+        };
+
+        document.addEventListener('pointerdown', handlePointerDown);
+        return () => document.removeEventListener('pointerdown', handlePointerDown);
+    }, []);
 
     const isSurveySectionActive = isAdmin
         ? ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)
         : ['active', 'archived', 'answers_tab', 'archiv_surveys_for_user'].includes(activeTab);
 
     const navigate = (tab) => {
+        setOpenSubmenu(null);
+
         if (tab === 'add_user') {
             const tryOpenAddUserModal = () => {
                 if (typeof window.openAddUserModal === 'function' && document.getElementById('addUserModal')) {
@@ -84,7 +98,8 @@
                 class: 'surveys',
                 icon: 'fa-clipboard-list',
                 submenu: [
-                    { id: 'add_survey', label: 'Добавить анкету', class: 'survey-add', icon: 'fa-plus-circle' },
+                    { id: 'get_surveys', label: 'Список анкет', class: 'survey-list', icon: 'fa-list' },
+                    { id: 'add_survey', label: 'Добавить анкету', class: 'survey-add', icon: 'fa-plus' },
                     { id: 'list_answers_users', label: 'Ответы на анкеты', class: 'survey-answers', icon: 'fa-list-check' },
                     { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-box-archive' }
                 ]
@@ -101,7 +116,7 @@
             class: 'users',
             icon: 'fa-users',
             submenu: [
-                { id: 'add_user', label: 'Добавить пользователя', class: 'user-add', icon: 'fa-user-plus' },
+                { id: 'add_user', label: 'Добавить пользователя', class: 'user-add', icon: 'fa-plus' },
                 { id: 'get_users', label: 'Список пользователей', class: 'user-list', icon: 'fa-list' }
             ]
         },
@@ -152,7 +167,10 @@
         }
     ];
 
-    return React.createElement('nav', { className: 'admin-nav' },
+    return React.createElement('nav', {
+        className: 'admin-nav',
+        onMouseLeave: () => setOpenSubmenu(null)
+    },
         React.createElement('ul', { className: 'nav-list' },
             navItems.map(item => {
                 const itemActive = item.class === 'surveys' ? isSurveySectionActive : item.id === activeTab;
@@ -164,15 +182,23 @@
                         'nav-item',
                         item.class || '',
                         itemActive ? 'active' : '',
-                        item.submenu ? 'has-submenu' : ''
+                        item.submenu ? 'has-submenu' : '',
+                        openSubmenu === item.id ? 'submenu-open' : ''
                     ].join(' ').trim(),
-                    id: item.id
+                    id: item.id,
+                    onMouseEnter: () => item.submenu && setOpenSubmenu(item.id),
+                    onMouseLeave: () => item.submenu && setOpenSubmenu(null)
                 },
                     React.createElement('a', {
                         href: '#',
                         className: 'nav-link',
                         onClick: (e) => {
                             e.preventDefault();
+                            if (item.submenu && window.innerWidth <= 900) {
+                                setOpenSubmenu(openSubmenu === item.id ? null : item.id);
+                                return;
+                            }
+                            e.currentTarget.blur();
                             navigate(item.id);
                         },
                         style: {
@@ -207,6 +233,8 @@
                                     className: 'submenu-link',
                                     onClick: (e) => {
                                         e.preventDefault();
+                                        e.currentTarget.blur();
+                                        setOpenSubmenu(null);
                                         navigate(subItem.id);
                                     },
                                     style: {

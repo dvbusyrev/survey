@@ -4,12 +4,13 @@
     <meta charset="utf-8" />
     <title>Авторизация</title>
 
-  <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
+  <link rel="icon" type="image/svg+xml" href="~/images/favicon.svg" asp-append-version="true" />
 
     <script src="/js/react.development.js"></script>
     <script src="/js/react-dom.development.js"></script>
     <script src="/js/babel.min.js"></script>
     <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -76,11 +77,8 @@ background:
         }
 
         .form-group:focus-within .form-label {
-            transform: scale(1.1);
             font-weight: 600;
             color: #667eea;
-            padding-left: 1px;
-            transform-origin: left;
         }
 
         .input-container {
@@ -89,25 +87,27 @@ background:
             align-items: stretch;
             width: 100%;
             gap: 0;
+            overflow: visible;
+            border-radius: 8px;
             transition: all 0.2s ease;
         }
 
         .icon-container {
             flex: 0 0 46px;
             width: 46px;
-            background: rgba(102, 126, 234, 0.1);
+            background: white;
             border-radius: 8px 0 0 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #667eea;
-            border: 2px solid #e2e8f0;
+            border: 1px solid #d1d5db;
+            border-right: 0;
             transition: all 0.2s ease;
-            transform-origin: left center;
         }
 
         .icon-container i {
-            font-size: 1.4rem;
+            font-size: 1rem;
             opacity: 0.9;
             transition: all 0.2s ease;
         }
@@ -118,30 +118,41 @@ background:
             min-width: 0;
             min-height: 48px;
             padding: 0.75rem 1rem;
-            border: 2px solid #e2e8f0;
+            color: #4a5568;
+            border: 1px solid #d1d5db;
+            border-left: 0;
             border-radius: 0 8px 8px 0;
-            font-size: 1rem;
+            font-size: 0.95rem;
             transition: all 0.2s ease;
             background: white;
-            margin-left: -2px;
             box-sizing: border-box;
         }
 
         .form-input:focus {
             outline: none;
             border-color: #667eea;
-            margin-left: -2px;
+        }
+
+        .input-container:focus-within {
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
+        }
+
+        .input-container:focus-within .form-input {
+            border-color: #667eea;
         }
 
         .input-container:focus-within .icon-container {
-            transform: scale(1.1);
             border-color: #667eea;
-            background: rgba(102, 126, 234, 0.25);
+            background: white;
         }
 
         .input-container:focus-within .icon-container i {
             opacity: 1;
-            transform: scale(1.15);
+        }
+
+        .form-input::placeholder {
+            color: #9ca3af;
+            font-size: 0.9rem;
         }
 
         .checkbox-group {
@@ -186,27 +197,45 @@ background:
 
         .submit-button {
             width: 100%;
-             background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
-    border: none;
-    color: white;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 
-        0 4px 6px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    transition: all 0.3s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+            min-height: 44px;
+            background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow:
+                0 4px 6px rgba(0, 0, 0, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .submit-button::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: buttonShine 8s ease-in-out infinite;
         }
 
         .submit-button:hover {
             background: linear-gradient(145deg, #8a6dff 0%, #5a4acd 100%);
-    box-shadow: 
-        0 6px 8px rgba(0, 0, 0, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25);
-    transform: translateY(-2px);
+            box-shadow:
+                0 6px 8px rgba(0, 0, 0, 0.16),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .submit-button:hover::before {
+            animation: hoverShine 1.2s ease-in-out infinite;
         }
 
 
@@ -256,6 +285,17 @@ background:
             stroke-width: 1.8;
             stroke-linecap: round;
             stroke-linejoin: round;
+        }
+
+        @@keyframes buttonShine {
+            0% { transform: translateX(-100%); }
+            20% { transform: translateX(100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        @@keyframes hoverShine {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(100%); }
         }
 
         @@media (max-width: 640px) {
@@ -540,7 +580,20 @@ background:
                                     <button
                                         type="button"
                                         className="password-toggle-btn"
-                                        onClick={() => setShowPassword(!showPassword)}
+                                        onMouseDown={(event) => event.preventDefault()}
+                                        onClick={() => {
+                                            setShowPassword((prev) => !prev);
+                                            window.requestAnimationFrame(() => {
+                                                const input = document.getElementById('password');
+                                                if (input) {
+                                                    input.focus({ preventScroll: true });
+                                                    const length = input.value ? input.value.length : 0;
+                                                    if (typeof input.setSelectionRange === 'function') {
+                                                        input.setSelectionRange(length, length);
+                                                    }
+                                                }
+                                            });
+                                        }}
                                         aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
                                         title={showPassword ? "Скрыть пароль" : "Показать пароль"}
                                     >

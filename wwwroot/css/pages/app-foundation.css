@@ -22,7 +22,7 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --header-height: 84px;
+  --header-height: 92px;
   --page-gap: clamp(12px, 2vw, 24px);
   --nav-width: clamp(220px, 18vw, 240px);
   --content-max-width: 1600px;
@@ -153,8 +153,10 @@ body {
 
 .table-responsive {
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
+  overflow-y: visible;
+  padding-top: 4px;
+  padding-bottom: 56px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -219,11 +221,17 @@ body {
     width: 100%;
     min-width: 0;
   }
+
+  .table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 24px;
+  }
 }
 
 @media (max-width: 640px) {
   :root {
-    --header-height: 118px;
+    --header-height: 126px;
   }
 
   .content,
@@ -240,7 +248,7 @@ body {
 
 @media (max-height: 820px) {
   :root {
-    --header-height: 74px;
+    --header-height: 84px;
   }
 
   .admin-container {

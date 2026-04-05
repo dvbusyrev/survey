@@ -183,28 +183,36 @@ function submitExtension(id) {
 }
 
 
-function delete_omsu(id) {
-    if (confirm("Вы уверены, что хотите удалить эту организацию?")) {
-        const xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    alert("Организация успешно удалена!");
-                    handleTabClick("get_omsu");
-                } else {
-                    console.error("Ошибка при удалении организации: " + xhr.status);
-                }
-            }
-        };
+async function delete_omsu(id) {
+    const confirmed = await window.siteConfirm("Вы уверены, что хотите удалить эту организацию?", {
+        title: "Удаление организации",
+        confirmText: "Удалить",
+        cancelText: "Отмена"
+    });
 
-        xhr.onerror = function() {
-            console.error("Проблемы с интернетом");
-        };
-
-        xhr.open("POST", `/organizations/${id}/delete`, true);
-        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-        xhr.send();
+    if (!confirmed) {
+        return;
     }
+
+    const xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                alert("Организация успешно удалена!");
+                handleTabClick("get_omsu");
+            } else {
+                console.error("Ошибка при удалении организации: " + xhr.status);
+            }
+        }
+    };
+
+    xhr.onerror = function() {
+        console.error("Проблемы с интернетом");
+    };
+
+    xhr.open("POST", `/organizations/${id}/delete`, true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    xhr.send();
 }
 
 
@@ -312,7 +320,11 @@ if (password.length < 12) {
         document.getElementById('editDateEnd').value = dateEnd || '';
         document.getElementById('password').value = ''; // Очищаем пароль
         
-        document.getElementById('editUserModal').style.display = 'block';
+        if (window.showSiteModal) {
+            window.showSiteModal('editUserModal');
+        } else {
+            document.getElementById('editUserModal').style.display = 'flex';
+        }
     }
 
     
@@ -393,9 +405,14 @@ function parseSettingsFile(text) {
 
 
 
-function deleteUser(id, fullName) {
-    
-    if (!confirm(`Вы уверены, что хотите удалить пользователя?`)) {
+async function deleteUser(id, fullName) {
+    const confirmed = await window.siteConfirm(`Вы уверены, что хотите удалить пользователя ${fullName || ''}?`, {
+        title: "Удаление пользователя",
+        confirmText: "Удалить",
+        cancelText: "Отмена"
+    });
+
+    if (!confirmed) {
         return;
     }
 
@@ -491,7 +508,11 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
         await loadOrganizations2(orgId);
 
         // Показываем модальное окно
-        modal.style.display = 'block';
+        if (window.showSiteModal) {
+            window.showSiteModal(modal);
+        } else {
+            modal.style.display = 'flex';
+        }
 
     } catch (error) {
         console.error('Ошибка при открытии формы:', error);
@@ -612,7 +633,13 @@ if (startDate >= endDate) {
 // Функция закрытия модального окна
 function closeModal2() {
     const modal = document.getElementById('editUserModal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+        if (window.hideSiteModal) {
+            window.hideSiteModal(modal);
+        } else {
+            modal.style.display = 'none';
+        }
+    }
 }
 async function add_omsu_bd() {
     const form = document.getElementById('organizationForm');
@@ -691,6 +718,16 @@ if (startDate >= endDate) {
 }
 // СКРИПТ ДЛЯ РЕДАКТИРОВАНИЯ ОРГАНИЗАЦИЙ
         
+function closeOmsuModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        if (window.hideSiteModal) {
+            window.hideSiteModal(modal);
+        } else {
+            modal.style.display = 'none';
+        }
+    }
+}
 
 // Функция открытия модального окна редактирования
 function openEditOmsuModal(id, name, email, dateBegin, dateEnd) {
@@ -699,7 +736,11 @@ function openEditOmsuModal(id, name, email, dateBegin, dateEnd) {
     document.getElementById('omsuEmail').value = email || '';
     document.getElementById('omsuDateBegin').value = dateBegin || '';
     document.getElementById('omsuDateEnd').value = dateEnd || '';
-    document.getElementById('editOmsuModal').style.display = 'block';
+    if (window.showSiteModal) {
+        window.showSiteModal('editOmsuModal');
+    } else {
+        document.getElementById('editOmsuModal').style.display = 'flex';
+    }
 }
 
 // Функция обновления организации с улучшенной обработкой данных
@@ -778,7 +819,6 @@ if (startDate >= endDate) {
                 },
                 body: JSON.stringify(omsuData)
             });
-            alert("Организация успешно отредактирована!");
         } catch (networkError) {
             throw new Error("Ошибка сети. Проверьте соединение.");
         }
@@ -797,6 +837,8 @@ if (startDate >= endDate) {
         // 8. Успешное завершение
         const result = await response.text();
         console.log("Организация успешно обновлена:", result);
+        closeOmsuModal('editOmsuModal');
+        alert("Организация успешно отредактирована!");
         handleTabClick("get_omsu");
 
     } catch (error) {
@@ -809,8 +851,7 @@ if (startDate >= endDate) {
         }
         
         alert(`Ошибка: ${errorMessage}`);
-        
-        // Разблокируем кнопку
+    } finally {
         const saveBtn = document.getElementById('saveOmsuBtn');
         if (saveBtn) {
             saveBtn.disabled = false;

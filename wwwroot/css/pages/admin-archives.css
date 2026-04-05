@@ -5,9 +5,52 @@
     cursor: pointer;
 }
 
+.archive-page .all_table {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    min-width: 100%;
+    margin-top: 24px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    overflow: visible;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.archive-page .table-responsive {
+    overflow: visible;
+    padding-bottom: 56px;
+    background: transparent;
+}
+
+.archive-page .all_table thead tr {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+
+.archive-page .all_table tbody tr {
+    background: transparent;
+}
+
+.archive-page .all_table tbody tr.active {
+    background: transparent;
+}
+
+.archive-page .all_table td:last-child,
+.archive-page .all_table th:last-child {
+    overflow: visible;
+}
+
 .archive-page .all_table tr:hover,
 .answers-page #data_table tbody tr:hover {
     background-color: #f5f5f5;
+}
+
+.archive-page .all_table td,
+.archive-page .all_table th {
+    background-clip: padding-box;
 }
 
 .archive-loading {

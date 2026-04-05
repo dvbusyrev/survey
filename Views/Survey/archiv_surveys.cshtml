@@ -18,10 +18,8 @@
     </select>
 </div>
 
-
-
-
-    <table id="data_table" class="all_table" style="overflow: visible">
+    <div class="table-responsive">
+    <table id="data_table" class="all_table">
         <thead>
             <tr class='table_tr'>
                 <th>Название анкеты</th>
@@ -57,7 +55,7 @@
             </td>
             <td class="action-icons">
 <div class="icon-container" onclick="create_otchet_month(@survey.id_survey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
-  <span class="icon" aria-hidden="true">📋</span>
+  <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
   <span class="icon-tooltip" data-tooltip="Сформировать отчёт по анкете">Сформировать отчёт</span>
 </div>
 
@@ -73,7 +71,7 @@
      role="button" 
      tabindex="0" 
      aria-label="Копировать и возобновить опрос">
-    <span>📄</span>
+    <span><i class="fas fa-clipboard-list"></i></span>
     <span class="icon-tooltip">Копировать и возобновить</span>
 </div>
 
@@ -81,10 +79,11 @@
         </tr>
     }
     <tr id="none_result" class="is-hidden">
-        <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
+        <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
     </tr>
 </tbody>
     </table>
+    </div>
 </div>
 
 @await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")

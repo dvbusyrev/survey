@@ -484,7 +484,7 @@ const ExtensionModal = ({ survey, onClose }) => {
 
                 
                 <div className="content-wrapper">
-                    <table id="data_table">
+                    <table id="data_table" className="all_table">
                         <thead>
                             <tr className="table_tr">
                                 <th>Название анкеты</th>
@@ -519,30 +519,30 @@ const ExtensionModal = ({ survey, onClose }) => {
                                     </td>
                                     <td className="action-icons">
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'report', data: survey})}>
-                                            <span>📋</span>
+                                            <span><i className="fas fa-list-check"></i></span>
                                             <span className="icon-tooltip">Сформировать отчёт</span>
                                         </div>
 <div className="icon-container" 
      onClick={() => {
          openVkladka('get_list_csp', survey.id_survey);
      }}>
-    <span>✔️</span>
+    <span><i className="fas fa-check"></i></span>
     <span className="icon-tooltip">Проверить подпись</span>
 </div>
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'extend', data: survey})}>
-                                            <span>⏳</span>
+                                            <span><i className="fas fa-hourglass-half"></i></span>
                                             <span className="icon-tooltip">Продлить</span>
                                         </div>
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'copy', data: survey})}>
-                                            <span>📄</span>
+                                            <span><i className="fas fa-copy"></i></span>
                                             <span className="icon-tooltip">Копировать</span>
                                         </div>
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'update', data: survey})}>
-                                            <span>✏️</span>
+                                            <span><i className="fas fa-pen-to-square"></i></span>
                                             <span className="icon-tooltip">Редактировать</span>
                                         </div>
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'delete', data: survey})}>
-                                            <span>🗑️</span>
+                                            <span><i className="fas fa-trash"></i></span>
                                             <span className="icon-tooltip">Удалить</span>
                                         </div>
                                     </td>
@@ -585,7 +585,7 @@ const ExtensionModal = ({ survey, onClose }) => {
 
             // СКРИПТЫ ДЛЯ ДИАГРАММ (ВКЛАДКА СТАТИСТИКА)
             const renderContentWrapper = (content) => (
-                <div className="content-wrapper">
+                <div className="content content-wrapper">
                     {content}
                 </div>
             );
@@ -868,6 +868,24 @@ const radarChartRef = useRef(null);
        last_page = newPage;
     }; history.pushState({}, '');
     
+    const extractRenderableHtml = (html) => {
+        if (!html) {
+            return '';
+        }
+
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            doc.querySelectorAll('link, style, script, meta, title').forEach((node) => node.remove());
+            return doc.body && doc.body.innerHTML.trim()
+                ? doc.body.innerHTML
+                : html;
+        } catch (error) {
+            console.error('Ошибка парсинга HTML:', error);
+            return html;
+        }
+    };
+
     const openVkladka = async (tab, id = null) => {
         const tabAlreadyOpen = !id && (activeTab === tab || (tab === 'get_surveys' && ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)));
         if (tabAlreadyOpen) return;
@@ -904,7 +922,7 @@ const radarChartRef = useRef(null);
                 if (tab === 'list_answers_users') // вкладка ответов
                 {
                     const response = await fetch('/surveys/answers');
-                    const html = await response.text();
+                    const html = extractRenderableHtml(await response.text());
                     setContent(
                         <>
                             {renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)}
@@ -917,7 +935,7 @@ const radarChartRef = useRef(null);
                 if (tab === 'archiv_surveys') // вкладка архива анкет
                 {
                     const response = await fetch('/surveys/archive');
-                    const html = await response.text();
+                    const html = extractRenderableHtml(await response.text());
                     setContent(
                         <>
                             {renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)}
@@ -1039,7 +1057,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
 
             
             
-            const html = await response.text();
+            const html = extractRenderableHtml(await response.text());
             setContent(
             <>
                 {(tab === 'archiv_surveys' || tab === 'get_surveys' || tab === 'list_answers_users') && 
@@ -1156,9 +1174,12 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                         case 'copy':
                             return (
                                 <div>
-                                    <h2 className="h2_modal">Копирование анкеты</h2>
-                                    <br />
-                                    <p>Вы уверены, что хотите создать копию анкеты "{modal.data?.name_survey}"?</p>
+                                    <div className="modal-header">
+                                        <h2 className="h2_modal">Копирование анкеты</h2>
+                                    </div>
+                                    <div className="modal-body">
+                                        <p className="modal-message">Вы уверены, что хотите создать копию анкеты "{modal.data?.name_survey}"?</p>
+                                    </div>
                                     <div className="modal-footer">
                                         <button className="modal_btn modal_btn-primary" onClick={handleCopySurvey}>Копировать</button>
                                         <button className="modal_btn modal_btn-secondary" onClick={() => setModal({ isOpen: false })}>Отмена</button>
@@ -1168,9 +1189,12 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                         case 'update':
                             return (
                                 <div>
-                                    <h2 className="h2_modal">Редактирование анкеты</h2>
-                                    <br />
-                                    <p>Вы переходите к редактированию анкеты "{modal.data?.name_survey}"</p>
+                                    <div className="modal-header">
+                                        <h2 className="h2_modal">Редактирование анкеты</h2>
+                                    </div>
+                                    <div className="modal-body">
+                                        <p className="modal-message">Вы переходите к редактированию анкеты "{modal.data?.name_survey}"</p>
+                                    </div>
                                     <div className="modal-footer">
                                         <button className="modal_btn modal_btn-primary" onClick={handleUpdateSurvey}>Продолжить</button>
                                         <button className="modal_btn modal_btn-secondary" onClick={() => setModal({ isOpen: false })}>Отмена</button>
@@ -1180,9 +1204,12 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                         case 'delete':
                             return (
                                 <div>
-                                    <h2 className="h2_modal">Удаление анкеты</h2>
-                                    <br />
-                                    <p>Вы уверены, что хотите удалить анкету "{modal.data?.name_survey}"?</p>
+                                    <div className="modal-header">
+                                        <h2 className="h2_modal">Удаление анкеты</h2>
+                                    </div>
+                                    <div className="modal-body">
+                                        <p className="modal-message">Вы уверены, что хотите удалить анкету "{modal.data?.name_survey}"?</p>
+                                    </div>
                                     <div className="modal-footer">
                                         <button className="modal_btn modal_btn-primary" onClick={handleDeleteSurvey}>Удалить</button>
                                         <button className="modal_btn modal_btn-secondary" onClick={() => setModal({ isOpen: false })}>Отмена</button>
@@ -1192,9 +1219,13 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                         case 'message':
                             return (
                                 <div>
-                                    <h2>{modal.isSuccess ? 'Успешно' : 'Ошибка'}</h2>
-                                    <div className={modal.isSuccess ? 'success-message' : 'error-message'}>
-                                        {modal.message}
+                                    <div className="modal-header">
+                                        <h2 className="h2_modal">{modal.isSuccess ? 'Успешно' : 'Ошибка'}</h2>
+                                    </div>
+                                    <div className="modal-body">
+                                        <div className={`modal-message ${modal.isSuccess ? 'success-message' : 'error-message'}`}>
+                                            {modal.message}
+                                        </div>
                                     </div>
                                     <div className="modal-footer">
                                         <button className="modal_btn modal_btn-primary" onClick={() => setModal({ isOpen: false })}>OK</button>
@@ -1215,6 +1246,20 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
         setContent(renderSurveys());
     }
 }, [searchTerm, monthFilter, omsuFilter, activeTab, currentPage]);
+
+                useEffect(() => {
+                    if (activeTab !== 'update_survey') {
+                        return;
+                    }
+
+                    const timer = window.setTimeout(() => {
+                        if (typeof window.surveyEditInit === 'function') {
+                            window.surveyEditInit();
+                        }
+                    }, 0);
+
+                    return () => window.clearTimeout(timer);
+                }, [activeTab, content]);
             return (
             <div className="page-container">
                 <Header userRole={initialData.userRole} displayName={initialData.displayName} />
@@ -1242,7 +1287,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 
                 <div className={`modal ${modal.isOpen ? 'modal--visible' : ''}`}>
                     <div className="modal-content">
-                        <span className="modal-close" onClick={() => setModal({ isOpen: false })}>×</span>
+                        <span className="modal-close" onClick={() => setModal({ isOpen: false })}><i className="fas fa-xmark"></i></span>
                         {renderModalContent()}
                     </div>
                 </div>
@@ -1270,13 +1315,21 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
             // Открытие модального окна для выбора организаций
             function openOmsuModal() {
                 const modal = safeGetElement('omsuModal');
-                modal.classList.add('active');
+                if (window.showSiteModal) {
+                    window.showSiteModal(modal);
+                } else {
+                    modal.classList.add('active');
+                }
                 loadOrganizations();
             }
 
             function closeModal(modalId) {
                 const modal = document.getElementById(modalId);
-                modal.classList.remove('active');
+                if (window.hideSiteModal) {
+                    window.hideSiteModal(modal);
+                } else {
+                    modal.classList.remove('active');
+                }
             }
 
             // Загрузка организаций с сервера
@@ -1381,7 +1434,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     item.className = 'selected-omsu-item';
                     item.innerHTML = `
                         ${escapeHtml(org.name)}
-                        <button onclick="removeSelectedOmsu(${org.id})">×</button>
+                        <button onclick="removeSelectedOmsu(${org.id})"><i class="fas fa-xmark"></i></button>
                     `;
                     list.appendChild(item);
                 });
@@ -1569,35 +1622,82 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
 
             function surveyEditInit() {
                 var selectedIdsInput = document.getElementById('selectedOmsuIds');
+                surveyEditSelectedOmsu = [];
                 if (selectedIdsInput && selectedIdsInput.value) {
                     var ids = selectedIdsInput.value.split(',');
-                    var names = initialData.selectedOmsuNames || []; // вынесено в bootstrap partial
+                    var names = window.selectedOmsuNames || initialData.selectedOmsuNames || [];
                     
                     for (var i = 0; i < ids.length; i++) {
-                        if (ids[i] && names[i]) {
+                        if (!ids[i]) {
+                            continue;
+                        }
+
+                        var parsedId = parseInt(ids[i], 10);
+                        if (Number.isNaN(parsedId)) {
+                            continue;
+                        }
+
+                        var resolvedName = names[i];
+                        if (!resolvedName) {
+                            var orgElement = document.querySelector('#organizationList .organization-item[data-id="' + parsedId + '"]');
+                            resolvedName = orgElement ? orgElement.dataset.name : '';
+                        }
+
+                        if (resolvedName) {
                             surveyEditSelectedOmsu.push({
-                                id: parseInt(ids[i]),
-                                name: names[i]
+                                id: parsedId,
+                                name: resolvedName
                             });
                         }
                     }
                 }
+
+                if (surveyEditSelectedOmsu.length === 0) {
+                    var preselectedItems = document.querySelectorAll('#organizationList .organization-item[data-selected="true"]');
+                    preselectedItems.forEach(function(item) {
+                        var fallbackId = parseInt(item.dataset.id, 10);
+                        if (!Number.isNaN(fallbackId)) {
+                            surveyEditSelectedOmsu.push({
+                                id: fallbackId,
+                                name: item.dataset.name || ''
+                            });
+                        }
+                    });
+                }
                 
-                var orgItems = document.querySelectorAll('.organization-item');
+                var orgItems = document.querySelectorAll('#organizationList .organization-item');
                 orgItems.forEach(item => {
                     if (item.dataset.selected === 'true') {
                         item.classList.add('selected');
                     }
                 });
+
+                if (typeof surveyEditUpdateSelectedOmsuDisplay === 'function') {
+                    surveyEditUpdateSelectedOmsuDisplay();
+                }
             }
 
             function surveyEditOpenOmsuModal() {
-                document.getElementById('omsuModal').style.display = 'block';
+                var orgItems = document.querySelectorAll('#organizationList .organization-item');
+                orgItems.forEach(item => {
+                    var isSelected = surveyEditSelectedOmsu.some(org => org.id === parseInt(item.dataset.id, 10));
+                    item.dataset.selected = isSelected ? 'true' : 'false';
+                    item.classList.toggle('selected', isSelected);
+                });
+                if (window.showSiteModal) {
+                    window.showSiteModal('omsuModal');
+                } else {
+                    document.getElementById('omsuModal').style.display = 'flex';
+                }
                 surveyEditModalOpen = true;
             }
 
             function surveyEditCloseModal(modalId) {
-                document.getElementById(modalId).style.display = 'none';
+                if (window.hideSiteModal) {
+                    window.hideSiteModal(modalId);
+                } else {
+                    document.getElementById(modalId).style.display = 'none';
+                }
                 surveyEditModalOpen = false;
             }
 

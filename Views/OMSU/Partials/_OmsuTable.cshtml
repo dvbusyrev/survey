@@ -39,11 +39,11 @@
                     <td>@omsu.email</td>
                     <td class="action-icons">
                         <div class="icon-container" onclick="openEditOmsuModal(@omsu.id_omsu, '@encodedName', '@encodedEmail', '@omsu.date_begin?.ToString("yyyy-MM-dd")', '@omsu.date_end?.ToString("yyyy-MM-dd")')">
-                            <span>✏️</span>
+                            <span><i class="fas fa-pen-to-square"></i></span>
                             <span class="icon-tooltip">Редактировать</span>
                         </div>
                         <div class="icon-container" onclick="delete_omsu(@omsu.id_omsu)">
-                            <span>🗑️</span>
+                            <span><i class="fas fa-trash"></i></span>
                             <span class="icon-tooltip">Удалить</span>
                         </div>
                     </td>

@@ -27,10 +27,22 @@
   min-height: 44px;
   padding: 0.75rem 0.9rem;
   color: #4a5568;
+  font-size: 0.95rem;
   background: white;
   border: 1px solid var(--border-dark);
   border-radius: 8px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group input[type="text"]::placeholder,
+.form-group input[type="date"]::placeholder,
+.form-group input[type="email"]::placeholder,
+.form-group input[type="password"]::placeholder,
+.form-group input[type="number"]::placeholder,
+.form-group textarea::placeholder,
+.form-control::placeholder {
+  color: #9ca3af;
+  font-size: 0.88rem;
 }
 
 .form-group textarea,
@@ -91,7 +103,6 @@ textarea.form-control {
 .criteria-btn,
 .reset-filter-btn,
 .pagination-button,
-.logout-button,
 .filter-sort button,
 .addsurvey_btn button,
 .remove-btn {
@@ -105,31 +116,66 @@ textarea.form-control {
   font-size: clamp(0.875rem, 0.84rem + 0.12vw, 1rem);
   line-height: 1.25;
   text-align: center;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .btn,
-.modal_btn,
 .submit-button,
 .criteria-btn,
 .filter-sort button,
-.addsurvey_btn button {
+.addsurvey_btn button,
+.modal_btn-primary {
+  position: relative;
+  overflow: hidden;
   color: white;
+  font-weight: 700;
   background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn::before,
+.submit-button::before,
+.criteria-btn::before,
+.filter-sort button::before,
+.addsurvey_btn button::before,
+.modal_btn-primary::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: buttonShine 8s ease-in-out infinite;
 }
 
 .btn:hover,
-.modal_btn:hover,
 .submit-button:hover,
 .criteria-btn:hover,
 .filter-sort button:hover,
-.addsurvey_btn button:hover {
-  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+.addsurvey_btn button:hover,
+.modal_btn-primary:hover {
+  background: linear-gradient(145deg, #8a6dff 0%, #5a4acd 100%);
+  box-shadow:
+    0 6px 8px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn:hover::before,
+.submit-button:hover::before,
+.criteria-btn:hover::before,
+.filter-sort button:hover::before,
+.addsurvey_btn button:hover::before,
+.modal_btn-primary:hover::before {
+  animation: hoverShine 1.2s ease-in-out infinite;
 }
 
 .criteria-buttons-container > * {
@@ -182,21 +228,25 @@ textarea.form-control {
 }
 
 .selected-omsu-item button {
-  display: flex;
+  display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   margin: 0;
   padding: 0;
   color: #dc3545;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
   background: none;
   border: none;
   cursor: pointer;
   transition: color 0.2s ease;
+}
+
+.selected-omsu-item button i {
+  pointer-events: none;
 }
 
 .selected-omsu-item button:hover {

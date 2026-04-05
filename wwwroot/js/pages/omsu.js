@@ -17,7 +17,11 @@
     function closeOmsuModal(modalId) {
         const modal = byId(modalId);
         if (modal) {
-            modal.style.display = 'none';
+            if (typeof window.hideSiteModal === 'function') {
+                window.hideSiteModal(modal);
+            } else {
+                modal.style.display = 'none';
+            }
         }
     }
 
@@ -89,7 +93,11 @@
 
         const modal = byId('editOmsuModal');
         if (modal) {
-            modal.style.display = 'block';
+            if (typeof window.showSiteModal === 'function') {
+                window.showSiteModal(modal);
+            } else {
+                modal.style.display = 'flex';
+            }
         }
     }
 
@@ -165,7 +173,11 @@
 
     async function delete_omsu(id) {
         if (!id) return;
-        if (!window.confirm('Удалить организацию?')) return;
+        if (!await window.siteConfirm('Удалить организацию?', {
+            title: 'Удаление организации',
+            confirmText: 'Удалить',
+            cancelText: 'Отмена'
+        })) return;
 
         try {
             const response = await fetch(`/organizations/${id}/delete`, {
