@@ -1,8 +1,8 @@
-﻿@model List<Survey>
+﻿@model main_project.Services.Surveys.UserSurveyArchivePageViewModel
 @using System.Security.Claims
 @{
     ViewData["Title"] = "Архив анкет";
-    var userOmsuId = ViewBag.UserOmsuId;
+    var userOmsuId = Model.UserOmsuId;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
@@ -11,7 +11,7 @@
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
-    var searchTerm = ViewBag.SearchTerm ?? "";
+    var searchTerm = Model.SearchTerm;
 }
 
 <!DOCTYPE html>
@@ -23,11 +23,8 @@
 
   <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
 
-    <link rel="stylesheet" href="~/css/components.css" />
-    <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-    <style>
-        /* Стили такие же как в SurveyListUser.cshtml */
-    </style>
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+    <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
 </head>
 <body>
     <div id="root"></div>
@@ -54,11 +51,11 @@
             if (!survey) return null;
 
             return (
-                <div className="survey-card" onClick={() => window.location.href = `/Survey/zapolnenie_anketi/${survey.id_survey}/${survey.id_omsu}`}>
+                <div className="survey-card" onClick={() => window.location.href = `/surveys/${survey.id_survey}/organizations/${survey.id_omsu}/questions`}>
                     <h3>{survey.name_survey || 'Без названия'}</h3>
                     <p>{survey.description || 'Нет описания'}</p>
                     <p>Дата заполнения: {formatDate(survey.completion_date)}</p>
-                    <p>Статус: <span style={{ color: '#43a047' }}>завершена</span></p>
+                    <p>Статус: <span className="text-success">завершена</span></p>
                     <div className="dates">
                         {formatDate(survey.date_open)} - {formatDate(survey.date_close)}
                     </div>
@@ -68,7 +65,7 @@
 
         const ArchiveList = () => {
             const initialData = {
-                surveys: @Html.Raw(Json.Serialize(Model ?? new List<Survey>())),
+                surveys: @Html.Raw(Json.Serialize(Model.ArchivedSurveys)),
                 userId: @userId,
                 userRole: '@userRole',
                 userOmsuId: @userOmsuId,
@@ -85,7 +82,7 @@
                 setLoading(true);
                 setError(null);
                 try {
-                    const response = await fetch(`/get_list_archive/${initialData.userId}?searchTerm=${search}`, {
+                    const response = await fetch(`/my-surveys/archive/${initialData.userId}?searchTerm=${search}`, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     
@@ -108,7 +105,7 @@
             };
 
             const switchToActive = () => {
-                window.location.href = `/survey_list_user/${initialData.userId}`;
+                window.location.href = '/my-surveys';
             };
 
             if (initialData.userRole !== "user" && initialData.userRole !== "Админ") {

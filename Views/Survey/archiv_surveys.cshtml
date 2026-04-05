@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Архив анкет";
 }
-        <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
 <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
 <div class="content archive-page">
     <div class="note">
@@ -80,8 +80,8 @@
             </td>
         </tr>
     }
-    <tr id="none_result" style="display:none;">
-        <td colspan="5" style="color:red; text-align:center;">Результаты не найдены!</td>
+    <tr id="none_result" class="is-hidden">
+        <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
     </tr>
 </tbody>
     </table>
@@ -90,4 +90,3 @@
 @await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
 
 <script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>
-

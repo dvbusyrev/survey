@@ -23,9 +23,7 @@
 
   <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
 
-    <link rel="stylesheet" href="~/css/components.css" />
-    <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
     
 </head>

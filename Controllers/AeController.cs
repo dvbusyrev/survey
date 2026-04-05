@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
+using main_project.Infrastructure.Database;
 using Npgsql;
 using NpgsqlTypes;
 using System.Text.Json;
@@ -9,12 +10,12 @@ namespace main_project.Controllers
 {
     public class AeController : Controller
     {
-        private readonly DatabaseController _db;
+        private readonly IDbConnectionFactory _connectionFactory;
         private readonly ILogger<AeController> _logger;
 
-        public AeController(DatabaseController db, ILogger<AeController> logger)
+        public AeController(IDbConnectionFactory connectionFactory, ILogger<AeController> logger)
         {
-            _db = db;
+            _connectionFactory = connectionFactory;
             _logger = logger;
         }
 
@@ -43,14 +44,8 @@ namespace main_project.Controllers
                     });
                 }
 
-                using (var connection = _db.CreateConnection() as NpgsqlConnection)
+                using (var connection = _connectionFactory.CreateConnection())
                 {
-                    if (connection == null)
-                    {
-                        _logger.LogError("Не удалось установить соединение с БД");
-                        throw new Exception("Не удалось установить соединение с БД");
-                    }
-
                     using (var transaction = connection.BeginTransaction())
                     {
                         try

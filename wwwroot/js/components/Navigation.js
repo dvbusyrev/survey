@@ -32,7 +32,7 @@
                 return;
             }
 
-            window.location.href = '/User/get_users';
+            window.location.href = '/users';
             return;
         }
 
@@ -42,27 +42,27 @@
         }
 
         if (tab === 'help') {
-            window.location.href = '/page_help';
+            window.location.href = '/help';
             return;
         }
 
         if ((tab === 'active' || tab === 'answers_tab') && userId) {
-            window.location.href = `/survey_list_user/${userId}`;
+            window.location.href = '/my-surveys';
             return;
         }
 
         if ((tab === 'archived' || tab === 'archiv_surveys_for_user') && userId) {
-            window.location.href = `/Survey/archiv_surveys_for_user`;
+            window.location.href = '/my-surveys/archive';
             return;
         }
 
         const routes = {
-            get_surveys: '/get_surveys',
-            open_statistic: '/Answer/open_statistic',
-            get_users: '/User/get_users',
-            get_omsu: '/OMSU/get_omsu',
-            email: '/Email/update_settings',
-            get_logs: '/Log/get_logs'
+            get_surveys: '/surveys',
+            open_statistic: '/statistics',
+            get_users: '/users',
+            get_omsu: '/organizations',
+            email: '/mail-settings',
+            get_logs: '/logs'
         };
 
         if (routes[tab]) {

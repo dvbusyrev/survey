@@ -9,7 +9,7 @@
                 fetch('/Auth/logout_account', { method: 'GET' })
                     .then(response => {
                         if (response.ok) {
-                            window.location.href = '/Auth/display_auth';
+                            window.location.href = '/';
                         } else {
                             console.error('Ошибка при выходе');
                         }

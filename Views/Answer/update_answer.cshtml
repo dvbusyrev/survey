@@ -1,110 +1,59 @@
-@model dynamic
+@model main_project.Services.Answers.UpdateAnswerPageViewModel
 
 @{
     ViewData["Title"] = "Редактирование ответов";
 }
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - main_project</title>
-</head>
-<body>
-    <div class="container">
-        <div class="content default" id="@Model.SurveyId" style="background-color: white; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
-            <div class="note">
-                <h2>Редактирование анкеты</h2>
-                <p>На этой странице вы можете отредактировать ответы на анкету.</p>
-            </div>
-            @if (Model.Answers != null && Model.Answers.Count > 0)
-            {
-                foreach (var answer in Model.Answers)
-                {
-                    var questionId = answer.question_id;
-                    var questionText = answer.question_text;
-                    var rating = answer.rating;
-                    var comment = answer.comment;
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 
-                    <div class="question-container" id="quest_@questionId">
-                        <h3>@questionText</h3>
-                    <div class="rating-buttons">
-                        <div onclick="check_ocenka('1', '@questionId')" class="btn_crit @(rating == "1" ? "active" : "")" id="btn1">1</div>
-                        <div onclick="check_ocenka('2', '@questionId')" class="btn_crit @(rating == "2" ? "active" : "")" id="btn2">2</div>
-                        <div onclick="check_ocenka('3', '@questionId')" class="btn_crit @(rating == "3" ? "active" : "")" id="btn3">3</div>
-                        <div onclick="check_ocenka('4', '@questionId')" class="btn_crit @(rating == "4" ? "active" : "")" id="btn4">4</div>
-                        <div onclick="check_ocenka('5', '@questionId')" class="btn_crit @(rating == "5" ? "active" : "")" id="btn5">5</div>
-                    </div>
-                        <br />
-                        @if (rating != "5")
-                        {
-                            <div class="comment-container">
-                                <textarea placeholder="Ваш комментарий..." rows="3" style="width: 96%; margin-left: 20px; margin-bottom: 20px; margin-right: 20px;">@comment</textarea>
-                            </div>
-                        }
-                        <br />
-                    </div>
-                }
-                <div class="submit-container">
-                    <button class="submit-button" onClick="update_answer_bd(@Model.OmsuId)">Сохранить изменения</button>
+<div class="container answers-page__update">
+    <div class="content default answers-page__update-card" id="@Model.SurveyId">
+        <div class="note">
+            <h2>Редактирование анкеты</h2>
+            <p>На этой странице вы можете отредактировать ответы на анкету.</p>
+        </div>
+        @if (Model.Answers != null && Model.Answers.Count > 0)
+        {
+            foreach (var answer in Model.Answers)
+            {
+                var questionId = answer.QuestionId;
+                var questionText = answer.DisplayQuestion;
+                var rating = answer.Rating;
+                var comment = answer.Comment;
+
+                <div class="question-container" id="quest_@questionId">
+                    <h3>@questionText</h3>
+                <div class="rating-buttons">
+                    <div onclick="check_ocenka('1', '@questionId')" class="btn_crit @(rating == 1 ? "active" : "")" id="btn1">1</div>
+                    <div onclick="check_ocenka('2', '@questionId')" class="btn_crit @(rating == 2 ? "active" : "")" id="btn2">2</div>
+                    <div onclick="check_ocenka('3', '@questionId')" class="btn_crit @(rating == 3 ? "active" : "")" id="btn3">3</div>
+                    <div onclick="check_ocenka('4', '@questionId')" class="btn_crit @(rating == 4 ? "active" : "")" id="btn4">4</div>
+                    <div onclick="check_ocenka('5', '@questionId')" class="btn_crit @(rating == 5 ? "active" : "")" id="btn5">5</div>
+                </div>
+                    <br />
+                    @if (rating != 5)
+                    {
+                        <div class="comment-container">
+                            <textarea class="answers-page__update-comment" placeholder="Ваш комментарий..." rows="3">@comment</textarea>
+                        </div>
+                    }
+                    <br />
                 </div>
             }
-            else
-            {
-                <p>Нет ответов для отображения.</p>
-            }
-        </div>
+            <div class="submit-container">
+                <button class="answers-page__action-button" onClick="update_answer_bd(@Model.OmsuId)">Сохранить изменения</button>
+            </div>
+        }
+        else
+        {
+            <p class="answers-page__empty">Нет ответов для отображения.</p>
+        }
     </div>
-
-    <div id="error-message" style="
-    visibility: hidden;
-    color: #8b0000;
-    font-weight: bold;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: #ffcccc;
-    padding: 10px 15px; /* Уменьшаем padding */
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    width: auto;
-    box-sizing: border-box;
-    white-space: nowrap; /* Запрет переноса текста на новую строку */
-    overflow: hidden; /* Скрываем переполнение */
-">
-
-    <span style="
-        display: inline-block;
-        width: 24px;
-        height: 24px;
-        background-color: #ff6666;
-        border-radius: 50%;
-        text-align: center;
-        line-height: 24px;
-        color: white;
-        font-size: 18px;
-        margin-right: 10px; /* Отступ справа */
-    ">!</span>
-
-
-    <span id="error-text" style="
-        flex-grow: 1;
-        overflow: hidden;
-        text-overflow: ellipsis; /* Обрезание текста многоточием */
-    ">@ViewBag.ErrorMessage</span>
-
-    <button id="close-error" onclick="hidden_error()" style="
-        background-color: transparent;
-        border: none;
-        font-size: 18px;
-        color: #8b0000;
-        cursor: pointer;
-        width: 20px;
-        margin-right: 0;
-        margin-left: 10px; /* Отступ слева */
-    ">×</button>
 </div>
-</body>
+
+<div id="error-message" class="answers-page__update-error">
+    <span class="answers-page__update-error-icon">!</span>
+    <span id="error-text" class="answers-page__update-error-text">@ViewBag.ErrorMessage</span>
+    <button id="close-error" onclick="hidden_error()" class="answers-page__update-error-close">×</button>
+</div>

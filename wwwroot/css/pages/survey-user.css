@@ -1,52 +1,7 @@
-* {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            color: var(--text-main);
-            line-height: 1.5;
-        }
-
-        .page-container {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        .admin-container {
-            display: flex;
-            flex: 1;
-        }
-
-        #content_admin {
-            flex: 1;
-            padding: 2rem;
-            background-color: white;
-        }
-
         /* Стили для заполнения анкеты */
         .survey-fill-container,
         .check-answers-container {
             padding: 2rem;
-        }
-
-        .note {
-            margin-bottom: 2rem;
-        }
-
-        .note h2 {
-            font-size: 1.8rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-main);
-        }
-
-        .note p {
-            color: var(--text-secondary);
-            font-size: 1.05rem;
         }
 
         .question-container {

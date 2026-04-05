@@ -183,7 +183,7 @@ function surveyEditToggleOmsuSelection(element) {
                     .filter(text => text !== '')
             };
 
-            const response = await fetch(`/update_survey_bd/${surveyId}`, {
+            const response = await fetch(`/surveys/${surveyId}/update`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -308,7 +308,7 @@ function surveyEditToggleOmsuSelection(element) {
 
                 document.getElementById('loadingOverlay').style.display = 'flex';
                 
-                fetch('/Survey/copy_survey_bd/' + id, {
+                fetch('/surveys/' + id + '/copy', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -478,4 +478,3 @@ window.addEventListener('click', function(event) {
         modal.style.display = 'none';
     }
 });
-

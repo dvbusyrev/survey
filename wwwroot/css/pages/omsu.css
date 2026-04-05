@@ -1,12 +1,71 @@
+.omsu-page,
+.omsu-form-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
 .omsu-page .note,
+.omsu-form-page .note,
 #default_content .note {
   box-sizing: border-box;
 }
 
+.omsu-toolbar {
+  margin-bottom: 16px;
+}
+
+.omsu-toolbar__archive-link {
+  cursor: pointer;
+}
+
+.omsu-table__th--start {
+  border-radius: 16px 0 0 0;
+}
+
+.omsu-table__th--end {
+  border-radius: 0 16px 0 0;
+}
+
+.omsu-table__empty-surveys {
+  color: var(--danger);
+}
+
+.omsu-form {
+  max-width: 760px;
+}
+
+.omsu-form__row {
+  display: flex;
+  gap: 15px;
+}
+
+.omsu-form__actions {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.omsu-form__message {
+  display: none;
+  margin-top: 20px;
+}
+
+.omsu-modal .modal-content,
 #editOmsuModal .modal-content {
   max-width: 640px;
 }
 
+.omsu-modal .form-group,
 #editOmsuModal .form-group {
   margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .omsu-form__row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .omsu-toolbar > * {
+    width: 100%;
+  }
 }

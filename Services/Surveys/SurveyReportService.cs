@@ -1,0 +1,927 @@
+using System.Text.Json;
+using ClosedXML.Excel;
+using Dapper;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using main_project.Infrastructure.Database;
+using main_project.Models;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+using Justification = DocumentFormat.OpenXml.Wordprocessing.Justification;
+using Table = DocumentFormat.OpenXml.Wordprocessing.Table;
+using TableCell = DocumentFormat.OpenXml.Wordprocessing.TableCell;
+using TableProperties = DocumentFormat.OpenXml.Wordprocessing.TableProperties;
+using TableRow = DocumentFormat.OpenXml.Wordprocessing.TableRow;
+using TopBorder = DocumentFormat.OpenXml.Wordprocessing.TopBorder;
+using BottomBorder = DocumentFormat.OpenXml.Wordprocessing.BottomBorder;
+using LeftBorder = DocumentFormat.OpenXml.Wordprocessing.LeftBorder;
+using RightBorder = DocumentFormat.OpenXml.Wordprocessing.RightBorder;
+using InsideHorizontalBorder = DocumentFormat.OpenXml.Wordprocessing.InsideHorizontalBorder;
+using InsideVerticalBorder = DocumentFormat.OpenXml.Wordprocessing.InsideVerticalBorder;
+using Run = DocumentFormat.OpenXml.Wordprocessing.Run;
+using Text = DocumentFormat.OpenXml.Wordprocessing.Text;
+using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
+using ParagraphProperties = DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties;
+
+namespace main_project.Services.Surveys;
+
+public sealed class SurveyReportService
+{
+    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ILogger<SurveyReportService> _logger;
+    private readonly string _downloadsPath;
+
+    public SurveyReportService(IDbConnectionFactory connectionFactory, ILogger<SurveyReportService> logger)
+    {
+        _connectionFactory = connectionFactory;
+        _logger = logger;
+        _downloadsPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Downloads");
+    }
+
+    public GeneratedFileResult CreateSurveyMonthlyReport(int surveyId, int omsuId)
+    {
+        string surveyName = string.Empty;
+        var criteriaList = new List<string>();
+        var omsus = new List<string>();
+        var ratings = new List<List<int>>();
+        var comments = new List<List<string>>();
+        var srednee = new List<double>();
+
+        using (var connection = _connectionFactory.CreateConnection())
+        {
+            surveyName = connection.ExecuteScalar<string?>(
+                @"SELECT name_survey
+                  FROM (
+                      SELECT name_survey FROM public.surveys WHERE id_survey = @surveyId
+                      UNION ALL
+                      SELECT name_survey FROM public.history_surveys WHERE id_survey = @surveyId
+                  ) sub
+                  LIMIT 1",
+                new { surveyId }) ?? string.Empty;
+
+            var questionsJson = connection.ExecuteScalar<string?>(
+                @"SELECT questions::text
+                  FROM (
+                      SELECT questions FROM public.surveys WHERE id_survey = @surveyId
+                      UNION ALL
+                      SELECT file_questions FROM public.history_surveys WHERE id_survey = @surveyId
+                  ) sub
+                  LIMIT 1",
+                new { surveyId });
+
+            if (!string.IsNullOrWhiteSpace(questionsJson))
+            {
+                var questions = JObject.Parse(questionsJson)["questions"];
+                if (questions != null)
+                {
+                    foreach (var question in questions)
+                    {
+                        criteriaList.Add(question["text"]?.ToString() ?? string.Empty);
+                    }
+                }
+            }
+
+            if (omsuId == 0)
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = @"
+                    SELECT
+                        o.name_omsu,
+                        ha.answers::text
+                    FROM public.omsu o
+                    LEFT JOIN public.history_answer ha
+                        ON o.id_omsu = ha.id_omsu
+                       AND ha.id_survey = @surveyId
+                    WHERE ha.answers IS NOT NULL";
+                command.Parameters.Add(new Npgsql.NpgsqlParameter("@surveyId", surveyId));
+
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    omsus.Add(reader.GetString(0));
+                    var answersJson = reader.GetString(1);
+                    var answerItems = JArray.Parse(answersJson);
+                    ratings.Add(answerItems.Select(a => (int)a["rating"]!).ToList());
+                    comments.Add(answerItems.Select(a => a["comment"]?.ToString() ?? string.Empty).ToList());
+                }
+            }
+            else
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText = @"
+                    SELECT
+                        o.name_omsu,
+                        ha.answers::text
+                    FROM public.omsu o
+                    JOIN public.history_answer ha
+                        ON o.id_omsu = ha.id_omsu
+                       AND ha.id_survey = @surveyId
+                    WHERE o.id_omsu = @omsuId
+                      AND ha.answers IS NOT NULL";
+                command.Parameters.Add(new Npgsql.NpgsqlParameter("@surveyId", surveyId));
+                command.Parameters.Add(new Npgsql.NpgsqlParameter("@omsuId", omsuId));
+
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    omsus.Add(reader.GetString(0));
+                    var answersJson = reader.GetString(1);
+                    var answerItems = JArray.Parse(answersJson);
+                    ratings.Add(answerItems.Select(a => (int)a["rating"]!).ToList());
+                    comments.Add(answerItems.Select(a => a["comment"]?.ToString() ?? string.Empty).ToList());
+                }
+            }
+
+            for (int col = 0; col < criteriaList.Count; col++)
+            {
+                double sum = 0;
+                int count = 0;
+                for (int row = 0; row < ratings.Count; row++)
+                {
+                    if (ratings[row].Count > col)
+                    {
+                        sum += ratings[row][col];
+                        count++;
+                    }
+                }
+                srednee.Add(count > 0 ? sum / count : 0);
+            }
+        }
+
+        string currentMonth = DateTime.Now.ToString("MMMM yyyy").ToLower();
+        string fileName = omsuId == 0
+            ? $"Отчет по анкете {surveyName} ({currentMonth}).docx"
+            : $"Отчет по анкете {surveyName} для {omsus.FirstOrDefault()} ({currentMonth}).docx";
+
+        using var mem = new MemoryStream();
+        using (var document = WordprocessingDocument.Create(mem, WordprocessingDocumentType.Document, true))
+        {
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document();
+            var body = mainPart.Document.AppendChild(new Body());
+
+            var totalAvg = srednee.Count > 0 ? srednee.Average() : 0;
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text($"Отчет по анкете \"{surveyName}\""))
+                {
+                    RunProperties = new RunProperties(
+                        new Bold(),
+                        new FontSize() { Val = "28" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(
+                    new Justification() { Val = JustificationValues.Center },
+                    new SpacingBetweenLines() { After = "200" })
+            });
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text($"за {currentMonth}"))
+                {
+                    RunProperties = new RunProperties(
+                        new Italic(),
+                        new FontSize() { Val = "22" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(
+                    new Justification() { Val = JustificationValues.Center },
+                    new SpacingBetweenLines() { After = "300" })
+            });
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text("Данный отчет содержит информацию об оценках удовлетворенности потребителей услуг, полученных в результате ежемесячного анкетирования."))
+                {
+                    RunProperties = new RunProperties(new FontSize() { Val = "20" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { After = "200" })
+            });
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text("Критерии оценки:"))
+                {
+                    RunProperties = new RunProperties(
+                        new Bold(),
+                        new FontSize() { Val = "20" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { After = "100" })
+            });
+
+            foreach (var criteria in criteriaList)
+            {
+                body.AppendChild(new Paragraph(
+                    new Run(new Text($"• {criteria}"))
+                    {
+                        RunProperties = new RunProperties(new FontSize() { Val = "18" })
+                    })
+                {
+                    ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { After = "50" })
+                });
+            }
+
+            var table = new Table();
+            table.AppendChild(new TableProperties(
+                new TableBorders(
+                    new TopBorder { Val = new EnumValue<BorderValues>(BorderValues.Single), Size = 4 },
+                    new BottomBorder { Val = new EnumValue<BorderValues>(BorderValues.Single), Size = 4 },
+                    new LeftBorder { Val = new EnumValue<BorderValues>(BorderValues.Single), Size = 4 },
+                    new RightBorder { Val = new EnumValue<BorderValues>(BorderValues.Single), Size = 4 },
+                    new InsideHorizontalBorder { Val = new EnumValue<BorderValues>(BorderValues.Single), Size = 4 },
+                    new InsideVerticalBorder { Val = new EnumValue<BorderValues>(BorderValues.Single), Size = 4 }),
+                new TableWidth() { Width = "100%", Type = TableWidthUnitValues.Auto },
+                new TableLayout() { Type = TableLayoutValues.Fixed }));
+
+            var headerRow = new TableRow();
+            headerRow.Append(CreateTableCell("Наименование организации", true, true));
+            foreach (var criteria in criteriaList)
+            {
+                headerRow.Append(CreateTableCell(criteria, true, true));
+            }
+            headerRow.Append(CreateTableCell("Средний балл", true, true));
+            foreach (var criteria in criteriaList)
+            {
+                headerRow.Append(CreateTableCell($"Комментарий ({criteria})", true, true));
+            }
+            table.Append(headerRow);
+
+            for (int i = 0; i < omsus.Count; i++)
+            {
+                var dataRow = new TableRow();
+                dataRow.Append(CreateTableCell(omsus[i], false, false));
+
+                for (int j = 0; j < criteriaList.Count; j++)
+                {
+                    string ratingValue = (ratings.Count > i && ratings[i].Count > j) ? ratings[i][j].ToString() : "-";
+                    dataRow.Append(CreateTableCell(ratingValue, false, true));
+                }
+
+                string avgValue = (srednee.Count > i) ? srednee[i].ToString("F1") : "-";
+                dataRow.Append(CreateTableCell(avgValue, false, true));
+
+                for (int j = 0; j < criteriaList.Count; j++)
+                {
+                    string comment = (comments.Count > i && comments[i].Count > j) ? comments[i][j] : "-";
+                    dataRow.Append(CreateTableCell(comment, false, false));
+                }
+
+                table.Append(dataRow);
+            }
+
+            var totalRow = new TableRow();
+            totalRow.Append(CreateTableCell("Итого:", true, false));
+            for (int i = 0; i < criteriaList.Count; i++)
+            {
+                double sum = 0;
+                int count = 0;
+                for (int row = 0; row < ratings.Count; row++)
+                {
+                    if (ratings[row].Count > i)
+                    {
+                        sum += ratings[row][i];
+                        count++;
+                    }
+                }
+
+                string avgValue = count > 0 ? (sum / count).ToString("F1") : "-";
+                totalRow.Append(CreateTableCell(avgValue, false, true));
+            }
+
+            totalRow.Append(CreateTableCell(totalAvg.ToString("F1"), false, true));
+            for (int i = 0; i < criteriaList.Count; i++)
+            {
+                totalRow.Append(CreateTableCell(string.Empty, false, false));
+            }
+            table.Append(totalRow);
+
+            body.AppendChild(table);
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text($"Общая оценка удовлетворенности: {totalAvg:F1} из 5"))
+                {
+                    RunProperties = new RunProperties(
+                        new Bold(),
+                        new FontSize() { Val = "20" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(
+                    new Justification() { Val = JustificationValues.Right },
+                    new SpacingBetweenLines() { Before = "300", After = "200" })
+            });
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text("Отчет сформирован автоматически"))
+                {
+                    RunProperties = new RunProperties(
+                        new Italic(),
+                        new FontSize() { Val = "16" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(
+                    new Justification() { Val = JustificationValues.Right })
+            });
+        }
+
+        return new GeneratedFileResult
+        {
+            Content = mem.ToArray(),
+            ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            FileName = fileName
+        };
+    }
+
+    public GeneratedFileResult CreateAllMonthlyReport()
+    {
+        var surveyIds = new List<int>();
+        using (var connection = _connectionFactory.CreateConnection())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = @"
+                SELECT id_survey FROM public.surveys
+                UNION
+                SELECT id_survey FROM public.history_surveys";
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                surveyIds.Add(reader.GetInt32(0));
+            }
+        }
+
+        string currentMonth = DateTime.Now.ToString("MMMM yyyy").ToLower();
+        string fileName = $"Сводный отчет по всем анкетам ({currentMonth}).docx";
+
+        using var mem = new MemoryStream();
+        using (var document = WordprocessingDocument.Create(mem, WordprocessingDocumentType.Document, true))
+        {
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new Document();
+            var body = mainPart.Document.AppendChild(new Body());
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text("Сводный отчет по всем анкетам"))
+                {
+                    RunProperties = new RunProperties(
+                        new Bold(),
+                        new FontSize() { Val = "28" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(
+                    new Justification() { Val = JustificationValues.Center },
+                    new SpacingBetweenLines() { After = "200" })
+            });
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text($"за {currentMonth}"))
+                {
+                    RunProperties = new RunProperties(
+                        new Italic(),
+                        new FontSize() { Val = "22" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(
+                    new Justification() { Val = JustificationValues.Center },
+                    new SpacingBetweenLines() { After = "300" })
+            });
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text("Данный отчет содержит сводную информацию по всем анкетам за указанный месяц."))
+                {
+                    RunProperties = new RunProperties(new FontSize() { Val = "20" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { After = "200" })
+            });
+
+            foreach (var surveyId in surveyIds)
+            {
+                string surveyName;
+                bool isArchive;
+                List<string> criteriaList;
+                var omsus = new List<string>();
+                var ratings = new List<List<int>>();
+                var srednee = new List<double>();
+
+                using (var connection = _connectionFactory.CreateConnection())
+                {
+                    isArchive = !connection.ExecuteScalar<bool>(
+                        "SELECT EXISTS(SELECT 1 FROM public.surveys WHERE id_survey = @surveyId)",
+                        new { surveyId });
+
+                    surveyName = connection.ExecuteScalar<string?>(
+                        !isArchive
+                            ? "SELECT name_survey FROM public.surveys WHERE id_survey = @surveyId"
+                            : "SELECT name_survey FROM public.history_surveys WHERE id_survey = @surveyId",
+                        new { surveyId }) ?? string.Empty;
+
+                    var questionsJson = connection.ExecuteScalar<string?>(
+                        !isArchive
+                            ? "SELECT questions::text FROM public.surveys WHERE id_survey = @surveyId"
+                            : "SELECT file_questions::text FROM public.history_surveys WHERE id_survey = @surveyId",
+                        new { surveyId });
+
+                    criteriaList = !string.IsNullOrWhiteSpace(questionsJson)
+                        ? JObject.Parse(questionsJson)["questions"]?.Select(q => q["text"]?.ToString() ?? string.Empty).ToList()
+                            ?? new List<string>()
+                        : new List<string>();
+
+                    using var command = connection.CreateCommand();
+                    command.CommandText = @"
+                        SELECT o.name_omsu, ha.answers::text
+                        FROM public.omsu o
+                        JOIN public.history_answer ha
+                            ON o.id_omsu = ha.id_omsu
+                        WHERE ha.id_survey = @surveyId
+                          AND ha.answers IS NOT NULL";
+                    command.Parameters.Add(new Npgsql.NpgsqlParameter("@surveyId", surveyId));
+
+                    using var reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        omsus.Add(reader.GetString(0));
+                        var answerItems = JArray.Parse(reader.GetString(1));
+                        ratings.Add(answerItems.Select(a => (int)a["rating"]!).ToList());
+                    }
+
+                    for (int i = 0; i < criteriaList.Count; i++)
+                    {
+                        double sum = 0;
+                        int count = 0;
+                        for (int j = 0; j < ratings.Count; j++)
+                        {
+                            if (ratings[j].Count > i)
+                            {
+                                sum += ratings[j][i];
+                                count++;
+                            }
+                        }
+                        srednee.Add(count > 0 ? sum / count : 0);
+                    }
+                }
+
+                string surveyTitle = surveyName + (isArchive ? " (архивная)" : "");
+                body.AppendChild(new Paragraph(
+                    new Run(new Text(surveyTitle))
+                    {
+                        RunProperties = new RunProperties(
+                            new Bold(),
+                            new FontSize() { Val = "22" })
+                    })
+                {
+                    ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { Before = "400", After = "100" })
+                });
+
+                var questionsTable = new Table();
+                questionsTable.AppendChild(new TableProperties(
+                    new TableBorders(
+                        new TopBorder { Val = BorderValues.Single, Size = 4 },
+                        new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                        new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                        new RightBorder { Val = BorderValues.Single, Size = 4 },
+                        new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                        new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
+                    new TableWidth() { Width = "100%", Type = TableWidthUnitValues.Auto }));
+
+                var qHeaderRow = new TableRow();
+                qHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("№")) { RunProperties = new RunProperties(new Bold()) })));
+                qHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Вопрос")) { RunProperties = new RunProperties(new Bold()) })));
+                qHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Средняя оценка")) { RunProperties = new RunProperties(new Bold()) })));
+                questionsTable.Append(qHeaderRow);
+
+                for (int i = 0; i < criteriaList.Count; i++)
+                {
+                    var row = new TableRow();
+                    row.Append(new TableCell(new Paragraph(new Run(new Text((i + 1).ToString())))));
+                    row.Append(new TableCell(new Paragraph(new Run(new Text(criteriaList[i])))));
+                    row.Append(new TableCell(new Paragraph(new Run(new Text(srednee[i].ToString("F1"))))));
+                    questionsTable.Append(row);
+                }
+                body.AppendChild(questionsTable);
+
+                if (omsus.Count > 0)
+                {
+                    var orgsTable = new Table();
+                    orgsTable.AppendChild(new TableProperties(
+                        new TableBorders(
+                            new TopBorder { Val = BorderValues.Single, Size = 4 },
+                            new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                            new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                            new RightBorder { Val = BorderValues.Single, Size = 4 },
+                            new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                            new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
+                        new TableWidth() { Width = "100%", Type = TableWidthUnitValues.Auto }));
+
+                    var oHeaderRow = new TableRow();
+                    oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Организация")) { RunProperties = new RunProperties(new Bold()) })));
+                    oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Средняя оценка")) { RunProperties = new RunProperties(new Bold()) })));
+                    oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Кол-во ответов")) { RunProperties = new RunProperties(new Bold()) })));
+                    orgsTable.Append(oHeaderRow);
+
+                    for (int i = 0; i < omsus.Count; i++)
+                    {
+                        var row = new TableRow();
+                        row.Append(new TableCell(new Paragraph(new Run(new Text(omsus[i])))));
+                        row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[i].Count > 0 ? ratings[i].Average().ToString("F1") : "0")))));
+                        row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[i].Count.ToString())))));
+                        orgsTable.Append(row);
+                    }
+
+                    var totalRow = new TableRow();
+                    totalRow.Append(new TableCell(new Paragraph(new Run(new Text("Итого:")))));
+                    totalRow.Append(new TableCell(new Paragraph(new Run(new Text(srednee.Count > 0 ? srednee.Average().ToString("F1") : "0")))));
+                    totalRow.Append(new TableCell(new Paragraph(new Run(new Text(ratings.Sum(r => r.Count).ToString())))));
+                    orgsTable.Append(totalRow);
+
+                    body.AppendChild(orgsTable);
+                }
+                else
+                {
+                    body.AppendChild(new Paragraph(
+                        new Run(new Text("Нет данных по ответам организаций"))
+                        {
+                            RunProperties = new RunProperties(
+                                new Italic(),
+                                new FontSize() { Val = "16" })
+                        })
+                    {
+                        ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { Before = "100", After = "100" })
+                    });
+                }
+
+                if (surveyId != surveyIds.Last())
+                {
+                    body.AppendChild(new Paragraph(new Run(new Break() { Type = BreakValues.Page })));
+                }
+            }
+
+            body.AppendChild(new Paragraph(
+                new Run(new Text("Отчет сформирован автоматически"))
+                {
+                    RunProperties = new RunProperties(
+                        new Italic(),
+                        new FontSize() { Val = "16" })
+                })
+            {
+                ParagraphProperties = new ParagraphProperties(
+                    new Justification() { Val = JustificationValues.Right },
+                    new SpacingBetweenLines() { Before = "300" })
+            });
+        }
+
+        return new GeneratedFileResult
+        {
+            Content = mem.ToArray(),
+            ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            FileName = fileName
+        };
+    }
+
+    public GeneratedFileResult CreateQuarterlyReport(int quarter, int year)
+    {
+        if (year == 0)
+        {
+            year = DateTime.Now.Year;
+        }
+
+        var quarterNames = new Dictionary<int, string>
+        {
+            { 1, "I" },
+            { 2, "II" },
+            { 3, "III" },
+            { 4, "IV" }
+        };
+
+        string quarterName = quarterNames.ContainsKey(quarter)
+            ? quarterNames[quarter]
+            : $"{quarter} квартал";
+
+        var answers = GetAnswersFromDatabase();
+        var surveys = GetSurveysForReport();
+
+        using var workbook = new XLWorkbook();
+        foreach (var survey in surveys)
+        {
+            var surveyAnswers = answers.Where(a => a.id_survey == survey.id_survey).ToList();
+            if (surveyAnswers.Count == 0)
+            {
+                continue;
+            }
+
+            string sheetName = new string((survey.name_survey ?? "Опрос")
+                .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) || c == '-' || c == '_')
+                .Take(31)
+                .ToArray());
+
+            var worksheet = workbook.Worksheets.Add(sheetName);
+            var questions = !string.IsNullOrEmpty(survey.questions)
+                ? JsonConvert.DeserializeObject<SurveyQuestions>(survey.questions)?.questions
+                : null;
+
+            if (questions == null || questions.Length == 0)
+            {
+                continue;
+            }
+
+            BuildWorksheetHeaders(worksheet, questions);
+
+            int currentRow = 3;
+            var months = GetMonthsForQuarter(quarter);
+            var orgAverages = new List<double>();
+            var questionRatings = new Dictionary<int, List<double>>();
+
+            for (int i = 0; i < questions.Length; i++)
+            {
+                questionRatings[i] = new List<double>();
+            }
+
+            foreach (var month in months)
+            {
+                string monthHeader = $"{month.Name} {year} г.";
+                worksheet.Cell(currentRow, 1).Value = monthHeader;
+                worksheet.Range(currentRow, 1, currentRow, 2 + questions.Length * 2 + 1).Merge();
+                worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                currentRow++;
+
+                var monthAnswers = surveyAnswers
+                    .Where(a => a.create_date_survey?.Month == month.Number && a.create_date_survey?.Year == year)
+                    .GroupBy(a => a.name_omsu)
+                    .OrderBy(g => g.Key);
+
+                foreach (var orgGroup in monthAnswers)
+                {
+                    worksheet.Cell(currentRow, 1).Value = orgGroup.Key;
+                    worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+                    var answersData = !string.IsNullOrEmpty(orgGroup.First().answers)
+                        ? JsonConvert.DeserializeObject<List<AnswerData>>(orgGroup.First().answers!)
+                        : new List<AnswerData>();
+
+                    var orgRatings = new List<double>();
+                    for (int i = 0; i < questions.Length; i++)
+                    {
+                        string questionId = questions[i].question_id.ToString();
+                        var answer = answersData?.FirstOrDefault(a => a.question_id == questionId);
+                        if (answer?.rating.HasValue == true)
+                        {
+                            var rating = answer.rating.Value;
+                            worksheet.Cell(currentRow, 2 + i).Value = rating;
+                            orgRatings.Add(rating);
+                            questionRatings[i].Add(rating);
+                        }
+                        else
+                        {
+                            worksheet.Cell(currentRow, 2 + i).Value = string.Empty;
+                        }
+                    }
+
+                    worksheet.Cell(currentRow, 2 + questions.Length).Value = orgRatings.Count > 0
+                        ? orgRatings.Average()
+                        : string.Empty;
+
+                    if (orgRatings.Count > 0)
+                    {
+                        orgAverages.Add(orgRatings.Average());
+                    }
+
+                    for (int i = 0; i < questions.Length; i++)
+                    {
+                        string questionId = questions[i].question_id.ToString();
+                        var answer = answersData?.FirstOrDefault(a => a.question_id == questionId);
+                        worksheet.Cell(currentRow, 2 + questions.Length + 1 + i).Value = answer?.comment ?? string.Empty;
+                    }
+
+                    worksheet.Row(currentRow).AdjustToContents();
+                    currentRow++;
+                }
+
+                if (!monthAnswers.Any())
+                {
+                    worksheet.Cell(currentRow, 1).Value = "Нет данных";
+                    worksheet.Range(currentRow, 1, currentRow, 2 + questions.Length * 2 + 1).Merge();
+                    currentRow++;
+                }
+            }
+
+            if (currentRow > 3)
+            {
+                worksheet.Cell(currentRow, 1).Value = "Итого:";
+                worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+                for (int i = 0; i < questions.Length; i++)
+                {
+                    worksheet.Cell(currentRow, 2 + i).Value = questionRatings[i].Count > 0
+                        ? questionRatings[i].Average()
+                        : string.Empty;
+                }
+
+                if (questionRatings.Any(q => q.Value.Count > 0))
+                {
+                    worksheet.Cell(currentRow, 2 + questions.Length).Value =
+                        questionRatings.Where(q => q.Value.Count > 0).Average(q => q.Value.Average());
+                }
+
+                currentRow++;
+                worksheet.Cell(currentRow, 1).Value = "Всего среднее";
+                worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                if (orgAverages.Count > 0)
+                {
+                    worksheet.Cell(currentRow, 2 + questions.Length).Value = orgAverages.Average();
+                }
+            }
+
+            FormatWorksheet(worksheet, questions.Length);
+        }
+
+        string safeQuarterName = string.Join("_", quarterName.Split(Path.GetInvalidFileNameChars()));
+        string fileName = $"Otchet_za_{safeQuarterName}_kvartal_{year}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+        Directory.CreateDirectory(_downloadsPath);
+        string filePath = Path.Combine(_downloadsPath, fileName);
+        workbook.SaveAs(filePath);
+
+        return new GeneratedFileResult
+        {
+            Content = File.ReadAllBytes(filePath),
+            ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            FileName = fileName
+        };
+    }
+
+    private IReadOnlyList<Survey> GetSurveysForReport()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        return connection.Query<Survey>(
+            @"SELECT
+                  s.id_survey,
+                  s.name_survey,
+                  s.questions::text AS questions,
+                  COALESCE(
+                      (
+                          SELECT string_agg(o.name_omsu, ', ')
+                          FROM public.omsu_surveys os
+                          INNER JOIN public.omsu o
+                              ON o.id_omsu = os.id_omsu
+                          WHERE os.id_survey = s.id_survey
+                      ),
+                      'Не указано'
+                  ) AS name_omsu
+              FROM public.surveys s
+
+              UNION ALL
+
+              SELECT
+                  hs.id_survey,
+                  hs.name_survey,
+                  hs.file_questions::text AS questions,
+                  COALESCE(
+                      (
+                          SELECT string_agg(o.name_omsu, ', ')
+                          FROM public.omsu_surveys os
+                          INNER JOIN public.omsu o
+                              ON o.id_omsu = os.id_omsu
+                          WHERE os.id_survey = hs.id_survey
+                      ),
+                      'Не указано'
+                  ) AS name_omsu
+              FROM public.history_surveys hs").ToList();
+    }
+
+    private List<HistoryAnswer> GetAnswersFromDatabase()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        return connection.Query<HistoryAnswer>(
+            @"SELECT
+                  id_omsu,
+                  (SELECT name_omsu FROM public.omsu WHERE omsu.id_omsu = history_answer.id_omsu) AS name_omsu,
+                  csp,
+                  id_answer,
+                  id_survey,
+                  (SELECT name_survey FROM public.surveys WHERE surveys.id_survey = history_answer.id_survey) AS name_survey,
+                  completion_date,
+                  create_date_survey,
+                  answers::text AS answers
+              FROM public.history_answer").ToList();
+    }
+
+    private TableCell CreateTableCell(string text, bool isHeader, bool centerAlign)
+    {
+        var cell = new TableCell(
+            new Paragraph(
+                new Run(new Text(text))
+                {
+                    RunProperties = new RunProperties(
+                        isHeader ? new Bold() : null,
+                        new FontSize() { Val = isHeader ? "18" : "16" })
+                }));
+
+        cell.TableCellProperties = new TableCellProperties(
+            new Justification() { Val = centerAlign ? JustificationValues.Center : JustificationValues.Left },
+            new TableCellVerticalAlignment() { Val = TableVerticalAlignmentValues.Center },
+            new TableCellWidth() { Type = TableWidthUnitValues.Auto });
+
+        return cell;
+    }
+
+    private void BuildWorksheetHeaders(IXLWorksheet worksheet, SurveyQuestion[] questions)
+    {
+        var orgHeader = worksheet.Cell(1, 1);
+        orgHeader.Value = "Наименование организации";
+        orgHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Range(1, 1, 2, 1).Merge();
+
+        var criteriaHeader = worksheet.Cell(1, 2);
+        criteriaHeader.Value = "Название критериев";
+        criteriaHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Range(1, 2, 1, 1 + questions.Length).Merge();
+
+        for (int i = 0; i < questions.Length; i++)
+        {
+            var cell = worksheet.Cell(2, 2 + i);
+            cell.Value = questions[i].text;
+            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        }
+
+        var avgHeader = worksheet.Cell(1, 2 + questions.Length);
+        avgHeader.Value = "Средний балл";
+        avgHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Range(1, 2 + questions.Length, 2, 2 + questions.Length).Merge();
+
+        var commentsHeader = worksheet.Cell(1, 2 + questions.Length + 1);
+        commentsHeader.Value = "Комментарии";
+        commentsHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        worksheet.Range(1, 2 + questions.Length + 1, 1, 1 + questions.Length * 2 + 1).Merge();
+
+        for (int i = 0; i < questions.Length; i++)
+        {
+            var cell = worksheet.Cell(2, 2 + questions.Length + 1 + i);
+            cell.Value = $"Комментарий к {questions[i].text}";
+            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        }
+    }
+
+    private static List<(string Name, int Number)> GetMonthsForQuarter(int quarter)
+    {
+        return quarter switch
+        {
+            1 => new List<(string, int)> { ("Январь", 1), ("Февраль", 2), ("Март", 3) },
+            2 => new List<(string, int)> { ("Апрель", 4), ("Май", 5), ("Июнь", 6) },
+            3 => new List<(string, int)> { ("Июль", 7), ("Август", 8), ("Сентябрь", 9) },
+            4 => new List<(string, int)> { ("Октябрь", 10), ("Ноябрь", 11), ("Декабрь", 12) },
+            _ => new List<(string, int)>()
+        };
+    }
+
+    private void FormatWorksheet(IXLWorksheet worksheet, int questionsCount)
+    {
+        var usedRange = worksheet.RangeUsed();
+        if (usedRange == null)
+        {
+            return;
+        }
+
+        usedRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        usedRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        foreach (var cell in usedRange.CellsUsed())
+        {
+            if (cell.DataType == XLDataType.Number ||
+                (cell.DataType == XLDataType.Text &&
+                 !string.IsNullOrEmpty(cell.GetString()) &&
+                 double.TryParse(cell.GetString(), out _)))
+            {
+                cell.Style.NumberFormat.Format = "0.00";
+            }
+        }
+
+        worksheet.Column(1).Width = 30;
+        for (int col = 2; col <= 1 + questionsCount; col++)
+        {
+            worksheet.Column(col).Width = 20;
+        }
+
+        worksheet.Column(2 + questionsCount).Width = 15;
+        for (int col = 2 + questionsCount + 1; col <= 1 + questionsCount * 2 + 1; col++)
+        {
+            worksheet.Column(col).Width = 25;
+        }
+
+        usedRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        usedRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        worksheet.Rows(1, 2).AdjustToContents();
+        for (int row = 3; row <= worksheet.LastRowUsed().RowNumber(); row++)
+        {
+            var cell = worksheet.Cell(row, 1);
+            if (cell.Value.ToString() != "Нет данных")
+            {
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            }
+        }
+    }
+}

@@ -1,4 +1,4 @@
-@model main_project.Features.Surveys.Admin.SurveyEditPageViewModel
+@model main_project.Services.Surveys.SurveyEditPageViewModel
 @{
     var selectedOmsuNamesJson = System.Text.Json.JsonSerializer.Serialize(Model.SelectedOmsuNames);
 }
@@ -8,6 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Обновление анкеты</title>
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
     <style>
         #conf_btn { background-color: #28a745; color: white; }
         #add_crit { background-color: #17a2b8; color: white; }
@@ -122,5 +123,6 @@
 <script>
     window.selectedOmsuNames = @Html.Raw(selectedOmsuNamesJson);
 </script>
-</body>
+</div>
+ </body>
 </html>

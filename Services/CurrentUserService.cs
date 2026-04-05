@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using main_project.Infrastructure.Security;
 
 namespace main_project.Services;
 
@@ -27,5 +28,5 @@ public class CurrentUserService
     public string UserName => User?.FindFirstValue(ClaimTypes.Name) ?? string.Empty;
     public string Role => User?.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
     public string OmsuName => User?.FindFirst("omsu_name")?.Value ?? string.Empty;
-    public bool IsAdmin => User?.IsInRole("Админ") ?? false;
+    public bool IsAdmin => User?.IsInRole(AppRoles.Admin) ?? false;
 }

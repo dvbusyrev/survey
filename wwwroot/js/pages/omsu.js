@@ -21,6 +21,22 @@
         }
     }
 
+    async function submitOmsuUpdate(id, payload) {
+        const response = await fetch(`/organizations/${id}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(antiforgeryToken() ? { RequestVerificationToken: antiforgeryToken() } : {})
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Ошибка обновления организации');
+        }
+    }
+
     async function add_omsu_bd() {
         const form = byId('organizationForm');
         if (!form) return;
@@ -39,7 +55,7 @@
         }
 
         try {
-            const response = await fetch('/add_omsu_bd', {
+            const response = await fetch('/organizations/create/save', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -56,6 +72,8 @@
             showMessage(message, result.message || 'Организация добавлена.', true);
             if (typeof window.handleTabClick === 'function') {
                 window.handleTabClick('get_omsu');
+            } else {
+                window.location.assign('/organizations');
             }
         } catch (error) {
             showMessage(message, error.message || 'Ошибка добавления организации', false);
@@ -100,31 +118,46 @@
         }
 
         const payload = [
-            { name: 'Name', value: name },
-            { name: 'Email', value: email },
-            { name: 'DateBegin', value: dateBegin },
-            { name: 'DateEnd', value: dateEnd }
+            name,
+            email,
+            dateBegin,
+            dateEnd
         ];
 
         try {
-            const response = await fetch(`/update_omsu_bd/${id}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(antiforgeryToken() ? { RequestVerificationToken: antiforgeryToken() } : {})
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText || 'Ошибка обновления организации');
-            }
-
+            await submitOmsuUpdate(id, payload);
             closeOmsuModal('editOmsuModal');
             if (typeof window.handleTabClick === 'function') {
                 window.handleTabClick('get_omsu');
+            } else {
+                window.location.assign('/organizations');
             }
+        } catch (error) {
+            alert(error.message || 'Ошибка обновления организации');
+        }
+    }
+
+    async function updateOmsuPage(id) {
+        const payload = [
+            byId('name')?.value?.trim() || '',
+            byId('email')?.value?.trim() || '',
+            byId('date_begin')?.value || '',
+            byId('date_end')?.value || ''
+        ];
+
+        if (!payload[0] || !payload[2] || !payload[3]) {
+            alert('Заполните обязательные поля');
+            return;
+        }
+
+        if (new Date(payload[3]) < new Date(payload[2])) {
+            alert('Дата окончания не может быть раньше даты начала');
+            return;
+        }
+
+        try {
+            await submitOmsuUpdate(id, payload);
+            window.location.assign('/organizations');
         } catch (error) {
             alert(error.message || 'Ошибка обновления организации');
         }
@@ -135,7 +168,7 @@
         if (!window.confirm('Удалить организацию?')) return;
 
         try {
-            const response = await fetch(`/delete_omsu/${id}`, {
+            const response = await fetch(`/organizations/${id}/delete`, {
                 method: 'POST',
                 headers: {
                     ...(antiforgeryToken() ? { RequestVerificationToken: antiforgeryToken() } : {})
@@ -165,6 +198,7 @@
     window.add_omsu_bd = add_omsu_bd;
     window.openEditOmsuModal = openEditOmsuModal;
     window.updateOmsu = updateOmsu;
+    window.updateOmsuPage = updateOmsuPage;
     window.delete_omsu = delete_omsu;
     window.archive_list_omsus = archive_list_omsus;
 })();

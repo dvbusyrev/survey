@@ -1,9 +1,11 @@
-﻿@model List<HistoryAnswer>
+﻿@model main_project.Services.Answers.AnswerListPageViewModel
 @{
     ViewData["Title"] = "Ответы на анкеты";
 }
 
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
 <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 <div class="content answers-page" id="default_content">
     <div class="note">
         <h2>Ответы на анкеты</h2>
@@ -30,40 +32,40 @@
     <table id="data_table">
         <thead>
             <tr class="table_tr">
-                <th style="border-radius: 16px 0 0 0">Название организации <span class="sort-icon" id="sortIcon0"></span></th>
-                <th>Название анкеты <span style="display:none" class="sort-icon" id="sortIcon1"></span></th>
+                <th class="answers-page__th--start">Название организации <span class="sort-icon" id="sortIcon0"></span></th>
+                <th>Название анкеты <span class="sort-icon answers-page__sort-icon--hidden" id="sortIcon1"></span></th>
                 <th>Дата ответа <span class="sort-icon" id="sortIcon2"></span></th>
                 <th>Подпись</th>
-                <th style="border-radius: 0 16px 0 0">Ответы</th>
+                <th class="answers-page__th--end">Ответы</th>
             </tr>
         </thead>
         <tbody>
-            @if (Model != null && Model.Any())
+            @if (Model.Answers.Any())
             {
-                foreach (var answer in Model)
+                foreach (var answer in Model.Answers)
                 {
-                    <tr class="active" style="cursor:pointer" onclick = "showAnswersModal(@answer.id_survey, @answer.id_omsu)">
-                        <td>@answer.name_omsu</td>
-                        <td>@answer.name_survey</td>
-                        <td>@answer.completion_date.ToString()</td>
+                    <tr class="active answers-page__row" onclick="showAnswersModal(@answer.IdSurvey, @answer.IdOmsu)">
+                        <td>@answer.OrganizationName</td>
+                        <td>@answer.SurveyName</td>
+                        <td>@answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</td>
                         <td>
-                            @if (answer.csp == "Не подписано")
+                            @if (!answer.IsSigned)
                             {
-                                <span style="color: red;">❌</span>
+                                <span class="answers-page__unsigned-icon">❌</span>
                             }
                             else
                             {
-                                <span style="color: green;">✔️</span>
+                                <span class="answers-page__signed-icon">✔️</span>
                             }
                         </td>
-                        <td style="color:#8a9cf5">Смотреть</td>
+                        <td class="answers-page__view-link">Смотреть</td>
                     </tr>
                 }
             }
             else
             {
                 <tr>
-                    <td colspan="5" style='color:red' id="none_result">Результаты не найдены!</td>
+                    <td colspan="5" class="table-empty-cell" id="none_result">Результаты не найдены!</td>
                 </tr>
             }
         </tbody>
@@ -73,4 +75,3 @@
 
 <script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>
 </div>
-

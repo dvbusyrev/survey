@@ -1,15 +1,52 @@
-.users-page-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+.users-page,
+.users-page--archive {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-.users-page [data-users-modal] .modal-content {
+.users-page-toolbar,
+.users-toolbar {
+  margin-bottom: 16px;
+}
+
+.users-page__archive-link,
+.users-toolbar__archive-link {
+  cursor: pointer;
+}
+
+.users-page__back {
+  margin-bottom: 16px;
+}
+
+.users-table .action-icons,
+.users-page .action-icons {
+  white-space: nowrap;
+}
+
+.users-table td:last-child {
+  width: 1%;
+}
+
+.users-table__empty,
+.users-table .table-empty-cell {
+  color: var(--danger);
+}
+
+.users-page [data-users-modal] .modal-content,
+#addUserModal .modal-content,
+#editUserModal .modal-content,
+#deleteUserModal .modal-content {
   max-width: 720px;
 }
 
-.users-page .action-icons {
-  white-space: nowrap;
+@media (max-width: 720px) {
+  .users-page-toolbar,
+  .users-toolbar {
+    align-items: stretch;
+  }
+
+  .users-page-toolbar > *,
+  .users-toolbar > * {
+    width: 100%;
+  }
 }

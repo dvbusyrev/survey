@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using main_project.Infrastructure.Database;
+using main_project.Infrastructure.Security;
 using main_project.Models;
 using System.Data;
 using Npgsql;
@@ -8,18 +10,18 @@ using System.Text;
 
 public class UserController : Controller
 {
-    private readonly DatabaseController _db;
+    private readonly IDbConnectionFactory _connectionFactory;
 
-    public UserController(DatabaseController db)
+    public UserController(IDbConnectionFactory connectionFactory)
     {
-        _db = db;
+        _connectionFactory = connectionFactory;
     }
 
      public IActionResult get_users()
     {
         List<User> users = new List<User>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             using (var command = connection.CreateCommand())
             {
@@ -94,7 +96,7 @@ public IActionResult update_user(int id)
 {
     User user = null;
 
-    using (var connection = _db.CreateConnection())
+    using (var connection = _connectionFactory.CreateConnection())
     {
         if (connection.State != ConnectionState.Open)
         {
@@ -159,10 +161,20 @@ public IActionResult add_user_bd([FromBody] Dictionary<string, string> formData)
         string fullName = formData?.ContainsKey("fullName") == true ? formData["fullName"] : "ERROR_NO_FULLNAME";
         string email = formData?.ContainsKey("email") == true ? formData["email"] : "ERROR_NO_EMAIL";
         string organizationId = formData?.ContainsKey("organizationId") == true ? formData["organizationId"] : "0";
-        string role = formData?.ContainsKey("role") == true ? formData["role"] : "user";
+        string role = formData?.ContainsKey("role") == true ? formData["role"] : AppRoles.User;
+        role = AppRoles.Normalize(role);
 
         Console.WriteLine($"Обработанные данные: {username}, {password}, {fullName}, {email}");
 
+
+        if (!AppRoles.IsSupported(role))
+        {
+            return Json(new
+            {
+                success = false,
+                message = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}"
+            });
+        }
 
              if (!IsPasswordValid(password, out var passwordError))
              {
@@ -175,7 +187,7 @@ public IActionResult add_user_bd([FromBody] Dictionary<string, string> formData)
 
              string hashedPassword = HashPassword(password);
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             
             using (var cmd = connection.CreateCommand())
@@ -281,7 +293,7 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
             });
         }
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             
             using (var cmd = connection.CreateCommand())
@@ -298,8 +310,18 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
                 // Опциональные поля
                 if (formData.ContainsKey("role"))
                 {
+                    var normalizedRole = AppRoles.Normalize(formData["role"]);
+                    if (!AppRoles.IsSupported(normalizedRole))
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}"
+                        });
+                    }
+
                     query.Append("name_role = @role, ");
-                    parameters.Add(new NpgsqlParameter("@role", formData["role"]));
+                    parameters.Add(new NpgsqlParameter("@role", normalizedRole));
                 }
 
                 // Пароль (если реально меняется)
@@ -382,7 +404,7 @@ public IActionResult delete_user(int id)
 {
     try
     {
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             using (var command = connection.CreateCommand())
             {
@@ -409,7 +431,7 @@ public IActionResult delete_user(int id)
     {
 List<User> users = new List<User>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             using (var command = connection.CreateCommand())
             {
@@ -455,7 +477,7 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
     {
         List<User> users = new List<User>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         using (var command = connection.CreateCommand())
         {
             command.CommandText = @"
@@ -501,7 +523,7 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
     {
         var organizations = new List<object>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "SELECT id_omsu, name_omsu FROM public.omsu WHERE block = false ORDER BY name_omsu";

@@ -61,7 +61,7 @@ useEffect(() => {
 
         if (!hasAccess) {
             return (
-                <div className="access-denied" style={{display: 'block'}}>
+                <div className="access-denied">
                     <h2>Доступ запрещён</h2>
                     <p>У вас нет прав для просмотра этой страницы.</p>
                      <br/>
@@ -98,7 +98,7 @@ const ExtensionModal = ({ survey, onClose }) => {
         const fetchOrganizations = async () => {
             try {
                 setLoading(true);
-                const response = await fetch('/get_omsu/data');
+                const response = await fetch('/organizations/data');
                 
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 
@@ -222,16 +222,14 @@ const ExtensionModal = ({ survey, onClose }) => {
                                         required
                                     >
                                         <option value="">-- Выберите ОМСУ --</option>
-                                        {organizations.map(org => (
-                                            <option 
-                                                key={org.id_omsu} 
-                                                value={org.id_omsu}
-                                                disabled={isOrganizationSelected(org.id_omsu, index)}
-                                            >
-                                                {org.name_omsu}
-                                                {isOrganizationSelected(org.id_omsu, index) && ' (уже выбрана)'}
-                                            </option>
-                                        ))}
+                                        {organizations.map((org) => {
+                                            const alreadySelected = isOrganizationSelected(org.id_omsu, index);
+                                            return React.createElement('option', {
+                                                key: org.id_omsu,
+                                                value: org.id_omsu,
+                                                disabled: alreadySelected
+                                            }, `${org.name_omsu}${alreadySelected ? ' (уже выбрана)' : ''}`);
+                                        })}
                                     </select>
                                 </div>
 
@@ -326,10 +324,10 @@ const ExtensionModal = ({ survey, onClose }) => {
         <option value="">Все месяцы</option>
         {Array.from({ length: 12 }, (_, i) => {
             const monthNum = i + 1;
-            return (
-                <option key={monthNum} value={monthNum}>
-                    {new Date(0, i).toLocaleString('ru', { month: 'long' })}
-                </option>
+            return React.createElement(
+                'option',
+                { key: monthNum, value: monthNum },
+                new Date(0, i).toLocaleString('ru', { month: 'long' })
             );
         })}
     </select>
@@ -345,8 +343,10 @@ const ExtensionModal = ({ survey, onClose }) => {
             initialData.surveys.flatMap(s => 
                 s.name_omsu ? s.name_omsu.split(',').map(name => name.trim()) : []
             ).filter(Boolean)
-        )).map((omsu, index) => (
-            <option key={index} value={omsu}>{omsu}</option>
+        )).map((omsu, index) => React.createElement(
+            'option',
+            { key: index, value: omsu },
+            omsu
         ))}
     </select>
     
@@ -474,8 +474,10 @@ const ExtensionModal = ({ survey, onClose }) => {
                         initialData.surveys
                             .flatMap(s => s.name_omsu?.split(',').map(name => name.trim()) || [])
                             .filter(Boolean)
-                    )).map((omsu, index) => (
-                        <option key={index} value={omsu}>{omsu}</option>
+                    )).map((omsu, index) => React.createElement(
+                        'option',
+                        { key: index, value: omsu },
+                        omsu
                     ))}
                 </select>
                     </div>
@@ -611,8 +613,8 @@ const radarChartRef = useRef(null);
                 useEffect(() => {
                     const loadData = async () => {
                         try {
-                            await fetch('/open_statistic');
-                            const response = await fetch('/get_data_statistic');
+                            await fetch('/statistics');
+                            const response = await fetch('/statistics/data');
                             if (!response.ok) throw new Error('Ошибка загрузки данных');
                             setChartsData(await response.json());
                         } catch (err) {
@@ -901,7 +903,7 @@ const radarChartRef = useRef(null);
 
                 if (tab === 'list_answers_users') // вкладка ответов
                 {
-                    const response = await fetch('/get_list_answers');
+                    const response = await fetch('/surveys/answers');
                     const html = await response.text();
                     setContent(
                         <>
@@ -914,7 +916,7 @@ const radarChartRef = useRef(null);
 
                 if (tab === 'archiv_surveys') // вкладка архива анкет
                 {
-                    const response = await fetch('/Survey/archiv_surveys');
+                    const response = await fetch('/surveys/archive');
                     const html = await response.text();
                     setContent(
                         <>
@@ -940,57 +942,65 @@ case 'get_list_csp':
                     throw new Error('ID анкеты не указан');
                 }
                 newPage = "get_list_csp";
-                endpoint = `/get_list_csp/${id}`;
+                endpoint = `/surveys/${id}/signatures`;
                 break;
-                case 'add_survey': endpoint = '/add_survey'; newPage = "add_survey"; break;
-                case 'get_logs': endpoint = '/Log/get_logs'; newPage = "get_logs"; break;
-                case 'download_logs': endpoint = '/Log/get_dump_logs'; newPage = "download_logs"; break;
-                case 'get_users': endpoint = 'get_users'; newPage = "get_users"; break;
-                case 'get_omsu': endpoint = '/OMSU/get_omsu'; newPage = "get_omsu"; break;
+                case 'add_survey': endpoint = '/surveys/create'; newPage = "add_survey"; break;
+                case 'get_logs': endpoint = '/logs'; newPage = "get_logs"; break;
+                case 'download_logs': endpoint = '/logs/export'; newPage = "download_logs"; break;
+                case 'get_users': endpoint = '/users'; newPage = "get_users"; break;
+                case 'get_omsu': endpoint = '/organizations'; newPage = "get_omsu"; break;
                 case 'copy_survey': 
-                    endpoint = `/copy_survey/${modal.data?.id_survey}`;
+                    endpoint = `/surveys/${modal.data?.id_survey}/copy`;
                     newPage = "copy_survey";
                     break;
                 case 'update_survey':
                     newPage = "update_survey"; 
-                    endpoint = `/update_survey/${modal.data?.id_survey}`;
+                    endpoint = `/surveys/${modal.data?.id_survey}/edit`;
                     break;
                 case 'delete_survey':
                     newPage = "delete_survey"; 
-                    endpoint = '/Survey/delete_survey';
+                    endpoint = `/surveys/${modal.data?.id_survey}/delete`;
                     options.method = 'POST';
                     options.body = JSON.stringify({ surveyId: modal.data?.id_survey });
                     break;
-                case 'add_user': endpoint = '/User/add_user'; newPage = "add_user"; break;
-case 'update_user': endpoint = '/User/update_user'; newPage = "update_user"; break;
-case 'delete_user': endpoint = '/User/delete_user'; newPage = "delete_user"; break;
-case 'archive_list_omsus': endpoint = '/OMSU/archive_list_omsus'; newPage = "archive_list_omsus"; break;
-case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "archive_list_users"; break;
+                case 'add_user': endpoint = '/users/create'; newPage = "add_user"; break;
+case 'update_user': endpoint = `/users/${modal.data?.id_user}/edit`; newPage = "update_user"; break;
+case 'delete_user':
+                endpoint = `/users/${modal.data?.id_user}/delete`;
+                newPage = "delete_user";
+                options.method = 'POST';
+                break;
+case 'archive_list_omsus': endpoint = '/organizations/archive'; newPage = "archive_list_omsus"; break;
+case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_users"; break;
 
-                case 'add_omsu': endpoint = '/OMSU/add_omsu'; newPage = "add_omsu"; break;
-                case 'update_omsu': endpoint = '/OMSU/update_omsu'; newPage = "update_omsu"; break;
-                case 'delete_omsu': endpoint = '/OMSU/_omsu'; newPage = "delete_omsu"; break;
+                case 'add_omsu': endpoint = '/organizations/create'; newPage = "add_omsu"; break;
+                case 'update_omsu': endpoint = `/organizations/${modal.data?.id_omsu}/edit`; newPage = "update_omsu"; break;
+                case 'delete_omsu':
+                    endpoint = `/organizations/${modal.data?.id_omsu}/delete`;
+                    newPage = "delete_omsu";
+                    options.method = 'POST';
+                    break;
                                case 'help':
                                 newPage = "help";
                         window.open('/help_files/instruction_for_admin_anketirovanie.docx', '_blank');
-                        endpoint = `/page_help`;
+                        endpoint = `/help`;
                         break;
 
 
                 case 'otchet_month': create_otchetAll_month();
-                endpoint = 'view_otchets'; break;
+                endpoint = '/reports'; break;
                 case 'otchet-1kv': create_otchetAll_kvartal(1);
-                endpoint = 'view_otchets'; break;
+                endpoint = '/reports'; break;
                 case 'otchet-2kv': create_otchetAll_kvartal(2);
-                endpoint = 'view_otchets'; break;
+                endpoint = '/reports'; break;
                 case 'otchet-3kv': create_otchetAll_kvartal(3);
-                endpoint = 'view_otchets'; break;
+                endpoint = '/reports'; break;
                 case 'otchet-4kv': create_otchetAll_kvartal(4);
-                endpoint = 'view_otchets'; break;
+                endpoint = '/reports'; break;
                 
 
-                case 'otchets': endpoint = 'view_otchets'; newPage = "otchets"; break;
-                case 'email': endpoint = 'update_email'; newPage = "update_email"; break;
+                case 'otchets': endpoint = '/reports'; newPage = "otchets"; break;
+                case 'email': endpoint = '/mail-settings'; newPage = "update_email"; break;
 
                 default: 
                     console.log(`Вкладка ${tab} не обработана`);
@@ -1277,7 +1287,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 loadingElement.style.display = 'block';
                 orgListElement.style.display = 'none';
                 
-                fetch('/get_omsu?variantType=data', {
+                fetch('/organizations/data', {
                     headers: {
                         'Accept': 'application/json'
                     }
@@ -1479,7 +1489,7 @@ case 'archive_list_users': endpoint = '/User/archive_list_users'; newPage = "arc
                 
                 safeGetElement('loadingOverlay').style.display = 'flex';
                 
-                fetch('/add_survey_bd', {
+                fetch('/surveys/create', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

@@ -1,20 +1,20 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using main_project.Infrastructure.Database;
+using main_project.Infrastructure.Security;
 using main_project.Models;
-using Npgsql;
-using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using Npgsql;
 using NpgsqlTypes;
 
-[Authorize(Roles = "Админ")]
+[Authorize(Roles = AppRoles.Admin)]
 public class OMSUController : Controller
 {
-    private readonly DatabaseController _db;
+    private readonly IDbConnectionFactory _connectionFactory;
 
-    public OMSUController(DatabaseController db)
+    public OMSUController(IDbConnectionFactory connectionFactory)
     {
-        _db = db;
+        _connectionFactory = connectionFactory;
     }
 
 public IActionResult get_omsu(string variantType)
@@ -23,7 +23,7 @@ public IActionResult get_omsu(string variantType)
     {
         var organizations = new List<object>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "SELECT id_omsu, name_omsu FROM public.omsu WHERE block = false";
@@ -54,7 +54,7 @@ public IActionResult get_omsu(string variantType)
         List<OMSU> omsus = new List<OMSU>();
         List<Survey> surveys = new List<Survey>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "SELECT " +
@@ -62,9 +62,10 @@ public IActionResult get_omsu(string variantType)
                                   "o.name_omsu, " +
                                   "o.date_begin, " +
                                   "o.date_end, " +
-                                  "(SELECT array_agg(s.name_survey) " +
-                                  "FROM public.surveys s " +
-                                  "WHERE ',' || o.list_surveys || ',' LIKE '%,' || s.id_survey || ',%') AS list_surveys, " +
+                                  "COALESCE((SELECT array_agg(s.name_survey ORDER BY s.name_survey) " +
+                                  "FROM public.omsu_surveys os " +
+                                  "INNER JOIN public.surveys s ON s.id_survey = os.id_survey " +
+                                  "WHERE os.id_omsu = o.id_omsu), ARRAY[]::text[]) AS survey_names, " +
                                   "o.block, " +
                                   "o.email " +
                                   "FROM " +
@@ -76,15 +77,20 @@ public IActionResult get_omsu(string variantType)
                 {
                     while (reader.Read())
                     {
+                        var surveyNames = reader.IsDBNull(4)
+                            ? Array.Empty<string>()
+                            : (reader.GetValue(4) as string[] ?? Array.Empty<string>());
                         var omsu = new OMSU
                         {
                             id_omsu = reader.GetInt32(0),
                             name_omsu = reader.GetString(1),
-date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            list_surveys = reader.IsDBNull(4) ? "Не указано" : string.Join(", ", (string[])reader.GetValue(4)),
+                            date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                            date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                            survey_names = surveyNames.Length == 0
+                                ? "Не указано"
+                                : string.Join(", ", surveyNames),
                             block = reader.GetBoolean(5),
-email = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            email = reader.IsDBNull(6) ? null : reader.GetString(6),
                         };
                         omsus.Add(omsu);
                     }
@@ -136,7 +142,7 @@ email = reader.IsDBNull(6) ? null : reader.GetString(6),
     public IActionResult delete_omsu(int id)
     {
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             using (var command = connection.CreateCommand())
             {
@@ -156,21 +162,20 @@ email = reader.IsDBNull(6) ? null : reader.GetString(6),
 
     public IActionResult UpdateListSurveys(int omsuId, int surveyId)
     {
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "UPDATE public.omsu SET list_surveys = COALESCE(list_surveys || ', ', '') || @surveyId WHERE id_omsu = @omsuId";
+                command.CommandText = @"
+                    INSERT INTO public.omsu_surveys (id_omsu, id_survey)
+                    VALUES (@omsuId, @surveyId)
+                    ON CONFLICT (id_omsu, id_survey) DO NOTHING";
                 command.Parameters.Add(new NpgsqlParameter("@surveyId", NpgsqlTypes.NpgsqlDbType.Integer) { Value = surveyId });
                 command.Parameters.Add(new NpgsqlParameter("@omsuId", NpgsqlTypes.NpgsqlDbType.Integer) { Value = omsuId });
 
                 try
                 {
-                    int rowsAffected = command.ExecuteNonQuery();
-                    if (rowsAffected == 0)
-                    {
-                        return BadRequest($"Не удалось обновить список анкет для ОМСУ с ID: {omsuId}");
-                    }
+                    command.ExecuteNonQuery();
                 }
                 catch (Exception ex)
                 {
@@ -194,7 +199,7 @@ public IActionResult archive_list_omsus(string variantType)
     {
         var organizations = new List<object>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "SELECT id_omsu, name_omsu FROM public.omsu WHERE block = false";
@@ -225,7 +230,7 @@ public IActionResult archive_list_omsus(string variantType)
         List<OMSU> omsus = new List<OMSU>();
         List<Survey> surveys = new List<Survey>();
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         using (var command = connection.CreateCommand())
         {
             command.CommandText = "SELECT " +
@@ -233,9 +238,10 @@ public IActionResult archive_list_omsus(string variantType)
                                   "o.name_omsu, " +
                                   "o.date_begin, " +
                                   "o.date_end, " +
-                                  "(SELECT array_agg(s.name_survey) " +
-                                  "FROM public.surveys s " +
-                                  "WHERE ',' || o.list_surveys || ',' LIKE '%,' || s.id_survey || ',%') AS list_surveys, " +
+                                  "COALESCE((SELECT array_agg(s.name_survey ORDER BY s.name_survey) " +
+                                  "FROM public.omsu_surveys os " +
+                                  "INNER JOIN public.surveys s ON s.id_survey = os.id_survey " +
+                                  "WHERE os.id_omsu = o.id_omsu), ARRAY[]::text[]) AS survey_names, " +
                                   "o.block, " +
                                   "o.email " +
                                   "FROM " +
@@ -247,15 +253,20 @@ public IActionResult archive_list_omsus(string variantType)
                 {
                     while (reader.Read())
                     {
+                        var surveyNames = reader.IsDBNull(4)
+                            ? Array.Empty<string>()
+                            : (reader.GetValue(4) as string[] ?? Array.Empty<string>());
                         var omsu = new OMSU
                         {
                             id_omsu = reader.GetInt32(0),
                             name_omsu = reader.GetString(1),
-date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            list_surveys = reader.IsDBNull(4) ? "Не указано" : string.Join(", ", (string[])reader.GetValue(4)),
+                            date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                            date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                            survey_names = surveyNames.Length == 0
+                                ? "Не указано"
+                                : string.Join(", ", surveyNames),
                             block = reader.GetBoolean(5),
-email = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            email = reader.IsDBNull(6) ? null : reader.GetString(6),
                         };
                         omsus.Add(omsu);
                     }
@@ -317,7 +328,7 @@ public IActionResult add_omsu_bd([FromBody] Dictionary<string, string> formData)
         Console.WriteLine($"Дата окончания: {formData["DateEnd"]}");
         Console.WriteLine("==============================");
 
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             
             using (var cmd = connection.CreateCommand())
@@ -388,12 +399,12 @@ public IActionResult update_omsu(int id)
 {
     OMSU omsu = null;
 
-    using (var connection = _db.CreateConnection())
+    using (var connection = _connectionFactory.CreateConnection())
     {
         using (var command = connection.CreateCommand())
         {
             command.CommandText = @"
-                SELECT name_omsu, email, date_begin, date_end, id_omsu, list_surveys
+                SELECT name_omsu, email, date_begin, date_end, id_omsu
                 FROM public.omsu 
                 WHERE id_omsu = @id";
 
@@ -408,11 +419,10 @@ public IActionResult update_omsu(int id)
                         omsu = new OMSU
                         {
                             name_omsu = reader.GetString(0),
-                            email = reader.GetString(1),
-                            date_begin = reader.GetDateTime(2),
-                            date_end = reader.GetDateTime(3),
-                            id_omsu = reader.GetInt32(4),
-                            list_surveys = reader.IsDBNull(5) ? "Не указано" : reader.GetString(5),
+                            email = reader.IsDBNull(1) ? null : reader.GetString(1),
+                            date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                            date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                            id_omsu = reader.GetInt32(4)
                         };
                     }
                 }
@@ -478,7 +488,7 @@ public IActionResult update_omsu_bd(int id, [FromBody] string[] dataOmsu)
 
     try
     {
-        using (var connection = _db.CreateConnection())
+        using (var connection = _connectionFactory.CreateConnection())
         {
             var command = new NpgsqlCommand(@"
                 UPDATE public.omsu 

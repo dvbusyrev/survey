@@ -1,5 +1,8 @@
 @model List<main_project.Models.User>
 
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/users.css" asp-append-version="true" />
+
 <div class="content users-page users-page--archive" id="default_content" data-page="users-archive">
     <p class="back-button users-page__back" onclick="handleTabClick('get_users')">← Вернуться к списку пользователей</p>
 
