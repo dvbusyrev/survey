@@ -95,7 +95,7 @@
         }
     };
 
-    const navItems = [
+    const adminNavItems = [
         {
             id: 'open_statistic',
             label: 'Статистика',
@@ -192,6 +192,27 @@
         }
     ];
 
+    const userNavItems = [
+        {
+            id: 'active',
+            label: 'Анкеты',
+            class: 'surveys',
+            icon: 'fa-clipboard-list',
+            submenu: [
+                { id: 'active', label: 'Список анкет', class: 'survey-list', icon: 'fa-list-ul' },
+                { id: 'archiv_surveys_for_user', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
+            ]
+        },
+        {
+            id: 'help',
+            label: 'Помощь',
+            class: 'help',
+            icon: 'fa-question-circle'
+        }
+    ];
+
+    const navItems = isAdmin ? adminNavItems : userNavItems;
+
     const orderedNavItems = navItems.map((item) => {
         if (!item.submenu) {
             return item;
@@ -212,7 +233,6 @@
         React.createElement('ul', { className: 'nav-list' },
             orderedNavItems.map(item => {
                 const itemActive = item.class === 'surveys' ? isSurveySectionActive : item.id === activeTab;
-                const isNonAdminSurveyButton = !isAdmin && item.class === 'surveys';
 
                 return React.createElement('li', {
                     key: item.id,
@@ -243,11 +263,7 @@
                             fontWeight: itemActive ? 'bold' : 'normal',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
-                            ...(isNonAdminSurveyButton ? {
-                                borderTopLeftRadius: '16px',
-                                borderTopRightRadius: '16px'
-                            } : {})
+                            gap: '8px'
                         }
                     },
                         item.icon && React.createElement('i', {

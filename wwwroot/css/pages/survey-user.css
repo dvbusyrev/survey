@@ -130,19 +130,6 @@
             border-radius: var(--radius-sm);
         }
 
-        .survey-add{display:none;}
-        .survey-answers{display:none;}
-        .survey-archive{display:none;}
-        
-        .statistic{display:none;}
-        .organizations{display:none;}
-        .other{display:none;}
-        .users { display: none }
-        .survey-answers-for-user { display: none }
-        .survey-archive-for-user { display: none }
-        .nav-link::after{display: none}
-
-
                /* Анимации */
         @@keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -1007,15 +994,6 @@
      #email{display:none}
 
 /* zapolnenie_anketi styles */
-.admin-nav ul li:nth-child(1),
-        .admin-nav ul li:nth-child(4),
-        .admin-nav ul .users {
-            display: none;
-        }
-        #users {display: none}
-        .admin-nav ul li:nth-child(5) {
-            display: none;
-        }
         
         :root {
             --primary: #6366f1;

@@ -22,7 +22,7 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --header-height: 92px;
+  --header-height: 62px;
   --page-gap: clamp(12px, 2vw, 24px);
   --nav-width: clamp(220px, 18vw, 240px);
   --content-max-width: 1600px;
@@ -236,7 +236,7 @@ body {
 
 @media (max-width: 640px) {
   :root {
-    --header-height: 126px;
+    --header-height: 84px;
   }
 
   .content,
@@ -253,6 +253,6 @@ body {
 
 @media (max-height: 820px) {
   :root {
-    --header-height: 84px;
+    --header-height: 56px;
   }
 }
