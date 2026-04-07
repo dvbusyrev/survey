@@ -1,6 +1,7 @@
 @model List<main_project.Models.Survey>
 @using Microsoft.AspNetCore.Http
 @using System.Security.Claims
+@using System.Text.Json
 @{
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -20,9 +21,24 @@
 <html lang="ru">
 @await Html.PartialAsync("~/Views/Survey/Partials/_AdminHeadResources.cshtml")
 <body>
-    @await Html.PartialAsync("~/Views/Survey/Partials/_AdminAppHost.cshtml")
-    @await Html.PartialAsync("~/Views/Survey/Partials/_AdminBootstrapData.cshtml", Model)
-    @await Html.PartialAsync("~/Views/Survey/Partials/_AdminScriptRefs.cshtml")
-    @await Html.PartialAsync("~/Views/Survey/Partials/_AdminInlineAppScript.cshtml")
+    <div id="root"></div>
+    <script>
+        window.__adminBootstrap = {
+            userRole: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserRole ?? "")),
+            userId: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserId ?? 0)),
+            displayName: @Html.Raw(JsonSerializer.Serialize(ViewBag.DisplayName ?? "")),
+            selectedOmsuNames: @Html.Raw(JsonSerializer.Serialize(ViewBag.SelectedOmsuNames ?? new List<string>())),
+            surveys: @Html.Raw(JsonSerializer.Serialize(Model ?? new List<main_project.Models.Survey>(), new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            }))
+        };
+    </script>
+    <script src="~/js/pages/admin-common-helpers.js" asp-append-version="true"></script>
+    <script src="~/js/pages/admin-password-tools.js" asp-append-version="true"></script>
+    <script type="text/babel" src="~/js/pages/admin-inline-app-core.js" asp-append-version="true"></script>
+    <script type="text/babel" src="~/js/pages/admin-inline-app-crud-and-answers.js" asp-append-version="true"></script>
+    <script type="text/babel" src="~/js/pages/admin-inline-app-admin-tools.js" asp-append-version="true"></script>
 </body>
 </html>
