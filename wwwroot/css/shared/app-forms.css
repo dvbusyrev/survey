@@ -120,6 +120,15 @@ textarea.form-control {
   overflow-wrap: normal;
 }
 
+a.btn,
+a.btn:hover,
+a.btn:focus,
+.filter-sort a.btn,
+.filter-sort a.btn:hover,
+.filter-sort a.btn:focus {
+  text-decoration: none;
+}
+
 .btn,
 .submit-button,
 .criteria-btn,

@@ -181,7 +181,7 @@
             icon: 'fa-ellipsis-h',
             submenu: [
                 { id: 'get_logs', label: 'Посмотреть логи', class: 'logs-view', icon: 'fa-scroll' },
-                { id: 'download_logs', label: 'Выгрузить файл txt с логами', class: 'logs-download', icon: 'fa-file-download' }
+                { id: 'download_logs', label: 'Выгрузить файл txt с логами', class: 'logs-download', icon: 'fa-download' }
             ]
         },
         {
@@ -232,7 +232,7 @@
                         className: 'nav-link',
                         onClick: (e) => {
                             e.preventDefault();
-                            if (item.submenu && window.innerWidth <= 900) {
+                            if (item.submenu) {
                                 setOpenSubmenu(openSubmenu === item.id ? null : item.id);
                                 return;
                             }
