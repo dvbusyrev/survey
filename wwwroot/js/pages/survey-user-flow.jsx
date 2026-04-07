@@ -573,7 +573,7 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
     React.useEffect(() => {
         const loadQuestions = async () => {
             try {
-                const response = await fetch(`/zapolnenie_anketi/${survey.id_survey}/${survey.id_omsu}`);
+                const response = await fetch(`/surveys/${survey.id_survey}/organizations/${survey.id_omsu}/questions`);
                 if (!response.ok) throw new Error('Не удалось загрузить вопросы анкеты');
                 const data = await response.json();
                 setQuestions(data.questions || []);
@@ -595,7 +595,7 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
                 comment: answer.comment || ''
             }));
 
-            const response = await fetch('/api/insert_answer', {
+            const response = await fetch('/answers/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

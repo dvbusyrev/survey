@@ -1,10 +1,6 @@
-@model main_project.Models.Survey
+@model main_project.Services.Surveys.SurveyEditPageViewModel
 @{
-    ViewBag.SelectedOmsuNames = ViewBag.SelectedOmsuNames ?? new List<string>();
-    ViewBag.SelectedOmsuIds = ViewBag.SelectedOmsuIds ?? new List<int>();
-    ViewBag.Criteria = ViewBag.Criteria ?? new List<string>();
-    var allOmsu = ViewBag.AllOmsu as IEnumerable<dynamic> ?? new List<dynamic>();
-    var selectedOmsuNamesJson = System.Text.Json.JsonSerializer.Serialize((IEnumerable<string>)ViewBag.SelectedOmsuNames);
+    var selectedOmsuNamesJson = System.Text.Json.JsonSerializer.Serialize(Model.SelectedOmsuNames);
 }
 <!DOCTYPE html>
 <html lang="ru">
@@ -12,6 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Обновление анкеты</title>
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
     <style>
         #conf_btn { background-color: #28a745; color: white; }
         #add_crit { background-color: #17a2b8; color: white; }
@@ -27,49 +24,51 @@
             <p>Заполните форму ниже для обновления анкеты</p>
         </div>
 
+        <a class="back-button" href="/surveys">← Вернуться к списку анкет</a>
+
         <div class="step">
             <h3>Шаг 1</h3>
             <div class="form-group">
                 <label for="surveyTitle">Название:</label>
-                <input type="text" class="form-control" id="surveyTitle" value="@Model?.name_survey" required />
-                <div class="error-message" id="titleError">Поле обязательно для заполнения</div>
+                <input type="text" class="form-control" id="surveyTitle" value="@Model.Survey.name_survey" required />
+                <div class="error-message" id="titleError"></div>
             </div>
             <div class="form-group">
                 <label for="surveyDescription">Описание:</label>
-                <textarea class="form-control" id="surveyDescription">@Model?.description</textarea>
+                <textarea class="form-control" id="surveyDescription">@Model.Survey.description</textarea>
             </div>
             <div class="form-group">
                 <label for="startDate">Дата начала:</label>
-                <input type="date" class="form-control" id="startDate" value="@Model?.date_open.ToString("yyyy-MM-dd")" required />
-                <div class="error-message" id="startDateError">Поле обязательно для заполнения</div>
+                <input type="date" class="form-control" id="startDate" value="@Model.Survey.date_open.ToString("yyyy-MM-dd")" required />
+                <div class="error-message" id="startDateError"></div>
             </div>
             <div class="form-group">
                 <label for="endDate">Дата окончания:</label>
-                <input type="date" class="form-control" id="endDate" value="@Model?.date_close.ToString("yyyy-MM-dd")" required />
-                <div class="error-message" id="endDateError">Поле обязательно для заполнения</div>
+                <input type="date" class="form-control" id="endDate" value="@Model.Survey.date_close.ToString("yyyy-MM-dd")" required />
+                <div class="error-message" id="endDateError"></div>
             </div>
 
             <div class="form-group">
                 <label>Организации:</label>
                 <button type="button" class="btn" onclick="surveyEditOpenOmsuModal()">Выбрать ОМСУ</button>
-                <input type="hidden" id="selectedOmsuIds" value="@string.Join(",", ViewBag.SelectedOmsuIds)" />
+                <input type="hidden" id="selectedOmsuIds" value="@string.Join(",", Model.SelectedOmsuIds)" />
                 <div id="selectedOmsuContainer" class="selected-omsu" style="display: none;">
                     <div id="selectedOmsuList"></div>
                 </div>
                 <div class="error-message" id="omsuError">Выберите хотя бы одну организацию</div>
             </div>
         </div>
-                <br />
+        <br />
 
         <div class="step" id="two_step">
             <h3>Шаг 2</h3>
             <div id="cont_criteries">
-                @foreach (var criterion in ViewBag.Criteria)
+                @foreach (var criterion in Model.Criteria)
                 {
                     <div class="form-group cont_criteries">
                         <label>Критерий оценки</label>
                         <input type="text" class="form-control criteriy" value="@criterion" required />
-                        <div class="error-message">Это поле обязательно для заполнения.</div>
+                        <div class="error-message"></div>
                     </div>
                 }
             </div>
@@ -78,19 +77,22 @@
         <div class="criteria-buttons-container">
             <button type="button" class="criteria-btn" id="add_crit" onclick="surveyEditAddCriteria()">Добавить еще критерий</button>
             <button type="button" class="criteria-btn"  id="add_survey_btn" onclick="surveyEditUpdate()">Обновить анкету</button>
-                        <button type="button" class="criteria-btn"  id="send_email" onclick="send_email()">Отправить уведомление</button>
+            <button type="button" class="criteria-btn"  id="send_email" onclick="send_email()">Отправить уведомление</button>
+            <button type="button" class="modal_btn modal_btn-secondary" onclick="window.location.href='/surveys'">Отмена</button>
         </div>
     </div>
 
 <div id="omsuModal" class="modal">
-        <div class="modal-content">
-    <span class="modal-close" onclick="surveyEditCloseModal('omsuModal')">&times;</span>
-    <h2 class="h2_modal">Выбор организаций2 (ОМСУ)</h2>
-    
- <div class="organization-list" id="organizationList">
-    @foreach (var omsu in ViewBag.AllOmsu)
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="h2_modal">Выбор организаций (ОМСУ)</h2>
+        </div>
+        <span class="modal-close" onclick="surveyEditCloseModal('omsuModal')"><i class="fas fa-xmark"></i></span>
+        <div class="modal-body">
+            <div class="organization-list" id="organizationList">
+    @foreach (var omsu in Model.AllOmsu)
     {
-        var isSelected = ViewBag.SelectedOmsuIds.Contains(omsu.Id);
+        var isSelected = Model.SelectedOmsuIds.Contains(omsu.Id);
         if (isSelected)
         {
             <div class="organization-item selected"
@@ -112,19 +114,23 @@
             </div>
         }
     }
-</div>
-
-
-    
-    <div class="modal-footer">
-        <button type="button" class="modal_btn modal_btn-primary" onclick="surveyEditSaveSelectedOmsu()">Сохранить</button>
-        <button type="button" class="modal_btn modal_btn-secondary" onclick="surveyEditCloseModal('omsuModal')">Отмена</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal_btn modal_btn-primary" onclick="surveyEditSaveSelectedOmsu()">Сохранить</button>
+            <button type="button" class="modal_btn modal_btn-secondary" onclick="surveyEditCloseModal('omsuModal')">Отмена</button>
+        </div>
     </div>
 </div>
 
-<input type="hidden" id="surveyId" value="@Model?.id_survey" />
+<input type="hidden" id="surveyId" value="@Model.Survey.id_survey" />
 <script>
     window.selectedOmsuNames = @Html.Raw(selectedOmsuNamesJson);
+    if (typeof window.surveyEditInit === 'function') {
+        window.setTimeout(function () {
+            window.surveyEditInit();
+        }, 0);
+    }
 </script>
-</body>
+ </body>
 </html>

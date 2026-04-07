@@ -10,6 +10,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - main_project</title>
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
 </head>
 <body>
     @Html.AntiForgeryToken()
@@ -78,7 +79,7 @@
    <div class="modal-content">
         <div class="modal-header">
                 <h3 class="h2_modal">Выбор организаций (ОМСУ)</h3>
-                <button class="modal-close" onclick="closeModal('omsuModal')">&times;</button>
+                <button class="modal-close" onclick="closeModal('omsuModal')"><i class="fas fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <div id="loadingOrgs" style="text-align: center; padding: 20px;">

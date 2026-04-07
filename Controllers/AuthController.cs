@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using main_project.Infrastructure.Database;
+using main_project.Infrastructure.Security;
 using Npgsql;
 using System.Data;
 using System.Security.Claims;
@@ -10,14 +13,18 @@ using System.Text;
 
 public class AuthController : Controller
 {
-    private readonly DatabaseController _db;
+    private readonly IDbConnectionFactory _connectionFactory;
     private static readonly PasswordHasher<string> _passwordHasher = new();
 
-    public AuthController(DatabaseController db)
+    public AuthController(IDbConnectionFactory connectionFactory)
     {
-        _db = db;
+        _connectionFactory = connectionFactory;
     }
 
+    [AllowAnonymous]
+    [HttpGet("")]
+    [HttpGet("Auth")]
+    [HttpGet("display_auth")]
     public IActionResult display_auth()
     {
         if (User.Identity != null && User.Identity.IsAuthenticated)
@@ -25,25 +32,27 @@ public class AuthController : Controller
             var userRole = User.FindFirstValue(ClaimTypes.Role);
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (userRole == "Админ")
+            if (userRole == AppRoles.Admin)
             {
-                return RedirectToAction("get_surveys", "Survey");
+                return Redirect("/surveys");
             }
-            else if (userRole == "user" && !string.IsNullOrEmpty(userId))
+            else if (userRole == AppRoles.User && !string.IsNullOrEmpty(userId))
             {
-                return RedirectToAction("survey_list_user", "Survey", new { id = userId });
+                return Redirect("/my-surveys");
             }
         }
 
         return View("Auth");
     }
 
+    [AllowAnonymous]
     public async Task<IActionResult> logout_account()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction("display_auth");
     }
 
+    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> login([FromBody] string[] data_user)
     {
@@ -56,7 +65,7 @@ public class AuthController : Controller
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return StatusCode(400, "Имя пользователя и пароль не могут быть пустыми");
 
-        using var connection = _db.CreateConnection();
+        using var connection = _connectionFactory.CreateConnection();
 
         try
         {
@@ -82,11 +91,14 @@ public class AuthController : Controller
                     return StatusCode(401, "Неверное имя пользователя или пароль");
 
                 idUser = reader.GetInt32(0);
-                nameRole = reader.GetString(1);
+                nameRole = AppRoles.Normalize(reader.GetString(1));
                 nameUser = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
                 nameOmsu = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
                 storedHash = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
             }
+
+            if (!AppRoles.IsSupported(nameRole))
+                return StatusCode(500, "Для пользователя задана неподдерживаемая роль");
 
             bool isLegacyHash;
             var verify = VerifyPassword(username, storedHash, password, out isLegacyHash);

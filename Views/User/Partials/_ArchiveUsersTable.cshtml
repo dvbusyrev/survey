@@ -3,19 +3,19 @@
 <table id="data_table" class="users-table users-table--archive">
     <thead>
         <tr class="table_tr">
-            <th style="border-radius: 16px 0 0 0">ФИО пользователя</th>
+            <th class="table-th--start">ФИО пользователя</th>
             <th>Имя пользователя</th>
             <th>Организация</th>
             <th>Роль</th>
             <th>Дата начала</th>
-            <th style="border-radius: 0 16px 0 0">Дата окончания</th>
+            <th class="table-th--end">Дата окончания</th>
         </tr>
     </thead>
     <tbody>
         @if (Model == null || !Model.Any())
         {
             <tr>
-                <td colspan="6" style="color:red">Результаты не найдены!</td>
+                <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
             </tr>
         }
         else

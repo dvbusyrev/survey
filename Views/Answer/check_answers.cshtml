@@ -1,14 +1,19 @@
+@model main_project.Services.Answers.CheckAnswersPageViewModel
+
 @{
     ViewData["Title"] = "Проверка ответов";
-    var survey = ViewBag.Survey as Survey;
-    var answers = ViewBag.Answers as List<dynamic>;
-    var idOmsu = ViewBag.IdOmsu as int? ?? 0;
+    var survey = Model.Survey;
+    var answers = Model.Answers;
+    var idOmsu = Model.IdOmsu;
 }
 
-<div class="content">
-    @if (survey == null)
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+
+<div class="content answers-page__check">
+    @if (string.IsNullOrWhiteSpace(survey?.name_survey))
     {
-        <div class="error">
+        <div class="answers-page__error">
             <h2>Ошибка</h2>
             <p>Информация об анкете не найдена</p>
         </div>
@@ -46,8 +51,8 @@
                         @foreach (var answer in answers)
                         {
                             <tr>
-                                <td>@answer.QuestionText</td>
-                                <td>@answer.Rating</td>
+                                <td>@answer.DisplayQuestion</td>
+                                <td>@answer.DisplayRating</td>
                                 <td>@answer.Comment</td>
                             </tr>
                         }
@@ -56,68 +61,15 @@
             }
         </div>
 
-        <div class="button-container">
-            <button class="submit-button" onclick="CSP(@survey.id_survey, @idOmsu)">Подписать</button>
-            <button class="submit-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'file')">Скачать файл с анкетой</button>
+        <div class="answers-page__actions">
+            <button class="answers-page__action-button" onclick="CSP(@survey.id_survey, @idOmsu)">Подписать</button>
+            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'file')">Скачать файл с анкетой</button>
         </div>
 
-        <div id="block_btn_csp" class="button-container" style="display:none">
-            <button class="submit-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'archiv')">Скачать файл с анкетой и подписью</button>
+        <div id="block_btn_csp" class="answers-page__download-actions is-hidden">
+            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'archiv')">Скачать файл с анкетой и подписью</button>
         </div>
     }
 </div>
-
-<style>
-    .content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-    .note {
-        background: #f5f5f5;
-        padding: 15px;
-        margin-bottom: 20px;
-        border-left: 4px solid #004e88;
-    }
-    .table-container {
-        overflow-x: auto;
-        margin: 20px 0;
-    }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    th, td {
-        padding: 12px 15px;
-        border-bottom: 1px solid #ddd;
-        text-align: left;
-    }
-    th {
-        background: #004e88;
-        color: white;
-    }
-    .button-container {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
-    }
-    .submit-button {
-        padding: 10px 20px;
-        background: #004e88;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    .submit-button:hover {
-        background: #003366;
-    }
-    .error {
-        color: #dc3545;
-        padding: 20px;
-        text-align: center;
-    }
-</style>
-
 
 <script src="~/js/pages/check-answers.js" asp-append-version="true"></script>

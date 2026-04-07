@@ -2,6 +2,7 @@
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
+using main_project.Infrastructure.Security;
 using System.IO;
 using System.Text;
 
@@ -101,7 +102,7 @@ public class HelpController : Controller
     return View();
 }
 
-[Authorize(Roles = "Админ")]
+[Authorize(Roles = AppRoles.Admin)]
 [HttpPost]
     public async Task<IActionResult> upload_instruction(IFormFile file, string role)
     {

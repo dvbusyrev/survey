@@ -3,17 +3,17 @@
 <table id="data_table" class="omsu-table omsu-table--archive">
     <thead>
         <tr class='table_tr'>
-            <th style="border-radius: 16px 0 0 0">Название организации</th>
+            <th class="omsu-table__th--start">Название организации</th>
             <th>Дата начала</th>
             <th>Дата окончания</th>
-            <th style="border-radius: 0 16px 0 0">Email</th>
+            <th class="omsu-table__th--end">Email</th>
         </tr>
     </thead>
     <tbody>
         @if (Model == null || !Model.Any())
         {
             <tr>
-                <td colspan="4" style='color:red'>Результаты не найдены!</td>
+                <td colspan="4" class="table-empty-cell">Результаты не найдены!</td>
             </tr>
         }
         else

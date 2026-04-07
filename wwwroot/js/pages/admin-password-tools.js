@@ -75,7 +75,11 @@
                 const orgEl = document.getElementById('organization');
                 if (orgEl) orgEl.selectedIndex = 0;
 
-                modal.style.display = 'block';
+                if (typeof window.showSiteModal === 'function') {
+                    window.showSiteModal(modal);
+                } else {
+                    modal.style.display = 'flex';
+                }
                 setTimeout(initUserModalPasswordEyes, 0);
             };
         }

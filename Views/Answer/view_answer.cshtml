@@ -1,9 +1,14 @@
+@model main_project.Services.Surveys.SurveyAnswerPageViewModel
+
 @{
     ViewData["Title"] = "Проверка ответов";
 }
 
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+
 <title>@ViewData["Title"]</title>
-<div class="content" id="default_content">
+<div class="content answers-page__view" id="default_content">
     <div class="note">
         <h2>Просмотр ответов</h2>
         <p>На этой странице вы можете ознакомиться с ответами на анкету.</p>
@@ -25,15 +30,17 @@
                         <td colspan="3" class="survey-header">
                             <strong>Ответы на анкету: @Model.Survey.name_survey</strong>
                             <br />
-                            <span class="completion-date">Дата ответа: @answer.completion_date?.ToString("dd.MM.yyyy HH:mm:ss")</span>
+                            <span class="answers-page__completion-date">Организация: @answer.NameOmsu</span>
+                            <br />
+                            <span class="answers-page__completion-date">Дата ответа: @answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</span>
                         </td>
                     </tr>
-                    @foreach (var detail in answer.DeserializedAnswers)
+                    @foreach (var detail in answer.Details)
                     {
                         <tr>
-                            <td>@detail.question_text</td>
-                            <td>@detail.rating</td>
-                            <td>@detail.comment</td>
+                            <td>@detail.DisplayQuestion</td>
+                            <td>@detail.Rating</td>
+                            <td>@detail.Comment</td>
                         </tr>
                     }
                 }
@@ -44,15 +51,6 @@
 
     <div id="block_btn_not_csp" class="button-container">
         <br />
-        @if (Model.Role == "user"){
-        <button class="submit-button" onClick="window.history.back()">Вернуться к списку анкет</button>}
-        else {<button class="submit-button" onClick="window.history.back()">Вернуться к списку анкет</button>}
+        <button class="answers-page__action-button" onClick="window.history.back()">Вернуться к списку анкет</button>
     </div>
 </div>
-
-<style>
-    .completion-date {
-        font-size: 12px;
-        color: #888;
-    }
-</style>

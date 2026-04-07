@@ -1,15 +1,14 @@
 @model main_project.Models.OMSU
-@Html.AntiForgeryToken()
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - main_project</title>
-</head>
-<body>
+@{
+    ViewData["Title"] = "Редактирование организации";
+}
 
-    <div class="content" id="default_content">
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/omsu.css" asp-append-version="true" />
+
+@Html.AntiForgeryToken()
+
+    <div class="content omsu-form-page" id="default_content" data-page="omsu-update">
         <div class="note">
             <h2>Редактирование организации</h2>
             <p>В форме ниже вы можете изменить данные организации</p>
@@ -35,10 +34,9 @@
            value="@(Model?.date_end?.ToString("yyyy-MM-dd"))" required />
 </div>
         
-        <div class="button-container">
-           <button type="button" class="btn" onclick="update_omsu_bd(@Model.id_omsu)">Обновить организацию</button>
+        <div class="button-container omsu-form__actions">
+           <button type="button" class="btn" onclick="updateOmsuPage(@Model.id_omsu)">Обновить организацию</button>
         </div>
     </div>
 
-</body>
-</html>
+<script src="~/js/pages/omsu.js" asp-append-version="true"></script>

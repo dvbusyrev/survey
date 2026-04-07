@@ -180,7 +180,6 @@ const SurveyContent = ({
                     onClick={() => handleTabChange('archived')}
                 >
                     Архив анкет
-                    <span className="count-badge">{archivedCount}</span>
                 </div>
             </div>
 
@@ -411,7 +410,9 @@ window.renderSurveyUserList = function(initialData) {
             const [surveys, setSurveys] = React.useState(initialData.initialSurveys || []);
             const [currentPage, setCurrentPage] = React.useState(initialData.initialPage);
             const [totalPages, setTotalPages] = React.useState(initialData.initialTotalPages);
-            const [activeCount, setActiveCount] = React.useState(0);
+            const [activeCount, setActiveCount] = React.useState(
+                initialData.initialTotalCount || initialData.initialSurveys?.length || 0
+            );
             const [archivedCount, setArchivedCount] = React.useState(0);
             const [helpContent, setHelpContent] = React.useState('');
             const [dateFilter, setDateFilter] = React.useState('');
@@ -431,7 +432,7 @@ React.useEffect(() => {
     setError(null);
     try {
         const endpoint = tab === 'active' 
-            ? `/survey_list_user/${initialData.userId}?page=${page}&searchTerm=${search}&date=${date}`
+            ? `/my-surveys?page=${page}&searchTerm=${search}&date=${date}`
             : `/get_list_archive/${initialData.userId}?searchTerm=${search}&signedOnly=${signedOnly}&date=${date}`;
         
         const response = await fetch(endpoint, {
@@ -519,7 +520,7 @@ React.useEffect(() => {
             const loadCounts = async () => {
     try {
         // Загрузка счетчика активных анкет
-        const activeResponse = await fetch(`/survey_list_user/${initialData.userId}?page=1&searchTerm=`, {
+        const activeResponse = await fetch(`/my-surveys?page=1&searchTerm=`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         

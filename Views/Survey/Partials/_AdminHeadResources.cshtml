@@ -2,15 +2,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Список анкет</title>
-    <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/components.css" />
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
     <link rel="stylesheet" href="~/css/pages/admin-main.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/omsu.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/users.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="~/js/react.development.js"></script>
-    <script src="~/js/react-dom.development.js"></script>
-    <script src="~/js/babel.min.js"></script>
-    <script src="~/js/components/Header.js"></script>
-    <script src="~/js/components/Navigation.js"></script>
-    <script src="~/js/components/Footer.js"></script>
+    <script src="~/js/react.development.js" asp-append-version="true"></script>
+    <script src="~/js/react-dom.development.js" asp-append-version="true"></script>
+    <script src="~/js/babel.min.js" asp-append-version="true"></script>
+    <script src="~/js/components/Header.js" asp-append-version="true"></script>
+    <script src="~/js/components/Navigation.js" asp-append-version="true"></script>
+    <script src="~/js/components/Footer.js" asp-append-version="true"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>

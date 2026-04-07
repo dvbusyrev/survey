@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.ResponseCompression;
-using Microsoft.EntityFrameworkCore;
-using main_project.Data;
-using main_project.Models;
+using main_project.Infrastructure.Database;
 using main_project.Services;
+using main_project.Services.Answers;
+using main_project.Services.Surveys;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,30 +13,63 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// НИЖЕ ПРЕДСТАВЛЕН СПИСОК ИСПОЛЬЗУЮЩИХСЯ СЕРВИСОВ
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 builder.Services.AddControllersWithViews();
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Auth";
+        options.LoginPath = "/display_auth";
         options.LogoutPath = "/Auth/logout_account";
-        options.AccessDeniedPath = "/Auth";
+        options.AccessDeniedPath = "/display_auth";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = async context =>
+            {
+                if (IsApiRequest(context.Request))
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Требуется авторизация. Выполните вход снова." }));
+                    return;
+                }
+
+                context.Response.Redirect("/display_auth");
+            },
+            OnRedirectToAccessDenied = async context =>
+            {
+                if (IsApiRequest(context.Request))
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Доступ запрещён." }));
+                    return;
+                }
+
+                context.Response.Redirect("/display_auth");
+            }
+        };
     });
 
 builder.Services.AddHostedService<SurveyExpirationService>(); // Регистрируем фоновую службу
-builder.Services.AddScoped<DatabaseController>();
-builder.Services.AddSingleton<DatabaseConnection>();
+builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<SurveyAdminService>();
+builder.Services.AddScoped<SurveyUserService>();
+builder.Services.AddScoped<SurveyArchiveService>();
+builder.Services.AddScoped<SurveyAnswersService>();
+builder.Services.AddScoped<SurveyReportService>();
+builder.Services.AddScoped<AnswerAdminService>();
+builder.Services.AddScoped<AnswerDataService>();
+builder.Services.AddScoped<AnswerAccessService>();
+builder.Services.AddScoped<AnswerWorkflowService>();
+builder.Services.AddScoped<AnswerSigningService>();
+builder.Services.AddScoped<AnswerExportService>();
 
 // Сжатие ответов для ускорения загрузки
 builder.Services.AddResponseCompression(options =>
@@ -61,14 +95,22 @@ var app = builder.Build();
 // СОЗДАНИЕ СОЕДИНЕНИЯ С БД ПРИ СТАРТЕ ПРИЛОЖЕНИЯ
 using (var serviceScope = app.Services.CreateScope())
 {
-    var dbConnection = serviceScope.ServiceProvider.GetRequiredService<DatabaseConnection>();
-    dbConnection.CreateConnection();
+    var connectionFactory = serviceScope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
+    using var _ = connectionFactory.CreateConnection();
 }
 
 // НАСТРОЙКА HTTP ПЕРЕАДРЕСАЦИИ
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async context =>
+        {
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync("Произошла внутренняя ошибка сервера.");
+        });
+    });
     app.UseHsts();
 }
 
@@ -79,12 +121,161 @@ app.UseRouting();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseStatusCodePages(async statusCodeContext =>
+{
+    var response = statusCodeContext.HttpContext.Response;
+    if (response.HasStarted)
+    {
+        return;
+    }
+
+    var message = response.StatusCode switch
+    {
+        StatusCodes.Status401Unauthorized => "Требуется авторизация. Выполните вход снова.",
+        StatusCodes.Status403Forbidden => "Доступ запрещён.",
+        StatusCodes.Status404NotFound => "Страница не найдена.",
+        StatusCodes.Status500InternalServerError => "Произошла внутренняя ошибка сервера.",
+        _ => "Произошла ошибка при обработке запроса."
+    };
+
+    response.ContentType = IsApiRequest(statusCodeContext.HttpContext.Request)
+        ? "application/json; charset=utf-8"
+        : "text/plain; charset=utf-8";
+
+    if (response.ContentType.StartsWith("application/json", StringComparison.Ordinal))
+    {
+        await response.WriteAsync(JsonSerializer.Serialize(new { error = message }));
+        return;
+    }
+
+    await response.WriteAsync(message);
+});
 
 // НИЖЕ ПРЕДСТАВЛЕН СПИСОК МАРШРУТОВ(РОУТОВ) ДЛЯ МЕТОДОВ КОНТРОЛЛЕРОВ
 app.MapControllerRoute(
     name: "get_surveys",
     pattern: "get_surveys",
-    defaults: new { controller = "Survey", action = "get_surveys" }
+    defaults: new { controller = "SurveyAdmin", action = "get_surveys" }
+);
+
+app.MapControllerRoute(
+    name: "users_clean",
+    pattern: "users",
+    defaults: new { controller = "User", action = "get_users" }
+);
+
+app.MapControllerRoute(
+    name: "users_create_clean",
+    pattern: "users/create",
+    defaults: new { controller = "User", action = "add_user" }
+);
+
+app.MapControllerRoute(
+    name: "users_create_post_clean",
+    pattern: "users/create/save",
+    defaults: new { controller = "User", action = "add_user_bd" }
+);
+
+app.MapControllerRoute(
+    name: "users_edit_clean",
+    pattern: "users/{id}/edit",
+    defaults: new { controller = "User", action = "update_user" }
+);
+
+app.MapControllerRoute(
+    name: "users_update_clean",
+    pattern: "users/{id}/update",
+    defaults: new { controller = "User", action = "update_user_bd" }
+);
+
+app.MapControllerRoute(
+    name: "users_delete_clean",
+    pattern: "users/{id}/delete",
+    defaults: new { controller = "User", action = "delete_user" }
+);
+
+app.MapControllerRoute(
+    name: "users_archive_clean",
+    pattern: "users/archive",
+    defaults: new { controller = "User", action = "archive_list_users" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_clean",
+    pattern: "organizations",
+    defaults: new { controller = "OMSU", action = "get_omsu" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_data_clean",
+    pattern: "organizations/data",
+    defaults: new { controller = "OMSU", action = "get_omsu", variantType = "data" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_create_clean",
+    pattern: "organizations/create",
+    defaults: new { controller = "OMSU", action = "add_omsu" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_create_post_clean",
+    pattern: "organizations/create/save",
+    defaults: new { controller = "OMSU", action = "add_omsu_bd" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_edit_clean",
+    pattern: "organizations/{id}/edit",
+    defaults: new { controller = "OMSU", action = "update_omsu" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_update_clean",
+    pattern: "organizations/{id}/update",
+    defaults: new { controller = "OMSU", action = "update_omsu_bd" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_delete_clean",
+    pattern: "organizations/{id}/delete",
+    defaults: new { controller = "OMSU", action = "delete_omsu" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_archive_clean",
+    pattern: "organizations/archive",
+    defaults: new { controller = "OMSU", action = "archive_list_omsus" }
+);
+
+app.MapControllerRoute(
+    name: "organizations_variant_clean",
+    pattern: "organizations/{variantType}",
+    defaults: new { controller = "OMSU", action = "get_omsu" }
+);
+
+app.MapControllerRoute(
+    name: "logs_clean",
+    pattern: "logs",
+    defaults: new { controller = "Log", action = "get_logs" }
+);
+
+app.MapControllerRoute(
+    name: "logs_export_clean",
+    pattern: "logs/export",
+    defaults: new { controller = "Log", action = "get_dump_logs" }
+);
+
+app.MapControllerRoute(
+    name: "mail_settings_clean",
+    pattern: "mail-settings",
+    defaults: new { controller = "Email", action = "update_settings" }
+);
+
+app.MapControllerRoute(
+    name: "help_clean",
+    pattern: "help",
+    defaults: new { controller = "Help", action = "page_help" }
 );
 
 app.MapControllerRoute(
@@ -114,7 +305,13 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "copy_archive_survey",
     pattern: "copy_archive_survey",
-    defaults: new { controller = "Survey", action = "copy_archive_survey" }
+    defaults: new { controller = "SurveyArchive", action = "copy_archive_survey" }
+);
+
+app.MapControllerRoute(
+    name: "help_file_clean",
+    pattern: "help/files/{type}",
+    defaults: new { controller = "Help", action = "get_file" }
 );
 
 app.MapControllerRoute(
@@ -126,31 +323,31 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "list_answers_users",
     pattern: "list_answers_users",
-    defaults: new { controller = "Survey", action = "list_answers_users" }
+    defaults: new { controller = "AnswerAdmin", action = "get_list_answers" }
 );
 
 app.MapControllerRoute(
     name: "download_signed_archive",
     pattern: "download_signed_archive/{idSurvey}/{idOmsu}",
-    defaults: new { controller = "Answer", action = "DownloadSignedArchive" }
+    defaults: new { controller = "AnswerExport", action = "DownloadSignedArchive" }
 );
 
 app.MapControllerRoute(
     name: "get_signing_data",
     pattern: "get_signing_data/{id}/{idOmsu}",
-    defaults: new { controller = "Answer", action = "GetSigningData" }
+    defaults: new { controller = "AnswerSigning", action = "GetSigningData" }
 );
 
 app.MapControllerRoute(
     name: "archiv_surveys",
     pattern: "archiv_surveys",
-    defaults: new { controller = "Survey", action = "archiv_surveys" }
+    defaults: new { controller = "SurveyArchive", action = "archiv_surveys" }
 );
 
 app.MapControllerRoute(
     name: "add_survey",
     pattern: "add_survey",
-    defaults: new { controller = "Survey", action = "add_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "add_survey" }
 );
 
 
@@ -163,25 +360,25 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "survey_list_user",
     pattern: "survey_list_user/{id}",
-    defaults: new { controller = "Survey", action = "survey_list_user" }
+    defaults: new { controller = "SurveyUser", action = "survey_list_user" }
 );
 
 app.MapControllerRoute(
     name: "open_statistic",
     pattern: "open_statistic",
-    defaults: new { controller = "Answer", action = "open_statistic" }
+    defaults: new { controller = "AnswerAdmin", action = "open_statistic" }
 );
 
 app.MapControllerRoute(
     name: "add_survey_bd",
     pattern: "add_survey_bd",
-    defaults: new { controller = "Survey", action = "add_survey_bd" }
+    defaults: new { controller = "SurveyAdmin", action = "add_survey_bd" }
 );
 
 app.MapControllerRoute(
     name: "get_list_archive",
     pattern: "get_list_archive/{id}",
-    defaults: new { controller = "Survey", action = "get_list_archive" }
+    defaults: new { controller = "SurveyArchive", action = "get_list_archive" }
 );
 
 app.MapControllerRoute(
@@ -205,63 +402,63 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "get_data_statistic",
     pattern: "get_data_statistic",
-    defaults: new { controller = "Answer", action = "get_data_statistic" }
+    defaults: new { controller = "AnswerAdmin", action = "get_data_statistic" }
 );
 
 app.MapControllerRoute(
     name: "zapolnenie_anketi",
     pattern: "zapolnenie_anketi/{id:int}/{omsuId:int}",
-    defaults: new { controller = "Survey", action = "zapolnenie_anketi" }
+    defaults: new { controller = "SurveyUser", action = "zapolnenie_anketi" }
 );
 
 app.MapControllerRoute(
     name: "csp",
-    pattern: "csp/{id:int}/{idOmsu:int}/{signature}",
-    defaults: new { controller = "Answer", action = "CSP_answer" }
+    pattern: "csp/{id:int}/{idOmsu:int}",
+    defaults: new { controller = "AnswerSigning", action = "CSP_answer" }
 );
 
 app.MapControllerRoute(
     name: "create_otchet_month",
     pattern: "create_otchet_month/{id:int}",
-    defaults: new { controller = "Survey", action = "create_otchet_month" }
+    defaults: new { controller = "SurveyReports", action = "create_otchet_month" }
 );
 
 app.MapControllerRoute(
     name: "create_otchet_for_me",
     pattern: "create_otchet_for_me/{idSurvey}/{idOmsu}/{type}",
-    defaults: new { controller = "Answer", action = "create_otchet_for_me" }
+    defaults: new { controller = "AnswerExport", action = "create_otchet_for_me" }
 );
 
 app.MapControllerRoute(
     name: "update_answer",
     pattern: "update_answer/{idSurvey}/{idOmsu}",
-    defaults: new { controller = "Answer", action = "update_answer" }
+    defaults: new { controller = "AnswerWorkflow", action = "update_answer" }
 );
 
 
 app.MapControllerRoute(
     name: "answers",
     pattern: "answers/{idSurvey}/{idOmsu}/{type}",
-    defaults: new { controller = "Answer", action = "answers" }
+    defaults: new { controller = "AnswerWorkflow", action = "answers" }
 );
 
 
 app.MapControllerRoute(
     name: "create_archiv_for_me",
     pattern: "create_archiv_for_me/{idSurvey}/{idOmsu}",
-    defaults: new { controller = "Answer", action = "create_archiv_for_me" }
+    defaults: new { controller = "AnswerExport", action = "create_archiv_for_me" }
 );
 
 app.MapControllerRoute(
     name: "create_otchetAll_month",
     pattern: "create_otchetAll_month",
-    defaults: new { controller = "Survey", action = "create_otchetAll_month" }
+    defaults: new { controller = "SurveyReports", action = "create_otchetAll_month" }
 );
 
 app.MapControllerRoute(
     name: "create_otchet_kvartal",
     pattern: "create_otchet_kvartal/{kvartal}/{year}",
-    defaults: new { controller = "Survey", action = "create_otchet_kvartal" }
+    defaults: new { controller = "SurveyReports", action = "create_otchet_kvartal" }
 );
 
 app.MapControllerRoute(
@@ -273,7 +470,7 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "view_otchets",
     pattern: "view_otchets",
-    defaults: new { controller = "Survey", action = "view_otchets" }
+    defaults: new { controller = "SurveyReports", action = "view_otchets" }
 );
 
 app.MapControllerRoute(
@@ -285,30 +482,30 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "update_survey",
     pattern: "update_survey/{id}",
-    defaults: new { controller = "Survey", action = "update_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "update_survey" }
 );
 
 app.MapControllerRoute(
     name: "update_survey_bd",
     pattern: "update_survey_bd/{id}",
-    defaults: new { controller = "Survey", action = "update_survey_bd" }
+    defaults: new { controller = "SurveyAdmin", action = "update_survey_bd" }
 );
 app.MapControllerRoute(
     name: "copy_survey",
     pattern: "copy_survey/{id}",
-    defaults: new { controller = "Survey", action = "copy_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "copy_survey" }
 );
 
 app.MapControllerRoute(
     name: "copy_survey_bd",
     pattern: "copy_survey_bd/{id}",
-    defaults: new { controller = "Survey", action = "copy_survey_bd" }
+    defaults: new { controller = "SurveyAdmin", action = "copy_survey_bd" }
 );
 
 app.MapControllerRoute(
     name: "delete_survey",
     pattern: "surveys/delete/{id}",
-    defaults: new { controller = "Survey", action = "delete_survey" }
+    defaults: new { controller = "SurveyAdmin", action = "delete_survey" }
 );
 
 app.MapControllerRoute(
@@ -342,7 +539,7 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "surveyAnswers",
     pattern: "Survey/GetSurveyAnswers",
-    defaults: new { controller = "Survey", action = "GetSurveyAnswers" });
+    defaults: new { controller = "SurveyAnswers", action = "GetSurveyAnswers" });
 
 app.MapControllerRoute(
     name: "update_user",
@@ -368,22 +565,22 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "insert_answer",
     pattern: "api/insert_answer", 
-    defaults: new { controller = "Answer", action = "insert_answer" });
+    defaults: new { controller = "AnswerWorkflow", action = "insert_answer" });
 
 app.MapControllerRoute(
     name: "update_answer_bd",
     pattern: "update_answer_bd", 
-    defaults: new { controller = "Answer", action = "update_answer_bd" });
+    defaults: new { controller = "AnswerWorkflow", action = "update_answer_bd" });
 
 app.MapControllerRoute(
     name: "get_list_answers",
     pattern: "get_list_answers",
-    defaults: new { controller = "Answer", action = "get_list_answers"}
+    defaults: new { controller = "AnswerAdmin", action = "get_list_answers"}
 );
 app.MapControllerRoute(
     name: "get_list_csp",
     pattern: "get_list_csp/{id}",
-    defaults: new { controller = "Answer", action = "get_list_csp" });
+    defaults: new { controller = "AnswerAdmin", action = "get_list_csp" });
 
 app.MapControllerRoute(
     name: "get_users",
@@ -448,14 +645,30 @@ app.MapControllerRoute(
     defaults: new { controller = "Auth", action = "display_auth"});
 
 app.MapControllerRoute(
-    name: "auth",
-    pattern: "",
-    defaults: new { controller = "Auth", action = "display_auth" });
-
-app.MapControllerRoute(
     name: "login",
     pattern: "Auth/login",
     defaults: new { controller = "Auth", action = "login"});
 
 
 app.Run();
+
+static bool IsApiRequest(HttpRequest request)
+{
+    if (request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    if (request.Headers.TryGetValue("X-Requested-With", out var requestedWith) &&
+        string.Equals(requestedWith.ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    if (request.Headers.Accept.Any(value => value.Contains("application/json", StringComparison.OrdinalIgnoreCase)))
+    {
+        return true;
+    }
+
+    return false;
+}

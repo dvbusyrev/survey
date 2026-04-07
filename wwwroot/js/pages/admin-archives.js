@@ -1,7 +1,15 @@
 window.AdminArchives = (function () {
   function closeModalById(id) {
     var modal = document.getElementById(id);
-    if (modal) modal.style.display = 'none';
+    if (!modal) {
+      return;
+    }
+
+    if (window.hideSiteModal) {
+      window.hideSiteModal(modal);
+    } else {
+      modal.style.display = 'none';
+    }
   }
 
   function closeAnswersModal() {

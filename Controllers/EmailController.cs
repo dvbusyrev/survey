@@ -4,11 +4,12 @@ using System.Net;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using main_project.Infrastructure.Security;
 using main_project.Models;
 
 namespace main_project.Controllers
 {
-    [Authorize(Roles = "Админ")]
+    [Authorize(Roles = AppRoles.Admin)]
     public class EmailController : Controller
     {
 

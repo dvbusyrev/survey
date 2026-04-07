@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using main_project.Infrastructure.Database;
+using main_project.Infrastructure.Security;
 using main_project.Models;
 using Newtonsoft.Json.Linq;
 using System.Data;
@@ -7,14 +9,14 @@ using System.Text;
 using Npgsql;
 
 
-[Authorize(Roles = "Админ")]
+[Authorize(Roles = AppRoles.Admin)]
 public class LogController : Controller
 {
-    private readonly DatabaseController _db;
+    private readonly IDbConnectionFactory _connectionFactory;
 
-    public LogController(DatabaseController db)
+    public LogController(IDbConnectionFactory connectionFactory)
     {
-        _db = db;
+        _connectionFactory = connectionFactory;
     }
 
 
@@ -27,7 +29,8 @@ public IActionResult insert_log(int id_user, int id_target, string target_type, 
     {
         string extraDataJson = extra_data != null ? JObject.FromObject(extra_data).ToString() : null;
 
-        using var command = _db.CreateCommand();
+        using var connection = _connectionFactory.CreateConnection();
+        using var command = connection.CreateCommand();
         command.CommandText = @"
             INSERT INTO public.logs (id_user, id_target, target_type, event_type, date, extra_data, description)
             VALUES (@id_user, @id_target, @target_type, @event_type, @date, @extra_data, @description);
@@ -56,7 +59,8 @@ public IActionResult insert_log(int id_user, int id_target, string target_type, 
 public IActionResult get_logs()
 {
     List<Log> logs = new List<Log>();
-    using var command = _db.CreateCommand();
+    using var connection = _connectionFactory.CreateConnection();
+    using var command = connection.CreateCommand();
     command.CommandText = "SELECT "+
                             "l.id_log, "+
                             "l.id_user, "+
@@ -107,7 +111,8 @@ public IActionResult get_logs()
 public IActionResult get_dump_logs()
 {
     List<Log> logs = new List<Log>();
-    using var command = _db.CreateCommand();
+    using var connection = _connectionFactory.CreateConnection();
+    using var command = connection.CreateCommand();
     command.CommandText = "SELECT "+
                             "l.id_log, "+
                             "l.id_user, "+

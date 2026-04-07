@@ -1,94 +1,60 @@
-@model List<HistoryAnswer>
+@model main_project.Services.Answers.SurveySignaturePageViewModel
 @{
     ViewData["Title"] = "Проверка подписей анкеты";
 }
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"]</title>
-    <style>
-        .status-badge {
-            padding: 0.35em 0.65em;
-            font-size: 0.875em;
-            font-weight: 700;
-            border-radius: 0.25rem;
-        }
-        .completed {
-            background-color: #d1e7dd;
-            color: #0f5132;
-        }
-        .not-completed {
-            background-color: #f8d7da;
-            color: #842029;
-        }
-        .signed {
-            background-color: #cfe2ff;
-            color: #084298;
-        }
-        .not-signed {
-            background-color: #fff3cd;
-            color: #664d03;
-        }
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 
-    </style>
-</head>
-<body>
-    <div class="content" id="default_content">
-    <p class="back-button" onClick="restoreSurveys()">← Вернуться на страницу списка анкет</p>
-    <br />
-        <div class="note">
-            @if (ViewBag.SurveyName != null)
-            {
-                <h2>Просмотр подписания анкеты @ViewBag.SurveyName</h2>
-            <p>На данной странице вы можете посмотреть, какие организации прошли и (возможно) подписали анкету.</p>
-            }
-        </div>
+<div class="content answers-page__signatures" id="default_content">
+<a class="back-button answers-page__back-link" href="/surveys">← Вернуться на страницу списка анкет</a>
+<br />
+    <div class="note">
+        @if (!string.IsNullOrWhiteSpace(Model.SurveyName))
+        {
+            <h2>Просмотр подписания анкеты @Model.SurveyName</h2>
+        <p>На данной странице вы можете посмотреть, какие организации прошли и (возможно) подписали анкету.</p>
+        }
+    </div>
 
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Организация</th>
-                        <th class="text-center">Статус прохождения</th>
-                        <th class="text-center">Статус подписи</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model != null && Model.Any())
-                    {
-                        @foreach (var item in Model)
-                        {
-                            <tr>
-                                <td>@item.name_omsu</td>
-                                <td class="text-center">
-                                    <span class="status-badge @(item.answers == "Пройдена" ? "completed" : "not-completed")">
-                                        @item.answers
-                                    </span>
-                                </td>
-                                <td class="text-center">
-                                    <span class="status-badge @(item.csp == "Подписана" ? "signed" : "not-signed")">
-                                        @item.csp
-                                    </span>
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else
+    <div class="table-responsive">
+        <table class="answers-page__signatures-table">
+            <thead>
+                <tr>
+                    <th>Организация</th>
+                    <th class="text-center">Статус прохождения</th>
+                    <th class="text-center">Статус подписи</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Any())
+                {
+                    @foreach (var item in Model.Items)
                     {
                         <tr>
-                            <td colspan="3" class="text-center py-4 text-muted">
-                                <i class="bi bi-exclamation-circle-fill me-2"></i>
-                                Нет данных о подписях организаций
+                            <td>@item.OrganizationName</td>
+                            <td class="text-center">
+                                <span class="status-badge @(item.IsCompleted ? "completed" : "not-completed")">
+                                    @item.CompletionStatus
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="status-badge @(item.IsSigned ? "signed" : "not-signed")">
+                                    @item.SignatureStatus
+                                </span>
                             </td>
                         </tr>
                     }
-                </tbody>
-            </table>
-        </div>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="3" class="text-center">
+                            Нет данных о подписях организаций
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
-
-</body>
-</html>
+</div>

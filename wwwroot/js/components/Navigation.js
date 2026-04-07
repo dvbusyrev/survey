@@ -1,11 +1,36 @@
 ﻿window.Navigation = ({ openVkladka, activeTab, userRole, userId }) => {
     const isAdmin = userRole === 'Админ';
+    const [openSubmenu, setOpenSubmenu] = React.useState(null);
+    const listSubmenuIcon = 'fa-list-ul';
+    const addSubmenuIcon = 'fa-plus';
+    const buildListAndAddSubmenu = (listId, listLabel, listClass, addId, addLabel, addClass) => ([
+        { id: listId, label: listLabel, class: listClass, icon: listSubmenuIcon },
+        { id: addId, label: addLabel, class: addClass, icon: addSubmenuIcon }
+    ]);
+    const getSubmenuPriority = (label) => {
+        if (label?.startsWith('Список')) return 0;
+        if (label?.startsWith('Добавить')) return 1;
+        return 2;
+    };
+
+    React.useEffect(() => {
+        const handlePointerDown = (event) => {
+            if (!event.target.closest('.admin-nav')) {
+                setOpenSubmenu(null);
+            }
+        };
+
+        document.addEventListener('pointerdown', handlePointerDown);
+        return () => document.removeEventListener('pointerdown', handlePointerDown);
+    }, []);
 
     const isSurveySectionActive = isAdmin
         ? ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)
         : ['active', 'archived', 'answers_tab', 'archiv_surveys_for_user'].includes(activeTab);
 
     const navigate = (tab) => {
+        setOpenSubmenu(null);
+
         if (tab === 'add_user') {
             const tryOpenAddUserModal = () => {
                 if (typeof window.openAddUserModal === 'function' && document.getElementById('addUserModal')) {
@@ -32,7 +57,7 @@
                 return;
             }
 
-            window.location.href = '/User/get_users';
+            window.location.href = '/users';
             return;
         }
 
@@ -42,27 +67,27 @@
         }
 
         if (tab === 'help') {
-            window.location.href = '/page_help';
+            window.location.href = '/help';
             return;
         }
 
         if ((tab === 'active' || tab === 'answers_tab') && userId) {
-            window.location.href = `/survey_list_user/${userId}`;
+            window.location.href = '/my-surveys';
             return;
         }
 
         if ((tab === 'archived' || tab === 'archiv_surveys_for_user') && userId) {
-            window.location.href = `/Survey/archiv_surveys_for_user`;
+            window.location.href = '/my-surveys/archive';
             return;
         }
 
         const routes = {
-            get_surveys: '/Survey/get_surveys',
-            open_statistic: '/Answer/open_statistic',
-            get_users: '/User/get_users',
-            get_omsu: '/OMSU/get_omsu',
-            email: '/Email/update_settings',
-            get_logs: '/Log/get_logs'
+            get_surveys: '/surveys',
+            open_statistic: '/statistics',
+            get_users: '/users',
+            get_omsu: '/organizations',
+            email: '/mail-settings',
+            get_logs: '/logs'
         };
 
         if (routes[tab]) {
@@ -70,7 +95,7 @@
         }
     };
 
-    const navItems = [
+    const adminNavItems = [
         {
             id: 'open_statistic',
             label: 'Статистика',
@@ -84,9 +109,16 @@
                 class: 'surveys',
                 icon: 'fa-clipboard-list',
                 submenu: [
-                    { id: 'add_survey', label: 'Добавить анкету', class: 'survey-add', icon: 'fa-plus-circle' },
+                    ...buildListAndAddSubmenu(
+                        'get_surveys',
+                        'Список анкет',
+                        'survey-list',
+                        'add_survey',
+                        'Добавить анкету',
+                        'survey-add'
+                    ),
                     { id: 'list_answers_users', label: 'Ответы на анкеты', class: 'survey-answers', icon: 'fa-list-check' },
-                    { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-box-archive' }
+                    { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
                 ]
             }
             : {
@@ -100,20 +132,28 @@
             label: 'Пользователи',
             class: 'users',
             icon: 'fa-users',
-            submenu: [
-                { id: 'add_user', label: 'Добавить пользователя', class: 'user-add', icon: 'fa-user-plus' },
-                { id: 'get_users', label: 'Список пользователей', class: 'user-list', icon: 'fa-list' }
-            ]
+            submenu: buildListAndAddSubmenu(
+                'get_users',
+                'Список пользователей',
+                'user-list',
+                'add_user',
+                'Добавить пользователя',
+                'user-add'
+            )
         },
         {
             id: 'get_omsu',
             label: 'Организации',
             class: 'organizations',
             icon: 'fa-building',
-            submenu: [
-                { id: 'add_omsu', label: 'Добавить организацию', class: 'org-add', icon: 'fa-plus' },
-                { id: 'get_omsu', label: 'Список организаций', class: 'org-list', icon: 'fa-list-ul' }
-            ]
+            submenu: buildListAndAddSubmenu(
+                'get_omsu',
+                'Список организаций',
+                'org-list',
+                'add_omsu',
+                'Добавить организацию',
+                'org-add'
+            )
         },
         {
             id: 'otchets',
@@ -141,7 +181,7 @@
             icon: 'fa-ellipsis-h',
             submenu: [
                 { id: 'get_logs', label: 'Посмотреть логи', class: 'logs-view', icon: 'fa-scroll' },
-                { id: 'download_logs', label: 'Выгрузить файл txt с логами', class: 'logs-download', icon: 'fa-file-download' }
+                { id: 'download_logs', label: 'Выгрузить файл txt с логами', class: 'logs-download', icon: 'fa-download' }
             ]
         },
         {
@@ -152,11 +192,47 @@
         }
     ];
 
-    return React.createElement('nav', { className: 'admin-nav' },
+    const userNavItems = [
+        {
+            id: 'active',
+            label: 'Анкеты',
+            class: 'surveys',
+            icon: 'fa-clipboard-list',
+            submenu: [
+                { id: 'active', label: 'Список анкет', class: 'survey-list', icon: 'fa-list-ul' },
+                { id: 'archiv_surveys_for_user', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
+            ]
+        },
+        {
+            id: 'help',
+            label: 'Помощь',
+            class: 'help',
+            icon: 'fa-question-circle'
+        }
+    ];
+
+    const navItems = isAdmin ? adminNavItems : userNavItems;
+
+    const orderedNavItems = navItems.map((item) => {
+        if (!item.submenu) {
+            return item;
+        }
+
+        return {
+            ...item,
+            submenu: [...item.submenu].sort((left, right) => {
+                return getSubmenuPriority(left.label) - getSubmenuPriority(right.label);
+            })
+        };
+    });
+
+    return React.createElement('nav', {
+        className: 'admin-nav',
+        onMouseLeave: () => setOpenSubmenu(null)
+    },
         React.createElement('ul', { className: 'nav-list' },
-            navItems.map(item => {
+            orderedNavItems.map(item => {
                 const itemActive = item.class === 'surveys' ? isSurveySectionActive : item.id === activeTab;
-                const isNonAdminSurveyButton = !isAdmin && item.class === 'surveys';
 
                 return React.createElement('li', {
                     key: item.id,
@@ -164,31 +240,44 @@
                         'nav-item',
                         item.class || '',
                         itemActive ? 'active' : '',
-                        item.submenu ? 'has-submenu' : ''
+                        item.submenu ? 'has-submenu' : '',
+                        openSubmenu === item.id ? 'submenu-open' : ''
                     ].join(' ').trim(),
-                    id: item.id
+                    id: item.id,
+                    onMouseEnter: () => item.submenu && setOpenSubmenu(item.id),
+                    onMouseLeave: () => item.submenu && setOpenSubmenu(null)
                 },
                     React.createElement('a', {
                         href: '#',
                         className: 'nav-link',
                         onClick: (e) => {
                             e.preventDefault();
+                            if (item.submenu) {
+                                setOpenSubmenu(openSubmenu === item.id ? null : item.id);
+                                return;
+                            }
+                            e.currentTarget.blur();
                             navigate(item.id);
                         },
                         style: {
                             fontWeight: itemActive ? 'bold' : 'normal',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
-                            ...(isNonAdminSurveyButton ? {
-                                borderTopLeftRadius: '16px',
-                                borderTopRightRadius: '16px'
-                            } : {})
+                            gap: '8px'
                         }
                     },
                         item.icon && React.createElement('i', {
                             className: `fas ${item.icon}`,
-                            style: { fontSize: '16px', minWidth: '20px' }
+                            style: {
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '16px',
+                                width: '20px',
+                                minWidth: '20px',
+                                height: '20px',
+                                flex: '0 0 20px'
+                            }
                         }),
                         item.label
                     ),
@@ -207,6 +296,8 @@
                                     className: 'submenu-link',
                                     onClick: (e) => {
                                         e.preventDefault();
+                                        e.currentTarget.blur();
+                                        setOpenSubmenu(null);
                                         navigate(subItem.id);
                                     },
                                     style: {
@@ -218,7 +309,16 @@
                                 },
                                     subItem.icon && React.createElement('i', {
                                         className: `fas ${subItem.icon}`,
-                                        style: { fontSize: '14px', minWidth: '20px' }
+                                        style: {
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '14px',
+                                            width: '20px',
+                                            minWidth: '20px',
+                                            height: '20px',
+                                            flex: '0 0 20px'
+                                        }
                                     }),
                                     subItem.label
                                 )

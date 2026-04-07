@@ -1,114 +1,21 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - main_project</title>
-</head>
-<body>
+@{
+    ViewData["Title"] = "Список организаций";
+    var omsus = ViewBag.Omsus as IEnumerable<main_project.Models.OMSU> ?? Array.Empty<main_project.Models.OMSU>();
+}
 
-<div class="content" id="default_content">
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/omsu.css" asp-append-version="true" />
 
+<div class="content omsu-page" id="default_content" data-page="omsu-list">
     <div class="note">
         <h2>Список организаций</h2>
         <p>Ниже представлена таблица с существующими организациями</p>
     </div>
 
-<div style="text-align: right;">
-    <p class="back-button" id="check_archive_omsu" onclick="archive_list_omsus()" style="cursor: pointer;">
-        Посмотреть архив ->
-    </p>
+    @await Html.PartialAsync("~/Views/OMSU/Partials/_OmsuToolbar.cshtml")
+    @await Html.PartialAsync("~/Views/OMSU/Partials/_OmsuTable.cshtml", omsus)
 </div>
 
+@await Html.PartialAsync("~/Views/OMSU/Partials/_EditOmsuModal.cshtml")
 
-    <table id="data_table">
-        <thead>
-          <tr class='table_tr'>
-              <th style="border-radius: 16px 0 0 0">Название организации</th>
-              <th>Дата начала</th>
-              <th>Дата окончания</th>
-              <th>Доступные анкеты</th>
-              <th>Email</th>
-              <th style="border-radius: 0 16px 0 0">Действия</th>
-          </tr>
-      </thead>
-      <tbody id="userTableBody">
-@if (ViewBag.Omsus != null)
-{
-    var omsus = ViewBag.Omsus as IEnumerable<main_project.Models.OMSU>;
-    var count = omsus?.Count() ?? 0;
-
-    @if (@count == 0){
-    <tr>
-        <td colspan="6" style='color:red'>Результаты не найдены!</td>
-    </tr>}
-    else
-    {
-        foreach (var omsu in ViewBag.Omsus)
-        {
-            <tr>
-                <td>@omsu.name_omsu</td>
-                <td>@(omsu.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
-                <td>@(omsu.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
-                @if(@omsu.list_surveys == "Не указано"){
-                    <td style="color:red">@omsu.list_surveys</td>
-                } else {
-                    <td>@omsu.list_surveys</td>
-                }
-                <td>@omsu.email</td>
-                <td class="action-icons">
-                    <div class="icon-container" onclick="openEditOmsuModal(@omsu.id_omsu, '@omsu.name_omsu', '@omsu.email', '@omsu.date_begin?.ToString("yyyy-MM-dd")', '@omsu.date_end?.ToString("yyyy-MM-dd")')">
-                        <span>✏️</span>
-                        <span class="icon-tooltip">Редактировать</span>
-                    </div>
-                    <div class="icon-container" onclick="delete_omsu(@omsu.id_omsu)">
-                        <span>🗑️</span>
-                        <span class="icon-tooltip">Удалить</span>
-                    </div>
-                </td>
-            </tr>
-        }
-    }
-}
-      </tbody>
-    </table>
-</div>
-
-<!-- Модальное окно редактирования организации -->
-<div id="editOmsuModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 class="h2_modal">Редактирование организации</h2>
-        </div>
-        <span class="modal-close" onclick="document.getElementById('editOmsuModal').style.display='none'">&times;</span>
-        <div class="modal-body">
-            <input type="hidden" id="editOmsuId">
-            <div class="form-group">
-                <label>Название организации:</label>
-                <input type="text" id="omsuName" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>Email:</label>
-                <input type="email" id="omsuEmail" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>Дата начала:</label>
-                <input type="date" id="omsuDateBegin" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>Дата окончания:</label>
-                <input type="date" id="omsuDateEnd" class="form-control">
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button id="saveOmsuBtn" onclick="updateOmsu()" class="modal_btn modal_btn-primary">Сохранить</button>
-            <button onclick="document.getElementById('editOmsuModal').style.display='none'" class="modal_btn modal_btn-secondary">Отмена</button>
-        </div>
-    </div>
-</div>
-
-<script>
-</script>
-
-</body>
-</html>
+<script src="~/js/pages/omsu.js" asp-append-version="true"></script>

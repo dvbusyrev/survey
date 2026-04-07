@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Архив анкет";
 }
-        <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
 <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
 <div class="content archive-page">
     <div class="note">
@@ -18,18 +18,15 @@
     </select>
 </div>
 
-
-
-
-    <table id="data_table" class="all_table" style="overflow: visible">
+    <table id="data_table" class="surveys-table surveys-table--archive">
         <thead>
             <tr class='table_tr'>
-                <th>Название анкеты</th>
+                <th class="table-th--start">Название анкеты</th>
                 <th>Описание</th>
                 <th>Дата начала</th>
                 <th>Дата окончания</th>
                 <th>Вопросы</th>
-                <th>Действия</th>
+                <th class="table-th--end">Действия</th>
             </tr>
         </thead>
         <tbody>
@@ -57,7 +54,7 @@
             </td>
             <td class="action-icons">
 <div class="icon-container" onclick="create_otchet_month(@survey.id_survey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
-  <span class="icon" aria-hidden="true">📋</span>
+  <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
   <span class="icon-tooltip" data-tooltip="Сформировать отчёт по анкете">Сформировать отчёт</span>
 </div>
 
@@ -73,15 +70,15 @@
      role="button" 
      tabindex="0" 
      aria-label="Копировать и возобновить опрос">
-    <span>📄</span>
+    <span><i class="fas fa-clipboard-copy"></i></span>
     <span class="icon-tooltip">Копировать и возобновить</span>
 </div>
 
             </td>
         </tr>
     }
-    <tr id="none_result" style="display:none;">
-        <td colspan="5" style="color:red; text-align:center;">Результаты не найдены!</td>
+    <tr id="none_result" class="is-hidden">
+        <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
     </tr>
 </tbody>
     </table>
@@ -90,4 +87,3 @@
 @await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
 
 <script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>
-

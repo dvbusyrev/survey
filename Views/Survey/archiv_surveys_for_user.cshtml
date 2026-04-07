@@ -1,8 +1,8 @@
-﻿@model List<Survey>
+﻿@model main_project.Services.Surveys.UserSurveyArchivePageViewModel
 @using System.Security.Claims
 @{
     ViewData["Title"] = "Архив анкет";
-    var userOmsuId = ViewBag.UserOmsuId;
+    var userOmsuId = Model.UserOmsuId;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
@@ -11,7 +11,7 @@
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
-    var searchTerm = ViewBag.SearchTerm ?? "";
+    var searchTerm = Model.SearchTerm;
 }
 
 <!DOCTYPE html>
@@ -23,11 +23,9 @@
 
   <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
 
-    <link rel="stylesheet" href="~/css/components.css" />
-    <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-    <style>
-        /* Стили такие же как в SurveyListUser.cshtml */
-    </style>
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+    <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div id="root"></div>
@@ -35,9 +33,9 @@
     <script src="/js/react.development.js"></script>
     <script src="/js/react-dom.development.js"></script>
     <script src="/js/babel.min.js"></script>
-    <script src="~/js/components/Header.js"></script>
-    <script src="~/js/components/Navigation.js"></script>
-    <script src="~/js/components/Footer.js"></script>
+    <script src="~/js/components/Header.js" asp-append-version="true"></script>
+    <script src="~/js/components/Navigation.js" asp-append-version="true"></script>
+    <script src="~/js/components/Footer.js" asp-append-version="true"></script>
 
     <script type="text/babel">
         const SurveyCard = ({ survey }) => {
@@ -54,11 +52,11 @@
             if (!survey) return null;
 
             return (
-                <div className="survey-card" onClick={() => window.location.href = `/Survey/zapolnenie_anketi/${survey.id_survey}/${survey.id_omsu}`}>
+                <div className="survey-card" onClick={() => window.location.href = `/surveys/${survey.id_survey}/organizations/${survey.id_omsu}/questions`}>
                     <h3>{survey.name_survey || 'Без названия'}</h3>
                     <p>{survey.description || 'Нет описания'}</p>
                     <p>Дата заполнения: {formatDate(survey.completion_date)}</p>
-                    <p>Статус: <span style={{ color: '#43a047' }}>завершена</span></p>
+                    <p>Статус: <span className="text-success">завершена</span></p>
                     <div className="dates">
                         {formatDate(survey.date_open)} - {formatDate(survey.date_close)}
                     </div>
@@ -68,7 +66,7 @@
 
         const ArchiveList = () => {
             const initialData = {
-                surveys: @Html.Raw(Json.Serialize(Model ?? new List<Survey>())),
+                surveys: @Html.Raw(Json.Serialize(Model.ArchivedSurveys)),
                 userId: @userId,
                 userRole: '@userRole',
                 userOmsuId: @userOmsuId,
@@ -80,12 +78,34 @@
             const [loading, setLoading] = React.useState(false);
             const [error, setError] = React.useState(null);
             const [surveys, setSurveys] = React.useState(initialData.surveys || []);
+            const [activeCount, setActiveCount] = React.useState(0);
+
+            React.useEffect(() => {
+                const loadActiveCount = async () => {
+                    try {
+                        const response = await fetch('/my-surveys?page=1&searchTerm=', {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Ошибка загрузки количества активных анкет');
+                        }
+
+                        const data = await response.json();
+                        setActiveCount(data.totalCount || data.accessibleSurveys?.length || 0);
+                    } catch (err) {
+                        console.error('Ошибка загрузки количества активных анкет:', err);
+                    }
+                };
+
+                loadActiveCount();
+            }, []);
 
             const loadData = async (search = '') => {
                 setLoading(true);
                 setError(null);
                 try {
-                    const response = await fetch(`/get_list_archive/${initialData.userId}?searchTerm=${search}`, {
+                    const response = await fetch(`/my-surveys/archive/${initialData.userId}?searchTerm=${search}`, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     
@@ -108,7 +128,7 @@
             };
 
             const switchToActive = () => {
-                window.location.href = `/survey_list_user/${initialData.userId}`;
+                window.location.href = '/my-surveys';
             };
 
             if (initialData.userRole !== "user" && initialData.userRole !== "Админ") {
@@ -132,10 +152,11 @@
                             </div>
 
                             <div className="menu-bar">
-                                <span onClick={switchToActive}>
+                                <span className="menu-tab" onClick={switchToActive}>
                                     Активные анкеты
+                                    <span className="count-badge">{activeCount}</span>
                                 </span>
-                                <span className="active-tab">
+                                <span className="menu-tab active-tab">
                                     Архив анкет
                                 </span>
                             </div>

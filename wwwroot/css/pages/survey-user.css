@@ -1,52 +1,7 @@
-* {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f9fafb;
-            color: var(--text-main);
-            line-height: 1.5;
-        }
-
-        .page-container {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        .admin-container {
-            display: flex;
-            flex: 1;
-        }
-
-        #content_admin {
-            flex: 1;
-            padding: 2rem;
-            background-color: white;
-        }
-
         /* Стили для заполнения анкеты */
         .survey-fill-container,
         .check-answers-container {
             padding: 2rem;
-        }
-
-        .note {
-            margin-bottom: 2rem;
-        }
-
-        .note h2 {
-            font-size: 1.8rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-main);
-        }
-
-        .note p {
-            color: var(--text-secondary);
-            font-size: 1.05rem;
         }
 
         .question-container {
@@ -174,19 +129,6 @@
             background-color: var(--secondary);
             border-radius: var(--radius-sm);
         }
-
-        .survey-add{display:none;}
-        .survey-answers{display:none;}
-        .survey-archive{display:none;}
-        
-        .statistic{display:none;}
-        .organizations{display:none;}
-        .other{display:none;}
-        .users { display: none }
-        .survey-answers-for-user { display: none }
-        .survey-archive-for-user { display: none }
-        .nav-link::after{display: none}
-
 
                /* Анимации */
         @@keyframes fadeIn {
@@ -1052,15 +994,6 @@
      #email{display:none}
 
 /* zapolnenie_anketi styles */
-.admin-nav ul li:nth-child(1),
-        .admin-nav ul li:nth-child(4),
-        .admin-nav ul .users {
-            display: none;
-        }
-        #users {display: none}
-        .admin-nav ul li:nth-child(5) {
-            display: none;
-        }
         
         :root {
             --primary: #6366f1;

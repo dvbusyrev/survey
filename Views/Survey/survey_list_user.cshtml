@@ -1,10 +1,10 @@
-@model Survey
+@model main_project.Services.Surveys.UserSurveyListPageViewModel
 @using System.Security.Claims
 @{
     ViewData["Title"] = "Активные анкеты";
-    int currentPage = ViewBag.CurrentPage ?? 1;
-    int totalPages = ViewBag.TotalPages ?? 1;
-    string searchTerm = ViewBag.SearchTerm ?? "";
+    int currentPage = Model.CurrentPage;
+    int totalPages = Model.TotalPages;
+    string searchTerm = Model.SearchTerm;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
@@ -14,8 +14,8 @@
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
     var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
-    int userOmsuId = ViewBag.UserOmsuId ?? 0;
-    var accessibleSurveys = ViewBag.AccessibleSurveys as List<Survey> ?? new List<Survey>();
+    int userOmsuId = Model.UserOmsuId;
+    var accessibleSurveys = Model.AccessibleSurveys;
 }
 <!DOCTYPE html>
 <html lang="ru">
@@ -26,15 +26,14 @@
 
   <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
 
-    <link rel="stylesheet" href="~/css/components.css" />
-    <link rel="stylesheet" href="~/css/site2.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     @if (!isAuthenticated)
     {
-        <div class="access-denied" style="display: block;">
+        <div class="access-denied">
             <h2>Доступ запрещён</h2>
             <p>У вас нет прав для просмотра этой страницы.</p>
             <br/>
@@ -49,9 +48,9 @@
         <script src="~/js/react.development.js"></script>
         <script src="~/js/react-dom.development.js"></script>
         <script src="~/js/babel.min.js"></script>
-        <script src="~/js/components/Header.js"></script>
-        <script src="~/js/components/Navigation.js"></script>
-        <script src="~/js/components/Footer.js"></script>
+        <script src="~/js/components/Header.js" asp-append-version="true"></script>
+        <script src="~/js/components/Navigation.js" asp-append-version="true"></script>
+        <script src="~/js/components/Footer.js" asp-append-version="true"></script>
 
 
 
@@ -67,6 +66,7 @@ window.renderSurveyUserList({
     initialSurveys: @Html.Raw(Json.Serialize(accessibleSurveys)),
     initialPage: @currentPage,
     initialTotalPages: @totalPages,
+    initialTotalCount: @Model.TotalCount,
     initialSearchTerm: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(searchTerm)),
     displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName))
 });

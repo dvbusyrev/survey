@@ -9,10 +9,10 @@ namespace main_project.Models
     {
         public int id_omsu { get; set; }
         public required string name_omsu { get; set; }
-public DateTime? date_begin { get; set; }
-public DateTime? date_end { get; set; }
-        public required string list_surveys { get; set; }
+        public DateTime? date_begin { get; set; }
+        public DateTime? date_end { get; set; }
+        public string? survey_names { get; set; }
         public bool block { get; set; }
-        public required string email { get; set; }
+        public string? email { get; set; }
     }
 }
