@@ -390,7 +390,6 @@ const ExtensionModal = ({ survey, onClose }) => {
         );
 
             const handleTabClick = (tab) => {
-            setActiveTab(tab);
             openVkladka(tab);
         };
 
@@ -424,7 +423,7 @@ const ExtensionModal = ({ survey, onClose }) => {
     );
 
             return (
-                <>
+                <div className="content surveys-page" id="default_content" data-page="surveys-list">
                     <div className="note">
                         <h2>Список существующих анкет</h2>
                         <p>На данной странице представлен перечень анкет. В таблице вы можете редактировать, удалять, а также выгружать отчёт по решённым пользователями анкетам, а также просматривать созданные анкеты.</p>
@@ -482,15 +481,13 @@ const ExtensionModal = ({ survey, onClose }) => {
                 </select>
                     </div>
 
-                
-                <div className="content-wrapper">
-                    <table id="data_table" className="all_table">
+                    <table id="data_table" className="surveys-table">
                         <thead>
                             <tr className="table_tr">
-                                <th>Название анкеты</th>
-                                <th>Анкета за месяц</th>
+                                <th className="table-th--start">Название анкеты</th>
+                                <th>Месяц</th>
                                 <th>ОМСУ</th>
-                                <th>Действия</th>
+                                <th className="table-th--end">Действия</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -512,8 +509,8 @@ const ExtensionModal = ({ survey, onClose }) => {
                                         {survey.name_omsu 
                                             ? survey.name_omsu.split(',')
                                                 .map(name => name.trim())
-                                                .filter(name => name) // Удаляем пустые строки
-                                                .join(', ') // Объединяем через запятую с пробелом
+                                                .filter(name => name)
+                                                .join(', ')
                                             : 'Не указано'
                                         }
                                     </td>
@@ -522,19 +519,18 @@ const ExtensionModal = ({ survey, onClose }) => {
                                             <span><i className="fas fa-list-check"></i></span>
                                             <span className="icon-tooltip">Сформировать отчёт</span>
                                         </div>
-<div className="icon-container" 
-     onClick={() => {
-         openVkladka('get_list_csp', survey.id_survey);
-     }}>
-    <span><i className="fas fa-check"></i></span>
-    <span className="icon-tooltip">Проверить подпись</span>
-</div>
+                                        <div className="icon-container" onClick={() => {
+                                            openVkladka('get_list_csp', survey.id_survey);
+                                        }}>
+                                            <span><i className="fas fa-check"></i></span>
+                                            <span className="icon-tooltip">Проверить подпись</span>
+                                        </div>
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'extend', data: survey})}>
                                             <span><i className="fas fa-hourglass-half"></i></span>
                                             <span className="icon-tooltip">Продлить</span>
                                         </div>
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'copy', data: survey})}>
-                                            <span><i className="fas fa-copy"></i></span>
+                                            <span><i className="fas fa-clipboard-copy"></i></span>
                                             <span className="icon-tooltip">Копировать</span>
                                         </div>
                                         <div className="icon-container" onClick={() => setModal({isOpen: true, content: 'update', data: survey})}>
@@ -578,14 +574,13 @@ const ExtensionModal = ({ survey, onClose }) => {
                     </div>
                 )}
                 </div>
-            </>
         );
     };
 
 
             // СКРИПТЫ ДЛЯ ДИАГРАММ (ВКЛАДКА СТАТИСТИКА)
             const renderContentWrapper = (content) => (
-                <div className="content content-wrapper">
+                <div className="content-wrapper">
                     {content}
                 </div>
             );
@@ -887,7 +882,7 @@ const radarChartRef = useRef(null);
     };
 
     const openVkladka = async (tab, id = null) => {
-        const tabAlreadyOpen = !id && (activeTab === tab || (tab === 'get_surveys' && ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)));
+        const tabAlreadyOpen = !id && activeTab === tab;
         if (tabAlreadyOpen) return;
 
         setActiveTab(tab);
@@ -924,9 +919,7 @@ const radarChartRef = useRef(null);
                     const response = await fetch('/surveys/answers');
                     const html = extractRenderableHtml(await response.text());
                     setContent(
-                        <>
-                            {renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)}
-                        </>
+                        renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)
                     );
                     newPage = "list_answers_users";
                     return;
@@ -937,9 +930,7 @@ const radarChartRef = useRef(null);
                     const response = await fetch('/surveys/archive');
                     const html = extractRenderableHtml(await response.text());
                     setContent(
-                        <>
-                            {renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)}
-                        </>
+                        renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)
                     );
                     newPage = "archiv_surveys";
                     return;
@@ -1059,12 +1050,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
             
             const html = extractRenderableHtml(await response.text());
             setContent(
-            <>
-                {(tab === 'archiv_surveys' || tab === 'get_surveys' || tab === 'list_answers_users') && 
-                renderMenuAndFilters()
-                }
-                {renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)}
-            </>
+                renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)
             );
         } catch (error) {
             console.error('Ошибка:', error);

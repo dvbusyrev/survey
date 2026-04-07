@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,10 @@ public class AuthController : Controller
         _connectionFactory = connectionFactory;
     }
 
+    [AllowAnonymous]
+    [HttpGet("")]
+    [HttpGet("Auth")]
+    [HttpGet("display_auth")]
     public IActionResult display_auth()
     {
         if (User.Identity != null && User.Identity.IsAuthenticated)
@@ -40,12 +45,14 @@ public class AuthController : Controller
         return View("Auth");
     }
 
+    [AllowAnonymous]
     public async Task<IActionResult> logout_account()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction("display_auth");
     }
 
+    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> login([FromBody] string[] data_user)
     {

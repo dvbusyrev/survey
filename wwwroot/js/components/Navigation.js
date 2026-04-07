@@ -1,6 +1,17 @@
 ﻿window.Navigation = ({ openVkladka, activeTab, userRole, userId }) => {
     const isAdmin = userRole === 'Админ';
     const [openSubmenu, setOpenSubmenu] = React.useState(null);
+    const listSubmenuIcon = 'fa-list-ul';
+    const addSubmenuIcon = 'fa-plus';
+    const buildListAndAddSubmenu = (listId, listLabel, listClass, addId, addLabel, addClass) => ([
+        { id: listId, label: listLabel, class: listClass, icon: listSubmenuIcon },
+        { id: addId, label: addLabel, class: addClass, icon: addSubmenuIcon }
+    ]);
+    const getSubmenuPriority = (label) => {
+        if (label?.startsWith('Список')) return 0;
+        if (label?.startsWith('Добавить')) return 1;
+        return 2;
+    };
 
     React.useEffect(() => {
         const handlePointerDown = (event) => {
@@ -98,10 +109,16 @@
                 class: 'surveys',
                 icon: 'fa-clipboard-list',
                 submenu: [
-                    { id: 'get_surveys', label: 'Список анкет', class: 'survey-list', icon: 'fa-list' },
-                    { id: 'add_survey', label: 'Добавить анкету', class: 'survey-add', icon: 'fa-plus' },
+                    ...buildListAndAddSubmenu(
+                        'get_surveys',
+                        'Список анкет',
+                        'survey-list',
+                        'add_survey',
+                        'Добавить анкету',
+                        'survey-add'
+                    ),
                     { id: 'list_answers_users', label: 'Ответы на анкеты', class: 'survey-answers', icon: 'fa-list-check' },
-                    { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-box-archive' }
+                    { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
                 ]
             }
             : {
@@ -115,20 +132,28 @@
             label: 'Пользователи',
             class: 'users',
             icon: 'fa-users',
-            submenu: [
-                { id: 'add_user', label: 'Добавить пользователя', class: 'user-add', icon: 'fa-plus' },
-                { id: 'get_users', label: 'Список пользователей', class: 'user-list', icon: 'fa-list' }
-            ]
+            submenu: buildListAndAddSubmenu(
+                'get_users',
+                'Список пользователей',
+                'user-list',
+                'add_user',
+                'Добавить пользователя',
+                'user-add'
+            )
         },
         {
             id: 'get_omsu',
             label: 'Организации',
             class: 'organizations',
             icon: 'fa-building',
-            submenu: [
-                { id: 'add_omsu', label: 'Добавить организацию', class: 'org-add', icon: 'fa-plus' },
-                { id: 'get_omsu', label: 'Список организаций', class: 'org-list', icon: 'fa-list-ul' }
-            ]
+            submenu: buildListAndAddSubmenu(
+                'get_omsu',
+                'Список организаций',
+                'org-list',
+                'add_omsu',
+                'Добавить организацию',
+                'org-add'
+            )
         },
         {
             id: 'otchets',
@@ -167,12 +192,25 @@
         }
     ];
 
+    const orderedNavItems = navItems.map((item) => {
+        if (!item.submenu) {
+            return item;
+        }
+
+        return {
+            ...item,
+            submenu: [...item.submenu].sort((left, right) => {
+                return getSubmenuPriority(left.label) - getSubmenuPriority(right.label);
+            })
+        };
+    });
+
     return React.createElement('nav', {
         className: 'admin-nav',
         onMouseLeave: () => setOpenSubmenu(null)
     },
         React.createElement('ul', { className: 'nav-list' },
-            navItems.map(item => {
+            orderedNavItems.map(item => {
                 const itemActive = item.class === 'surveys' ? isSurveySectionActive : item.id === activeTab;
                 const isNonAdminSurveyButton = !isAdmin && item.class === 'surveys';
 
@@ -214,7 +252,16 @@
                     },
                         item.icon && React.createElement('i', {
                             className: `fas ${item.icon}`,
-                            style: { fontSize: '16px', minWidth: '20px' }
+                            style: {
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '16px',
+                                width: '20px',
+                                minWidth: '20px',
+                                height: '20px',
+                                flex: '0 0 20px'
+                            }
                         }),
                         item.label
                     ),
@@ -246,7 +293,16 @@
                                 },
                                     subItem.icon && React.createElement('i', {
                                         className: `fas ${subItem.icon}`,
-                                        style: { fontSize: '14px', minWidth: '20px' }
+                                        style: {
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '14px',
+                                            width: '20px',
+                                            minWidth: '20px',
+                                            height: '20px',
+                                            flex: '0 0 20px'
+                                        }
                                     }),
                                     subItem.label
                                 )

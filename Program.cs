@@ -17,9 +17,9 @@ builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Auth";
+        options.LoginPath = "/display_auth";
         options.LogoutPath = "/Auth/logout_account";
-        options.AccessDeniedPath = "/Auth";
+        options.AccessDeniedPath = "/display_auth";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
@@ -74,7 +74,15 @@ using (var serviceScope = app.Services.CreateScope())
 // НАСТРОЙКА HTTP ПЕРЕАДРЕСАЦИИ
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async context =>
+        {
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync("Произошла внутренняя ошибка сервера.");
+        });
+    });
     app.UseHsts();
 }
 
@@ -578,11 +586,6 @@ app.MapControllerRoute(
     name: "display_auth",
     pattern: "display_auth",
     defaults: new { controller = "Auth", action = "display_auth"});
-
-app.MapControllerRoute(
-    name: "auth",
-    pattern: "",
-    defaults: new { controller = "Auth", action = "display_auth" });
 
 app.MapControllerRoute(
     name: "login",

@@ -72,13 +72,12 @@
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   cursor: pointer;
   overflow-wrap: anywhere;
-  transition: var(--transition);
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .menu-tab:hover {
   color: var(--text-main);
   background-color: rgba(243, 244, 246, 0.8);
-  transform: translateY(-2px);
 }
 
 .menu-tab.active-tab,
@@ -143,6 +142,7 @@ table {
   overflow: visible;
   background-color: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
+  border-collapse: separate;
   border-spacing: 0;
   table-layout: auto;
   border-radius: 16px;
@@ -151,10 +151,10 @@ table {
 
 th,
 td {
-  padding: clamp(0.65rem, 0.8vw, 1rem);
+  padding: clamp(0.28rem, 0.42vw, 0.48rem);
   color: #4a5568;
-  font-size: clamp(0.85rem, 0.82rem + 0.1vw, 0.96rem);
-  line-height: 1.4;
+  font-size: 0.5rem;
+  line-height: 1.2;
   text-align: left;
   vertical-align: middle;
   white-space: normal;
@@ -178,6 +178,8 @@ th {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: normal;
+  overflow-wrap: anywhere;
   border-bottom: 2px solid #764ba2;
 }
 
@@ -223,9 +225,18 @@ tbody tr:last-child td {
 .icon-container > span:first-child,
 .icon-container > span:first-child > i,
 .icon-container i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: inherit;
   font-size: 1rem;
+  line-height: 1;
   transition: color 0.2s ease;
+}
+
+.icon-container > span:first-child {
+  width: 100%;
+  height: 100%;
 }
 
 .icon-container:hover {
@@ -238,7 +249,7 @@ tbody tr:last-child td {
 
 .icon-tooltip {
   position: absolute;
-  top: calc(100% + 10px);
+  bottom: calc(100% + 10px);
   left: 50%;
   z-index: 500;
   min-width: 148px;
@@ -270,18 +281,18 @@ tbody tr:last-child td {
 .icon-tooltip::after {
   content: "";
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   margin-left: -6px;
   border-width: 6px;
   border-style: solid;
-  border-color: transparent transparent rgba(255, 255, 255, 0.98) transparent;
+  border-color: rgba(255, 255, 255, 0.98) transparent transparent transparent;
 }
 
 .icon-container:hover .icon-tooltip {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(4px);
+  transform: translateX(-50%) translateY(-4px);
 }
 
 .no-results-row td {

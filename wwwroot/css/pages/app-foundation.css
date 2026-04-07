@@ -33,6 +33,10 @@ body {
   min-height: 100%;
 }
 
+html {
+  scroll-padding-top: 12px;
+}
+
 body {
   color: var(--text-main);
   font-family: "Inter", sans-serif;
@@ -58,7 +62,7 @@ body {
   flex: 1;
   width: min(100%, var(--content-max-width));
   margin: 0 auto;
-  padding: calc(var(--header-height) + var(--page-gap)) var(--page-gap) var(--page-gap);
+  padding: 0 var(--page-gap) var(--page-gap);
 }
 
 #content_admin,
@@ -155,7 +159,7 @@ body {
   width: 100%;
   overflow: visible;
   overflow-y: visible;
-  padding-top: 4px;
+  padding-top: 52px;
   padding-bottom: 56px;
   -webkit-overflow-scrolling: touch;
 }
@@ -204,7 +208,7 @@ body {
 @media (max-width: 900px) {
   .admin-container {
     grid-template-columns: 1fr;
-    padding-top: calc(var(--header-height) + 12px);
+    padding-top: 0;
   }
 
   .content,
@@ -225,6 +229,7 @@ body {
   .table-responsive {
     overflow-x: auto;
     overflow-y: visible;
+    padding-top: 24px;
     padding-bottom: 24px;
   }
 }
@@ -249,9 +254,5 @@ body {
 @media (max-height: 820px) {
   :root {
     --header-height: 84px;
-  }
-
-  .admin-container {
-    padding-top: calc(var(--header-height) + 10px);
   }
 }

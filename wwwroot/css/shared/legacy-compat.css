@@ -34,7 +34,8 @@ body {
 .all_table {
   width: 100%;
   overflow: visible;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .table_tr {
@@ -82,7 +83,7 @@ body {
 
 .icon-tooltip {
   position: absolute;
-  top: calc(100% + 10px);
+  bottom: calc(100% + 10px);
   left: 50%;
   z-index: 500;
   min-width: 148px;
@@ -114,18 +115,18 @@ body {
 .icon-tooltip::after {
   content: "";
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   margin-left: -6px;
   border-width: 6px;
   border-style: solid;
-  border-color: transparent transparent rgba(255, 255, 255, 0.98) transparent;
+  border-color: rgba(255, 255, 255, 0.98) transparent transparent transparent;
 }
 
 .icon-container:hover .icon-tooltip {
   visibility: visible;
   opacity: 1;
-  transform: translateX(-50%) translateY(4px);
+  transform: translateX(-50%) translateY(-4px);
 }
 
 .pagination-container {

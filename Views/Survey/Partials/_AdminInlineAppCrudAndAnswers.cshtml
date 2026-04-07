@@ -434,7 +434,11 @@ async function showAnswersModal(surveyId, omsuId = null) {
         // Очищаем предыдущие данные
         container.innerHTML = '<div class="loading">Загрузка данных...</div>';
         title.textContent = 'Загрузка...';
-        modal.style.display = 'block';
+        if (window.showSiteModal) {
+            window.showSiteModal(modal);
+        } else {
+            modal.style.display = 'flex';
+        }
         
         // Определяем тип запроса (архив или обычная анкета)
         const isArchive = omsuId === null;
@@ -489,6 +493,10 @@ async function showAnswersModal(surveyId, omsuId = null) {
 window.addEventListener('click', function(event) {
     const modal = document.getElementById('answersModal');
     if (event.target === modal) {
-        modal.style.display = 'none';
+        if (window.hideSiteModal) {
+            window.hideSiteModal(modal);
+        } else {
+            modal.style.display = 'none';
+        }
     }
 });

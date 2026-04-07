@@ -1,15 +1,20 @@
-body {
+body,
+.page-container {
   background:
     linear-gradient(135deg, #b7c4f8 0%, #c8b0dd 100%),
     radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.8) 0%, transparent 25%);
+  background-repeat: no-repeat;
+  background-size: cover;
   color: #4a5568;
 }
 
+body {
+  background-attachment: fixed;
+}
+
 header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 1001;
+  position: relative;
+  z-index: 10;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -21,7 +26,12 @@ header {
   background:
     linear-gradient(135deg, #8a9cf5 0%, #a78bc9 100%),
     radial-gradient(circle at 10% 20%, rgba(255,255,255,0.4) 0%, transparent 25%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  isolation: isolate;
+  margin-bottom: var(--page-gap);
 }
 
 header img {
@@ -226,7 +236,7 @@ header h1 {
 
 nav {
   position: sticky;
-  top: calc(var(--header-height) + var(--page-gap));
+  top: var(--page-gap);
   z-index: 50;
   align-self: start;
   width: 100%;

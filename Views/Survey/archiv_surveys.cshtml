@@ -18,16 +18,15 @@
     </select>
 </div>
 
-    <div class="table-responsive">
-    <table id="data_table" class="all_table">
+    <table id="data_table" class="surveys-table surveys-table--archive">
         <thead>
             <tr class='table_tr'>
-                <th>Название анкеты</th>
+                <th class="table-th--start">Название анкеты</th>
                 <th>Описание</th>
                 <th>Дата начала</th>
                 <th>Дата окончания</th>
                 <th>Вопросы</th>
-                <th>Действия</th>
+                <th class="table-th--end">Действия</th>
             </tr>
         </thead>
         <tbody>
@@ -71,7 +70,7 @@
      role="button" 
      tabindex="0" 
      aria-label="Копировать и возобновить опрос">
-    <span><i class="fas fa-clipboard-list"></i></span>
+    <span><i class="fas fa-clipboard-copy"></i></span>
     <span class="icon-tooltip">Копировать и возобновить</span>
 </div>
 
@@ -83,7 +82,6 @@
     </tr>
 </tbody>
     </table>
-    </div>
 </div>
 
 @await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
