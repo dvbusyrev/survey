@@ -3,10 +3,7 @@ using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
-using Dapper;
-using main_project.Infrastructure.Database;
 using main_project.Models;
-using Newtonsoft.Json.Linq;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -25,18 +22,15 @@ namespace main_project.Services.Answers;
 public sealed class AnswerExportService
 {
     private readonly AnswerDataService _answerDataService;
-    private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<AnswerExportService> _logger;
     private readonly string _templatePath;
 
     public AnswerExportService(
         AnswerDataService answerDataService,
-        IDbConnectionFactory connectionFactory,
         IWebHostEnvironment environment,
         ILogger<AnswerExportService> logger)
     {
         _answerDataService = answerDataService;
-        _connectionFactory = connectionFactory;
         _logger = logger;
         _templatePath = Path.Combine(environment.ContentRootPath, "wwwroot", "docx", "shablon_docx.docx");
     }
@@ -104,8 +98,8 @@ public sealed class AnswerExportService
     public AnswerGeneratedFileResult? CreateSurveyReport(int surveyId, int omsuId, string? type)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var questionsJson = _answerDataService.GetSurveyQuestionsJson(surveyId);
-        if (survey == null || string.IsNullOrWhiteSpace(questionsJson))
+        var questions = _answerDataService.GetSurveyQuestions(surveyId);
+        if (survey == null || questions.Count == 0)
         {
             return null;
         }
@@ -115,8 +109,8 @@ public sealed class AnswerExportService
             throw new FileNotFoundException("Шаблон DOCX не найден", _templatePath);
         }
 
-        var criteriaList = ExtractCriteria(questionsJson);
-        var rows = GetOmsuAnswersForReport(surveyId, omsuId);
+        var criteriaList = questions.Select(question => question.Text).ToList();
+        var rows = _answerDataService.GetHistoryAnswers(surveyId, omsuId).ToList();
         if (rows.Count == 0)
         {
             return null;
@@ -128,18 +122,17 @@ public sealed class AnswerExportService
 
         foreach (var row in rows)
         {
-            omsus.Add(row.NameOmsu ?? string.Empty);
+            omsus.Add(row.name_omsu ?? string.Empty);
 
-            var parsedAnswers = AnswerPayloadParser.Parse(row.AnswersJson);
-            if (parsedAnswers.Count == 0)
+            if (row.Answers.Count == 0)
             {
                 ratings.Add(Enumerable.Repeat(0, criteriaList.Count).ToList());
                 comments.Add(Enumerable.Repeat(string.Empty, criteriaList.Count).ToList());
                 continue;
             }
 
-            ratings.Add(parsedAnswers.Select(item => item.Rating ?? 0).ToList());
-            comments.Add(parsedAnswers.Select(item => item.Comment ?? string.Empty).ToList());
+            ratings.Add(row.Answers.Select(item => item.Rating ?? 0).ToList());
+            comments.Add(row.Answers.Select(item => item.Comment ?? string.Empty).ToList());
         }
 
         var averages = new List<double>();
@@ -221,39 +214,6 @@ public sealed class AnswerExportService
         }
     }
 
-    private IReadOnlyList<OmsuAnswerRow> GetOmsuAnswersForReport(int surveyId, int omsuId)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        return connection.Query<OmsuAnswerRow>(
-            @"SELECT
-                  o.name_omsu AS NameOmsu,
-                  ha.answers::text AS AnswersJson
-              FROM public.omsu o
-              LEFT JOIN public.history_answer ha
-                  ON o.id_omsu = ha.id_omsu
-                 AND ha.id_survey = @surveyId
-              WHERE o.id_omsu = @omsuId",
-            new { surveyId, omsuId }).ToList();
-    }
-
-    private static List<string> ExtractCriteria(string questionsJson)
-    {
-        var criteria = new List<string>();
-        var questions = JObject.Parse(questionsJson)["questions"];
-        if (questions == null)
-        {
-            return criteria;
-        }
-
-        foreach (var question in questions)
-        {
-            criteria.Add(question["text"]?.ToString() ?? string.Empty);
-        }
-
-        return criteria;
-    }
-
     private static string CleanFileName(string fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName))
@@ -320,7 +280,7 @@ public sealed class AnswerExportService
 
                                 foreach (var answer in answers)
                                 {
-                                    foreach (var item in AnswerPayloadParser.Parse(answer.answers))
+                                    foreach (var item in answer.Answers)
                                     {
                                         table.Cell()
                                             .BorderBottom(1)
@@ -565,11 +525,5 @@ public sealed class AnswerExportService
                 }
             }
         }
-    }
-
-    private sealed class OmsuAnswerRow
-    {
-        public string? NameOmsu { get; set; }
-        public string? AnswersJson { get; set; }
     }
 }

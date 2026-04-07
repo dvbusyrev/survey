@@ -16,7 +16,7 @@ public sealed class AnswerWorkflowService
         _answerDataService.InsertHistoryAnswer(historyAnswerData);
         _answerDataService.DeleteAccessExtension(historyAnswerData.id_omsu, historyAnswerData.id_survey);
 
-        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.id_omsu, historyAnswerData.answers);
+        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.id_omsu, historyAnswerData.Answers);
     }
 
     public CheckAnswersPageViewModel? UpdateAnswer(HistoryAnswer historyAnswerData)
@@ -27,13 +27,13 @@ public sealed class AnswerWorkflowService
             return null;
         }
 
-        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.id_omsu, historyAnswerData.answers);
+        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.id_omsu, historyAnswerData.Answers);
     }
 
     public UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int omsuId)
     {
         var historyAnswer = _answerDataService.GetHistoryAnswer(surveyId, omsuId);
-        if (historyAnswer == null || string.IsNullOrWhiteSpace(historyAnswer.answers))
+        if (historyAnswer == null || historyAnswer.Answers.Count == 0)
         {
             return null;
         }
@@ -42,7 +42,7 @@ public sealed class AnswerWorkflowService
         {
             SurveyId = surveyId,
             OmsuId = omsuId,
-            Answers = AnswerPayloadParser.Parse(historyAnswer.answers)
+            Answers = historyAnswer.Answers
         };
     }
 
@@ -78,7 +78,7 @@ public sealed class AnswerWorkflowService
                 OmsuId = answer.id_omsu,
                 OmsuName = answer.name_omsu ?? "Неизвестно",
                 Date = answer.completion_date?.ToString("dd.MM.yyyy HH:mm") ?? "Дата не указана",
-                Answers = AnswerPayloadParser.Parse(answer.answers)
+                Answers = answer.Answers
                     .Select(item => new SurveyAnswerResultItemViewModel
                     {
                         QuestionText = item.DisplayQuestion,
@@ -106,7 +106,7 @@ public sealed class AnswerWorkflowService
         };
     }
 
-    private CheckAnswersPageViewModel? BuildCheckAnswersPage(int surveyId, int omsuId, string? answersJson)
+    private CheckAnswersPageViewModel? BuildCheckAnswersPage(int surveyId, int omsuId, IReadOnlyList<AnswerPayloadItem> answers)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
         if (survey == null)
@@ -117,7 +117,7 @@ public sealed class AnswerWorkflowService
         return new CheckAnswersPageViewModel
         {
             Survey = survey,
-            Answers = AnswerPayloadParser.Parse(answersJson),
+            Answers = answers,
             IdOmsu = omsuId
         };
     }

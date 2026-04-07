@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using main_project.Infrastructure.Database;
 using main_project.Models;
@@ -158,66 +159,128 @@ public sealed class SurveyArchiveService
 
         const string sql = @"
             SELECT
-                id_survey,
-                date_begin,
-                date_end,
-                file_questions,
-                name_survey,
-                description
-            FROM public.history_surveys
+                hs.id_survey,
+                hs.date_begin,
+                hs.date_end,
+                hs.name_survey,
+                hs.description
+            FROM public.history_surveys hs
             ORDER BY id_survey DESC";
 
-        return connection.Query<HistorySurvey>(sql).ToList();
+        var surveys = connection.Query<HistorySurvey>(sql).ToList();
+        AttachArchiveQuestions(connection, surveys);
+        return surveys;
     }
 
     public async Task<int> CopyArchiveSurveyAsync(ArchiveSurveyCopyRequest request)
     {
         using var connection = _connectionFactory.CreateConnection();
-        using var command = connection.CreateCommand();
-        var dateOpen = ParseArchiveDate(request.DateOpen);
-        var dateClose = ParseArchiveDate(request.DateClose);
+        using var transaction = connection.BeginTransaction();
 
-        command.CommandText = @"
-            INSERT INTO public.surveys
-                (name_survey, description, date_create, date_open, date_close, questions)
-            VALUES
-                (@name_survey, @description, @date_create, @date_open, @date_close, CAST(@questions AS jsonb))
-            RETURNING id_survey;";
+        var archiveSurvey = await connection.QueryFirstOrDefaultAsync<HistorySurvey>(
+            @"SELECT
+                  id_survey,
+                  date_begin,
+                  date_end,
+                  name_survey,
+                  description
+              FROM public.history_surveys
+              WHERE id_survey = @surveyId",
+            new { surveyId = request.SurveyId },
+            transaction);
 
-        command.Parameters.Add(new Npgsql.NpgsqlParameter("@name_survey", request.NameSurvey.Trim()));
-        command.Parameters.Add(new Npgsql.NpgsqlParameter("@description", request.Description ?? string.Empty));
-        command.Parameters.Add(new Npgsql.NpgsqlParameter("@date_create", DateTime.Now));
-        command.Parameters.Add(new Npgsql.NpgsqlParameter("@date_open", (object?)dateOpen?.Date ?? DBNull.Value));
-        command.Parameters.Add(new Npgsql.NpgsqlParameter("@date_close", (object?)dateClose?.Date ?? DBNull.Value));
-        command.Parameters.Add(new Npgsql.NpgsqlParameter("@questions", request.Questions ?? "{}"));
+        if (archiveSurvey == null)
+        {
+            throw new InvalidOperationException("Архивная анкета не найдена.");
+        }
 
-        var result = await command.ExecuteScalarAsync();
-        return Convert.ToInt32(result);
+        archiveSurvey.Questions = connection.Query<SurveyQuestionItem>(
+            @"SELECT
+                  question_order AS Id,
+                  question_text AS Text
+              FROM public.history_survey_questions
+              WHERE id_survey = @surveyId
+              ORDER BY question_order",
+            new { surveyId = request.SurveyId },
+            transaction).ToList();
+
+        var newSurveyId = await connection.ExecuteScalarAsync<int>(
+            @"INSERT INTO public.surveys
+                (name_survey, description, date_create, date_open, date_close)
+              VALUES
+                (@nameSurvey, @description, @dateCreate, @dateOpen, @dateClose)
+              RETURNING id_survey;",
+            new
+            {
+                nameSurvey = archiveSurvey.name_survey,
+                description = archiveSurvey.description ?? string.Empty,
+                dateCreate = DateTime.Now,
+                dateOpen = archiveSurvey.date_begin.Date,
+                dateClose = archiveSurvey.date_end.Date
+            },
+            transaction);
+
+        foreach (var question in archiveSurvey.Questions.OrderBy(q => q.Id))
+        {
+            await connection.ExecuteAsync(
+                @"INSERT INTO public.survey_questions (id_survey, question_order, question_text)
+                  VALUES (@idSurvey, @questionOrder, @questionText);",
+                new
+                {
+                    idSurvey = newSurveyId,
+                    questionOrder = question.Id,
+                    questionText = question.Text
+                },
+                transaction);
+        }
+
+        transaction.Commit();
+        return newSurveyId;
     }
 
-    private static DateTime? ParseArchiveDate(string? value)
+    private static void AttachArchiveQuestions(
+        IDbConnection connection,
+        IEnumerable<HistorySurvey> surveys)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        var surveyList = surveys.ToList();
+        if (surveyList.Count == 0)
         {
-            return null;
+            return;
         }
 
-        var formats = new[] { "dd.MM.yyyy H:mm:ss", "dd.MM.yyyy HH:mm:ss", "dd.MM.yyyy", "yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm:ss.FFFFFFFK" };
-        if (DateTime.TryParseExact(
-                value,
-                formats,
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None,
-                out var parsed))
-        {
-            return parsed;
-        }
+        var surveyIds = surveyList.Select(s => s.id_survey).Distinct().ToArray();
+        var rows = connection.Query<ArchiveQuestionLookupRow>(
+            @"SELECT
+                  id_survey AS SurveyId,
+                  question_order AS QuestionOrder,
+                  question_text AS QuestionText
+              FROM public.history_survey_questions
+              WHERE id_survey = ANY(@surveyIds)
+              ORDER BY id_survey, question_order",
+            new { surveyIds });
 
-        if (DateTime.TryParse(value, out parsed))
-        {
-            return parsed;
-        }
+        var questionLookup = rows
+            .GroupBy(row => row.SurveyId)
+            .ToDictionary(
+                group => group.Key,
+                group => (List<SurveyQuestionItem>)group
+                    .Select(row => new SurveyQuestionItem
+                    {
+                        Id = row.QuestionOrder,
+                        Text = row.QuestionText
+                    })
+                    .ToList());
 
-        throw new FormatException($"Неверный формат даты: {value}");
+        foreach (var survey in surveyList)
+        {
+            survey.Questions = questionLookup.GetValueOrDefault(survey.id_survey, new List<SurveyQuestionItem>());
+        }
+    }
+
+    private sealed class ArchiveQuestionLookupRow
+    {
+        public int SurveyId { get; init; }
+        public int QuestionOrder { get; init; }
+        public string QuestionText { get; init; } = string.Empty;
     }
 }

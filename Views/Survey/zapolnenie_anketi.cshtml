@@ -1,12 +1,13 @@
 ﻿@model Survey
 @using System.Security.Claims
+@using main_project.Infrastructure.Security
 @{
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
-        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
+        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
     var questions = ViewBag.Questions as List<Dictionary<string, object>> ?? new List<Dictionary<string, object>>();

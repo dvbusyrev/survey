@@ -111,13 +111,13 @@ public class HelpController : Controller
             return BadRequest("Файл не выбран.");
         }
 
-        if (string.IsNullOrEmpty(role) || (role != "administrator" && role != "user"))
+        if (string.IsNullOrEmpty(role) || (role != "admin" && role != "administrator" && role != "user"))
         {
             return BadRequest("Неверная роль.");
         }
 
         // Определяем имя файла в зависимости от роли
-        string fileName = role == "administrator"
+        string fileName = (role == "admin" || role == "administrator")
             ? "Instruction_for_admin_anketirovanie" + Path.GetExtension(file.FileName)
             : "Instruction_for_user_anketirovanie" + Path.GetExtension(file.FileName);
 

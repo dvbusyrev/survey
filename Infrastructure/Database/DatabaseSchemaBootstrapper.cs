@@ -8,5 +8,7 @@ public static class DatabaseSchemaBootstrapper
     {
         OmsuSurveyLinkBootstrapper.EnsureInitialized(connection);
         UserRoleBootstrapper.EnsureInitialized(connection);
+        SurveyNormalizationBootstrapper.EnsureInitialized(connection);
+        CrudAuditBootstrapper.EnsureInitialized(connection);
     }
 }

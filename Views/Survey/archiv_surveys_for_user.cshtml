@@ -1,5 +1,6 @@
 ﻿@model main_project.Services.Surveys.UserSurveyArchivePageViewModel
 @using System.Security.Claims
+@using main_project.Infrastructure.Security
 @{
     ViewData["Title"] = "Архив анкет";
     var userOmsuId = Model.UserOmsuId;
@@ -10,7 +11,7 @@
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
-        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
+        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
     var searchTerm = Model.SearchTerm;
 }
 
@@ -131,7 +132,7 @@
                 window.location.href = '/my-surveys';
             };
 
-            if (initialData.userRole !== "user" && initialData.userRole !== "Админ") {
+            if (initialData.userRole !== "user" && initialData.userRole !== "admin") {
                 return (
                     <div className="access-denied">
                         <h2>Доступ запрещён</h2>

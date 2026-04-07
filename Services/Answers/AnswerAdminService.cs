@@ -205,21 +205,17 @@ public sealed class AnswerAdminService
         const string sql = @"
             SELECT
                 COALESCE(s.name_survey, hs.name_survey, 'Неизвестно') AS SurveyType,
-                COALESCE(elem->>'question_text', elem->>'text', 'Без названия') AS QuestionLabel,
-                AVG(NULLIF(elem->>'rating', '')::double precision) AS AvgRating
+                hai.question_text AS QuestionLabel,
+                AVG(hai.rating::double precision) AS AvgRating
             FROM public.history_answer ha
             LEFT JOIN public.surveys s
                 ON ha.id_survey = s.id_survey
             LEFT JOIN public.history_surveys hs
                 ON ha.id_survey = hs.id_survey
                AND s.id_survey IS NULL
-            CROSS JOIN LATERAL jsonb_array_elements(
-                CASE
-                    WHEN jsonb_typeof(ha.answers::jsonb) = 'array' THEN ha.answers::jsonb
-                    ELSE '[]'::jsonb
-                END
-            ) AS elem
-            WHERE COALESCE(elem->>'rating', '') <> ''
+            INNER JOIN public.history_answer_items hai
+                ON hai.id_answer = ha.id_answer
+            WHERE hai.rating IS NOT NULL
             GROUP BY 1, 2
             ORDER BY 1, 2";
 
@@ -235,18 +231,14 @@ public sealed class AnswerAdminService
             SELECT
                 o.name_omsu AS OmsuName,
                 EXTRACT(YEAR FROM ha.completion_date)::int AS Year,
-                AVG(NULLIF(elem->>'rating', '')::double precision) AS AvgRating
+                AVG(hai.rating::double precision) AS AvgRating
             FROM public.history_answer ha
             INNER JOIN public.omsu o
                 ON ha.id_omsu = o.id_omsu
-            CROSS JOIN LATERAL jsonb_array_elements(
-                CASE
-                    WHEN jsonb_typeof(ha.answers::jsonb) = 'array' THEN ha.answers::jsonb
-                    ELSE '[]'::jsonb
-                END
-            ) AS elem
+            INNER JOIN public.history_answer_items hai
+                ON hai.id_answer = ha.id_answer
             WHERE ha.completion_date IS NOT NULL
-              AND COALESCE(elem->>'rating', '') <> ''
+              AND hai.rating IS NOT NULL
             GROUP BY 1, 2
             ORDER BY 2, 1";
 

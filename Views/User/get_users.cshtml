@@ -1,4 +1,5 @@
 @model List<main_project.Models.User>
+@using main_project.Infrastructure.Security
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
 <link rel="stylesheet" href="~/css/pages/users.css" asp-append-version="true" />
@@ -42,21 +43,12 @@
                             <td>@user.full_name</td>
                             <td>@user.name_user</td>
                             <td>@user.name_omsu</td>
-                            <td>
-                                @if (user.name_role == "user")
-                                {
-                                    @:Пользователь
-                                }
-                                else
-                                {
-                                    @:Админ
-                                }
-                            </td>
+                            <td>@AppRoles.GetDisplayName(user.name_role)</td>
                             <td>@user.email</td>
                             <td>@user.date_begin?.ToString("dd.MM.yyyy")</td>
                             <td>@user.date_end?.ToString("dd.MM.yyyy")</td>
                             <td class="action-icons">
-                                <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.id_omsu, '@Html.Raw(user.name_role)', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
+                                <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.id_omsu, '@Html.Raw(AppRoles.Normalize(user.name_role))', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
                                     <span><i class="fas fa-pen-to-square"></i></span><span class="icon-tooltip">Редактировать</span>
                                 </div>
                                 <div class="icon-container" onclick="deleteUser(@user.id_user, '@Html.Raw(user.full_name)')">
@@ -113,7 +105,7 @@
                 <label>Роль:</label>
                 <select id="role_bd" class="form-control">
                     <option value="user">Пользователь</option>
-                    <option value="Админ">Администратор</option>
+                    <option value="admin">Администратор</option>
                 </select>
             </div>
             @Html.AntiForgeryToken()
@@ -166,7 +158,7 @@
                 <label>Роль:</label>
                 <select id="editRole" class="form-control">
                     <option value="user">Пользователь</option>
-                    <option value="Админ">Администратор</option>
+                    <option value="admin">Администратор</option>
                 </select>
             </div>
             <div class="form-group">

@@ -30,7 +30,7 @@ var newPage = "";
         const userRole = initialData.userRole || '';
         const hasAccess = !!userRole;
 
-        if (userRole == "Админ") {
+        if (userRole == "admin") {
     last_page = "get_surveys";
 } else {
     last_page = "survey_list_user";

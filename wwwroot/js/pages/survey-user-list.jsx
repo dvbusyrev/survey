@@ -681,7 +681,7 @@ const handleSignedFilterChange = (e) => {
             };
 
             // Если роль пользователя не подходит, показываем сообщение о запрете доступа
-            if (initialData.userRole !== "user" && initialData.userRole !== "Админ") {
+            if (initialData.userRole !== "user" && initialData.userRole !== "admin") {
                 return (
                     <div className="page-container">
                         <Header userRole={initialData.userRole} displayName={initialData.displayName} />

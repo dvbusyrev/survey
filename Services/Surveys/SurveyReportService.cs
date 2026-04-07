@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Dapper;
@@ -6,6 +7,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using main_project.Infrastructure.Database;
 using main_project.Models;
+using main_project.Services.Answers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -63,77 +65,16 @@ public sealed class SurveyReportService
                   LIMIT 1",
                 new { surveyId }) ?? string.Empty;
 
-            var questionsJson = connection.ExecuteScalar<string?>(
-                @"SELECT questions::text
-                  FROM (
-                      SELECT questions FROM public.surveys WHERE id_survey = @surveyId
-                      UNION ALL
-                      SELECT file_questions FROM public.history_surveys WHERE id_survey = @surveyId
-                  ) sub
-                  LIMIT 1",
-                new { surveyId });
+            criteriaList = LoadSurveyQuestions(connection, surveyId)
+                .Select(question => question.Text)
+                .ToList();
 
-            if (!string.IsNullOrWhiteSpace(questionsJson))
+            var surveyAnswers = LoadSurveyAnswers(connection, surveyId, omsuId == 0 ? null : omsuId);
+            foreach (var answer in surveyAnswers)
             {
-                var questions = JObject.Parse(questionsJson)["questions"];
-                if (questions != null)
-                {
-                    foreach (var question in questions)
-                    {
-                        criteriaList.Add(question["text"]?.ToString() ?? string.Empty);
-                    }
-                }
-            }
-
-            if (omsuId == 0)
-            {
-                using var command = connection.CreateCommand();
-                command.CommandText = @"
-                    SELECT
-                        o.name_omsu,
-                        ha.answers::text
-                    FROM public.omsu o
-                    LEFT JOIN public.history_answer ha
-                        ON o.id_omsu = ha.id_omsu
-                       AND ha.id_survey = @surveyId
-                    WHERE ha.answers IS NOT NULL";
-                command.Parameters.Add(new Npgsql.NpgsqlParameter("@surveyId", surveyId));
-
-                using var reader = command.ExecuteReader();
-                while (reader.Read())
-                {
-                    omsus.Add(reader.GetString(0));
-                    var answersJson = reader.GetString(1);
-                    var answerItems = JArray.Parse(answersJson);
-                    ratings.Add(answerItems.Select(a => (int)a["rating"]!).ToList());
-                    comments.Add(answerItems.Select(a => a["comment"]?.ToString() ?? string.Empty).ToList());
-                }
-            }
-            else
-            {
-                using var command = connection.CreateCommand();
-                command.CommandText = @"
-                    SELECT
-                        o.name_omsu,
-                        ha.answers::text
-                    FROM public.omsu o
-                    JOIN public.history_answer ha
-                        ON o.id_omsu = ha.id_omsu
-                       AND ha.id_survey = @surveyId
-                    WHERE o.id_omsu = @omsuId
-                      AND ha.answers IS NOT NULL";
-                command.Parameters.Add(new Npgsql.NpgsqlParameter("@surveyId", surveyId));
-                command.Parameters.Add(new Npgsql.NpgsqlParameter("@omsuId", omsuId));
-
-                using var reader = command.ExecuteReader();
-                while (reader.Read())
-                {
-                    omsus.Add(reader.GetString(0));
-                    var answersJson = reader.GetString(1);
-                    var answerItems = JArray.Parse(answersJson);
-                    ratings.Add(answerItems.Select(a => (int)a["rating"]!).ToList());
-                    comments.Add(answerItems.Select(a => a["comment"]?.ToString() ?? string.Empty).ToList());
-                }
+                omsus.Add(answer.name_omsu ?? string.Empty);
+                ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
+                comments.Add(answer.Answers.Select(item => item.Comment ?? string.Empty).ToList());
             }
 
             for (int col = 0; col < criteriaList.Count; col++)
@@ -418,33 +359,15 @@ public sealed class SurveyReportService
                             : "SELECT name_survey FROM public.history_surveys WHERE id_survey = @surveyId",
                         new { surveyId }) ?? string.Empty;
 
-                    var questionsJson = connection.ExecuteScalar<string?>(
-                        !isArchive
-                            ? "SELECT questions::text FROM public.surveys WHERE id_survey = @surveyId"
-                            : "SELECT file_questions::text FROM public.history_surveys WHERE id_survey = @surveyId",
-                        new { surveyId });
+                    criteriaList = LoadSurveyQuestions(connection, surveyId)
+                        .Select(question => question.Text)
+                        .ToList();
 
-                    criteriaList = !string.IsNullOrWhiteSpace(questionsJson)
-                        ? JObject.Parse(questionsJson)["questions"]?.Select(q => q["text"]?.ToString() ?? string.Empty).ToList()
-                            ?? new List<string>()
-                        : new List<string>();
-
-                    using var command = connection.CreateCommand();
-                    command.CommandText = @"
-                        SELECT o.name_omsu, ha.answers::text
-                        FROM public.omsu o
-                        JOIN public.history_answer ha
-                            ON o.id_omsu = ha.id_omsu
-                        WHERE ha.id_survey = @surveyId
-                          AND ha.answers IS NOT NULL";
-                    command.Parameters.Add(new Npgsql.NpgsqlParameter("@surveyId", surveyId));
-
-                    using var reader = command.ExecuteReader();
-                    while (reader.Read())
+                    var surveyAnswers = LoadSurveyAnswers(connection, surveyId);
+                    foreach (var answer in surveyAnswers)
                     {
-                        omsus.Add(reader.GetString(0));
-                        var answerItems = JArray.Parse(reader.GetString(1));
-                        ratings.Add(answerItems.Select(a => (int)a["rating"]!).ToList());
+                        omsus.Add(answer.name_omsu ?? string.Empty);
+                        ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
                     }
 
                     for (int i = 0; i < criteriaList.Count; i++)
@@ -617,11 +540,9 @@ public sealed class SurveyReportService
                 .ToArray());
 
             var worksheet = workbook.Worksheets.Add(sheetName);
-            var questions = !string.IsNullOrEmpty(survey.questions)
-                ? JsonConvert.DeserializeObject<SurveyQuestions>(survey.questions)?.questions
-                : null;
+            var questions = survey.Questions;
 
-            if (questions == null || questions.Length == 0)
+            if (questions == null || questions.Count == 0)
             {
                 continue;
             }
@@ -633,7 +554,7 @@ public sealed class SurveyReportService
             var orgAverages = new List<double>();
             var questionRatings = new Dictionary<int, List<double>>();
 
-            for (int i = 0; i < questions.Length; i++)
+            for (int i = 0; i < questions.Count; i++)
             {
                 questionRatings[i] = new List<double>();
             }
@@ -642,7 +563,7 @@ public sealed class SurveyReportService
             {
                 string monthHeader = $"{month.Name} {year} г.";
                 worksheet.Cell(currentRow, 1).Value = monthHeader;
-                worksheet.Range(currentRow, 1, currentRow, 2 + questions.Length * 2 + 1).Merge();
+                worksheet.Range(currentRow, 1, currentRow, 2 + questions.Count * 2 + 1).Merge();
                 worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 currentRow++;
 
@@ -656,18 +577,16 @@ public sealed class SurveyReportService
                     worksheet.Cell(currentRow, 1).Value = orgGroup.Key;
                     worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-                    var answersData = !string.IsNullOrEmpty(orgGroup.First().answers)
-                        ? JsonConvert.DeserializeObject<List<AnswerData>>(orgGroup.First().answers!)
-                        : new List<AnswerData>();
+                    var answersData = orgGroup.First().Answers ?? new List<main_project.Services.Answers.AnswerPayloadItem>();
 
                     var orgRatings = new List<double>();
-                    for (int i = 0; i < questions.Length; i++)
+                    for (int i = 0; i < questions.Count; i++)
                     {
-                        string questionId = questions[i].question_id.ToString();
-                        var answer = answersData?.FirstOrDefault(a => a.question_id == questionId);
-                        if (answer?.rating.HasValue == true)
+                        string questionId = questions[i].Id.ToString();
+                        var answer = answersData.FirstOrDefault(a => a.QuestionId == questionId);
+                        if (answer?.Rating.HasValue == true)
                         {
-                            var rating = answer.rating.Value;
+                            var rating = answer.Rating.Value;
                             worksheet.Cell(currentRow, 2 + i).Value = rating;
                             orgRatings.Add(rating);
                             questionRatings[i].Add(rating);
@@ -678,7 +597,7 @@ public sealed class SurveyReportService
                         }
                     }
 
-                    worksheet.Cell(currentRow, 2 + questions.Length).Value = orgRatings.Count > 0
+                    worksheet.Cell(currentRow, 2 + questions.Count).Value = orgRatings.Count > 0
                         ? orgRatings.Average()
                         : string.Empty;
 
@@ -687,11 +606,11 @@ public sealed class SurveyReportService
                         orgAverages.Add(orgRatings.Average());
                     }
 
-                    for (int i = 0; i < questions.Length; i++)
+                    for (int i = 0; i < questions.Count; i++)
                     {
-                        string questionId = questions[i].question_id.ToString();
-                        var answer = answersData?.FirstOrDefault(a => a.question_id == questionId);
-                        worksheet.Cell(currentRow, 2 + questions.Length + 1 + i).Value = answer?.comment ?? string.Empty;
+                        string questionId = questions[i].Id.ToString();
+                        var answer = answersData.FirstOrDefault(a => a.QuestionId == questionId);
+                        worksheet.Cell(currentRow, 2 + questions.Count + 1 + i).Value = answer?.Comment ?? string.Empty;
                     }
 
                     worksheet.Row(currentRow).AdjustToContents();
@@ -701,7 +620,7 @@ public sealed class SurveyReportService
                 if (!monthAnswers.Any())
                 {
                     worksheet.Cell(currentRow, 1).Value = "Нет данных";
-                    worksheet.Range(currentRow, 1, currentRow, 2 + questions.Length * 2 + 1).Merge();
+                    worksheet.Range(currentRow, 1, currentRow, 2 + questions.Count * 2 + 1).Merge();
                     currentRow++;
                 }
             }
@@ -711,7 +630,7 @@ public sealed class SurveyReportService
                 worksheet.Cell(currentRow, 1).Value = "Итого:";
                 worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-                for (int i = 0; i < questions.Length; i++)
+                for (int i = 0; i < questions.Count; i++)
                 {
                     worksheet.Cell(currentRow, 2 + i).Value = questionRatings[i].Count > 0
                         ? questionRatings[i].Average()
@@ -720,7 +639,7 @@ public sealed class SurveyReportService
 
                 if (questionRatings.Any(q => q.Value.Count > 0))
                 {
-                    worksheet.Cell(currentRow, 2 + questions.Length).Value =
+                    worksheet.Cell(currentRow, 2 + questions.Count).Value =
                         questionRatings.Where(q => q.Value.Count > 0).Average(q => q.Value.Average());
                 }
 
@@ -729,11 +648,11 @@ public sealed class SurveyReportService
                 worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
                 if (orgAverages.Count > 0)
                 {
-                    worksheet.Cell(currentRow, 2 + questions.Length).Value = orgAverages.Average();
+                    worksheet.Cell(currentRow, 2 + questions.Count).Value = orgAverages.Average();
                 }
             }
 
-            FormatWorksheet(worksheet, questions.Length);
+            FormatWorksheet(worksheet, questions.Count);
         }
 
         string safeQuarterName = string.Join("_", quarterName.Split(Path.GetInvalidFileNameChars()));
@@ -751,15 +670,73 @@ public sealed class SurveyReportService
         };
     }
 
+    private static IReadOnlyList<SurveyQuestionItem> LoadSurveyQuestions(
+        IDbConnection connection,
+        int surveyId)
+    {
+        var activeQuestions = connection.Query<SurveyQuestionItem>(
+            @"SELECT
+                  question_order AS Id,
+                  question_text AS Text
+              FROM public.survey_questions
+              WHERE id_survey = @surveyId
+              ORDER BY question_order",
+            new { surveyId }).ToList();
+
+        if (activeQuestions.Count > 0)
+        {
+            return activeQuestions;
+        }
+
+        return connection.Query<SurveyQuestionItem>(
+            @"SELECT
+                  question_order AS Id,
+                  question_text AS Text
+              FROM public.history_survey_questions
+              WHERE id_survey = @surveyId
+              ORDER BY question_order",
+            new { surveyId }).ToList();
+    }
+
+    private static IReadOnlyList<HistoryAnswer> LoadSurveyAnswers(
+        IDbConnection connection,
+        int surveyId,
+        int? omsuId = null)
+    {
+        var answers = connection.Query<HistoryAnswer>(
+            @"SELECT
+                  ha.id_answer,
+                  ha.id_omsu,
+                  ha.id_survey,
+                  ha.csp,
+                  ha.completion_date,
+                  ha.create_date_survey,
+                  o.name_omsu
+              FROM public.history_answer ha
+              LEFT JOIN public.omsu o
+                  ON o.id_omsu = ha.id_omsu
+              WHERE ha.id_survey = @surveyId
+                AND (@omsuId IS NULL OR ha.id_omsu = @omsuId)
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.history_answer_items hai
+                    WHERE hai.id_answer = ha.id_answer
+                )
+              ORDER BY ha.completion_date DESC",
+            new { surveyId, omsuId }).ToList();
+
+        AttachAnswerItems(connection, answers);
+        return answers;
+    }
+
     private IReadOnlyList<Survey> GetSurveysForReport()
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        return connection.Query<Survey>(
+        var surveys = connection.Query<Survey>(
             @"SELECT
                   s.id_survey,
                   s.name_survey,
-                  s.questions::text AS questions,
                   COALESCE(
                       (
                           SELECT string_agg(o.name_omsu, ', ')
@@ -777,7 +754,6 @@ public sealed class SurveyReportService
               SELECT
                   hs.id_survey,
                   hs.name_survey,
-                  hs.file_questions::text AS questions,
                   COALESCE(
                       (
                           SELECT string_agg(o.name_omsu, ', ')
@@ -789,24 +765,32 @@ public sealed class SurveyReportService
                       'Не указано'
                   ) AS name_omsu
               FROM public.history_surveys hs").ToList();
+
+        AttachSurveyQuestions(connection, surveys);
+        return surveys;
     }
 
     private List<HistoryAnswer> GetAnswersFromDatabase()
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        return connection.Query<HistoryAnswer>(
+        var answers = connection.Query<HistoryAnswer>(
             @"SELECT
                   id_omsu,
                   (SELECT name_omsu FROM public.omsu WHERE omsu.id_omsu = history_answer.id_omsu) AS name_omsu,
                   csp,
                   id_answer,
                   id_survey,
-                  (SELECT name_survey FROM public.surveys WHERE surveys.id_survey = history_answer.id_survey) AS name_survey,
+                  COALESCE(
+                      (SELECT name_survey FROM public.surveys WHERE surveys.id_survey = history_answer.id_survey),
+                      (SELECT name_survey FROM public.history_surveys WHERE history_surveys.id_survey = history_answer.id_survey)
+                  ) AS name_survey,
                   completion_date,
-                  create_date_survey,
-                  answers::text AS answers
+                  create_date_survey
               FROM public.history_answer").ToList();
+
+        AttachAnswerItems(connection, answers);
+        return answers;
     }
 
     private TableCell CreateTableCell(string text, bool isHeader, bool centerAlign)
@@ -828,7 +812,102 @@ public sealed class SurveyReportService
         return cell;
     }
 
-    private void BuildWorksheetHeaders(IXLWorksheet worksheet, SurveyQuestion[] questions)
+    private static void AttachSurveyQuestions(
+        IDbConnection connection,
+        IEnumerable<Survey> surveys)
+    {
+        var surveyList = surveys.ToList();
+        if (surveyList.Count == 0)
+        {
+            return;
+        }
+
+        var surveyIds = surveyList.Select(s => s.id_survey).Distinct().ToArray();
+
+        var activeRows = connection.Query<SurveyQuestionLookupRow>(
+            @"SELECT
+                  id_survey AS SurveyId,
+                  question_order AS QuestionOrder,
+                  question_text AS QuestionText
+              FROM public.survey_questions
+              WHERE id_survey = ANY(@surveyIds)
+              ORDER BY id_survey, question_order",
+            new { surveyIds });
+
+        var archiveRows = connection.Query<SurveyQuestionLookupRow>(
+            @"SELECT
+                  id_survey AS SurveyId,
+                  question_order AS QuestionOrder,
+                  question_text AS QuestionText
+              FROM public.history_survey_questions
+              WHERE id_survey = ANY(@surveyIds)
+              ORDER BY id_survey, question_order",
+            new { surveyIds });
+
+        var questionLookup = activeRows
+            .Concat(archiveRows)
+            .GroupBy(row => row.SurveyId)
+            .ToDictionary(
+                group => group.Key,
+                group => (List<SurveyQuestionItem>)group
+                    .Select(row => new SurveyQuestionItem
+                    {
+                        Id = row.QuestionOrder,
+                        Text = row.QuestionText
+                    })
+                    .OrderBy(question => question.Id)
+                    .ToList());
+
+        foreach (var survey in surveyList)
+        {
+            survey.Questions = questionLookup.GetValueOrDefault(survey.id_survey, new List<SurveyQuestionItem>());
+        }
+    }
+
+    private static void AttachAnswerItems(
+        IDbConnection connection,
+        IEnumerable<HistoryAnswer> answers)
+    {
+        var answerList = answers.ToList();
+        if (answerList.Count == 0)
+        {
+            return;
+        }
+
+        var answerIds = answerList.Select(a => a.id_answer).Distinct().ToArray();
+        var rows = connection.Query<HistoryAnswerItemLookupRow>(
+            @"SELECT
+                  id_answer AS AnswerId,
+                  question_order AS QuestionOrder,
+                  question_text AS QuestionText,
+                  rating AS Rating,
+                  comment AS Comment
+              FROM public.history_answer_items
+              WHERE id_answer = ANY(@answerIds)
+              ORDER BY id_answer, question_order",
+            new { answerIds });
+
+        var answerLookup = rows
+            .GroupBy(row => row.AnswerId)
+            .ToDictionary(
+                group => group.Key,
+                group => (List<AnswerPayloadItem>)group
+                    .Select(row => new AnswerPayloadItem
+                    {
+                        QuestionId = row.QuestionOrder.ToString(),
+                        QuestionText = row.QuestionText,
+                        Rating = row.Rating,
+                        Comment = row.Comment
+                    })
+                    .ToList());
+
+        foreach (var answer in answerList)
+        {
+            answer.Answers = answerLookup.GetValueOrDefault(answer.id_answer, new List<AnswerPayloadItem>());
+        }
+    }
+
+    private void BuildWorksheetHeaders(IXLWorksheet worksheet, IReadOnlyList<SurveyQuestionItem> questions)
     {
         var orgHeader = worksheet.Cell(1, 1);
         orgHeader.Value = "Наименование организации";
@@ -838,29 +917,29 @@ public sealed class SurveyReportService
         var criteriaHeader = worksheet.Cell(1, 2);
         criteriaHeader.Value = "Название критериев";
         criteriaHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range(1, 2, 1, 1 + questions.Length).Merge();
+        worksheet.Range(1, 2, 1, 1 + questions.Count).Merge();
 
-        for (int i = 0; i < questions.Length; i++)
+        for (int i = 0; i < questions.Count; i++)
         {
             var cell = worksheet.Cell(2, 2 + i);
-            cell.Value = questions[i].text;
+            cell.Value = questions[i].Text;
             cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         }
 
-        var avgHeader = worksheet.Cell(1, 2 + questions.Length);
+        var avgHeader = worksheet.Cell(1, 2 + questions.Count);
         avgHeader.Value = "Средний балл";
         avgHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range(1, 2 + questions.Length, 2, 2 + questions.Length).Merge();
+        worksheet.Range(1, 2 + questions.Count, 2, 2 + questions.Count).Merge();
 
-        var commentsHeader = worksheet.Cell(1, 2 + questions.Length + 1);
+        var commentsHeader = worksheet.Cell(1, 2 + questions.Count + 1);
         commentsHeader.Value = "Комментарии";
         commentsHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range(1, 2 + questions.Length + 1, 1, 1 + questions.Length * 2 + 1).Merge();
+        worksheet.Range(1, 2 + questions.Count + 1, 1, 1 + questions.Count * 2 + 1).Merge();
 
-        for (int i = 0; i < questions.Length; i++)
+        for (int i = 0; i < questions.Count; i++)
         {
-            var cell = worksheet.Cell(2, 2 + questions.Length + 1 + i);
-            cell.Value = $"Комментарий к {questions[i].text}";
+            var cell = worksheet.Cell(2, 2 + questions.Count + 1 + i);
+            cell.Value = $"Комментарий к {questions[i].Text}";
             cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         }
     }
@@ -923,5 +1002,21 @@ public sealed class SurveyReportService
                 cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
             }
         }
+    }
+
+    private sealed class SurveyQuestionLookupRow
+    {
+        public int SurveyId { get; init; }
+        public int QuestionOrder { get; init; }
+        public string QuestionText { get; init; } = string.Empty;
+    }
+
+    private sealed class HistoryAnswerItemLookupRow
+    {
+        public int AnswerId { get; init; }
+        public int QuestionOrder { get; init; }
+        public string QuestionText { get; init; } = string.Empty;
+        public int? Rating { get; init; }
+        public string? Comment { get; init; }
     }
 }

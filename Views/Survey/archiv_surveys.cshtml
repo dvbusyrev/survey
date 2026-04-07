@@ -38,19 +38,7 @@
             <td onclick="showAnswersModal(@survey.id_survey)">@survey.date_begin.ToString("yyyy-MM-dd")</td>
             <td onclick="showAnswersModal(@survey.id_survey)">@survey.date_end.ToString("yyyy-MM-dd")</td>
             <td onclick="showAnswersModal(@survey.id_survey)">
-                @if (!string.IsNullOrEmpty(survey.file_questions))
-                {
-                    try
-                    {
-                        var json = Newtonsoft.Json.Linq.JObject.Parse(survey.file_questions);
-                        var questions = json["questions"] as Newtonsoft.Json.Linq.JArray;
-                        @string.Join(", ", questions?.Select(q => q["text"]?.ToString()))
-                    }
-                    catch
-                    {
-                        <text>Ошибка формата</text>
-                    }
-                }
+                @string.Join(", ", survey.Questions.Select(question => question.Text))
             </td>
             <td class="action-icons">
 <div class="icon-container" onclick="create_otchet_month(@survey.id_survey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
@@ -60,13 +48,7 @@
 
                                         
 <div class="icon-container" 
-     onclick="copy_archive_survey(
-       '@survey.name_survey', 
-       '@survey.description', 
-       '@survey.date_begin', 
-       '@survey.date_end', 
-       '@survey.file_questions'
-     )" 
+     onclick="copy_archive_survey(@survey.id_survey)" 
      role="button" 
      tabindex="0" 
      aria-label="Копировать и возобновить опрос">

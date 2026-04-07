@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Http
 @using System.Security.Claims
 @using System.Text.Json
+@using main_project.Infrastructure.Security
 @{
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -10,7 +11,7 @@
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOmsu}: {nameUser}"
-        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : userRole);
+        : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
 
     ViewBag.UserRole = userRole;
     ViewBag.UserId = userId;

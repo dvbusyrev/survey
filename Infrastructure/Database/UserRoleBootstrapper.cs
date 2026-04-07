@@ -27,16 +27,16 @@ public static class UserRoleBootstrapper
                        UPDATE public.users
                        SET name_role = CASE
                            WHEN name_role IS NULL THEN name_role
-                           WHEN BTRIM(name_role) IN ('Админ', 'админ', 'АДМИН', 'admin', 'Admin', 'ADMIN', 'administrator', 'Administrator', 'ADMINISTRATOR')
-                               THEN 'Админ'
+                           WHEN LOWER(BTRIM(name_role)) IN ('админ', 'администратор', 'admin', 'administrator')
+                               THEN 'admin'
                            WHEN LOWER(BTRIM(name_role)) IN ('user', 'пользователь')
                                THEN 'user'
                            ELSE BTRIM(name_role)
                        END
                        WHERE name_role IS DISTINCT FROM CASE
                            WHEN name_role IS NULL THEN name_role
-                           WHEN BTRIM(name_role) IN ('Админ', 'админ', 'АДМИН', 'admin', 'Admin', 'ADMIN', 'administrator', 'Administrator', 'ADMINISTRATOR')
-                               THEN 'Админ'
+                           WHEN LOWER(BTRIM(name_role)) IN ('админ', 'администратор', 'admin', 'administrator')
+                               THEN 'admin'
                            WHEN LOWER(BTRIM(name_role)) IN ('user', 'пользователь')
                                THEN 'user'
                            ELSE BTRIM(name_role)
@@ -53,16 +53,22 @@ public static class UserRoleBootstrapper
                        """
                        DO $$
                        BEGIN
-                           IF NOT EXISTS (
+                           IF EXISTS (
                                SELECT 1
                                FROM pg_constraint
                                WHERE conname = 'chk_users_name_role'
                                  AND conrelid = 'public.users'::regclass
                            ) THEN
                                ALTER TABLE public.users
-                                   ADD CONSTRAINT chk_users_name_role
-                                   CHECK (name_role IN ('Админ', 'user'));
+                                   DROP CONSTRAINT chk_users_name_role;
                            END IF;
+
+                           ALTER TABLE public.users
+                               ADD CONSTRAINT chk_users_name_role
+                               CHECK (name_role IN ('admin', 'user'));
+                       EXCEPTION
+                           WHEN duplicate_object THEN
+                               NULL;
                        END $$;
                        """,
                        connection))
@@ -80,7 +86,7 @@ public static class UserRoleBootstrapper
             """
             SELECT string_agg(DISTINCT name_role, ', ' ORDER BY name_role)
             FROM public.users
-            WHERE name_role NOT IN ('Админ', 'user');
+            WHERE name_role NOT IN ('admin', 'user');
             """,
             connection);
 

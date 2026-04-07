@@ -148,9 +148,9 @@ public class SurveyArchiveController : Controller
     [HttpPost("Survey/copy_archive_survey")]
     public async Task<IActionResult> copy_archive_survey([FromBody] ArchiveSurveyCopyRequest request)
     {
-        if (request == null || string.IsNullOrWhiteSpace(request.NameSurvey))
+        if (request == null || request.SurveyId <= 0)
         {
-            return BadRequest("Название анкеты обязательно.");
+            return BadRequest("Идентификатор архивной анкеты обязателен.");
         }
 
         try
@@ -162,14 +162,9 @@ public class SurveyArchiveController : Controller
                 id
             });
         }
-        catch (FormatException ex)
-        {
-            _logger.LogWarning(ex, "Неверный формат даты при копировании архивной анкеты {SurveyName}", request.NameSurvey);
-            return BadRequest(ex.Message);
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при копировании архивной анкеты {SurveyName}", request.NameSurvey);
+            _logger.LogError(ex, "Ошибка при копировании архивной анкеты {SurveyId}", request.SurveyId);
             return StatusCode(500, $"Ошибка при добавлении анкеты: {ex.Message}");
         }
     }

@@ -115,7 +115,7 @@ public IActionResult get_omsu(string variantType)
                             {
                                 id_survey = reader.GetInt32(0),
                                 name_survey = reader.GetString(1),
-                                questions = "",
+                                Questions = new List<main_project.Services.Surveys.SurveyQuestionItem>(),
                                 date_close = DateTime.Now,
                                 date_create = DateTime.Now,
                                 date_open = DateTime.Now
@@ -291,7 +291,7 @@ public IActionResult archive_list_omsus(string variantType)
                             {
                                 id_survey = reader.GetInt32(0),
                                 name_survey = reader.GetString(1),
-                                questions = "",
+                                Questions = new List<main_project.Services.Surveys.SurveyQuestionItem>(),
                                 date_close = DateTime.Now,
                                 date_create = DateTime.Now,
                                 date_open = DateTime.Now

@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using main_project.Services.Surveys;
 
 namespace main_project.Models
 {
@@ -15,7 +12,6 @@ namespace main_project.Models
         public int id_user { get; set; }
         public string name_survey { get; set; }
         public string description { get; set; }
-        public required string file_questions { get; set; }
-
+        public List<SurveyQuestionItem> Questions { get; set; } = new();
     }
 }

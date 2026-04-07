@@ -475,7 +475,7 @@ background:
                                     console.log('Ответ от сервера:', xhr.responseText);
                                     const response = JSON.parse(xhr.responseText);
                                     console.log('Распарсенный ответ:', response);
-                                    if (response.role === "Админ") {
+                                    if (response.role === "admin") {
                                         window.location.href = '/surveys';
                                     } else if (response.role === "user") {
                                         const url = '/my-surveys';

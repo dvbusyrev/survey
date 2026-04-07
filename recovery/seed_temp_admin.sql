@@ -21,7 +21,7 @@ VALUES (
     NULL,
     'admin',
     'Временный администратор',
-    'Админ',
+    'admin',
     'ztEGidTzYesYLtKhQY4so3/en72zKn4VeKzIe3ujbNLcLqmftEs1nLulipGHiwTE8RhjXNCjEd+PFpYLK/uk0Q==',
     'local-admin@example.invalid',
     NOW()

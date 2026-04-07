@@ -1,8 +1,6 @@
 using Dapper;
 using main_project.Infrastructure.Database;
 using main_project.Models;
-using Newtonsoft.Json;
-
 namespace main_project.Services.Surveys;
 
 public sealed class SurveyAnswersService
@@ -57,7 +55,22 @@ public sealed class SurveyAnswersService
                   o.name_omsu,
                   ha.completion_date,
                   ha.create_date_survey,
-                  ha.answers,
+                  COALESCE(
+                      (
+                          SELECT jsonb_agg(
+                              jsonb_build_object(
+                                  'question_id', hai.question_order,
+                                  'question_text', hai.question_text,
+                                  'rating', hai.rating,
+                                  'comment', hai.comment
+                              )
+                              ORDER BY hai.question_order
+                          )::text
+                          FROM public.history_answer_items hai
+                          WHERE hai.id_answer = ha.id_answer
+                      ),
+                      '[]'
+                  ) AS answers,
                   ha.csp
               FROM public.history_answer ha
               INNER JOIN public.omsu o
@@ -74,7 +87,12 @@ public sealed class SurveyAnswersService
             NameOmsu = answer.name_omsu ?? string.Empty,
             Csp = answer.csp,
             CompletionDate = answer.completion_date,
-            Details = DeserializeAnswers(answer.answers)
+            Details = answer.Answers.Select(item => new SurveyAnswerDetailViewModel
+            {
+                QuestionText = item.DisplayQuestion,
+                Rating = item.Rating?.ToString(),
+                Comment = item.Comment
+            }).ToList()
         }).ToList();
 
         return new SurveyAnswerPageViewModel
@@ -132,7 +150,22 @@ public sealed class SurveyAnswersService
                   o.name_omsu,
                   ha.csp,
                   ha.completion_date,
-                  ha.answers
+                  COALESCE(
+                      (
+                          SELECT jsonb_agg(
+                              jsonb_build_object(
+                                  'question_id', hai.question_order,
+                                  'question_text', hai.question_text,
+                                  'rating', hai.rating,
+                                  'comment', hai.comment
+                              )
+                              ORDER BY hai.question_order
+                          )::text
+                          FROM public.history_answer_items hai
+                          WHERE hai.id_answer = ha.id_answer
+                      ),
+                      '[]'
+                  ) AS answers
               FROM public.history_answer ha
               INNER JOIN public.omsu o
                   ON ha.id_omsu = o.id_omsu
@@ -146,24 +179,5 @@ public sealed class SurveyAnswersService
             survey,
             answers
         };
-    }
-
-    private static IReadOnlyList<SurveyAnswerDetailViewModel> DeserializeAnswers(string? answersJson)
-    {
-        if (string.IsNullOrWhiteSpace(answersJson))
-        {
-            return Array.Empty<SurveyAnswerDetailViewModel>();
-        }
-
-        try
-        {
-            IReadOnlyList<SurveyAnswerDetailViewModel>? parsedAnswers =
-                JsonConvert.DeserializeObject<List<SurveyAnswerDetailViewModel>>(answersJson);
-            return parsedAnswers ?? Array.Empty<SurveyAnswerDetailViewModel>();
-        }
-        catch
-        {
-            return Array.Empty<SurveyAnswerDetailViewModel>();
-        }
     }
 }

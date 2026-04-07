@@ -603,7 +603,7 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
                 body: JSON.stringify({
                     id_omsu: omsuId,
                     id_survey: survey.id_survey,
-                    answers: JSON.stringify(answersArray)
+                    answers: answersArray
                 })
             });
 

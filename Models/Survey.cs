@@ -1,3 +1,5 @@
+using main_project.Services.Surveys;
+
 namespace main_project.Models
 {
     public class Survey
@@ -5,7 +7,7 @@ namespace main_project.Models
         public int id_survey { get; set; }
         public string name_survey { get; set; }
         public string? description { get; set; }
-        public string? questions { get; set; }
+        public List<SurveyQuestionItem> Questions { get; set; } = new();
         public DateTime date_create { get; set; }
         public DateTime date_open { get; set; }
         public DateTime date_close { get; set; }

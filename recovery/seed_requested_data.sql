@@ -71,7 +71,7 @@ VALUES
         (SELECT id_omsu FROM admin_org),
         'Гордеев_СВ',
         'Гордеев_СВ',
-        'Админ',
+        'admin',
         'ww3JowX+rRT3iSa6OTHiCX+QflwFcdRzGOFguIkZm2X9LhTkV0JDX9sVFkUy2YiseuLaDb1nh5QY9N2S8OlegA==',
         NULL,
         NOW(),
@@ -99,7 +99,6 @@ new_survey AS (
     INSERT INTO public.surveys (
         name_survey,
         description,
-        questions,
         date_create,
         date_open,
         date_close
@@ -107,60 +106,68 @@ new_survey AS (
     VALUES (
         'Анкета МКУ',
         'Восстановленная анкета для организации МКУ',
-        jsonb_build_object(
-            'questions',
-            jsonb_build_array(
-                jsonb_build_object('question_id', 1, 'text', 'Критерий 1'),
-                jsonb_build_object('question_id', 2, 'text', 'Критерий 2'),
-                jsonb_build_object('question_id', 3, 'text', 'Критерий 3')
-            )
-        ),
         NOW(),
         NOW() - interval '1 day',
         NOW() + interval '30 days'
     )
     RETURNING id_survey, date_create
 ),
+insert_questions AS (
+    INSERT INTO public.survey_questions (id_survey, question_order, question_text)
+    SELECT
+        ns.id_survey,
+        question_data.question_order,
+        question_data.question_text
+    FROM new_survey ns
+    CROSS JOIN (
+        VALUES
+            (1, 'Критерий 1'),
+            (2, 'Критерий 2'),
+            (3, 'Критерий 3')
+    ) AS question_data(question_order, question_text)
+),
 link_mku AS (
     INSERT INTO public.omsu_surveys (id_omsu, id_survey)
     SELECT
         (SELECT id_omsu FROM mku_org),
         (SELECT id_survey FROM new_survey)
+),
+new_answer AS (
+    INSERT INTO public.history_answer (
+        id_omsu,
+        id_survey,
+        csp,
+        completion_date,
+        create_date_survey
+    )
+    SELECT
+        (SELECT id_omsu FROM mku_org),
+        ns.id_survey,
+        NULL,
+        NOW(),
+        ns.date_create
+    FROM new_survey ns
+    RETURNING id_answer
 )
-INSERT INTO public.history_answer (
-    id_omsu,
-    id_survey,
-    csp,
-    completion_date,
-    create_date_survey,
-    answers
+INSERT INTO public.history_answer_items (
+    id_answer,
+    question_order,
+    question_text,
+    rating,
+    comment
 )
 SELECT
-    (SELECT id_omsu FROM mku_org),
-    ns.id_survey,
-    NULL,
-    NOW(),
-    ns.date_create,
-    jsonb_build_array(
-        jsonb_build_object(
-            'question_id', 1,
-            'question_text', 'Критерий 1',
-            'rating', 4,
-            'comment', '1'
-        ),
-        jsonb_build_object(
-            'question_id', 2,
-            'question_text', 'Критерий 2',
-            'rating', 4,
-            'comment', '2'
-        ),
-        jsonb_build_object(
-            'question_id', 3,
-            'question_text', 'Критерий 3',
-            'rating', 4,
-            'comment', '3'
-        )
-    )
-FROM new_survey ns;
+    na.id_answer,
+    answer_data.question_order,
+    answer_data.question_text,
+    4,
+    answer_data.comment
+FROM new_answer na
+CROSS JOIN (
+    VALUES
+        (1, 'Критерий 1', '1'),
+        (2, 'Критерий 2', '2'),
+        (3, 'Критерий 3', '3')
+) AS answer_data(question_order, question_text, comment);
 
 COMMIT;

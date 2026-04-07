@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using main_project.Models;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
+using main_project.Services.Surveys;
 
 namespace main_project.Services
 {
@@ -80,10 +81,9 @@ namespace main_project.Services
             {
                 connection.Open();
 
-                var query = @"SELECT id_survey, name_survey, description, questions, 
-                            date_create, date_open, date_close 
-                            FROM surveys 
-                            WHERE date_close < @CurrentDate";
+                var query = @"SELECT id_survey, name_survey, description, date_create, date_open, date_close
+                              FROM surveys 
+                              WHERE date_close < @CurrentDate";
 
                 using (var command = new NpgsqlCommand(query, connection))
                 {
@@ -98,10 +98,9 @@ namespace main_project.Services
                                 id_survey = reader.GetInt32(0),
                                 name_survey = reader.GetString(1),
                                 description = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                questions = reader.IsDBNull(3) ? null : reader.GetString(3),
-                                date_create = reader.GetDateTime(4),
-                                date_open = reader.GetDateTime(5),
-                                date_close = reader.GetDateTime(6)
+                                date_create = reader.GetDateTime(3),
+                                date_open = reader.GetDateTime(4),
+                                date_close = reader.GetDateTime(5)
                             });
                         }
                     }
@@ -123,9 +122,9 @@ namespace main_project.Services
                         // Перенос в архив
                         var insertQuery = @"
                             INSERT INTO history_surveys 
-                                (date_begin, date_end, id_survey, file_questions, name_survey, description)
+                                (date_begin, date_end, id_survey, name_survey, description)
                             VALUES 
-                                (@DateBegin, @DateEnd, @IdSurvey, @FileQuestions, @NameSurvey, @Description)";
+                                (@DateBegin, @DateEnd, @IdSurvey, @NameSurvey, @Description)";
 
                         using (var command = new NpgsqlCommand(insertQuery, connection, transaction))
                         {
@@ -134,17 +133,32 @@ namespace main_project.Services
                             command.Parameters.AddWithValue("@IdSurvey", survey.id_survey);
                             command.Parameters.AddWithValue("@NameSurvey", survey.name_survey);
                             command.Parameters.AddWithValue("@Description", survey.description ?? (object)DBNull.Value);
-                            
-                            var fileQuestionsParam = new NpgsqlParameter("@FileQuestions", NpgsqlTypes.NpgsqlDbType.Jsonb)
-                            {
-                                Value = string.IsNullOrEmpty(survey.questions) ? (object)DBNull.Value : survey.questions
-                            };
-                            command.Parameters.Add(fileQuestionsParam);
-                            
+
                             command.ExecuteNonQuery();
                         }
 
+                        var questionRows = LoadSurveyQuestionRows(connection, transaction, survey.id_survey);
+                        foreach (var question in questionRows)
+                        {
+                            using var questionCommand = new NpgsqlCommand(
+                                @"INSERT INTO public.history_survey_questions (id_survey, question_order, question_text)
+                                  VALUES (@IdSurvey, @QuestionOrder, @QuestionText)",
+                                connection,
+                                transaction);
+
+                            questionCommand.Parameters.AddWithValue("@IdSurvey", survey.id_survey);
+                            questionCommand.Parameters.AddWithValue("@QuestionOrder", question.QuestionOrder);
+                            questionCommand.Parameters.AddWithValue("@QuestionText", question.QuestionText);
+                            questionCommand.ExecuteNonQuery();
+                        }
+
                         // Удаление из основной таблицы
+                        using (var command = new NpgsqlCommand("DELETE FROM public.survey_questions WHERE id_survey = @Id", connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@Id", survey.id_survey);
+                            command.ExecuteNonQuery();
+                        }
+
                         var deleteQuery = "DELETE FROM surveys WHERE id_survey = @Id";
                         using (var command = new NpgsqlCommand(deleteQuery, connection, transaction))
                         {
@@ -351,6 +365,35 @@ namespace main_project.Services
         public void Dispose()
         {
             _timer?.Dispose();
+        }
+
+        private static List<SurveyQuestionRow> LoadSurveyQuestionRows(
+            NpgsqlConnection connection,
+            NpgsqlTransaction transaction,
+            int surveyId)
+        {
+            var rows = new List<SurveyQuestionRow>();
+            using var command = new NpgsqlCommand(
+                @"SELECT question_order, question_text
+                  FROM public.survey_questions
+                  WHERE id_survey = @surveyId
+                  ORDER BY question_order",
+                connection,
+                transaction);
+
+            command.Parameters.AddWithValue("@surveyId", surveyId);
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                rows.Add(new SurveyQuestionRow
+                {
+                    QuestionOrder = reader.GetInt32(0),
+                    QuestionText = reader.GetString(1)
+                });
+            }
+
+            return rows;
         }
     }
 }

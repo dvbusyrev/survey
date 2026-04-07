@@ -1,5 +1,5 @@
 ﻿window.Navigation = ({ openVkladka, activeTab, userRole, userId }) => {
-    const isAdmin = userRole === 'Админ';
+    const isAdmin = userRole === 'admin';
     const [openSubmenu, setOpenSubmenu] = React.useState(null);
     const listSubmenuIcon = 'fa-list-ul';
     const addSubmenuIcon = 'fa-plus';

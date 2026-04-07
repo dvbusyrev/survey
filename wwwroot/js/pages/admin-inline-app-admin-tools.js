@@ -982,7 +982,7 @@ async function send_email() {
 // СКРИПТ ДЛЯ ЗАГРУЗКИ ИНСТРУКЦИИ
 
 function loadFileAdmin() {
-  loadAndUploadFile('administrator');
+  loadAndUploadFile('admin');
 }
 
 function loadFileUser() {
@@ -991,7 +991,7 @@ function loadFileUser() {
 
  function handleSelectChange(select) {
     const value = select.value;
-    if (value === 'administrator') {
+    if (value === 'admin') {
       loadFileAdmin();
     } else if (value === 'user') {
       loadFileUser();
@@ -1212,14 +1212,9 @@ function filterTable() {
 
 
 
-function copy_archive_survey(name_survey, description, date_begin, date_end, file_questions) {
-
+function copy_archive_survey(surveyId) {
 const data = {
-  name_survey,
-  description,
-  date_open: date_begin,
-  date_close: date_end,
-  questions: file_questions,
+  survey_id: surveyId,
 };
 
   fetch('/copy_archive_survey', {

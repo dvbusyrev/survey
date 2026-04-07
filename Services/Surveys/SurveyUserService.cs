@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Dapper;
 using main_project.Infrastructure.Database;
 using main_project.Models;
@@ -53,8 +52,7 @@ public sealed class SurveyUserService
                     s.name_survey,
                     s.description,
                     s.date_open::timestamp AS date_open,
-                    s.date_close::timestamp AS date_close,
-                    s.questions::text AS questions
+                    s.date_close::timestamp AS date_close
                 FROM public.surveys s
                 INNER JOIN public.omsu_surveys os
                     ON os.id_survey = s.id_survey
@@ -73,8 +71,7 @@ public sealed class SurveyUserService
                     hs.name_survey,
                     hs.description,
                     hs.date_begin::timestamp AS date_open,
-                    COALESCE(ae.new_end_date::timestamp, hs.date_end::timestamp) AS date_close,
-                    hs.file_questions::text AS questions
+                    COALESCE(ae.new_end_date::timestamp, hs.date_end::timestamp) AS date_close
                 FROM public.history_surveys hs
                 INNER JOIN public.access_extensions ae
                     ON hs.id_survey = ae.id_survey
@@ -93,8 +90,7 @@ public sealed class SurveyUserService
                     name_survey,
                     description,
                     date_open,
-                    date_close,
-                    questions
+                    date_close
                {baseSql}
                ORDER BY id_survey DESC
                OFFSET @offset
@@ -125,52 +121,37 @@ public sealed class SurveyUserService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var questionsJson = connection.ExecuteScalar<string?>(
-            "SELECT questions FROM public.surveys WHERE id_survey = @surveyId",
+        var rows = connection.Query<SurveyQuestionRow>(
+            @"SELECT question_order AS QuestionOrder, question_text AS QuestionText
+              FROM public.survey_questions
+              WHERE id_survey = @surveyId
+              ORDER BY question_order",
             new { surveyId });
 
-        if (string.IsNullOrWhiteSpace(questionsJson))
+        if (rows.Any())
         {
-            questionsJson = connection.ExecuteScalar<string?>(
-                "SELECT file_questions FROM public.history_surveys WHERE id_survey = @surveyId",
-                new { surveyId });
+            return rows
+                .Select(q => new SurveyQuestionItem
+                {
+                    Id = q.QuestionOrder,
+                    Text = q.QuestionText
+                })
+                .ToList();
         }
 
-        return ParseQuestions(questionsJson);
-    }
-
-    private static IReadOnlyList<SurveyQuestionItem> ParseQuestions(string? questionsJson)
-    {
-        if (string.IsNullOrWhiteSpace(questionsJson))
-        {
-            return Array.Empty<SurveyQuestionItem>();
-        }
-
-        var questions = new List<SurveyQuestionItem>();
-
-        using var document = JsonDocument.Parse(questionsJson);
-        if (!document.RootElement.TryGetProperty("questions", out var questionArray))
-        {
-            return questions;
-        }
-
-        foreach (var question in questionArray.EnumerateArray())
-        {
-            var id = question.TryGetProperty("question_id", out var idProperty)
-                ? idProperty.GetInt32()
-                : 0;
-
-            var text = question.TryGetProperty("text", out var textProperty)
-                ? textProperty.GetString()
-                : string.Empty;
-
-            questions.Add(new SurveyQuestionItem
+        return connection.Query<SurveyQuestionItem>(
+            @"SELECT
+                  question_order AS Id,
+                  question_text AS Text
+              FROM public.history_survey_questions
+              WHERE id_survey = @surveyId
+              ORDER BY question_order",
+            new { surveyId })
+            .Select(q => new SurveyQuestionItem
             {
-                Id = id,
-                Text = text ?? string.Empty
-            });
-        }
-
-        return questions;
+                Id = q.Id,
+                Text = q.Text
+            })
+            .ToList();
     }
 }
