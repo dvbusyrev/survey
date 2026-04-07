@@ -66,6 +66,7 @@ window.renderSurveyUserList({
     initialSurveys: @Html.Raw(Json.Serialize(accessibleSurveys)),
     initialPage: @currentPage,
     initialTotalPages: @totalPages,
+    initialTotalCount: @Model.TotalCount,
     initialSearchTerm: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(searchTerm)),
     displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName))
 });

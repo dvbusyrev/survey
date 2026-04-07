@@ -235,10 +235,6 @@ body {
 }
 
 @media (max-width: 640px) {
-  :root {
-    --header-height: 84px;
-  }
-
   .content,
   #content_admin,
   #content_user {
@@ -248,11 +244,5 @@ body {
   .access-denied {
     margin: 100px 12px 24px;
     padding: 1.5rem;
-  }
-}
-
-@media (max-height: 820px) {
-  :root {
-    --header-height: 56px;
   }
 }

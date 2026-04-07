@@ -44,17 +44,18 @@ header img {
 }
 
 header h1 {
-  position: absolute;
-  left: 50%;
-  max-width: calc(100% - 250px);
+  position: static;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
   margin: 0;
+  padding: 0 8px;
   color: white;
   font-size: clamp(0.95rem, 0.72rem + 0.75vw, 1.3rem);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transform: translateX(-50%);
 }
 
 .header-right {
@@ -422,37 +423,9 @@ nav ul li.submenu-open > .submenu-list {
 }
 
 @media (max-width: 900px) {
-  header {
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    min-height: auto;
-    padding: 6px 12px;
-  }
-
-  .header-right {
-    grid-column: 1 / -1;
-    width: 100%;
-    justify-content: space-between;
-    min-width: 0;
-  }
-
-  #role {
-    max-width: none;
-    text-align: left;
-    white-space: normal;
-  }
-
   nav {
     position: static;
     max-height: none;
-  }
-
-  header h1 {
-    position: static;
-    left: auto;
-    max-width: none;
-    transform: none;
-    font-size: 1.05rem;
   }
 
   .submenu-list {
@@ -480,27 +453,6 @@ nav ul li.submenu-open > .submenu-list {
 }
 
 @media (max-width: 640px) {
-  header {
-    gap: 6px;
-    padding: 6px 10px;
-  }
-
-  header h1 {
-    grid-column: 1 / -1;
-    width: 100%;
-    font-size: 0.95rem;
-  }
-
-  .header-right {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .logout-button {
-    width: auto;
-    min-height: 28px;
-    padding: 0.4rem 0.75rem;
-  }
 }
 
 @media (max-height: 820px) {

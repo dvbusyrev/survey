@@ -4,6 +4,7 @@ using main_project.Infrastructure.Database;
 using main_project.Services;
 using main_project.Services.Answers;
 using main_project.Services.Surveys;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,33 @@ builder.Services
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnRedirectToLogin = async context =>
+            {
+                if (IsApiRequest(context.Request))
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Требуется авторизация. Выполните вход снова." }));
+                    return;
+                }
+
+                context.Response.Redirect("/display_auth");
+            },
+            OnRedirectToAccessDenied = async context =>
+            {
+                if (IsApiRequest(context.Request))
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "application/json; charset=utf-8";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Доступ запрещён." }));
+                    return;
+                }
+
+                context.Response.Redirect("/display_auth");
+            }
+        };
     });
 
 builder.Services.AddHostedService<SurveyExpirationService>(); // Регистрируем фоновую службу
@@ -93,6 +121,35 @@ app.UseRouting();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseStatusCodePages(async statusCodeContext =>
+{
+    var response = statusCodeContext.HttpContext.Response;
+    if (response.HasStarted)
+    {
+        return;
+    }
+
+    var message = response.StatusCode switch
+    {
+        StatusCodes.Status401Unauthorized => "Требуется авторизация. Выполните вход снова.",
+        StatusCodes.Status403Forbidden => "Доступ запрещён.",
+        StatusCodes.Status404NotFound => "Страница не найдена.",
+        StatusCodes.Status500InternalServerError => "Произошла внутренняя ошибка сервера.",
+        _ => "Произошла ошибка при обработке запроса."
+    };
+
+    response.ContentType = IsApiRequest(statusCodeContext.HttpContext.Request)
+        ? "application/json; charset=utf-8"
+        : "text/plain; charset=utf-8";
+
+    if (response.ContentType.StartsWith("application/json", StringComparison.Ordinal))
+    {
+        await response.WriteAsync(JsonSerializer.Serialize(new { error = message }));
+        return;
+    }
+
+    await response.WriteAsync(message);
+});
 
 // НИЖЕ ПРЕДСТАВЛЕН СПИСОК МАРШРУТОВ(РОУТОВ) ДЛЯ МЕТОДОВ КОНТРОЛЛЕРОВ
 app.MapControllerRoute(
@@ -594,3 +651,24 @@ app.MapControllerRoute(
 
 
 app.Run();
+
+static bool IsApiRequest(HttpRequest request)
+{
+    if (request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    if (request.Headers.TryGetValue("X-Requested-With", out var requestedWith) &&
+        string.Equals(requestedWith.ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    if (request.Headers.Accept.Any(value => value.Contains("application/json", StringComparison.OrdinalIgnoreCase)))
+    {
+        return true;
+    }
+
+    return false;
+}

@@ -180,7 +180,6 @@ const SurveyContent = ({
                     onClick={() => handleTabChange('archived')}
                 >
                     Архив анкет
-                    <span className="count-badge">{archivedCount}</span>
                 </div>
             </div>
 
@@ -411,7 +410,9 @@ window.renderSurveyUserList = function(initialData) {
             const [surveys, setSurveys] = React.useState(initialData.initialSurveys || []);
             const [currentPage, setCurrentPage] = React.useState(initialData.initialPage);
             const [totalPages, setTotalPages] = React.useState(initialData.initialTotalPages);
-            const [activeCount, setActiveCount] = React.useState(0);
+            const [activeCount, setActiveCount] = React.useState(
+                initialData.initialTotalCount || initialData.initialSurveys?.length || 0
+            );
             const [archivedCount, setArchivedCount] = React.useState(0);
             const [helpContent, setHelpContent] = React.useState('');
             const [dateFilter, setDateFilter] = React.useState('');
