@@ -546,7 +546,7 @@ async function checkLicense() {
 window.HelpContent = ({ content, loading, error }) => {
   // Немедленно открываем документ при рендеринге
   const openDoc = () => {
-    window.open('/help_files/instruction_for_user_anketirovanie.docx', '_blank');
+    window.open('/help_files/user_survey_guide.docx', '_blank');
     return null; // Не возвращаем JSX, так как сразу открываем файл
   };
 

@@ -1,4 +1,4 @@
-// stage12: standalone survey fill page extracted from zapolnenie_anketi.cshtml
+// stage12: standalone survey fill page extracted from get_survey_questions.cshtml
 const SurveyFillPage = ({ initialData }) => {
             const [answers, setAnswers] = React.useState({});
             const [loading, setLoading] = React.useState(false);

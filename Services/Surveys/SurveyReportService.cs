@@ -1,13 +1,13 @@
-using System.Data;
+﻿using System.Data;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Dapper;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
-using main_project.Infrastructure.Database;
-using main_project.Models;
-using main_project.Services.Answers;
+using MainProject.Infrastructure.Database;
+using MainProject.Models;
+using MainProject.Services.Answers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -27,7 +27,7 @@ using Text = DocumentFormat.OpenXml.Wordprocessing.Text;
 using RunProperties = DocumentFormat.OpenXml.Wordprocessing.RunProperties;
 using ParagraphProperties = DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties;
 
-namespace main_project.Services.Surveys;
+namespace MainProject.Services.Surveys;
 
 public sealed class SurveyReportService
 {
@@ -68,7 +68,7 @@ public sealed class SurveyReportService
             var surveyAnswers = LoadSurveyAnswers(connection, surveyId, organizationId == 0 ? null : organizationId);
             foreach (var answer in surveyAnswers)
             {
-                organizations.Add(answer.organization_name ?? string.Empty);
+                organizations.Add(answer.OrganizationName ?? string.Empty);
                 ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
                 comments.Add(answer.Answers.Select(item => item.Comment ?? string.Empty).ToList());
             }
@@ -358,7 +358,7 @@ public sealed class SurveyReportService
                     var surveyAnswers = LoadSurveyAnswers(connection, surveyId);
                     foreach (var answer in surveyAnswers)
                     {
-                        organizations.Add(answer.organization_name ?? string.Empty);
+                        organizations.Add(answer.OrganizationName ?? string.Empty);
                         ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
                     }
 
@@ -520,13 +520,13 @@ public sealed class SurveyReportService
         using var workbook = new XLWorkbook();
         foreach (var survey in surveys)
         {
-            var surveyAnswers = answers.Where(a => a.id_survey == survey.id_survey).ToList();
+            var surveyAnswers = answers.Where(a => a.IdSurvey == survey.IdSurvey).ToList();
             if (surveyAnswers.Count == 0)
             {
                 continue;
             }
 
-            string sheetName = new string((survey.name_survey ?? "Опрос")
+            string sheetName = new string((survey.NameSurvey ?? "Опрос")
                 .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) || c == '-' || c == '_')
                 .Take(31)
                 .ToArray());
@@ -560,8 +560,8 @@ public sealed class SurveyReportService
                 currentRow++;
 
                 var monthAnswers = surveyAnswers
-                    .Where(a => a.create_date_survey?.Month == month.Number && a.create_date_survey?.Year == year)
-                    .GroupBy(a => a.organization_name)
+                    .Where(a => a.CreateDateSurvey?.Month == month.Number && a.CreateDateSurvey?.Year == year)
+                    .GroupBy(a => a.OrganizationName)
                     .OrderBy(g => g.Key);
 
                 foreach (var orgGroup in monthAnswers)
@@ -569,7 +569,7 @@ public sealed class SurveyReportService
                     worksheet.Cell(currentRow, 1).Value = orgGroup.Key;
                     worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-                    var answersData = orgGroup.First().Answers ?? new List<main_project.Services.Answers.AnswerPayloadItem>();
+                    var answersData = orgGroup.First().Answers ?? new List<MainProject.Services.Answers.AnswerPayloadItem>();
 
                     var orgRatings = new List<double>();
                     for (int i = 0; i < questions.Count; i++)
@@ -648,7 +648,7 @@ public sealed class SurveyReportService
         }
 
         string safeQuarterName = string.Join("_", quarterName.Split(Path.GetInvalidFileNameChars()));
-        string fileName = $"Otchet_za_{safeQuarterName}_kvartal_{year}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        string fileName = $"quarterly_report_{safeQuarterName}_{year}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
 
         Directory.CreateDirectory(_downloadsPath);
         string filePath = Path.Combine(_downloadsPath, fileName);
@@ -784,7 +784,7 @@ public sealed class SurveyReportService
             return;
         }
 
-        var surveyIds = surveyList.Select(s => s.id_survey).Distinct().ToArray();
+        var surveyIds = surveyList.Select(s => s.IdSurvey).Distinct().ToArray();
 
         var activeRows = connection.Query<SurveyQuestionLookupRow>(
             @"SELECT
@@ -811,7 +811,7 @@ public sealed class SurveyReportService
 
         foreach (var survey in surveyList)
         {
-            survey.Questions = questionLookup.GetValueOrDefault(survey.id_survey, new List<SurveyQuestionItem>());
+            survey.Questions = questionLookup.GetValueOrDefault(survey.IdSurvey, new List<SurveyQuestionItem>());
         }
     }
 
@@ -825,7 +825,7 @@ public sealed class SurveyReportService
             return;
         }
 
-        var answerIds = answerList.Select(a => a.id_answer).Distinct().ToArray();
+        var answerIds = answerList.Select(a => a.IdAnswer).Distinct().ToArray();
         var rows = connection.Query<HistoryAnswerItemLookupRow>(
             @"SELECT
                   id_answer AS AnswerId,
@@ -854,7 +854,7 @@ public sealed class SurveyReportService
 
         foreach (var answer in answerList)
         {
-            answer.Answers = answerLookup.GetValueOrDefault(answer.id_answer, new List<AnswerPayloadItem>());
+            answer.Answers = answerLookup.GetValueOrDefault(answer.IdAnswer, new List<AnswerPayloadItem>());
         }
     }
 

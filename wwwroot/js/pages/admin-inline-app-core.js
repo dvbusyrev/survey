@@ -85,13 +85,13 @@ const ExtensionModal = ({ survey, onClose }) => {
     const [organizations, setOrganizations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [extensions, setExtensions] = useState([{ organization_id: '', date_close: '' }]);
+    const [extensions, setExtensions] = useState([{ organizationId: '', extendedUntil: '' }]);
     
     const today = new Date().toISOString().split('T')[0];
 
     const isFormValid = () => {
-        return extensions.every(ext => ext.organization_id && ext.date_close) && 
-               extensions.some(ext => ext.date_close > today);
+        return extensions.every(ext => ext.organizationId && ext.extendedUntil) && 
+               extensions.some(ext => ext.extendedUntil > today);
     };
 
     useEffect(() => {
@@ -108,7 +108,7 @@ const ExtensionModal = ({ survey, onClose }) => {
                     ? data
                         .filter(org => org && (org.organization_id !== undefined || org.id !== undefined))
                         .map(org => ({
-                            organization_id: String(org.organization_id ?? org.id),
+                            organizationId: String(org.organization_id ?? org.id),
                             organization_name: String(org.organization_name ?? org.name)
                         }))
                     : [];
@@ -127,7 +127,7 @@ const ExtensionModal = ({ survey, onClose }) => {
     }, []);
 
     const isOrganizationSelected = (orgId, currentIndex) => {
-        return extensions.some((ext, idx) => idx !== currentIndex && ext.organization_id === orgId);
+        return extensions.some((ext, idx) => idx !== currentIndex && ext.organizationId === orgId);
     };
 
     const handleChange = (index, field, value) => {
@@ -137,7 +137,7 @@ const ExtensionModal = ({ survey, onClose }) => {
     };
 
     const addExtension = () => {
-        setExtensions([...extensions, { organization_id: '', date_close: '' }]);
+        setExtensions([...extensions, { organizationId: '', extendedUntil: '' }]);
     };
 
     const removeExtension = (index) => {
@@ -147,27 +147,27 @@ const ExtensionModal = ({ survey, onClose }) => {
     };
 
  const handleSubmit = async () => {
-    if (extensions.some(ext => !ext.organization_id || !ext.date_close)) {
+    if (extensions.some(ext => !ext.organizationId || !ext.extendedUntil)) {
         alert('Пожалуйста, заполните все поля');
         return;
     }
 
-    if (extensions.some(ext => ext.date_close <= today)) {
+    if (extensions.some(ext => ext.extendedUntil <= today)) {
         alert('Дата окончания должна быть в будущем');
         return;
     }
 
     try {
         const requestData = {
-            survey_id: survey.id_survey,
+            surveyId: survey.id_survey,
             extensions: extensions.map(ext => ({
-                organization_id: parseInt(ext.organization_id),
-                new_end_date: ext.date_close
+                organizationId: parseInt(ext.organizationId),
+                extendedUntil: ext.extendedUntil
             }))
         };
 
 
-        const response = await fetch('/prodlenie_organizations', {
+        const response = await fetch('/survey-extensions', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -218,17 +218,17 @@ const ExtensionModal = ({ survey, onClose }) => {
                                 <div style={{ flex: 1 }}>
                                     <label>ОМСУ:</label>
                                     <select
-                                        value={ext.organization_id}
-                                        onChange={(e) => handleChange(index, 'organization_id', e.target.value)}
+                                        value={ext.organizationId}
+                                        onChange={(e) => handleChange(index, 'organizationId', e.target.value)}
                                         style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
                                         required
                                     >
                                         <option value="">-- Выберите ОМСУ --</option>
                                         {organizations.map((org) => {
-                                            const alreadySelected = isOrganizationSelected(org.organization_id, index);
+                                            const alreadySelected = isOrganizationSelected(org.organizationId, index);
                                             return React.createElement('option', {
-                                                key: org.organization_id,
-                                                value: org.organization_id,
+                                                key: org.organizationId,
+                                                value: org.organizationId,
                                                 disabled: alreadySelected
                                             }, `${org.organization_name}${alreadySelected ? ' (уже выбрана)' : ''}`);
                                         })}
@@ -239,8 +239,8 @@ const ExtensionModal = ({ survey, onClose }) => {
                                     <label>Дата окончания:</label>
                                     <input
                                         type="date"
-                                        value={ext.date_close}
-                                        onChange={(e) => handleChange(index, 'date_close', e.target.value)}
+                                        value={ext.extendedUntil}
+                                        onChange={(e) => handleChange(index, 'extendedUntil', e.target.value)}
                                         style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
                                         min={today}
                                         required
@@ -352,7 +352,7 @@ const ExtensionModal = ({ survey, onClose }) => {
         ))}
     </select>
     
-    <button onClick={() => openVkladka('add_survey')}>
+    <button onClick={() => openTab('add_survey')}>
         Добавить
     </button>
     
@@ -383,8 +383,8 @@ const ExtensionModal = ({ survey, onClose }) => {
                         Ответы
                     </div>
                     <div 
-                        className={`menu-tab ${activeTab === 'archiv_surveys' ? 'active-tab' : ''}`}
-                        onClick={() => handleTabClick('archiv_surveys')}>
+                        className={`menu-tab ${activeTab === 'archived_surveys' ? 'active-tab' : ''}`}
+                        onClick={() => handleTabClick('archived_surveys')}>
                         Архив
                     </div>
                 </div>
@@ -392,7 +392,7 @@ const ExtensionModal = ({ survey, onClose }) => {
         );
 
             const handleTabClick = (tab) => {
-            openVkladka(tab);
+            openTab(tab);
         };
 
       const filterSurveys = (surveys) => {
@@ -433,7 +433,7 @@ const ExtensionModal = ({ survey, onClose }) => {
 
 
                     <div className="filter-sort">
-                                            <button id="add_survey_btn" onClick={() => openVkladka('add_survey')}>
+                                            <button id="add_survey_btn" onClick={() => openTab('add_survey')}>
                             Добавить анкету
                         </button>
 <input 
@@ -522,7 +522,7 @@ const ExtensionModal = ({ survey, onClose }) => {
                                             <span className="icon-tooltip">Сформировать отчёт</span>
                                         </div>
                                         <div className="icon-container" onClick={() => {
-                                            openVkladka('get_list_csp', survey.id_survey);
+                                            openTab('get_survey_signatures', survey.id_survey);
                                         }}>
                                             <span><i className="fas fa-check"></i></span>
                                             <span className="icon-tooltip">Проверить подпись</span>
@@ -859,7 +859,7 @@ const radarChartRef = useRef(null);
 
  window.onpopstate = function() {
     console.log("вызов на" + last_page)
-       openVkladka(last_page);
+       openTab(last_page);
        console.log(newPage);
        console.log(last_page);
        last_page = newPage;
@@ -883,7 +883,7 @@ const radarChartRef = useRef(null);
         }
     };
 
-    const openVkladka = async (tab, id = null) => {
+    const openTab = async (tab, id = null) => {
         const tabAlreadyOpen = !id && activeTab === tab;
         if (tabAlreadyOpen) return;
 
@@ -894,7 +894,7 @@ const radarChartRef = useRef(null);
         }
 
         try {
-                if (tab === 'open_statistic') // вкладка статистики
+                if (tab === 'open_statistics') // вкладка статистики
                 {
                     setContent(
                         <>
@@ -902,7 +902,7 @@ const radarChartRef = useRef(null);
                         </>
                     );
 
-                    newPage = "open_statistic";
+                    newPage = "open_statistics";
                     return;
                 }
   
@@ -927,14 +927,14 @@ const radarChartRef = useRef(null);
                     return;
                 }
 
-                if (tab === 'archiv_surveys') // вкладка архива анкет
+                if (tab === 'archived_surveys') // вкладка архива анкет
                 {
                     const response = await fetch('/surveys/archive');
                     const html = extractRenderableHtml(await response.text());
                     setContent(
                         renderContentWrapper(<div dangerouslySetInnerHTML={{ __html: html }} />)
                     );
-                    newPage = "archiv_surveys";
+                    newPage = "archived_surveys";
                     return;
                 }
 
@@ -947,12 +947,12 @@ const radarChartRef = useRef(null);
             };
             
             switch(tab) {
-case 'get_list_csp': 
+case 'get_survey_signatures': 
                 if (!id) {
                     console.error('Не передан ID анкеты для проверки подписей');
                     throw new Error('ID анкеты не указан');
                 }
-                newPage = "get_list_csp";
+                newPage = "get_survey_signatures";
                 endpoint = `/surveys/${id}/signatures`;
                 break;
                 case 'add_survey': endpoint = '/surveys/create'; newPage = "add_survey"; break;
@@ -993,24 +993,24 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     break;
                                case 'help':
                                 newPage = "help";
-                        window.open('/help_files/instruction_for_admin_anketirovanie.docx', '_blank');
+                        window.open('/help_files/admin_survey_guide.docx', '_blank');
                         endpoint = `/help`;
                         break;
 
 
-                case 'otchet_month': create_otchetAll_month();
+                case 'monthly_summary_report': create_monthly_summary_report();
                 endpoint = '/reports'; break;
-                case 'otchet-1kv': create_otchetAll_kvartal(1);
+                case 'quarterly_report_q1': createQuarterlyReport(1);
                 endpoint = '/reports'; break;
-                case 'otchet-2kv': create_otchetAll_kvartal(2);
+                case 'quarterly_report_q2': createQuarterlyReport(2);
                 endpoint = '/reports'; break;
-                case 'otchet-3kv': create_otchetAll_kvartal(3);
+                case 'quarterly_report_q3': createQuarterlyReport(3);
                 endpoint = '/reports'; break;
-                case 'otchet-4kv': create_otchetAll_kvartal(4);
+                case 'quarterly_report_q4': createQuarterlyReport(4);
                 endpoint = '/reports'; break;
                 
 
-                case 'otchets': endpoint = '/reports'; newPage = "otchets"; break;
+                case 'reports': endpoint = '/reports'; newPage = "reports"; break;
                 case 'email': endpoint = '/mail-settings'; newPage = "update_email"; break;
 
                 default: 
@@ -1050,7 +1050,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     isSuccess: response.ok,
                     data: null
                 });
-                openVkladka('get_surveys');
+                openTab('get_surveys');
                 return;
             }
 
@@ -1076,12 +1076,12 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
 
                 const handleCopySurvey = async () => {
                     setModal({ isOpen: false });
-                    await openVkladka('copy_survey');
+                    await openTab('copy_survey');
                 };
 
                 const handleUpdateSurvey = async () => {
                     setModal({ isOpen: false });
-                    await openVkladka('update_survey');
+                    await openTab('update_survey');
                 };
 
     const handleDeleteSurvey = async () => {
@@ -1147,18 +1147,18 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
             <div className="submenu2-container" style={{ flex: 1 }}>
                 <button style={{ width: '100%' }}>Отчёт за месяц</button>
                 <div className="submenu2">
-                    <div onClick={() => create_otchet_month(modal.data?.id_survey)}>По выбранной анкете</div>
-                    <div onClick={() => create_otchetAll_month()}>По всем анкетам</div>
+                    <div onClick={() => create_monthly_report(modal.data?.id_survey)}>По выбранной анкете</div>
+                    <div onClick={() => create_monthly_summary_report()}>По всем анкетам</div>
                 </div>
             </div>
             
             <div className="submenu2-container" style={{ flex: 1 }}>
                 <button style={{ width: '100%' }}>Отчёт за квартал</button>
                 <div className="submenu2">
-                    <div onClick={() => create_otchetAll_kvartal(1)}>1 квартал</div>
-                    <div onClick={() => create_otchetAll_kvartal(2)}>2 квартал</div>
-                    <div onClick={() => create_otchetAll_kvartal(3)}>3 квартал</div>
-                    <div onClick={() => create_otchetAll_kvartal(4)}>4 квартал</div>
+                    <div onClick={() => createQuarterlyReport(1)}>1 квартал</div>
+                    <div onClick={() => createQuarterlyReport(2)}>2 квартал</div>
+                    <div onClick={() => createQuarterlyReport(3)}>3 квартал</div>
+                    <div onClick={() => createQuarterlyReport(4)}>4 квартал</div>
                 </div>
             </div>
         </div>
@@ -1232,7 +1232,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 };
 
                 useEffect(() => {
-                    openVkladka('get_surveys');
+                    openTab('get_surveys');
                 }, []);
 
                 useEffect(() => {
@@ -1264,7 +1264,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 />
                 <div className="admin-container">
                     <Navigation 
-                        openVkladka={openVkladka} 
+                        openTab={openTab} 
                         activeTab={activeTab}
                         userRole={initialData.userRole}
                         userId={initialData.userId}
@@ -1276,7 +1276,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                             </div>
                         ) : (
                             <>
-                                {['get_surveys', 'list_answers_users', 'archiv_surveys'].includes(activeTab) && renderMenuAndFilters()}
+                                {['get_surveys', 'list_answers_users', 'archived_surveys'].includes(activeTab) && renderMenuAndFilters()}
                                 {content}
                             </>
                         )}

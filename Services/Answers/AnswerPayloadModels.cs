@@ -1,7 +1,7 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System.Text.Json.Serialization;
 
-namespace main_project.Services.Answers;
+namespace MainProject.Services.Answers;
 
 public sealed class AnswerPayloadItem
 {

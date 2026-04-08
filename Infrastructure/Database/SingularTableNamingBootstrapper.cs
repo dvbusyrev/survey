@@ -1,6 +1,6 @@
-using Npgsql;
+﻿using Npgsql;
 
-namespace main_project.Infrastructure.Database;
+namespace MainProject.Infrastructure.Database;
 
 public static class SingularTableNamingBootstrapper
 {
@@ -19,7 +19,6 @@ public static class SingularTableNamingBootstrapper
         ("public.history_answer_items", "public.answer_item"),
         ("public.history_answer_item", "public.answer_item"),
         ("public.access_extensions", "public.access_extension"),
-        ("public.logs", "public.log"),
         ("public.omsu_l", "public.organization_l"),
         ("public.organizations_l", "public.organization_l"),
         ("public.omsu_surveys_l", "public.organization_survey_l"),
@@ -107,13 +106,6 @@ public static class SingularTableNamingBootstrapper
         ("public.access_extension", "access_extensions_id_omsu_not_null", "access_extension_organization_id_not_null"),
         ("public.access_extension", "access_extensions_id_survey_not_null", "access_extension_id_survey_not_null"),
         ("public.access_extension", "access_extensions_new_end_date_not_null", "access_extension_new_end_date_not_null"),
-        ("public.log", "logs_pkey", "log_pkey"),
-        ("public.log", "logs_date_not_null", "log_date_not_null"),
-        ("public.log", "logs_description_not_null", "log_description_not_null"),
-        ("public.log", "logs_event_type_not_null", "log_event_type_not_null"),
-        ("public.log", "logs_id_log_not_null", "log_id_log_not_null"),
-        ("public.log", "logs_id_user_not_null", "log_id_user_not_null"),
-        ("public.log", "logs_target_type_not_null", "log_target_type_not_null"),
         ("public.organization_l", "omsu_l_pkey", "organization_l_pkey"),
         ("public.organization_l", "organizations_l_pkey", "organization_l_pkey"),
         ("public.organization_l", "omsu_l_changed_at_not_null", "organization_l_changed_at_not_null"),
@@ -167,8 +159,6 @@ public static class SingularTableNamingBootstrapper
         ("public.idx_history_answer_items_id_answer", "public.idx_answer_item_id_answer"),
         ("public.idx_history_answer_item_id_answer", "public.idx_answer_item_id_answer"),
         ("public.idx_access_extensions_lookup", "public.idx_access_extension_lookup"),
-        ("public.idx_logs_date", "public.idx_log_date"),
-        ("public.idx_logs_event_type", "public.idx_log_event_type"),
         ("public.idx_omsu_l_changed_at", "public.idx_organization_l_changed_at"),
         ("public.idx_organizations_l_changed_at", "public.idx_organization_l_changed_at"),
         ("public.idx_omsu_surveys_l_changed_at", "public.idx_organization_survey_l_changed_at"),
@@ -209,7 +199,6 @@ public static class SingularTableNamingBootstrapper
         ("public.history_answer_items_id_item_seq", "public.answer_item_id_item_seq"),
         ("public.history_answer_item_id_item_seq", "public.answer_item_id_item_seq"),
         ("public.access_extensions_id_seq", "public.access_extension_id_seq"),
-        ("public.logs_id_log_seq", "public.log_id_log_seq"),
         ("public.omsu_l_id_audit_seq", "public.organization_l_id_audit_seq"),
         ("public.organizations_l_id_audit_seq", "public.organization_l_id_audit_seq"),
         ("public.surveys_l_id_audit_seq", "public.survey_l_id_audit_seq"),
@@ -233,7 +222,7 @@ public static class SingularTableNamingBootstrapper
                 return;
             }
 
-            DropLegacyLogViewIfNeeded(connection);
+            DropLegacyLogStorageIfNeeded(connection);
 
             foreach (var rename in RelationRenames)
             {
@@ -264,7 +253,7 @@ public static class SingularTableNamingBootstrapper
         }
     }
 
-    private static void DropLegacyLogViewIfNeeded(NpgsqlConnection connection)
+    private static void DropLegacyLogStorageIfNeeded(NpgsqlConnection connection)
     {
         using var command = new NpgsqlCommand(
             """
@@ -274,10 +263,30 @@ public static class SingularTableNamingBootstrapper
                     SELECT 1
                     FROM pg_class
                     WHERE relnamespace = 'public'::regnamespace
-                      AND relkind = 'v'
+                      AND relkind IN ('v', 'm')
                       AND relname = 'log'
-                ) AND to_regclass('public.logs') IS NOT NULL THEN
-                    EXECUTE 'DROP VIEW public.log';
+                ) THEN
+                    EXECUTE 'DROP VIEW public.log CASCADE';
+                END IF;
+
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class
+                    WHERE relnamespace = 'public'::regnamespace
+                      AND relkind IN ('r', 'p')
+                      AND relname = 'log'
+                ) THEN
+                    EXECUTE 'DROP TABLE public.log CASCADE';
+                END IF;
+
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class
+                    WHERE relnamespace = 'public'::regnamespace
+                      AND relkind IN ('r', 'p')
+                      AND relname = 'logs'
+                ) THEN
+                    EXECUTE 'DROP TABLE public.logs CASCADE';
                 END IF;
             END $$;
             """,

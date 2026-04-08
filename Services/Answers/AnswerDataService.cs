@@ -1,9 +1,9 @@
-using Dapper;
-using main_project.Infrastructure.Database;
-using main_project.Models;
-using main_project.Services.Surveys;
+﻿using Dapper;
+using MainProject.Infrastructure.Database;
+using MainProject.Models;
+using MainProject.Services.Surveys;
 
-namespace main_project.Services.Answers;
+namespace MainProject.Services.Answers;
 
 public sealed class AnswerDataService
 {
@@ -129,7 +129,7 @@ public sealed class AnswerDataService
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
-        var items = BuildNormalizedAnswerItems(connection, historyAnswerData.id_survey, historyAnswerData.Answers);
+        var items = BuildNormalizedAnswerItems(connection, historyAnswerData.IdSurvey, historyAnswerData.Answers);
 
         var idAnswer = connection.ExecuteScalar<int>(
             @"INSERT INTO public.answer (
@@ -147,8 +147,8 @@ public sealed class AnswerDataService
               RETURNING id_answer",
             new
             {
-                idOrganization = historyAnswerData.organization_id,
-                idSurvey = historyAnswerData.id_survey,
+                idOrganization = historyAnswerData.OrganizationId,
+                idSurvey = historyAnswerData.IdSurvey,
                 completionDate = DateTime.Now
             },
             transaction);
@@ -171,8 +171,8 @@ public sealed class AnswerDataService
                 AND id_survey = @idSurvey",
             new
             {
-                idOrganization = historyAnswerData.organization_id,
-                idSurvey = historyAnswerData.id_survey
+                idOrganization = historyAnswerData.OrganizationId,
+                idSurvey = historyAnswerData.IdSurvey
             },
             transaction);
 
@@ -182,7 +182,7 @@ public sealed class AnswerDataService
             return false;
         }
 
-        var items = BuildNormalizedAnswerItems(connection, historyAnswerData.id_survey, historyAnswerData.Answers);
+        var items = BuildNormalizedAnswerItems(connection, historyAnswerData.IdSurvey, historyAnswerData.Answers);
 
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer
@@ -191,8 +191,8 @@ public sealed class AnswerDataService
                 AND id_survey = @idSurvey",
             new
             {
-                idOrganization = historyAnswerData.organization_id,
-                idSurvey = historyAnswerData.id_survey,
+                idOrganization = historyAnswerData.OrganizationId,
+                idSurvey = historyAnswerData.IdSurvey,
                 completionDate = DateTime.Now
             },
             transaction);
@@ -286,7 +286,7 @@ public sealed class AnswerDataService
             return;
         }
 
-        var answerIds = answerList.Select(a => a.id_answer).Distinct().ToArray();
+        var answerIds = answerList.Select(a => a.IdAnswer).Distinct().ToArray();
         var rows = connection.Query<HistoryAnswerItemLookupRow>(
             @"SELECT
                   id_answer AS AnswerId,
@@ -315,7 +315,7 @@ public sealed class AnswerDataService
 
         foreach (var answer in answerList)
         {
-            answer.Answers = answerLookup.GetValueOrDefault(answer.id_answer, new List<AnswerPayloadItem>());
+            answer.Answers = answerLookup.GetValueOrDefault(answer.IdAnswer, new List<AnswerPayloadItem>());
         }
     }
 

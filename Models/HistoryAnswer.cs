@@ -1,17 +1,41 @@
-using main_project.Services.Answers;
+﻿using MainProject.Services.Answers;
+using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace main_project.Models
+namespace MainProject.Models
 {
-public class HistoryAnswer
-{
-     public int id_answer { get; set; }         // Идентификатор Organization (организации)
-    public int organization_id { get; set; }         // Идентификатор Organization (организации)
-    public int id_survey { get; set; }       // Идентификатор опроса
-    public string? organization_name { get; set; }   // Название Organization
-     public string csp { get; set; }         // Дополнительная информация (может быть пустой)
-    public string? name_survey { get; set; }  // Название опроса
-    public DateTime? completion_date { get; set; }  // Дата завершения опроса
-    public DateTime? create_date_survey { get; set; }
-    public List<AnswerPayloadItem> Answers { get; set; } = new();
-}
+    public class HistoryAnswer
+    {
+        [JsonProperty("id_answer")]
+        [JsonPropertyName("id_answer")]
+        public int IdAnswer { get; set; }
+
+        [JsonProperty("organization_id")]
+        [JsonPropertyName("organization_id")]
+        public int OrganizationId { get; set; }
+
+        [JsonProperty("id_survey")]
+        [JsonPropertyName("id_survey")]
+        public int IdSurvey { get; set; }
+
+        [JsonProperty("organization_name")]
+        [JsonPropertyName("organization_name")]
+        public string? OrganizationName { get; set; }
+
+        public string Csp { get; set; }
+
+        [JsonProperty("name_survey")]
+        [JsonPropertyName("name_survey")]
+        public string? NameSurvey { get; set; }
+
+        [JsonProperty("completion_date")]
+        [JsonPropertyName("completion_date")]
+        public DateTime? CompletionDate { get; set; }
+
+        [JsonProperty("create_date_survey")]
+        [JsonPropertyName("create_date_survey")]
+        public DateTime? CreateDateSurvey { get; set; }
+
+        public List<AnswerPayloadItem> Answers { get; set; } = new();
+    }
 }

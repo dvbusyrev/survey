@@ -1,32 +1,34 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Infrastructure.Database;
+using MainProject.Infrastructure.Database;
 using Npgsql;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
-namespace main_project.Controllers
+namespace MainProject.Controllers
 {
-    public class AeController : Controller
+    public class SurveyExtensionController : Controller
     {
         private readonly IDbConnectionFactory _connectionFactory;
-        private readonly ILogger<AeController> _logger;
+        private readonly ILogger<SurveyExtensionController> _logger;
 
-        public AeController(IDbConnectionFactory connectionFactory, ILogger<AeController> logger)
+        public SurveyExtensionController(IDbConnectionFactory connectionFactory, ILogger<SurveyExtensionController> logger)
         {
             _connectionFactory = connectionFactory;
             _logger = logger;
         }
 
         [HttpPost]
-        [Route("prodlenie_organizations")]
-        public IActionResult prodlenie_organizations([FromBody] ExtensionRequest request)
+        [Route("survey-extensions")]
+        [Route("survey_extensions")]
+        public IActionResult SaveSurveyExtensions([FromBody] SurveyExtensionRequest request)
         {
             _logger.LogInformation("Получен запрос на продление анкеты: {Request}", JsonSerializer.Serialize(request));
 
             try
             {
-                if (request == null || request.extensions == null || request.extensions.Count == 0)
+                if (request == null || request.Extensions == null || request.Extensions.Count == 0)
                 {
                     _logger.LogWarning("Пустой запрос на продление");
                     return BadRequest(new { success = false, message = "Необходимо предоставить данные для продления" });
@@ -52,11 +54,11 @@ namespace main_project.Controllers
                             ProcessExtensions(request, connection, transaction);
                             
                             transaction.Commit();
-                            _logger.LogInformation("Транзакция успешно завершена для surveyId: {SurveyId}", request.survey_id);
+                            _logger.LogInformation("Транзакция успешно завершена для surveyId: {SurveyId}", request.SurveyId);
                             return Ok(new { 
                                 success = true,
                                 message = "Доступ к анкете успешно продлён",
-                                survey_id = request.survey_id
+                                surveyId = request.SurveyId
                             });
                         }
                         catch (PostgresException pgEx)
@@ -87,7 +89,7 @@ namespace main_project.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Критическая ошибка в методе prodlenie_organizations");
+                _logger.LogError(ex, "Критическая ошибка в методе SaveSurveyExtensions");
                 return StatusCode(500, new { 
                     success = false,
                     message = "Внутренняя ошибка сервера", 
@@ -96,32 +98,32 @@ namespace main_project.Controllers
             }
         }
 
-        private List<string> ValidateRequest(ExtensionRequest request)
+        private List<string> ValidateRequest(SurveyExtensionRequest request)
         {
             var errors = new List<string>();
             
-            if (request.survey_id <= 0) 
+            if (request.SurveyId <= 0) 
                 errors.Add("Неверный ID анкеты");
             
-            foreach (var ext in request.extensions)
+            foreach (var extension in request.Extensions)
             {
-                if (ext.organization_id <= 0) 
-                    errors.Add($"Неверный ID организации: {ext.organization_id}");
+                if (extension.OrganizationId <= 0) 
+                    errors.Add($"Неверный ID организации: {extension.OrganizationId}");
                 
-                if (!DateTime.TryParse(ext.new_end_date, out var endDate) || endDate <= DateTime.Today)
-                    errors.Add($"Неверная дата окончания: {ext.new_end_date}");
+                if (!DateTime.TryParse(extension.ExtendedUntil, out var endDate) || endDate <= DateTime.Today)
+                    errors.Add($"Неверная дата окончания: {extension.ExtendedUntil}");
             }
 
             return errors;
         }
 
-        private void ProcessExtensions(ExtensionRequest request, NpgsqlConnection connection, NpgsqlTransaction transaction)
+        private void ProcessExtensions(SurveyExtensionRequest request, NpgsqlConnection connection, NpgsqlTransaction transaction)
         {
-            foreach (var ext in request.extensions)
+            foreach (var extension in request.Extensions)
             {
-                var endDate = DateTime.Parse(ext.new_end_date);
+                var endDate = DateTime.Parse(extension.ExtendedUntil);
                 _logger.LogDebug("Обработка: surveyId={SurveyId}, organizationId={OrganizationId}, endDate={EndDate}", 
-                    request.survey_id, ext.organization_id, endDate);
+                    request.SurveyId, extension.OrganizationId, endDate);
 
                 using (var cmd = new NpgsqlCommand(
                     @"INSERT INTO public.organization_survey (organization_id, id_survey, extended_until)
@@ -130,8 +132,8 @@ namespace main_project.Controllers
                       SET extended_until = EXCLUDED.extended_until",
                     connection, transaction))
                 {
-                    cmd.Parameters.AddWithValue("@surveyId", request.survey_id);
-                    cmd.Parameters.AddWithValue("@organizationId", ext.organization_id);
+                    cmd.Parameters.AddWithValue("@surveyId", request.SurveyId);
+                    cmd.Parameters.AddWithValue("@organizationId", extension.OrganizationId);
                     cmd.Parameters.AddWithValue("@endDate", endDate);
                     var affected = cmd.ExecuteNonQuery();
                     _logger.LogDebug("Обновлена запись продления в organization_survey, строк: {Count}", affected);
@@ -140,15 +142,21 @@ namespace main_project.Controllers
         }
     }
 
-    public class ExtensionRequest
+    public class SurveyExtensionRequest
     {
-        public int survey_id { get; set; }
-        public List<ExtensionItem> extensions { get; set; } = new List<ExtensionItem>();
+        [JsonPropertyName("surveyId")]
+        public int SurveyId { get; set; }
+
+        [JsonPropertyName("extensions")]
+        public List<SurveyExtensionItemRequest> Extensions { get; set; } = new List<SurveyExtensionItemRequest>();
     }
 
-    public class ExtensionItem
+    public class SurveyExtensionItemRequest
     {
-        public int organization_id { get; set; }
-        public string new_end_date { get; set; } = string.Empty;
+        [JsonPropertyName("organizationId")]
+        public int OrganizationId { get; set; }
+
+        [JsonPropertyName("extendedUntil")]
+        public string ExtendedUntil { get; set; } = string.Empty;
     }
 }

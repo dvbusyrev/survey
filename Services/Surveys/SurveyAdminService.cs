@@ -1,20 +1,17 @@
-using Dapper;
-using main_project.Infrastructure.Database;
-using main_project.Models;
-using Newtonsoft.Json;
+﻿using Dapper;
+using MainProject.Infrastructure.Database;
+using MainProject.Models;
 using Npgsql;
 
-namespace main_project.Services.Surveys;
+namespace MainProject.Services.Surveys;
 
 public sealed class SurveyAdminService
 {
     private readonly IDbConnectionFactory _connectionFactory;
-    private readonly ILogger<SurveyAdminService> _logger;
 
-    public SurveyAdminService(IDbConnectionFactory connectionFactory, ILogger<SurveyAdminService> logger)
+    public SurveyAdminService(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
-        _logger = logger;
     }
 
     public List<Survey> GetSurveys()
@@ -77,8 +74,6 @@ public sealed class SurveyAdminService
 
             await ReplaceSurveyQuestionsAsync(connection, transaction, newSurveyId, questionRows);
             await InsertOrganizationSurveyAssignmentsAsync(connection, transaction, newSurveyId, request.Organizations);
-
-            await LogSurveyCreationAsync(connection, transaction, newSurveyId, request.Title);
             transaction.Commit();
 
             return newSurveyId;
@@ -253,8 +248,8 @@ public sealed class SurveyAdminService
                   RETURNING id_survey",
                 new
                 {
-                    Name = $"{originalSurvey.name_survey} (Копия)",
-                    Description = originalSurvey.description,
+                    Name = $"{originalSurvey.NameSurvey} (Копия)",
+                    Description = originalSurvey.Description,
                     StartDate = DateTime.Parse(request.StartDate),
                     EndDate = DateTime.Parse(request.EndDate)
                 },
@@ -340,34 +335,6 @@ public sealed class SurveyAdminService
         }
     }
 
-    private async Task LogSurveyCreationAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        int surveyId,
-        string surveyTitle)
-    {
-        try
-        {
-            await connection.ExecuteAsync(
-                @"INSERT INTO log (target_type, event_type, date, description, extra_data)
-                  VALUES ('survey', 'create', NOW(), @Description, @ExtraData::jsonb)",
-                new
-                {
-                    Description = $"Создана новая анкета: {surveyTitle}",
-                    ExtraData = JsonConvert.SerializeObject(new
-                    {
-                        survey_id = surveyId,
-                        survey_title = surveyTitle
-                    })
-                },
-                transaction);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при записи в лог о создании анкеты");
-        }
-    }
-
     private void UpdateOrganizationSurveyAssignments(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -427,7 +394,7 @@ public sealed class SurveyAdminService
             return;
         }
 
-        var surveyIds = surveyList.Select(s => s.id_survey).Distinct().ToArray();
+        var surveyIds = surveyList.Select(s => s.IdSurvey).Distinct().ToArray();
         var questionRows = connection.Query<SurveyQuestionLookupRow>(
             @"SELECT
                   id_survey AS IdSurvey,
@@ -452,7 +419,7 @@ public sealed class SurveyAdminService
 
         foreach (var survey in surveyList)
         {
-            survey.Questions = questionLookup.GetValueOrDefault(survey.id_survey, new List<SurveyQuestionItem>());
+            survey.Questions = questionLookup.GetValueOrDefault(survey.IdSurvey, new List<SurveyQuestionItem>());
         }
     }
 

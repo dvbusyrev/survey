@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Infrastructure.Database;
-using main_project.Infrastructure.Security;
+using MainProject.Infrastructure.Database;
+using MainProject.Infrastructure.Security;
 using Npgsql;
 using System.Data;
 using System.Security.Claims;
@@ -25,7 +25,8 @@ public class AuthController : Controller
     [HttpGet("")]
     [HttpGet("Auth")]
     [HttpGet("display_auth")]
-    public IActionResult display_auth()
+    [ActionName("display_auth")]
+    public IActionResult DisplayAuth()
     {
         if (User.Identity != null && User.Identity.IsAuthenticated)
         {
@@ -46,7 +47,8 @@ public class AuthController : Controller
     }
 
     [AllowAnonymous]
-    public async Task<IActionResult> logout_account()
+    [ActionName("logout_account")]
+    public async Task<IActionResult> LogoutAccount()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction("display_auth");
@@ -54,13 +56,14 @@ public class AuthController : Controller
 
     [AllowAnonymous]
     [HttpPost]
-    public async Task<IActionResult> login([FromBody] string[] data_user)
+    [ActionName("login")]
+    public async Task<IActionResult> Login([FromBody] string[] userData)
     {
-        if (data_user == null || data_user.Length != 2)
+        if (userData == null || userData.Length != 2)
             return StatusCode(400, "Неверный формат данных");
 
-        string username = data_user[0];
-        string password = data_user[1];
+        string username = userData[0];
+        string password = userData[1];
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return StatusCode(400, "Имя пользователя и пароль не могут быть пустыми");

@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Infrastructure.Database;
-using main_project.Infrastructure.Security;
-using main_project.Models;
+using MainProject.Infrastructure.Database;
+using MainProject.Infrastructure.Security;
+using MainProject.Models;
 using Newtonsoft.Json;
 using Npgsql;
 using NpgsqlTypes;
@@ -17,7 +17,8 @@ public class OrganizationController : Controller
         _connectionFactory = connectionFactory;
     }
 
-public IActionResult get_organization(string variantType, bool openAddOrganizationModal = false)
+[ActionName("get_organization")]
+public IActionResult GetOrganization(string variantType, bool openAddOrganizationModal = false)
 {
     if (variantType == "data")
     {
@@ -82,15 +83,15 @@ public IActionResult get_organization(string variantType, bool openAddOrganizati
                             : (reader.GetValue(4) as string[] ?? Array.Empty<string>());
                         var organization = new Organization
                         {
-                            organization_id = reader.GetInt32(0),
-                            organization_name = reader.GetString(1),
-                            date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                            date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            survey_names = surveyNames.Length == 0
+                            OrganizationId = reader.GetInt32(0),
+                            OrganizationName = reader.GetString(1),
+                            DateBegin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                            DateEnd = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                            SurveyNames = surveyNames.Length == 0
                                 ? "Не указано"
                                 : string.Join(", ", surveyNames),
-                            block = reader.GetBoolean(5),
-                            email = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            Block = reader.GetBoolean(5),
+                            Email = reader.IsDBNull(6) ? null : reader.GetString(6),
                         };
                         organizations.Add(organization);
                     }
@@ -113,12 +114,12 @@ public IActionResult get_organization(string variantType, bool openAddOrganizati
                         {
                             var survey = new Survey
                             {
-                                id_survey = reader.GetInt32(0),
-                                name_survey = reader.GetString(1),
-                                Questions = new List<main_project.Services.Surveys.SurveyQuestionItem>(),
-                                date_close = DateTime.Now,
-                                date_create = DateTime.Now,
-                                date_open = DateTime.Now
+                                IdSurvey = reader.GetInt32(0),
+                                NameSurvey = reader.GetString(1),
+                                Questions = new List<MainProject.Services.Surveys.SurveyQuestionItem>(),
+                                DateClose = DateTime.Now,
+                                DateCreate = DateTime.Now,
+                                DateOpen = DateTime.Now
                             };
                             surveys.Add(survey);
                         }
@@ -140,7 +141,8 @@ public IActionResult get_organization(string variantType, bool openAddOrganizati
 }
 
 [HttpPost]
-    public IActionResult delete_organization(int id)
+    [ActionName("delete_organization")]
+    public IActionResult DeleteOrganization(int id)
     {
 
         using (var connection = _connectionFactory.CreateConnection())
@@ -188,13 +190,15 @@ public IActionResult get_organization(string variantType, bool openAddOrganizati
         return Ok("Список анкет успешно обновлен.");
     }
 
-    public IActionResult add_organization()
+    [ActionName("add_organization")]
+    public IActionResult AddOrganization()
     {
         return Redirect("/organizations?openAddOrganizationModal=true");
     }
 
 
-public IActionResult archive_list_organizations(string variantType)
+[ActionName("archive_list_organizations")]
+public IActionResult ArchiveListOrganizations(string variantType)
 {
     if (variantType == "data")
     {
@@ -259,15 +263,15 @@ public IActionResult archive_list_organizations(string variantType)
                             : (reader.GetValue(4) as string[] ?? Array.Empty<string>());
                         var organization = new Organization
                         {
-                            organization_id = reader.GetInt32(0),
-                            organization_name = reader.GetString(1),
-                            date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                            date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            survey_names = surveyNames.Length == 0
+                            OrganizationId = reader.GetInt32(0),
+                            OrganizationName = reader.GetString(1),
+                            DateBegin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                            DateEnd = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                            SurveyNames = surveyNames.Length == 0
                                 ? "Не указано"
                                 : string.Join(", ", surveyNames),
-                            block = reader.GetBoolean(5),
-                            email = reader.IsDBNull(6) ? null : reader.GetString(6),
+                            Block = reader.GetBoolean(5),
+                            Email = reader.IsDBNull(6) ? null : reader.GetString(6),
                         };
                         organizations.Add(organization);
                     }
@@ -290,12 +294,12 @@ public IActionResult archive_list_organizations(string variantType)
                         {
                             var survey = new Survey
                             {
-                                id_survey = reader.GetInt32(0),
-                                name_survey = reader.GetString(1),
-                                Questions = new List<main_project.Services.Surveys.SurveyQuestionItem>(),
-                                date_close = DateTime.Now,
-                                date_create = DateTime.Now,
-                                date_open = DateTime.Now
+                                IdSurvey = reader.GetInt32(0),
+                                NameSurvey = reader.GetString(1),
+                                Questions = new List<MainProject.Services.Surveys.SurveyQuestionItem>(),
+                                DateClose = DateTime.Now,
+                                DateCreate = DateTime.Now,
+                                DateOpen = DateTime.Now
                             };
                             surveys.Add(survey);
                         }
@@ -318,7 +322,8 @@ public IActionResult archive_list_organizations(string variantType)
 
 [HttpPost]
 [ValidateAntiForgeryToken]
-public IActionResult add_organization_bd([FromBody] Dictionary<string, string> formData)
+[ActionName("add_organization_bd")]
+public IActionResult AddOrganizationBd([FromBody] Dictionary<string, string> formData)
 {
     try
     {
@@ -396,7 +401,8 @@ public class OrganizationModel
     public DateTime DateEnd { get; set; }
 }
 
-public IActionResult update_organization(int id)
+[ActionName("update_organization")]
+public IActionResult UpdateOrganization(int id)
 {
     Organization organization = null;
 
@@ -419,11 +425,11 @@ public IActionResult update_organization(int id)
                     {
                         organization = new Organization
                         {
-                            organization_name = reader.GetString(0),
-                            email = reader.IsDBNull(1) ? null : reader.GetString(1),
-                            date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                            date_end = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            organization_id = reader.GetInt32(4)
+                            OrganizationName = reader.GetString(0),
+                            Email = reader.IsDBNull(1) ? null : reader.GetString(1),
+                            DateBegin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                            DateEnd = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
+                            OrganizationId = reader.GetInt32(4)
                         };
                     }
                 }
@@ -444,7 +450,8 @@ public IActionResult update_organization(int id)
 }
 
 [HttpPost("update_organization_bd/{id}")]
-public IActionResult update_organization_bd(int id, [FromBody] string[] dataOrganization)
+[ActionName("update_organization_bd")]
+public IActionResult UpdateOrganizationBd(int id, [FromBody] string[] dataOrganization)
 {
     if (dataOrganization == null || dataOrganization.Length != 4)
     {

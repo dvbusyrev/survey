@@ -1,6 +1,6 @@
-using main_project.Services;
+﻿using MainProject.Services;
 
-namespace main_project.Services.Answers;
+namespace MainProject.Services.Answers;
 
 public sealed class AnswerAccessService
 {

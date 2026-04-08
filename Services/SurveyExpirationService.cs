@@ -1,15 +1,14 @@
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using main_project.Models;
+using MainProject.Models;
 using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json.Linq;
 
-namespace main_project.Services
+namespace MainProject.Services
 {
     public class SurveyExpirationService : IHostedService, IDisposable
     {
@@ -84,12 +83,12 @@ namespace main_project.Services
                         {
                             expiredSurveys.Add(new Survey
                             {
-                                id_survey = reader.GetInt32(0),
-                                name_survey = reader.GetString(1),
-                                description = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                date_create = reader.GetDateTime(3),
-                                date_open = reader.GetDateTime(4),
-                                date_close = reader.GetDateTime(5)
+                                IdSurvey = reader.GetInt32(0),
+                                NameSurvey = reader.GetString(1),
+                                Description = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                DateCreate = reader.GetDateTime(3),
+                                DateOpen = reader.GetDateTime(4),
+                                DateClose = reader.GetDateTime(5)
                             });
                         }
                     }
@@ -112,11 +111,11 @@ namespace main_project.Services
             {
                 try
                 {
-                    BlockExpiredOrganization(organization, currentDate);
+                    BlockExpiredOrganization(organization);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Ошибка при блокировке организации {OrganizationId}", organization.organization_id);
+                    _logger.LogError(ex, "Ошибка при блокировке организации {OrganizationId}", organization.OrganizationId);
                 }
             }
         }
@@ -143,12 +142,12 @@ namespace main_project.Services
                         {
                             expiredOrganizations.Add(new Organization
                             {
-                                organization_id = reader.GetInt32(0),
-                                organization_name = reader.GetString(1),
-                                date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                                date_end = reader.GetDateTime(3),
-                                email = reader.IsDBNull(4) ? null : reader.GetString(4),
-                                block = reader.GetBoolean(5)
+                                OrganizationId = reader.GetInt32(0),
+                                OrganizationName = reader.GetString(1),
+                                DateBegin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
+                                DateEnd = reader.GetDateTime(3),
+                                Email = reader.IsDBNull(4) ? null : reader.GetString(4),
+                                Block = reader.GetBoolean(5)
                             });
                         }
                     }
@@ -158,7 +157,7 @@ namespace main_project.Services
             return expiredOrganizations;
         }
 
-        private void BlockExpiredOrganization(Organization organization, DateTime blockDate)
+        private void BlockExpiredOrganization(Organization organization)
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
@@ -174,7 +173,7 @@ namespace main_project.Services
 
                         using (var command = new NpgsqlCommand(updateOrganizationQuery, connection, transaction))
                         {
-                            command.Parameters.AddWithValue("@IdOrganization", organization.organization_id);
+                            command.Parameters.AddWithValue("@IdOrganization", organization.OrganizationId);
                             int affectedRows = command.ExecuteNonQuery();
 
                             if (affectedRows == 0)
@@ -189,75 +188,21 @@ namespace main_project.Services
                                                  WHERE organization_id = @IdOrganization";
                         using (var command = new NpgsqlCommand(clearUserOrganizationQuery, connection, transaction))
                         {
-                            command.Parameters.AddWithValue("@IdOrganization", organization.organization_id);
+                            command.Parameters.AddWithValue("@IdOrganization", organization.OrganizationId);
                             command.ExecuteNonQuery();
                         }
 
-                        // Создаем лог
-                        CreateLog(
-                            connection: connection,
-                            transaction: transaction,
-                            idUser: 0,
-                            idTarget: organization.organization_id,
-                            targetType: "organization",
-                            eventType: "BLOCK_ORGANIZATION",
-                            description: "Блокировка организации",
-                            extraData: new JObject
-                            {
-                                ["organization_name"] = organization.organization_name,
-                                ["email"] = organization.email,
-                                ["original_end_date"] = organization.date_end
-                            });
-
                         transaction.Commit();
-                        _logger.LogInformation("Организация {OrganizationId} заблокирована и очищена у пользователей", organization.organization_id);
+                        _logger.LogInformation("Организация {OrganizationId} заблокирована и очищена у пользователей", organization.OrganizationId);
                     }
                     catch (Exception ex)
                     {
                         transaction.Rollback();
-                        _logger.LogError(ex, "Ошибка блокировки организации {OrganizationId}", organization.organization_id);
+                        _logger.LogError(ex, "Ошибка блокировки организации {OrganizationId}", organization.OrganizationId);
                         throw;
                     }
                 }
             }
-        }
-        #endregion
-
-        #region Logging
-       private void CreateLog(
-    NpgsqlConnection connection,
-    NpgsqlTransaction transaction,
-    int idUser,
-    int? idTarget,
-    string targetType,
-    string eventType,
-    string description,
-    JObject extraData = null)
-{
-    var query = @"
-        INSERT INTO public.log 
-            (id_user, id_target, target_type, event_type, date, description, extra_data)
-        VALUES 
-            (@IdUser, @IdTarget, @TargetType, @EventType, @Date, @Description, @ExtraData)";
-
-    using (var command = new NpgsqlCommand(query, connection, transaction))
-    {
-        command.Parameters.AddWithValue("@IdUser", idUser);
-        command.Parameters.AddWithValue("@IdTarget", idTarget ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@TargetType", targetType);
-        command.Parameters.AddWithValue("@EventType", eventType);
-        command.Parameters.AddWithValue("@Date", DateTime.Now);
-        command.Parameters.AddWithValue("@Description", description);
-        
-        // Явное указание типа параметра как jsonb
-        var extraDataParam = new NpgsqlParameter("@ExtraData", NpgsqlTypes.NpgsqlDbType.Jsonb)
-        {
-            Value = extraData?.ToString(Newtonsoft.Json.Formatting.None) ?? (object)DBNull.Value
-        };
-        command.Parameters.Add(extraDataParam);
-        
-        command.ExecuteNonQuery();
-    }
         }
         #endregion
 

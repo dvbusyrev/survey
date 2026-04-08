@@ -1,7 +1,7 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Services.Answers;
+using MainProject.Services.Answers;
 
 [Authorize]
 public class AnswerSigningController : Controller
@@ -45,7 +45,7 @@ public class AnswerSigningController : Controller
     [HttpPost("signatures/{id}/{idOrganization}")]
     [HttpPost("csp/{id}/{idOrganization}")]
     [HttpPost("Answer/csp/{id}/{idOrganization}")]
-    public IActionResult CSP_answer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] JsonElement request)
+    public IActionResult CspAnswer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] JsonElement request)
     {
         var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)

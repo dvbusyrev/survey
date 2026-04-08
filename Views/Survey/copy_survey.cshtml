@@ -1,4 +1,4 @@
-@model main_project.Models.Survey
+﻿@model MainProject.Models.Survey
 @{
     ViewData["Title"] = "Копирование анкеты";
     var currentDate = DateTime.Now.ToString("yyyy-MM-dd");
@@ -10,7 +10,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - main_project</title>
+    <title>@ViewData["Title"] - MainProject</title>
     @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
     <style>
         body {
@@ -187,7 +187,7 @@
             <div class="form-group">
                 <label for="surveyTitle">Название анкеты:</label>
                 <input type="text" class="form-control" id="surveyTitle" 
-                       value="@Model.name_survey (Копия)" readonly />
+                       value="@Model.NameSurvey (Копия)" readonly />
             </div>
             
             <div class="form-group">
@@ -208,7 +208,7 @@
         </div>
 
         <div class="button-container">
-            <button type="button" class="btn" onclick="copySurvey(@Model.id_survey)">Скопировать анкету</button>
+            <button type="button" class="btn" onclick="copySurvey(@Model.IdSurvey)">Скопировать анкету</button>
         </div>
     </div>
 

@@ -435,7 +435,7 @@ React.useEffect(() => {
     try {
         const endpoint = tab === 'active' 
             ? `/my-surveys?page=${page}&searchTerm=${search}&date=${date}`
-            : `/get_list_archive/${initialData.userId}?searchTerm=${search}&signedOnly=${signedOnly}&date=${date}`;
+            : `/get_archived_surveys/${initialData.userId}?searchTerm=${search}&signedOnly=${signedOnly}&date=${date}`;
         
         const response = await fetch(endpoint, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -467,7 +467,7 @@ React.useEffect(() => {
     React.useEffect(() => {
         const loadArchiveCount = async () => {
             try {
-                const response = await fetch(`/get_list_archive/${initialData.userId}?countOnly=true`);
+                const response = await fetch(`/get_archived_surveys/${initialData.userId}?countOnly=true`);
                 if (!response.ok) throw new Error('Ошибка загрузки количества архивных анкет');
                 const data = await response.json();
                 setArchivedCount(data.totalCount || 0);
@@ -481,7 +481,7 @@ React.useEffect(() => {
 
     const loadArchiveCount = async () => {
     try {
-        const response = await fetch(`/get_list_archive/${initialData.userId}?countOnly=true`);
+        const response = await fetch(`/get_archived_surveys/${initialData.userId}?countOnly=true`);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
@@ -501,7 +501,7 @@ React.useEffect(() => {
                 setLoading(true);
                 setError(null);
                 try {
-                    const response = await fetch(`/get_file/csp`, {
+                    const response = await fetch(`/help_file/csp`, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     
@@ -531,7 +531,7 @@ React.useEffect(() => {
         }
 
         // Загрузка счетчика архивных анкет
-        const archiveResponse = await fetch(`/get_list_archive/${initialData.userId}?searchTerm=`, {
+        const archiveResponse = await fetch(`/get_archived_surveys/${initialData.userId}?searchTerm=`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         
@@ -560,7 +560,7 @@ React.useEffect(() => {
 //         }
 
 //         // Загрузка счетчика архивных анкет
-//         const archiveResponse = await fetch(`/get_list_archive/${initialData.userId}?searchTerm=`, {
+//         const archiveResponse = await fetch(`/get_archived_surveys/${initialData.userId}?searchTerm=`, {
 //             headers: { 'X-Requested-With': 'XMLHttpRequest' }
 //         });
         
@@ -696,7 +696,7 @@ const handleSignedFilterChange = (e) => {
                             organizationName={initialData.organizationName}
                         />
                         <div className="admin-container">
-                            <Navigation openVkladka={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
+                            <Navigation openTab={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
                             <div id="content_admin">
                                 <div className="access-denied">
                                     <h2>Доступ запрещён</h2>
@@ -718,7 +718,7 @@ return (
       organizationName={initialData.organizationName}
     />
     <div className="admin-container">
-      <Navigation openVkladka={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
+      <Navigation openTab={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
       <div id="content_admin">
         {currentContent === 'surveys' ? (
           <SurveyContent 

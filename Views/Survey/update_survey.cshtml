@@ -1,4 +1,4 @@
-@model main_project.Services.Surveys.SurveyEditPageViewModel
+﻿@model MainProject.Services.Surveys.SurveyEditPageViewModel
 @{
     var selectedOrganizationNamesJson = System.Text.Json.JsonSerializer.Serialize(Model.SelectedOrganizationNames);
 }
@@ -28,21 +28,21 @@
             <h3>Шаг 1</h3>
             <div class="form-group">
                 <label for="surveyTitle">Название:</label>
-                <input type="text" class="form-control" id="surveyTitle" value="@Model.Survey.name_survey" required />
+                <input type="text" class="form-control" id="surveyTitle" value="@Model.Survey.NameSurvey" required />
                 <div class="error-message" id="titleError"></div>
             </div>
             <div class="form-group">
                 <label for="surveyDescription">Описание:</label>
-                <textarea class="form-control" id="surveyDescription">@Model.Survey.description</textarea>
+                <textarea class="form-control" id="surveyDescription">@Model.Survey.Description</textarea>
             </div>
             <div class="form-group">
                 <label for="startDate">Дата начала:</label>
-                <input type="date" class="form-control" id="startDate" value="@Model.Survey.date_open.ToString("yyyy-MM-dd")" required />
+                <input type="date" class="form-control" id="startDate" value="@Model.Survey.DateOpen.ToString("yyyy-MM-dd")" required />
                 <div class="error-message" id="startDateError"></div>
             </div>
             <div class="form-group">
                 <label for="endDate">Дата окончания:</label>
-                <input type="date" class="form-control" id="endDate" value="@Model.Survey.date_close.ToString("yyyy-MM-dd")" required />
+                <input type="date" class="form-control" id="endDate" value="@Model.Survey.DateClose.ToString("yyyy-MM-dd")" required />
                 <div class="error-message" id="endDateError"></div>
             </div>
 
@@ -121,7 +121,7 @@
     </div>
 </div>
 
-<input type="hidden" id="surveyId" value="@Model.Survey.id_survey" />
+<input type="hidden" id="surveyId" value="@Model.Survey.IdSurvey" />
 <script>
     window.selectedOrganizationNames = @Html.Raw(selectedOrganizationNamesJson);
     if (typeof window.surveyEditInit === 'function') {

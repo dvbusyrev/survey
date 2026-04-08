@@ -1,4 +1,4 @@
-@model IEnumerable<main_project.Models.Organization>
+﻿@model IEnumerable<MainProject.Models.Organization>
 
 <table id="data_table" class="organization-table organization-table--archive">
     <thead>
@@ -21,10 +21,10 @@
             foreach (var organization in Model)
             {
                 <tr>
-                    <td>@organization.organization_name</td>
-                    <td>@(organization.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
-                    <td>@(organization.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
-                    <td>@organization.email</td>
+                    <td>@organization.OrganizationName</td>
+                    <td>@(organization.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(organization.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@organization.Email</td>
                 </tr>
             }
         }

@@ -1,7 +1,7 @@
-using System.Security.Claims;
-using main_project.Infrastructure.Security;
+﻿using System.Security.Claims;
+using MainProject.Infrastructure.Security;
 
-namespace main_project.Services;
+namespace MainProject.Services;
 
 public class CurrentUserService
 {

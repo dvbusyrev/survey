@@ -1068,10 +1068,10 @@
             font-size: 0.9rem;
         }
     }
-    #otchets{display:none}
+    #reports{display:none}
      #email{display:none}
 
-/* zapolnenie_anketi styles */
+/* fill_survey styles */
         
         :root {
             --primary: #6366f1;

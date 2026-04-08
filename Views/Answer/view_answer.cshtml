@@ -1,4 +1,4 @@
-@model main_project.Services.Surveys.SurveyAnswerPageViewModel
+﻿@model MainProject.Services.Surveys.SurveyAnswerPageViewModel
 
 @{
     ViewData["Title"] = "Проверка ответов";
@@ -28,7 +28,7 @@
                 {
                     <tr>
                         <td colspan="3" class="survey-header">
-                            <strong>Ответы на анкету: @Model.Survey.name_survey</strong>
+                            <strong>Ответы на анкету: @Model.Survey.NameSurvey</strong>
                             <br />
                             <span class="answers-page__completion-date">Организация: @answer.NameOrganization</span>
                             <br />

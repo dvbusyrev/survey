@@ -1,5 +1,5 @@
-@model List<main_project.Models.User>
-@using main_project.Infrastructure.Security
+﻿@model List<MainProject.Models.User>
+@using MainProject.Infrastructure.Security
 
 <table id="data_table" class="users-table users-table--archive">
     <thead>
@@ -24,12 +24,12 @@
             foreach (var user in Model)
             {
                 <tr>
-                    <td>@(string.IsNullOrWhiteSpace(user.full_name) ? "Не указано" : user.full_name)</td>
-                    <td>@user.name_user</td>
-                    <td>@(string.IsNullOrWhiteSpace(user.organization_name) ? "Не указано" : user.organization_name)</td>
-                    <td>@AppRoles.GetDisplayName(user.name_role)</td>
-                    <td>@(user.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
-                    <td>@(user.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(string.IsNullOrWhiteSpace(user.FullName) ? "Не указано" : user.FullName)</td>
+                    <td>@user.NameUser</td>
+                    <td>@(string.IsNullOrWhiteSpace(user.OrganizationName) ? "Не указано" : user.OrganizationName)</td>
+                    <td>@AppRoles.GetDisplayName(user.NameRole)</td>
+                    <td>@(user.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(user.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
                 </tr>
             }
         }

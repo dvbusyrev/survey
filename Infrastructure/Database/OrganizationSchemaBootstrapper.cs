@@ -1,6 +1,6 @@
-using Npgsql;
+﻿using Npgsql;
 
-namespace main_project.Infrastructure.Database;
+namespace MainProject.Infrastructure.Database;
 
 public static class OrganizationSchemaBootstrapper
 {

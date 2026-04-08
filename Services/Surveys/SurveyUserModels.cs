@@ -1,6 +1,6 @@
-using main_project.Models;
+﻿using MainProject.Models;
 
-namespace main_project.Services.Surveys;
+namespace MainProject.Services.Surveys;
 
 public sealed class UserSurveyListPageViewModel
 {

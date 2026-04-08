@@ -1,9 +1,9 @@
-using Dapper;
-using main_project.Infrastructure.Database;
-using main_project.Models;
-using main_project.Services.Answers;
+﻿using Dapper;
+using MainProject.Infrastructure.Database;
+using MainProject.Models;
+using MainProject.Services.Answers;
 
-namespace main_project.Services.Surveys;
+namespace MainProject.Services.Surveys;
 
 public sealed class SurveyAnswersService
 {
@@ -49,12 +49,12 @@ public sealed class SurveyAnswersService
 
         var mappedAnswers = answers.Select(answer => new SurveyAnswerEntryViewModel
         {
-            IdAnswer = answer.id_answer,
-            IdOrganization = answer.organization_id,
-            IdSurvey = answer.id_survey,
-            NameOrganization = answer.organization_name ?? string.Empty,
-            Csp = answer.csp,
-            CompletionDate = answer.completion_date,
+            IdAnswer = answer.IdAnswer,
+            IdOrganization = answer.OrganizationId,
+            IdSurvey = answer.IdSurvey,
+            NameOrganization = answer.OrganizationName ?? string.Empty,
+            Csp = answer.Csp,
+            CompletionDate = answer.CompletionDate,
             Details = answer.Answers.Select(item => new SurveyAnswerDetailViewModel
             {
                 QuestionText = item.DisplayQuestion,
@@ -126,7 +126,7 @@ public sealed class SurveyAnswersService
             return;
         }
 
-        var answerIds = answerList.Select(answer => answer.id_answer).Distinct().ToArray();
+        var answerIds = answerList.Select(answer => answer.IdAnswer).Distinct().ToArray();
         var rows = connection.Query<AnswerItemLookupRow>(
             @"SELECT
                   id_answer AS AnswerId,
@@ -155,7 +155,7 @@ public sealed class SurveyAnswersService
 
         foreach (var answer in answerList)
         {
-            answer.Answers = lookup.GetValueOrDefault(answer.id_answer, new List<AnswerPayloadItem>());
+            answer.Answers = lookup.GetValueOrDefault(answer.IdAnswer, new List<AnswerPayloadItem>());
         }
     }
 

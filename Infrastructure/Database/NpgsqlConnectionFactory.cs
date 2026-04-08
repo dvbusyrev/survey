@@ -1,7 +1,7 @@
-using Npgsql;
-using main_project.Services;
+﻿using Npgsql;
+using MainProject.Services;
 
-namespace main_project.Infrastructure.Database;
+namespace MainProject.Infrastructure.Database;
 
 public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
 {

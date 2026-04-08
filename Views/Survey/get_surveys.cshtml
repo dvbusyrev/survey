@@ -1,8 +1,8 @@
-@model List<main_project.Models.Survey>
+﻿@model List<MainProject.Models.Survey>
 @using Microsoft.AspNetCore.Http
 @using System.Security.Claims
 @using System.Text.Json
-@using main_project.Infrastructure.Security
+@using MainProject.Infrastructure.Security
 @{
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -33,7 +33,7 @@
             userName: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserName ?? "")),
             organizationName: @Html.Raw(JsonSerializer.Serialize(ViewBag.OrganizationName ?? "")),
             selectedOrganizationNames: @Html.Raw(JsonSerializer.Serialize(ViewBag.SelectedOrganizationNames ?? new List<string>())),
-            surveys: @Html.Raw(JsonSerializer.Serialize(Model ?? new List<main_project.Models.Survey>(), new JsonSerializerOptions
+            surveys: @Html.Raw(JsonSerializer.Serialize(Model ?? new List<MainProject.Models.Survey>(), new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 WriteIndented = true

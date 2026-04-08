@@ -65,4 +65,5 @@ psql -d survey_recovered -f recovery/seed_temp_admin.sql
 - В актуальной модели отдельного архива анкет больше нет: все анкеты остаются в `survey`, а архивность определяется по `date_close`.
 - Ответы хранятся в `answer` и `answer_item`; это предметные данные, а не технический аудит.
 - Продление доступа хранится не в отдельной таблице, а в `organization_survey.extended_until`.
+- Отдельной таблицы `log` больше нет: страница логов и выгрузка строятся из audit-таблиц `*_l`.
 - `app_user.organization_id` сделан nullable, потому что `SurveyExpirationService` выставляет `organization_id = NULL` у просроченных организаций.

@@ -1,4 +1,4 @@
-namespace main_project.Infrastructure.Security;
+﻿namespace MainProject.Infrastructure.Security;
 
 public static class AppRoles
 {

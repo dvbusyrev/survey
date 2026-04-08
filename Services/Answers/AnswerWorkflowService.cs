@@ -1,6 +1,6 @@
-using main_project.Models;
+﻿using MainProject.Models;
 
-namespace main_project.Services.Answers;
+namespace MainProject.Services.Answers;
 
 public sealed class AnswerWorkflowService
 {
@@ -13,7 +13,7 @@ public sealed class AnswerWorkflowService
 
     public CheckAnswersPageViewModel? InsertAnswer(HistoryAnswer historyAnswerData)
     {
-        var existingAnswer = _answerDataService.GetHistoryAnswer(historyAnswerData.id_survey, historyAnswerData.organization_id);
+        var existingAnswer = _answerDataService.GetHistoryAnswer(historyAnswerData.IdSurvey, historyAnswerData.OrganizationId);
         if (existingAnswer == null)
         {
             _answerDataService.InsertHistoryAnswer(historyAnswerData);
@@ -23,9 +23,9 @@ public sealed class AnswerWorkflowService
             _answerDataService.UpdateHistoryAnswer(historyAnswerData);
         }
 
-        _answerDataService.ClearSurveyExtension(historyAnswerData.organization_id, historyAnswerData.id_survey);
+        _answerDataService.ClearSurveyExtension(historyAnswerData.OrganizationId, historyAnswerData.IdSurvey);
 
-        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.organization_id, historyAnswerData.Answers);
+        return BuildCheckAnswersPage(historyAnswerData.IdSurvey, historyAnswerData.OrganizationId, historyAnswerData.Answers);
     }
 
     public CheckAnswersPageViewModel? UpdateAnswer(HistoryAnswer historyAnswerData)
@@ -36,7 +36,7 @@ public sealed class AnswerWorkflowService
             return null;
         }
 
-        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.organization_id, historyAnswerData.Answers);
+        return BuildCheckAnswersPage(historyAnswerData.IdSurvey, historyAnswerData.OrganizationId, historyAnswerData.Answers);
     }
 
     public UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int organizationId)
@@ -83,10 +83,10 @@ public sealed class AnswerWorkflowService
         var mappedAnswers = historyAnswers
             .Select(answer => new SurveyAnswerResultViewModel
             {
-                Id = answer.id_answer,
-                OrganizationId = answer.organization_id,
-                OrganizationName = answer.organization_name ?? "Неизвестно",
-                Date = answer.completion_date?.ToString("dd.MM.yyyy HH:mm") ?? "Дата не указана",
+                Id = answer.IdAnswer,
+                OrganizationId = answer.OrganizationId,
+                OrganizationName = answer.OrganizationName ?? "Неизвестно",
+                Date = answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm") ?? "Дата не указана",
                 Answers = answer.Answers
                     .Select(item => new SurveyAnswerResultItemViewModel
                     {
@@ -95,8 +95,8 @@ public sealed class AnswerWorkflowService
                         Comment = item.Comment ?? string.Empty
                     })
                     .ToList(),
-                IsSigned = !string.IsNullOrWhiteSpace(answer.csp),
-                Signature = answer.csp
+                IsSigned = !string.IsNullOrWhiteSpace(answer.Csp),
+                Signature = answer.Csp
             })
             .ToList();
 
@@ -106,10 +106,10 @@ public sealed class AnswerWorkflowService
             Survey = new SurveyAnswersSurveyViewModel
             {
                 Id = surveyId,
-                Name = surveyInfo.name_survey ?? string.Empty,
-                Description = surveyInfo.description,
+                Name = surveyInfo.NameSurvey ?? string.Empty,
+                Description = surveyInfo.Description,
                 IsArchive = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase),
-                Csp = historyAnswers.FirstOrDefault(answer => !string.IsNullOrWhiteSpace(answer.csp))?.csp
+                Csp = historyAnswers.FirstOrDefault(answer => !string.IsNullOrWhiteSpace(answer.Csp))?.Csp
             },
             Answers = mappedAnswers
         };

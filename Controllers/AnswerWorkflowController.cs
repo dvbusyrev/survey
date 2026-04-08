@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Services.Answers;
-using main_project.Models;
+using MainProject.Services.Answers;
+using MainProject.Models;
 
 [Authorize]
 public class AnswerWorkflowController : Controller
@@ -22,20 +22,21 @@ public class AnswerWorkflowController : Controller
 
     [HttpPost("answers/create")]
     [HttpPost("api/insert_answer")]
-    public IActionResult insert_answer([FromBody] HistoryAnswer historyAnswerData)
+    [ActionName("insert_answer")]
+    public IActionResult InsertAnswer([FromBody] HistoryAnswer answerData)
     {
         var isAjaxRequest =
             string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
             || Request.Headers.Accept.Any(value => value.Contains("application/json", StringComparison.OrdinalIgnoreCase));
 
-        if (historyAnswerData == null)
+        if (answerData == null)
         {
             return isAjaxRequest
-                ? BadRequest(new { error = "Данные ответа отсутствуют." })
+                ? BadRequest(new OperationResponse { Error = "Данные ответа отсутствуют." })
                 : BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureOrganizationAccess(historyAnswerData.organization_id);
+        var accessResult = EnsureOrganizationAccess(answerData.OrganizationId);
         if (accessResult != null)
         {
             return accessResult;
@@ -43,20 +44,20 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var model = _answerWorkflowService.InsertAnswer(historyAnswerData);
+            var model = _answerWorkflowService.InsertAnswer(answerData);
             if (model == null)
             {
                 return isAjaxRequest
-                    ? NotFound(new { error = "Анкета не найдена." })
+                    ? NotFound(new OperationResponse { Error = "Анкета не найдена." })
                     : NotFound("Анкета не найдена");
             }
 
             if (isAjaxRequest)
             {
-                return Ok(new
+                return Ok(new OperationResponse
                 {
-                    success = true,
-                    message = "Ответы успешно сохранены."
+                    Success = true,
+                    Message = "Ответы успешно сохранены."
                 });
             }
 
@@ -66,14 +67,15 @@ public class AnswerWorkflowController : Controller
         {
             _logger.LogError(ex, "Ошибка при сохранении ответа");
             return isAjaxRequest
-                ? StatusCode(500, new { error = $"Ошибка при сохранении ответа: {ex.Message}" })
+                ? StatusCode(500, new OperationResponse { Error = $"Ошибка при сохранении ответа: {ex.Message}" })
                 : View("Error", new ErrorViewModel { Message = $"Ошибка при сохранении ответа: {ex.Message}" });
         }
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/{type?}")]
     [HttpGet("Answer/answers/{idSurvey}/{idOrganization}/{type?}")]
-    public IActionResult answers(int idSurvey, int idOrganization = 0, string type = "regular")
+    [ActionName("answers")]
+    public IActionResult Answers(int idSurvey, int idOrganization = 0, string type = "regular")
     {
         var includeAllOrganizationAnswers = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase)
             && _answerAccessService.IsAdmin;
@@ -92,49 +94,19 @@ public class AnswerWorkflowController : Controller
             var response = _answerWorkflowService.GetAnswersResponse(idSurvey, idOrganization, type, includeAllOrganizationAnswers);
             if (!response.Success)
             {
-                return NotFound(new
-                {
-                    success = false,
-                    error = response.Error
-                });
+                return NotFound(response);
             }
 
-            return Json(new
-            {
-                success = true,
-                survey = new
-                {
-                    id = response.Survey?.Id ?? idSurvey,
-                    name = response.Survey?.Name ?? string.Empty,
-                    description = response.Survey?.Description,
-                    is_archive = response.Survey?.IsArchive ?? false,
-                    csp = response.Survey?.Csp
-                },
-                answers = response.Answers.Select(answer => new
-                {
-                    id = answer.Id,
-                    organization_id = answer.OrganizationId,
-                    organization_name = answer.OrganizationName,
-                    date = answer.Date,
-                    answers = answer.Answers.Select(item => new
-                    {
-                        question_text = item.QuestionText,
-                        rating = item.Rating,
-                        comment = item.Comment
-                    }),
-                    is_signed = answer.IsSigned,
-                    signature = answer.Signature
-                })
-            });
+            return Json(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при обработке запроса ответов");
-            return StatusCode(500, new
+            return StatusCode(500, new SurveyAnswersResponse
             {
-                success = false,
-                error = "Внутренняя ошибка сервера",
-                details = ex.Message
+                Success = false,
+                Error = "Внутренняя ошибка сервера",
+                Details = ex.Message
             });
         }
     }
@@ -143,7 +115,8 @@ public class AnswerWorkflowController : Controller
     [HttpPost("answers/{idSurvey}/{idOrganization}/edit")]
     [HttpPost("update_answer/{idSurvey}/{idOrganization}")]
     [HttpPost("Answer/update_answer/{idSurvey}/{idOrganization}")]
-    public IActionResult update_answer([FromRoute] int idSurvey, [FromRoute] int idOrganization)
+    [ActionName("update_answer")]
+    public IActionResult UpdateAnswer([FromRoute] int idSurvey, [FromRoute] int idOrganization)
     {
         var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
@@ -171,14 +144,15 @@ public class AnswerWorkflowController : Controller
     [HttpPost("answers/update")]
     [HttpPost("update_answer_bd")]
     [HttpPost("Answer/update_answer_bd")]
-    public IActionResult update_answer_bd([FromBody] HistoryAnswer historyAnswerData)
+    [ActionName("update_answer_bd")]
+    public IActionResult UpdateAnswerBd([FromBody] HistoryAnswer answerData)
     {
-        if (historyAnswerData == null)
+        if (answerData == null)
         {
             return BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureOrganizationAccess(historyAnswerData.organization_id);
+        var accessResult = EnsureOrganizationAccess(answerData.OrganizationId);
         if (accessResult != null)
         {
             return accessResult;
@@ -186,7 +160,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var model = _answerWorkflowService.UpdateAnswer(historyAnswerData);
+            var model = _answerWorkflowService.UpdateAnswer(answerData);
             if (model == null)
             {
                 return NotFound("Запись для обновления не найдена.");

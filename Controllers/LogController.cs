@@ -1,13 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Text;
+using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Infrastructure.Database;
-using main_project.Infrastructure.Security;
-using main_project.Models;
+using MainProject.Infrastructure.Database;
+using MainProject.Infrastructure.Security;
+using MainProject.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Data;
-using System.Text;
-using Npgsql;
-
 
 [Authorize(Roles = AppRoles.Admin)]
 public class LogController : Controller
@@ -19,252 +18,304 @@ public class LogController : Controller
         _connectionFactory = connectionFactory;
     }
 
-
-// ДОБАВЛЕНИЕ ЛОГА В БАЗУ ДАННЫХ
-public IActionResult insert_log(int id_user, int id_target, string target_type, string event_type, DateTime date, object extra_data, string description)
-{
-
-    Console.WriteLine("Начинаю добавление лога...");
-    try
+    [ActionName("get_logs")]
+    public IActionResult GetLogs()
     {
-        string extraDataJson = extra_data != null ? JObject.FromObject(extra_data).ToString() : null;
-
-        using var connection = _connectionFactory.CreateConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = @"
-            INSERT INTO public.log (id_user, id_target, target_type, event_type, date, extra_data, description)
-            VALUES (@id_user, @id_target, @target_type, @event_type, @date, @extra_data, @description);
-        ";
-
-        command.Parameters.Add(new NpgsqlParameter("@id_user", id_user));
-        command.Parameters.Add(new NpgsqlParameter("@id_target", id_target));
-        command.Parameters.Add(new NpgsqlParameter("@target_type", target_type));
-        command.Parameters.Add(new NpgsqlParameter("@event_type", event_type));
-        command.Parameters.Add(new NpgsqlParameter("@date", date));
-        command.Parameters.Add(new NpgsqlParameter("@extra_data", extraDataJson));
-        command.Parameters.Add(new NpgsqlParameter("@description", description));
-
-        command.ExecuteNonQuery();
-
-        return Ok();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Ошибка при вставке лога: {ex.Message}");
-        return StatusCode(500, $"Ошибка при вставке лога: {ex.Message}");
-    }
-}
-
-
-public IActionResult get_logs()
-{
-    List<Log> logs = new List<Log>();
-    using var connection = _connectionFactory.CreateConnection();
-    using var command = connection.CreateCommand();
-    command.CommandText = "SELECT "+
-                            "l.id_log, "+
-                            "l.id_user, "+
-                            "l.id_target, "+
-                            "l.target_type, "+
-                            "l.event_type, "+
-                            "l.date, "+
-                            "l.extra_data, "+
-                            "l.description, "+
-                            "(SELECT u.name_user "+
-                            "FROM public.app_user u "+
-                            "WHERE u.id_user = l.id_user) AS name_user,"+
-                            "(SELECT s.name_survey "+
-                            "FROM public.survey s "+
-                            "WHERE s.id_survey = l.id_target) AS name_survey "+
-                        "FROM "+
-                            "public.log l;";
-    try
-    {
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
+        try
         {
-            var log = new Log
-            {
-                id_log = reader.GetInt32(0),
-                id_user = reader.GetInt32(1),
-                id_target = reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
-                target_type = reader.GetString(3),
-                event_type = reader.GetString(4),
-                date = reader.GetDateTime(5),
-                extra_data = reader.IsDBNull(6) ? "Нет данных" : JObject.Parse(reader.GetString(6)),
-                description = reader.GetString(7),
-                name_user = reader.IsDBNull(8) ? "Нет данных" : reader.GetString(8),
-                name_survey = reader.IsDBNull(9) ? "Нет данных" : reader.GetString(9),
-            };
-            logs.Add(log);
+            using var connection = _connectionFactory.CreateConnection();
+            var logs = LoadAuditLogs(connection);
+            return View(logs);
         }
-    }
-    catch (Exception ex)
-    {
-                    Console.WriteLine(ex.Message);
-        return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка логов: {ex.Message}" });
-    }
-
-    return View(logs);
-}
-
-public IActionResult get_dump_logs()
-{
-    List<Log> logs = new List<Log>();
-    using var connection = _connectionFactory.CreateConnection();
-    using var command = connection.CreateCommand();
-    command.CommandText = "SELECT "+
-                            "l.id_log, "+
-                            "l.id_user, "+
-                            "l.id_target, "+
-                            "l.target_type, "+
-                            "l.event_type, "+
-                            "l.date, "+
-                            "l.extra_data, "+
-                            "l.description, "+
-                            "(SELECT u.name_user "+
-                            "FROM public.app_user u "+
-                            "WHERE u.id_user = l.id_user) AS name_user,"+
-                            "(SELECT s.name_survey "+
-                            "FROM public.survey s "+
-                            "WHERE s.id_survey = l.id_target) AS name_survey "+
-                        "FROM "+
-                            "public.log l;";
-    try
-    {
-        using var reader = command.ExecuteReader();
-        while (reader.Read())
+        catch (Exception ex)
         {
-            var log = new Log
-            {
-                id_log = reader.GetInt32(0),
-                id_user = reader.GetInt32(1),
-                id_target = reader.IsDBNull(2) ? 0 : reader.GetInt32(2),
-                target_type = reader.GetString(3),
-                event_type = reader.GetString(4),
-                date = reader.GetDateTime(5),
-                extra_data = reader.IsDBNull(6) ? "Нет данных" : JObject.Parse(reader.GetString(6)),
-                description = reader.GetString(7),
-                name_user = reader.IsDBNull(8) ? "Нет данных" : reader.GetString(8),
-                name_survey = reader.IsDBNull(9) ? "Нет данных" : reader.GetString(9),
-            };
-            logs.Add(log);
-        }
-    }
-    catch (Exception ex)
-    {
-        return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка логов: {ex.Message}" });
-    }
-
-    // Преобразуем логи в текстовый формат
-    var logText = GenerateLogText(logs);
-
-    // Сохраняем текст в файл
-    var fileName = $"logs_dump_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
-    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "dumps", fileName);
-
-    // Создаем директорию, если она не существует
-    var directoryPath = Path.GetDirectoryName(filePath);
-    if (!string.IsNullOrEmpty(directoryPath))
-    {
-        Directory.CreateDirectory(directoryPath);
-    }
-
-    // Записываем текст в файл
-    System.IO.File.WriteAllText(filePath, logText);
-
-    // Возвращаем файл для скачивания
-    var fileBytes = System.IO.File.ReadAllBytes(filePath);
-    return File(fileBytes, "text/plain", fileName);
-}
-
-private string GenerateLogText(List<Log> logs)
-{
-    var sb = new StringBuilder();
-
-    foreach (var log in logs)
-    {
-        if (log.event_type == "LOGIN_ERROR")
-        {
-            sb.AppendLine($"{log.date} Ошибка входа в систему пользователя (ID: {log.id_log}). Причина: {log.description}");
-        }
-        else if (log.event_type == "USER_SURVEY_ERROR")
-        {
-            sb.AppendLine($"{log.date} Пользователь (ID: {log.id_log}) не смог завершить прохождение анкеты {log.name_survey}({log.id_target}). Причина: {log.description}");
-        }
-        else if (log.event_type == "SURVEY_UPDATE")
-        {
-            sb.AppendLine($"{log.date} Администратор {log.name_user}({log.id_log}) обновил анкету {log.name_survey}({log.id_target}). Подробности: {FormatExtraData(log.extra_data)}");
-        }
-        else if (log.event_type == "SURVEY_ISSUE")
-        {
-            sb.AppendLine($"{log.date} Администратор {log.name_user}({log.id_log}) выдал анкету {log.name_survey}({log.id_target}) на прохождение. Подробности: {FormatExtraData(log.extra_data)}");
-        }
-        else if (log.event_type == "SURVEY_OVERDUE")
-        {
-            sb.AppendLine($"{log.date} Анкета {log.name_survey}({log.id_target}) перенесена в архив. Причина: {log.description}");
-        }
-        else if (log.event_type == "BLOCK_Organization" || log.event_type == "BLOCK_ORGANIZATION")
-        {
-            sb.AppendLine($"{log.date} Организация {log.id_target} заблокирована. Подробности: {FormatExtraData(log.extra_data)}");
-        }
-        else
-        {
-            // Если тип события неизвестен, добавляем общую информацию
-            sb.AppendLine($"{log.date} Неизвестное событие {log.event_type}. Описание: {log.description}");
+            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка логов: {ex.Message}" });
         }
     }
 
-    return sb.ToString();
-}
+    [ActionName("get_dump_logs")]
+    public IActionResult GetDumpLogs()
+    {
+        IReadOnlyList<Log> logs;
 
-private string FormatExtraData(object extraData)
-{
-    if (extraData is JObject jObject)
+        try
+        {
+            using var connection = _connectionFactory.CreateConnection();
+            logs = LoadAuditLogs(connection);
+        }
+        catch (Exception ex)
+        {
+            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка логов: {ex.Message}" });
+        }
+
+        var logText = GenerateLogText(logs);
+        var fileName = $"logs_dump_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "dumps", fileName);
+        var directoryPath = Path.GetDirectoryName(filePath);
+
+        if (!string.IsNullOrEmpty(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+
+        System.IO.File.WriteAllText(filePath, logText, Encoding.UTF8);
+
+        var fileBytes = System.IO.File.ReadAllBytes(filePath);
+        return File(fileBytes, "text/plain", fileName);
+    }
+
+    private static IReadOnlyList<Log> LoadAuditLogs(global::System.Data.IDbConnection connection)
+    {
+        const string sql = """
+            SELECT
+                audit_entries.source_table AS SourceTable,
+                audit_entries.id_audit AS IdAudit,
+                audit_entries.operation AS Operation,
+                audit_entries.changed_at AS ChangedAt,
+                audit_entries.changed_by_user_id AS ChangedByUserId,
+                COALESCE(actor.full_name, actor.name_user) AS ActorName,
+                audit_entries.record_pk::text AS RecordPkJson,
+                audit_entries.row_data::text AS RowDataJson
+            FROM (
+                SELECT 'app_user'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
+                FROM public.app_user_l
+                UNION ALL
+                SELECT 'organization'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
+                FROM public.organization_l
+                UNION ALL
+                SELECT 'survey'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
+                FROM public.survey_l
+                UNION ALL
+                SELECT 'answer'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
+                FROM public.answer_l
+                UNION ALL
+                SELECT 'organization_survey'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
+                FROM public.organization_survey_l
+            ) audit_entries
+            LEFT JOIN public.app_user actor
+                ON actor.id_user = audit_entries.changed_by_user_id
+            ORDER BY audit_entries.changed_at DESC, audit_entries.id_audit DESC;
+            """;
+
+        var rows = connection.Query<AuditLogRow>(sql).ToList();
+        return rows.Select(MapAuditLog).ToList();
+    }
+
+    private static Log MapAuditLog(AuditLogRow row)
+    {
+        var recordPk = ParseJsonObject(row.RecordPkJson);
+        var rowData = ParseJsonObject(row.RowDataJson);
+        var entityName = GetEntityName(row.SourceTable);
+        var operationName = GetOperationName(row.Operation);
+        var targetName = BuildTargetName(row.SourceTable, recordPk, rowData);
+
+        return new Log
+        {
+            IdLog = row.IdAudit,
+            IdUser = row.ChangedByUserId,
+            TargetType = entityName,
+            EventType = operationName,
+            Date = row.ChangedAt,
+            Description = BuildDescription(entityName, operationName, targetName),
+            ExtraData = BuildDetails(recordPk, rowData),
+            NameUser = !string.IsNullOrWhiteSpace(row.ActorName)
+                ? row.ActorName
+                : row.ChangedByUserId.HasValue
+                    ? $"ID {row.ChangedByUserId}"
+                    : "Система",
+            TargetName = targetName
+        };
+    }
+
+    private static string GenerateLogText(IEnumerable<Log> logs)
     {
         var sb = new StringBuilder();
 
-        // Проверяем, содержит ли extra_data ключи "new" и "old"
-        if (jObject.ContainsKey("new") && jObject.ContainsKey("old"))
+        foreach (var log in logs.OrderByDescending(item => item.Date))
         {
-            var newData = jObject["new"] as JObject;
-            var oldData = jObject["old"] as JObject;
+            sb.AppendLine(
+                $"{log.Date:dd.MM.yyyy HH:mm:ss} [{log.EventType}] {log.TargetType}: {log.TargetName}. Пользователь: {log.NameUser}. {log.Description}");
 
-            // Форматируем старые атрибуты
-            sb.Append("Старые атрибуты: (");
-            foreach (var property in oldData.Properties())
+            if (log.ExtraData is JToken token)
             {
-                sb.Append($"{property.Name}: {property.Value}, ");
+                sb.AppendLine(token.ToString(Formatting.None));
             }
-            sb.Length -= 2; // Убираем последнюю запятую и пробел
-            sb.Append(")");
+
             sb.AppendLine();
-            
-            // Форматируем новые атрибуты
-            sb.Append("Новые атрибуты: (");
-            foreach (var property in newData.Properties())
-            {
-                sb.Append($"{property.Name}: {property.Value}, ");
-            }
-            sb.Length -= 2; // Убираем последнюю запятую и пробел
-            sb.Append(")");
-            sb.AppendLine();
-        }
-        else
-        {
-            // Если нет ключей "new" и "old", обрабатываем как обычный JSON
-            foreach (var property in jObject.Properties())
-            {
-                sb.AppendLine($"{property.Name}: {property.Value}");
-            }
         }
 
         return sb.ToString();
     }
-    else
+
+    private static JObject BuildDetails(JObject? recordPk, JObject? rowData)
     {
-        // Если extra_data не является JObject, возвращаем его как есть
-        return extraData?.ToString() ?? "Нет данных";
+        return new JObject
+        {
+            ["record_pk"] = recordPk ?? new JObject(),
+            ["row_data"] = rowData ?? new JObject()
+        };
     }
-}
+
+    private static string BuildDescription(string entityName, string operationName, string targetName)
+    {
+        return $"{operationName} сущности \"{entityName}\": {targetName}";
+    }
+
+    private static string BuildTargetName(string sourceTable, JObject? recordPk, JObject? rowData)
+    {
+        return sourceTable switch
+        {
+            "app_user" => FirstNonEmpty(rowData?["full_name"], rowData?["name_user"]) ?? BuildIdLabel(recordPk, "id_user", "ID"),
+            "organization" => FirstNonEmpty(rowData?["organization_name"]) ?? BuildIdLabel(recordPk, "organization_id", "ID"),
+            "survey" => FirstNonEmpty(rowData?["name_survey"]) ?? BuildIdLabel(recordPk, "id_survey", "ID"),
+            "answer" => BuildAnswerTarget(recordPk, rowData),
+            "organization_survey" => BuildAssignmentTarget(recordPk, rowData),
+            _ => BuildGenericTarget(recordPk)
+        };
+    }
+
+    private static string BuildAnswerTarget(JObject? recordPk, JObject? rowData)
+    {
+        var answerId = ExtractValue(recordPk, "id_answer");
+        var organizationId = ExtractValue(rowData, "organization_id") ?? ExtractValue(recordPk, "organization_id");
+        var surveyId = ExtractValue(rowData, "id_survey") ?? ExtractValue(recordPk, "id_survey");
+
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(answerId))
+        {
+            parts.Add($"Ответ {answerId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(organizationId))
+        {
+            parts.Add($"организация {organizationId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(surveyId))
+        {
+            parts.Add($"анкета {surveyId}");
+        }
+
+        return parts.Count == 0
+            ? "Ответ"
+            : string.Join(", ", parts);
+    }
+
+    private static string BuildAssignmentTarget(JObject? recordPk, JObject? rowData)
+    {
+        var organizationId = ExtractValue(recordPk, "organization_id") ?? ExtractValue(rowData, "organization_id");
+        var surveyId = ExtractValue(recordPk, "id_survey") ?? ExtractValue(rowData, "id_survey");
+
+        if (!string.IsNullOrWhiteSpace(organizationId) && !string.IsNullOrWhiteSpace(surveyId))
+        {
+            return $"Организация {organizationId} / анкета {surveyId}";
+        }
+
+        return BuildGenericTarget(recordPk);
+    }
+
+    private static string BuildGenericTarget(JObject? recordPk)
+    {
+        if (recordPk == null || !recordPk.Properties().Any())
+        {
+            return "Нет данных";
+        }
+
+        return string.Join(
+            ", ",
+            recordPk.Properties().Select(property => $"{property.Name}={property.Value}"));
+    }
+
+    private static string GetEntityName(string sourceTable)
+    {
+        return sourceTable switch
+        {
+            "app_user" => "Пользователь",
+            "organization" => "Организация",
+            "survey" => "Анкета",
+            "answer" => "Ответ",
+            "organization_survey" => "Назначение анкеты",
+            _ => sourceTable
+        };
+    }
+
+    private static string GetOperationName(string operation)
+    {
+        return operation switch
+        {
+            "INSERT" => "Создание",
+            "UPDATE" => "Изменение",
+            "DELETE" => "Удаление",
+            _ => operation
+        };
+    }
+
+    private static JObject? ParseJsonObject(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JObject.Parse(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? FirstNonEmpty(params JToken?[] values)
+    {
+        foreach (var value in values)
+        {
+            var text = ExtractText(value);
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    private static string BuildIdLabel(JObject? source, string key, string label)
+    {
+        var value = ExtractValue(source, key);
+        return string.IsNullOrWhiteSpace(value)
+            ? "Нет данных"
+            : $"{label} {value}";
+    }
+
+    private static string? ExtractValue(JObject? source, string key)
+    {
+        return ExtractText(source?[key]);
+    }
+
+    private static string? ExtractText(JToken? token)
+    {
+        if (token == null || token.Type == JTokenType.Null)
+        {
+            return null;
+        }
+
+        return token.Type == JTokenType.String
+            ? token.Value<string>()?.Trim()
+            : token.ToString(Formatting.None);
+    }
+
+    private sealed class AuditLogRow
+    {
+        public string SourceTable { get; init; } = string.Empty;
+        public long IdAudit { get; init; }
+        public string Operation { get; init; } = string.Empty;
+        public DateTime ChangedAt { get; init; }
+        public int? ChangedByUserId { get; init; }
+        public string? ActorName { get; init; }
+        public string? RecordPkJson { get; init; }
+        public string? RowDataJson { get; init; }
+    }
 }

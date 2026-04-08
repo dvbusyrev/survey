@@ -1,4 +1,4 @@
-@model main_project.Models.Organization
+﻿@model MainProject.Models.Organization
 @{
     ViewData["Title"] = "Редактирование организации";
 }
@@ -16,26 +16,26 @@
 
         <div class="form-group">
             <label for="name">Наименование:</label>
-            <input type="text" class="form-control" id="name" placeholder="Введите наименование" value="@Model?.organization_name" required />
+            <input type="text" class="form-control" id="name" placeholder="Введите наименование" value="@Model?.OrganizationName" required />
         </div>
         <div class="form-group">
             <label for="email">Почта:</label>
-            <input type="text" class="form-control" id="email" placeholder="Введите email" value="@Model?.email" required />
+            <input type="text" class="form-control" id="email" placeholder="Введите email" value="@Model?.Email" required />
         </div>
 
 <div class="form-group">
     <label for="date_begin">Дата начала анкетирования:</label>
     <input type="date" class="form-control" id="date_begin" name="date_begin" 
-           value="@(Model?.date_begin?.ToString("yyyy-MM-dd"))" required />
+           value="@(Model?.DateBegin?.ToString("yyyy-MM-dd"))" required />
 </div>
 <div class="form-group">
     <label for="date_end">Дата окончания:</label>
     <input type="date" class="form-control" id="date_end" name="date_end" 
-           value="@(Model?.date_end?.ToString("yyyy-MM-dd"))" required />
+           value="@(Model?.DateEnd?.ToString("yyyy-MM-dd"))" required />
 </div>
         
         <div class="button-container organization-form__actions">
-           <button type="button" class="btn" onclick="updateOrganizationPage(@Model.organization_id)">Обновить организацию</button>
+           <button type="button" class="btn" onclick="updateOrganizationPage(@Model.OrganizationId)">Обновить организацию</button>
         </div>
     </div>
 

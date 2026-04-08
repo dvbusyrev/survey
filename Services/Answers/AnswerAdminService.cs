@@ -1,7 +1,7 @@
-using Dapper;
-using main_project.Infrastructure.Database;
+﻿using Dapper;
+using MainProject.Infrastructure.Database;
 
-namespace main_project.Services.Answers;
+namespace MainProject.Services.Answers;
 
 public sealed class AnswerAdminService
 {

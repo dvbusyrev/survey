@@ -1,20 +1,41 @@
-using System;
-using Newtonsoft.Json.Linq;
+﻿using System;
+using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace main_project.Models
+namespace MainProject.Models
 {
-public class Log
-{
-    public int id_log { get; set; }
-    public int id_user { get; set; }
-    public int? id_target { get; set; }
-    public string? target_type { get; set; }
-    public string? event_type { get; set; }
-    public DateTime date { get; set; }
-    public object? extra_data { get; set; } // Используем object, так как extra_data может быть строкой или JObject
-    public string? description { get; set; }
+    public class Log
+    {
+        [JsonProperty("id_log")]
+        [JsonPropertyName("id_log")]
+        public long IdLog { get; set; }
 
-    public string? name_user { get; set; }
-    public string? name_survey { get; set; }
-}
+        [JsonProperty("id_user")]
+        [JsonPropertyName("id_user")]
+        public int? IdUser { get; set; }
+
+        [JsonProperty("target_type")]
+        [JsonPropertyName("target_type")]
+        public string? TargetType { get; set; }
+
+        [JsonProperty("event_type")]
+        [JsonPropertyName("event_type")]
+        public string? EventType { get; set; }
+
+        public DateTime Date { get; set; }
+
+        [JsonProperty("extra_data")]
+        [JsonPropertyName("extra_data")]
+        public object? ExtraData { get; set; }
+
+        public string? Description { get; set; }
+
+        [JsonProperty("name_user")]
+        [JsonPropertyName("name_user")]
+        public string? NameUser { get; set; }
+
+        [JsonProperty("target_name")]
+        [JsonPropertyName("target_name")]
+        public string? TargetName { get; set; }
+    }
 }

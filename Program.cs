@@ -1,12 +1,15 @@
+﻿using Dapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.ResponseCompression;
-using main_project.Infrastructure.Database;
-using main_project.Services;
-using main_project.Services.Answers;
-using main_project.Services.Surveys;
+using MainProject.Infrastructure.Database;
+using MainProject.Services;
+using MainProject.Services.Answers;
+using MainProject.Services.Surveys;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+
+DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // Настройка логирования
 builder.Logging.ClearProviders();
@@ -275,13 +278,13 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "help_clean",
     pattern: "help",
-    defaults: new { controller = "Help", action = "page_help" }
+    defaults: new { controller = "Help", action = "help_page" }
 );
 
 app.MapControllerRoute(
-    name: "page_help",
-    pattern: "page_help",
-    defaults: new { controller = "Help", action = "page_help" }
+    name: "help_page",
+    pattern: "help_page",
+    defaults: new { controller = "Help", action = "help_page" }
 );
 
 app.MapControllerRoute(
@@ -303,21 +306,21 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "copy_archive_survey",
-    pattern: "copy_archive_survey",
-    defaults: new { controller = "SurveyArchive", action = "copy_archive_survey" }
+    name: "copy_archived_survey",
+    pattern: "copy_archived_survey",
+    defaults: new { controller = "SurveyArchive", action = "copy_archived_survey" }
 );
 
 app.MapControllerRoute(
     name: "help_file_clean",
     pattern: "help/files/{type}",
-    defaults: new { controller = "Help", action = "get_file" }
+    defaults: new { controller = "Help", action = "help_file" }
 );
 
 app.MapControllerRoute(
-    name: "get_file",
-    pattern: "get_file/{type}",
-    defaults: new { controller = "Help", action = "get_file" }
+    name: "help_file",
+    pattern: "help_file/{type}",
+    defaults: new { controller = "Help", action = "help_file" }
 );
 
 app.MapControllerRoute(
@@ -339,9 +342,9 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "archiv_surveys",
-    pattern: "archiv_surveys",
-    defaults: new { controller = "SurveyArchive", action = "archiv_surveys" }
+    name: "archived_surveys",
+    pattern: "archived_surveys",
+    defaults: new { controller = "SurveyArchive", action = "archived_surveys" }
 );
 
 app.MapControllerRoute(
@@ -364,9 +367,9 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "open_statistic",
-    pattern: "open_statistic",
-    defaults: new { controller = "AnswerAdmin", action = "open_statistic" }
+    name: "open_statistics",
+    pattern: "open_statistics",
+    defaults: new { controller = "AnswerAdmin", action = "open_statistics" }
 );
 
 app.MapControllerRoute(
@@ -376,9 +379,9 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "get_list_archive",
-    pattern: "get_list_archive/{id}",
-    defaults: new { controller = "SurveyArchive", action = "get_list_archive" }
+    name: "get_archived_surveys",
+    pattern: "get_archived_surveys/{id}",
+    defaults: new { controller = "SurveyArchive", action = "get_archived_surveys" }
 );
 
 app.MapControllerRoute(
@@ -394,21 +397,15 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "rassilka_page",
-    pattern: "rassilka_page",
-    defaults: new { controller = "Email", action = "rassilka_page" }
+    name: "get_statistics_data",
+    pattern: "get_statistics_data",
+    defaults: new { controller = "AnswerAdmin", action = "get_statistics_data" }
 );
 
 app.MapControllerRoute(
-    name: "get_data_statistic",
-    pattern: "get_data_statistic",
-    defaults: new { controller = "AnswerAdmin", action = "get_data_statistic" }
-);
-
-app.MapControllerRoute(
-    name: "zapolnenie_anketi",
-    pattern: "zapolnenie_anketi/{id:int}/{organizationId:int}",
-    defaults: new { controller = "SurveyUser", action = "zapolnenie_anketi" }
+    name: "get_survey_questions",
+    pattern: "get_survey_questions/{id:int}/{organizationId:int}",
+    defaults: new { controller = "SurveyUser", action = "get_survey_questions" }
 );
 
 app.MapControllerRoute(
@@ -418,15 +415,15 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "create_otchet_month",
-    pattern: "create_otchet_month/{id:int}",
-    defaults: new { controller = "SurveyReports", action = "create_otchet_month" }
+    name: "create_monthly_report",
+    pattern: "create_monthly_report/{id:int}",
+    defaults: new { controller = "SurveyReports", action = "create_monthly_report" }
 );
 
 app.MapControllerRoute(
-    name: "create_otchet_for_me",
-    pattern: "create_otchet_for_me/{idSurvey}/{idOrganization}/{type}",
-    defaults: new { controller = "AnswerExport", action = "create_otchet_for_me" }
+    name: "create_answer_report",
+    pattern: "create_answer_report/{idSurvey}/{idOrganization}/{type}",
+    defaults: new { controller = "AnswerExport", action = "create_answer_report" }
 );
 
 app.MapControllerRoute(
@@ -444,21 +441,21 @@ app.MapControllerRoute(
 
 
 app.MapControllerRoute(
-    name: "create_archiv_for_me",
-    pattern: "create_archiv_for_me/{idSurvey}/{idOrganization}",
-    defaults: new { controller = "AnswerExport", action = "create_archiv_for_me" }
+    name: "create_answer_report_archive",
+    pattern: "create_answer_report_archive/{idSurvey}/{idOrganization}",
+    defaults: new { controller = "AnswerExport", action = "create_answer_report_archive" }
 );
 
 app.MapControllerRoute(
-    name: "create_otchetAll_month",
-    pattern: "create_otchetAll_month",
-    defaults: new { controller = "SurveyReports", action = "create_otchetAll_month" }
+    name: "create_monthly_summary_report",
+    pattern: "create_monthly_summary_report",
+    defaults: new { controller = "SurveyReports", action = "create_monthly_summary_report" }
 );
 
 app.MapControllerRoute(
-    name: "create_otchet_kvartal",
-    pattern: "create_otchet_kvartal/{kvartal}/{year}",
-    defaults: new { controller = "SurveyReports", action = "create_otchet_kvartal" }
+    name: "create_quarterly_report",
+    pattern: "create_quarterly_report/{quarter}/{year}",
+    defaults: new { controller = "SurveyReports", action = "create_quarterly_report" }
 );
 
 app.MapControllerRoute(
@@ -468,9 +465,9 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "view_otchets",
-    pattern: "view_otchets",
-    defaults: new { controller = "SurveyReports", action = "view_otchets" }
+    name: "view_reports",
+    pattern: "view_reports",
+    defaults: new { controller = "SurveyReports", action = "view_reports" }
 );
 
 app.MapControllerRoute(
@@ -578,9 +575,9 @@ app.MapControllerRoute(
     defaults: new { controller = "AnswerAdmin", action = "get_list_answers"}
 );
 app.MapControllerRoute(
-    name: "get_list_csp",
-    pattern: "get_list_csp/{id}",
-    defaults: new { controller = "AnswerAdmin", action = "get_list_csp" });
+    name: "get_survey_signatures",
+    pattern: "get_survey_signatures/{id}",
+    defaults: new { controller = "AnswerAdmin", action = "get_survey_signatures" });
 
 app.MapControllerRoute(
     name: "get_users",
@@ -599,9 +596,9 @@ app.MapControllerRoute(
     defaults: new { controller = "Email", action = "send_message"});
 
 app.MapControllerRoute(
-    name: "get_file",
-    pattern: "get_file/{type}",
-    defaults: new { controller = "Help", action = "get_file"});
+    name: "help_file",
+    pattern: "help_file/{type}",
+    defaults: new { controller = "Help", action = "help_file"});
 
 app.MapControllerRoute(
     name: "add_user",
@@ -630,14 +627,9 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "prodlenie_organizations",
-    pattern: "prodlenie_organizations",
-    defaults: new { controller = "Ae", action = "prodlenie_organizations"});
-
-app.MapControllerRoute(
-    name: "get_organizations",
-    pattern: "get_organizations",
-    defaults: new { controller = "Ae", action = "GetOrganizations" });
+    name: "save_survey_extensions",
+    pattern: "survey-extensions",
+    defaults: new { controller = "SurveyExtension", action = "SaveSurveyExtensions" });
     
 app.MapControllerRoute(
     name: "display_auth",

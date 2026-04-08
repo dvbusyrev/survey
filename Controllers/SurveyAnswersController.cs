@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Services.Surveys;
-using main_project.Infrastructure.Security;
+using MainProject.Services.Surveys;
+using MainProject.Infrastructure.Security;
 
 [Authorize]
 public class SurveyAnswersController : Controller

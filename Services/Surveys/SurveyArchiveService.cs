@@ -1,9 +1,9 @@
-using System.Data;
+﻿using System.Data;
 using Dapper;
-using main_project.Infrastructure.Database;
-using main_project.Models;
+using MainProject.Infrastructure.Database;
+using MainProject.Models;
 
-namespace main_project.Services.Surveys;
+namespace MainProject.Services.Surveys;
 
 public sealed class SurveyArchiveService
 {
@@ -201,11 +201,11 @@ public sealed class SurveyArchiveService
               RETURNING id_survey;",
             new
             {
-                nameSurvey = archiveSurvey.name_survey,
-                description = archiveSurvey.description ?? string.Empty,
+                nameSurvey = archiveSurvey.NameSurvey,
+                description = archiveSurvey.Description ?? string.Empty,
                 dateCreate = DateTime.Now,
-                dateOpen = archiveSurvey.date_begin.Date,
-                dateClose = archiveSurvey.date_end.Date
+                dateOpen = archiveSurvey.DateBegin.Date,
+                dateClose = archiveSurvey.DateEnd.Date
             },
             transaction);
 
@@ -237,7 +237,7 @@ public sealed class SurveyArchiveService
             return;
         }
 
-        var surveyIds = surveyList.Select(s => s.id_survey).Distinct().ToArray();
+        var surveyIds = surveyList.Select(s => s.IdSurvey).Distinct().ToArray();
         var rows = connection.Query<ArchiveQuestionLookupRow>(
             @"SELECT
                   id_survey AS SurveyId,
@@ -262,7 +262,7 @@ public sealed class SurveyArchiveService
 
         foreach (var survey in surveyList)
         {
-            survey.Questions = questionLookup.GetValueOrDefault(survey.id_survey, new List<SurveyQuestionItem>());
+            survey.Questions = questionLookup.GetValueOrDefault(survey.IdSurvey, new List<SurveyQuestionItem>());
         }
     }
 

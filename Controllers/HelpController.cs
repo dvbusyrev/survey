@@ -2,22 +2,21 @@
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Infrastructure.Security;
+using MainProject.Infrastructure.Security;
 using System.IO;
 using System.Text;
 
 [Authorize]
 public class HelpController : Controller
 {
-    string docxFilePath = "";
-     private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files");
-    public IActionResult get_file(string type)
-    {
-        if (type == "ryk"){docxFilePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files", "Руководство администратора.docx");}
-        else if (type == "ryk_user"){docxFilePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files", "Руководство пользователя.docx");}
-        else if (type == "csp"){docxFilePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files", "Работа с CSP(КриптоПро plugin).docx");}
+    private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files");
 
-        if (!System.IO.File.Exists(docxFilePath))
+    [ActionName("help_file")]
+    public IActionResult HelpFile(string type)
+    {
+        var docxFilePath = ResolveHelpDocumentPath(type);
+
+        if (string.IsNullOrWhiteSpace(docxFilePath) || !System.IO.File.Exists(docxFilePath))
         {
             return NotFound("Файл DOCX не найден.");
         }
@@ -37,6 +36,41 @@ public class HelpController : Controller
         {
             return StatusCode(500, $"Произошла ошибка: {ex.Message}");
         }
+    }
+
+    private string? ResolveHelpDocumentPath(string type)
+    {
+        var helpDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files");
+        var aliases = type?.Trim().ToLowerInvariant() switch
+        {
+            "admin-guide" or "admin_guide" => new[]
+            {
+                "admin_survey_guide.docx",
+                "Руководство администратора.docx"
+            },
+            "user-guide" or "user_guide" => new[]
+            {
+                "user_survey_guide.docx",
+                "Руководство пользователя.docx"
+            },
+            "csp-guide" or "csp_guide" or "csp" => new[]
+            {
+                "csp_guide.docx",
+                "Работа с CSP(КриптоПро plugin).docx"
+            },
+            _ => Array.Empty<string>()
+        };
+
+        foreach (var fileName in aliases)
+        {
+            var fullPath = Path.Combine(helpDirectory, fileName);
+            if (System.IO.File.Exists(fullPath))
+            {
+                return fullPath;
+            }
+        }
+
+        return null;
     }
 
     private string ConvertDocxToHtml(string docxFilePath)
@@ -95,7 +129,8 @@ public class HelpController : Controller
         return htmlBuilder.ToString();
     }
 
-    public IActionResult page_help()
+    [ActionName("help_page")]
+    public IActionResult HelpPage()
 {
 
 
@@ -104,7 +139,8 @@ public class HelpController : Controller
 
 [Authorize(Roles = AppRoles.Admin)]
 [HttpPost]
-    public async Task<IActionResult> upload_instruction(IFormFile file, string role)
+    [ActionName("upload_instruction")]
+    public async Task<IActionResult> UploadInstruction(IFormFile file, string role)
     {
         if (file == null || file.Length == 0)
         {
@@ -118,8 +154,8 @@ public class HelpController : Controller
 
         // Определяем имя файла в зависимости от роли
         string fileName = (role == "admin" || role == "administrator")
-            ? "Instruction_for_admin_anketirovanie" + Path.GetExtension(file.FileName)
-            : "Instruction_for_user_anketirovanie" + Path.GetExtension(file.FileName);
+            ? "admin_survey_guide" + Path.GetExtension(file.FileName)
+            : "user_survey_guide" + Path.GetExtension(file.FileName);
 
         // Убеждаемся, что папка существует
         if (!Directory.Exists(_uploadFolder))

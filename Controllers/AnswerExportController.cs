@@ -1,6 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Services.Answers;
+using MainProject.Services.Answers;
 
 [Authorize]
 public class AnswerExportController : Controller
@@ -76,10 +76,11 @@ public class AnswerExportController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/report/{type?}")]
-    [HttpGet("create_otchet_for_me/{idSurvey}/{idOrganization}/{type?}")]
-    [HttpGet("Answer/create_otchet_for_me")]
-    [HttpGet("Answer/create_otchet_for_me/{idSurvey}/{idOrganization}/{type?}")]
-    public IActionResult create_otchet_for_me(int idSurvey, int idOrganization, string type = "file")
+    [HttpGet("create_answer_report/{idSurvey}/{idOrganization}/{type?}")]
+    [HttpGet("Answer/create_answer_report")]
+    [HttpGet("Answer/create_answer_report/{idSurvey}/{idOrganization}/{type?}")]
+    [ActionName("create_answer_report")]
+    public IActionResult CreateAnswerReport(int idSurvey, int idOrganization, string type = "file")
     {
         var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
@@ -105,11 +106,12 @@ public class AnswerExportController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/archive")]
-    [HttpGet("create_archiv_for_me/{idSurvey}/{idOrganization}")]
-    [HttpGet("Answer/create_archiv_for_me/{idSurvey}/{idOrganization}")]
-    public IActionResult create_archiv_for_me(int idSurvey, int idOrganization)
+    [HttpGet("create_answer_report_archive/{idSurvey}/{idOrganization}")]
+    [HttpGet("Answer/create_answer_report_archive/{idSurvey}/{idOrganization}")]
+    [ActionName("create_answer_report_archive")]
+    public IActionResult CreateAnswerReportArchive(int idSurvey, int idOrganization)
     {
-        return create_otchet_for_me(idSurvey, idOrganization, "archiv");
+        return CreateAnswerReport(idSurvey, idOrganization, "archive");
     }
 
     private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)

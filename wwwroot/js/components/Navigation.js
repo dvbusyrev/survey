@@ -1,4 +1,4 @@
-﻿window.Navigation = ({ openVkladka, activeTab, userRole, userId }) => {
+﻿window.Navigation = ({ openTab, activeTab, userRole, userId }) => {
     const isAdmin = userRole === 'admin';
     const [openSubmenu, setOpenSubmenu] = React.useState(null);
     const listSubmenuIcon = 'fa-list-ul';
@@ -25,8 +25,8 @@
     }, []);
 
     const isSurveySectionActive = isAdmin
-        ? ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)
-        : ['active', 'archived', 'answers_tab', 'archiv_surveys_for_user'].includes(activeTab);
+        ? ['get_surveys', 'add_survey', 'list_answers_users', 'archived_surveys'].includes(activeTab)
+        : ['active', 'archived', 'answers_tab', 'archived_surveys_for_user'].includes(activeTab);
     const isOrganizationSectionActive = ['get_organization', 'add_organization', 'archive_list_organizations'].includes(activeTab);
 
     const navigate = (tab) => {
@@ -45,8 +45,8 @@
                 return;
             }
 
-            if (typeof openVkladka === 'function') {
-                openVkladka('get_users');
+            if (typeof openTab === 'function') {
+                openTab('get_users');
 
                 let attempts = 0;
                 const timer = window.setInterval(() => {
@@ -75,8 +75,8 @@
                 return;
             }
 
-            if (typeof openVkladka === 'function') {
-                openVkladka('get_organization');
+            if (typeof openTab === 'function') {
+                openTab('get_organization');
 
                 let attempts = 0;
                 const timer = window.setInterval(() => {
@@ -92,8 +92,8 @@
             return;
         }
 
-        if (typeof openVkladka === 'function') {
-            openVkladka(tab);
+        if (typeof openTab === 'function') {
+            openTab(tab);
             return;
         }
 
@@ -107,29 +107,40 @@
             return;
         }
 
-        if ((tab === 'archived' || tab === 'archiv_surveys_for_user') && userId) {
+        if ((tab === 'archived' || tab === 'archived_surveys_for_user') && userId) {
             window.location.href = '/my-surveys/archive';
             return;
         }
 
         const routes = {
             get_surveys: '/surveys',
-            open_statistic: '/statistics',
+            open_statistics: '/statistics',
             get_users: '/users',
             get_organization: '/organizations',
             archive_list_organizations: '/organizations/archive',
+            reports: '/reports',
             email: '/mail-settings',
             get_logs: '/logs'
         };
 
         if (routes[tab]) {
             window.location.href = routes[tab];
+            return;
+        }
+
+        if (tab === 'monthly_summary_report') {
+            window.location.href = '/reports';
+            return;
+        }
+
+        if (tab.startsWith('quarterly_report_q')) {
+            window.location.href = '/reports';
         }
     };
 
     const adminNavItems = [
         {
-            id: 'open_statistic',
+            id: 'open_statistics',
             label: 'Статистика',
             class: 'statistic',
             icon: 'fa-chart-line'
@@ -150,7 +161,7 @@
                         'survey-add'
                     ),
                     { id: 'list_answers_users', label: 'Ответы на анкеты', class: 'survey-answers', icon: 'fa-list-check' },
-                    { id: 'archiv_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
+                    { id: 'archived_surveys', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
                 ]
             }
             : {
@@ -191,16 +202,16 @@
             ]
         },
         {
-            id: 'otchets',
+            id: 'reports',
             label: 'Отчёты',
-            class: 'otchets',
+            class: 'reports',
             icon: 'fa-file-alt',
             submenu: [
-                { id: 'otchet_month', label: 'Отчёт за месяц', class: 'otchet-month', icon: 'fa-list-ul' },
-                { id: 'otchet-1kv', label: 'Отчёт за 1 квартал', class: 'otchet-1kv', icon: 'fa-list-ul' },
-                { id: 'otchet-2kv', label: 'Отчёт за 2 квартал', class: 'otchet-2kv', icon: 'fa-list-ul' },
-                { id: 'otchet-3kv', label: 'Отчёт за 3 квартал', class: 'otchet-3kv', icon: 'fa-list-ul' },
-                { id: 'otchet-4kv', label: 'Отчёт за 4 квартал', class: 'otchet-4kv', icon: 'fa-list-ul' }
+                { id: 'monthly_summary_report', label: 'Отчёт за месяц', class: 'monthly-summary-report', icon: 'fa-list-ul' },
+                { id: 'quarterly_report_q1', label: 'Отчёт за 1 квартал', class: 'quarterly-report-q1', icon: 'fa-list-ul' },
+                { id: 'quarterly_report_q2', label: 'Отчёт за 2 квартал', class: 'quarterly-report-q2', icon: 'fa-list-ul' },
+                { id: 'quarterly_report_q3', label: 'Отчёт за 3 квартал', class: 'quarterly-report-q3', icon: 'fa-list-ul' },
+                { id: 'quarterly_report_q4', label: 'Отчёт за 4 квартал', class: 'quarterly-report-q4', icon: 'fa-list-ul' }
             ]
         },
         {
@@ -235,7 +246,7 @@
             icon: 'fa-clipboard-list',
             submenu: [
                 { id: 'active', label: 'Список анкет', class: 'survey-list', icon: 'fa-list-ul' },
-                { id: 'archiv_surveys_for_user', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
+                { id: 'archived_surveys_for_user', label: 'Архив анкет', class: 'survey-archive', icon: 'fa-archive-docs' }
             ]
         },
         {

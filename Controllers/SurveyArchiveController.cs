@@ -1,8 +1,8 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Services.Surveys;
-using main_project.Infrastructure.Security;
-using main_project.Services;
+using MainProject.Services.Surveys;
+using MainProject.Infrastructure.Security;
+using MainProject.Services;
 
 [Authorize]
 public class SurveyArchiveController : Controller
@@ -48,19 +48,21 @@ public class SurveyArchiveController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("surveys/archive")]
-    [HttpGet("archiv_surveys")]
-    [HttpGet("Survey/archiv_surveys")]
-    public IActionResult archiv_surveys()
+    [HttpGet("archived_surveys")]
+    [HttpGet("Survey/archived_surveys")]
+    [ActionName("archived_surveys")]
+    public IActionResult ArchivedSurveys()
     {
         return View(
-            "~/Views/Survey/archiv_surveys.cshtml",
+            "~/Views/Survey/archived_surveys.cshtml",
             _surveyArchiveService.GetAdminArchiveSurveys());
     }
 
-    [HttpGet("archiv_surveys_for_user")]
-    [HttpGet("Survey/archiv_surveys_for_user")]
+    [HttpGet("archived_surveys_for_user")]
+    [HttpGet("Survey/archived_surveys_for_user")]
     [HttpGet("my-surveys/archive")]
-    public IActionResult archiv_surveys_for_user()
+    [ActionName("archived_surveys_for_user")]
+    public IActionResult ArchivedSurveysForUser()
     {
         if (!_currentUserService.UserId.HasValue)
         {
@@ -87,12 +89,12 @@ public class SurveyArchiveController : Controller
             return NotFound(new { error = "Пользователь не найден" });
         }
 
-        return View("~/Views/Survey/archiv_surveys_for_user.cshtml", pageModel);
+        return View("~/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
     }
 
     [HttpGet("my-surveys/archive/{id:int}")]
-    [HttpGet("get_list_archive/{id}")]
-    [HttpGet("Survey/get_list_archive/{id}")]
+    [HttpGet("get_archived_surveys/{id}")]
+    [HttpGet("Survey/get_archived_surveys/{id}")]
     public IActionResult GetListArchive(
         int id,
         int? page,
@@ -145,7 +147,7 @@ public class SurveyArchiveController : Controller
                 });
             }
 
-            return View("~/Views/Survey/archiv_surveys_for_user.cshtml", pageModel);
+            return View("~/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
         }
         catch (Exception ex)
         {
@@ -160,9 +162,10 @@ public class SurveyArchiveController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpPost("surveys/archive/copy")]
-    [HttpPost("copy_archive_survey")]
-    [HttpPost("Survey/copy_archive_survey")]
-    public async Task<IActionResult> copy_archive_survey([FromBody] ArchiveSurveyCopyRequest request)
+    [HttpPost("copy_archived_survey")]
+    [HttpPost("Survey/copy_archived_survey")]
+    [ActionName("copy_archived_survey")]
+    public async Task<IActionResult> CopyArchivedSurvey([FromBody] ArchiveSurveyCopyRequest request)
     {
         if (request == null || request.SurveyId <= 0)
         {

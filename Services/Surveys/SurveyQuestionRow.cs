@@ -1,4 +1,4 @@
-namespace main_project.Services.Surveys;
+﻿namespace MainProject.Services.Surveys;
 
 internal sealed class SurveyQuestionRow
 {

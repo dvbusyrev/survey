@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
-using main_project.Infrastructure.Database;
-using main_project.Infrastructure.Security;
-using main_project.Models;
+﻿using Microsoft.AspNetCore.Mvc;
+using MainProject.Infrastructure.Database;
+using MainProject.Infrastructure.Security;
+using MainProject.Models;
 using System.Data;
 using Npgsql;
 using NpgsqlTypes;
@@ -17,7 +17,8 @@ public class UserController : Controller
         _connectionFactory = connectionFactory;
     }
 
-     public IActionResult get_users()
+     [ActionName("get_users")]
+     public IActionResult GetUsers()
     {
         List<User> users = new List<User>();
 
@@ -50,16 +51,16 @@ command.CommandText = @"
                         {
                             var user = new User
                             {
-                                id_user = reader.GetInt32(0),
-                                organization_name = reader.IsDBNull(1) ? "" : reader.GetString(1),
-                                name_user = reader.GetString(2),
-                                name_role = reader.GetString(3),
-                                hash_password = reader.GetString(4),
-date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
-date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
-                                full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                                organization_id = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                                IdUser = reader.GetInt32(0),
+                                OrganizationName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                                NameUser = reader.GetString(2),
+                                NameRole = reader.GetString(3),
+                                HashPassword = reader.GetString(4),
+                                DateBegin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
+                                DateEnd = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
+                                FullName = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                Email = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                OrganizationId = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                             };
                             users.Add(user);
                         }
@@ -78,7 +79,8 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
         }
     }
 
-    public IActionResult add_user()
+    [ActionName("add_user")]
+    public IActionResult AddUser()
     {
         try
         {
@@ -92,7 +94,8 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
         }
     }
 
-public IActionResult update_user(int id)
+[ActionName("update_user")]
+public IActionResult UpdateUser(int id)
 {
     User user = null;
 
@@ -120,16 +123,16 @@ public IActionResult update_user(int id)
                 {
                     user = new User
                     {
-                        id_user = reader.GetInt32(0),
-                        full_name = reader.GetString(1),
-                        name_user = reader.GetString(2),
-                        email = reader.GetString(3),
-                        organization_name = reader.GetString(4),
-                        organization_id = reader.GetInt32(5),
-                        name_role = reader.GetString(6),
-                        date_begin = reader.GetDateTime(7),
-                        date_end = reader.GetDateTime(8),
-                        hash_password = reader.GetString(9)
+                        IdUser = reader.GetInt32(0),
+                        FullName = reader.GetString(1),
+                        NameUser = reader.GetString(2),
+                        Email = reader.GetString(3),
+                        OrganizationName = reader.GetString(4),
+                        OrganizationId = reader.GetInt32(5),
+                        NameRole = reader.GetString(6),
+                        DateBegin = reader.GetDateTime(7),
+                        DateEnd = reader.GetDateTime(8),
+                        HashPassword = reader.GetString(9)
                     };
                 }
             }
@@ -149,7 +152,8 @@ public IActionResult update_user(int id)
 }
 
 [HttpPost]
-public IActionResult add_user_bd([FromBody] Dictionary<string, string> formData)
+[ActionName("add_user_bd")]
+public IActionResult AddUserBd([FromBody] Dictionary<string, string> formData)
 {
     try
     {
@@ -271,7 +275,8 @@ private static bool IsPasswordValid(string password, out string errorMessage)
     return true;
 }
 
-public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string> formData)
+[ActionName("update_user_bd")]
+public IActionResult UpdateUserBd(int id, [FromBody] Dictionary<string, string> formData)
 {
     try
     {
@@ -394,7 +399,8 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
 }
 
  [HttpPost]
-public IActionResult delete_user(int id)
+[ActionName("delete_user")]
+public IActionResult DeleteUser(int id)
 {
     try
     {
@@ -421,7 +427,8 @@ public IActionResult delete_user(int id)
     }
 }
 
-    public IActionResult archive_list_users()
+    [ActionName("archive_list_users")]
+    public IActionResult ArchiveListUsers()
     {
 List<User> users = new List<User>();
 
@@ -440,16 +447,16 @@ List<User> users = new List<User>();
                         {
                             var user = new User
                             {
-                                id_user = reader.GetInt32(0),
-                                organization_name = reader.IsDBNull(1) ? "" : reader.GetString(1),
-                                name_user = reader.GetString(2),
-                                name_role = reader.GetString(3),
-                                hash_password = reader.GetString(4),
-date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
-date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
-                                full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
-                                email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                                organization_id = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                                IdUser = reader.GetInt32(0),
+                                OrganizationName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                                NameUser = reader.GetString(2),
+                                NameRole = reader.GetString(3),
+                                HashPassword = reader.GetString(4),
+                                DateBegin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
+                                DateEnd = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
+                                FullName = reader.IsDBNull(7) ? null : reader.GetString(7),
+                                Email = reader.IsDBNull(8) ? null : reader.GetString(8),
+                                OrganizationId = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                             };
                             users.Add(user);
                         }
@@ -495,16 +502,16 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                 {
                     users.Add(new User
                     {
-                        id_user = reader.GetInt32(0),
-                        organization_name = reader.IsDBNull(1) ? "" : reader.GetString(1),
-                        name_user = reader.GetString(2),
-                        name_role = reader.GetString(3),
-                        hash_password = reader.GetString(4),
-                        date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
-                        date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
-                        full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
-                        email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                        organization_id = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                        IdUser = reader.GetInt32(0),
+                        OrganizationName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                        NameUser = reader.GetString(2),
+                        NameRole = reader.GetString(3),
+                        HashPassword = reader.GetString(4),
+                        DateBegin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
+                        DateEnd = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
+                        FullName = reader.IsDBNull(7) ? null : reader.GetString(7),
+                        Email = reader.IsDBNull(8) ? null : reader.GetString(8),
+                        OrganizationId = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                     });
                 }
             }

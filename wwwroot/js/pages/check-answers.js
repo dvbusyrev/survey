@@ -4,6 +4,6 @@ function CSP(idSurvey, idOrganization) {
         document.getElementById('block_btn_csp')?.classList.remove('is-hidden');
     }
 
-    function create_otchet_for_me(idSurvey, idOrganization, type) {
-        window.location.href = `/Answer/create_otchet_for_me?idSurvey=${idSurvey}&idOrganization=${idOrganization}&type=${type}`;
+    function create_answer_report(idSurvey, idOrganization, type) {
+        window.location.href = `/Answer/create_answer_report?idSurvey=${idSurvey}&idOrganization=${idOrganization}&type=${type}`;
     }

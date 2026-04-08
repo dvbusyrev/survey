@@ -1,6 +1,6 @@
-﻿@model main_project.Services.Surveys.UserSurveyArchivePageViewModel
+﻿@model MainProject.Services.Surveys.UserSurveyArchivePageViewModel
 @using System.Security.Claims
-@using main_project.Infrastructure.Security
+@using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Архив анкет";
     var userOrganizationId = Model.UserOrganizationId;
@@ -166,7 +166,7 @@
                         organizationName={initialData.organizationName}
                     />
                     <div className="admin-container">
-                        <Navigation activeTab="archiv_surveys_for_user" userRole={initialData.userRole} userId={initialData.userId} />
+                        <Navigation activeTab="archived_surveys_for_user" userRole={initialData.userRole} userId={initialData.userId} />
                         <div id="content_admin">
                             <div className="note">
                                 <h2>Архив анкет</h2>

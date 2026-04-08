@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Services.Surveys;
-using main_project.Infrastructure.Security;
+using MainProject.Services.Surveys;
+using MainProject.Infrastructure.Security;
 
 [Authorize]
 public class SurveyReportsController : Controller
@@ -17,17 +17,19 @@ public class SurveyReportsController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("reports")]
-    [HttpGet("view_otchets")]
-    [HttpGet("Survey/view_otchets")]
-    public IActionResult view_otchets()
+    [HttpGet("view_reports")]
+    [HttpGet("Survey/view_reports")]
+    [ActionName("view_reports")]
+    public IActionResult ViewReports()
     {
-        return View("~/Views/Survey/view_otchets.cshtml");
+        return View("~/Views/Survey/view_reports.cshtml");
     }
 
     [HttpGet("reports/monthly/{id:int}")]
-    [HttpGet("create_otchet_month/{id:int}")]
-    [HttpGet("Survey/create_otchet_month/{id:int}")]
-    public IActionResult create_otchet_month(int id, int idOrganization = 0, string type = "")
+    [HttpGet("create_monthly_report/{id:int}")]
+    [HttpGet("Survey/create_monthly_report/{id:int}")]
+    [ActionName("create_monthly_report")]
+    public IActionResult CreateMonthlyReport(int id, int idOrganization = 0, string type = "")
     {
         try
         {
@@ -42,9 +44,10 @@ public class SurveyReportsController : Controller
     }
 
     [HttpGet("reports/monthly")]
-    [HttpGet("create_otchetAll_month")]
-    [HttpGet("Survey/create_otchetAll_month")]
-    public IActionResult create_otchetAll_month()
+    [HttpGet("create_monthly_summary_report")]
+    [HttpGet("Survey/create_monthly_summary_report")]
+    [ActionName("create_monthly_summary_report")]
+    public IActionResult CreateMonthlySummaryReport()
     {
         try
         {
@@ -59,22 +62,23 @@ public class SurveyReportsController : Controller
     }
 
     [Authorize(Roles = AppRoles.Admin)]
-    [HttpGet("reports/quarterly/{kvartal}")]
-    [HttpGet("reports/quarterly/{kvartal}/{year}")]
-    [HttpGet("create_otchet_kvartal/{kvartal}")]
-    [HttpGet("create_otchet_kvartal/{kvartal}/{year}")]
-    [HttpGet("Survey/create_otchet_kvartal/{kvartal}")]
-    [HttpGet("Survey/create_otchet_kvartal/{kvartal}/{year}")]
-    public IActionResult create_otchet_kvartal(int kvartal, int year = 0)
+    [HttpGet("reports/quarterly/{quarter}")]
+    [HttpGet("reports/quarterly/{quarter}/{year}")]
+    [HttpGet("create_quarterly_report/{quarter}")]
+    [HttpGet("create_quarterly_report/{quarter}/{year}")]
+    [HttpGet("Survey/create_quarterly_report/{quarter}")]
+    [HttpGet("Survey/create_quarterly_report/{quarter}/{year}")]
+    [ActionName("create_quarterly_report")]
+    public IActionResult CreateQuarterlyReport(int quarter, int year = 0)
     {
         try
         {
-            var result = _surveyReportService.CreateQuarterlyReport(kvartal, year);
+            var result = _surveyReportService.CreateQuarterlyReport(quarter, year);
             return File(result.Content, result.ContentType, result.FileName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при формировании квартального отчёта за {Quarter} квартал {Year}", kvartal, year);
+            _logger.LogError(ex, "Ошибка при формировании квартального отчёта за {Quarter} квартал {Year}", quarter, year);
             return StatusCode(500, "Произошла ошибка при формировании отчета");
         }
     }

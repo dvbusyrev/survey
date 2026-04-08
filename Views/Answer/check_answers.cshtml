@@ -1,4 +1,4 @@
-@model main_project.Services.Answers.CheckAnswersPageViewModel
+﻿@model MainProject.Services.Answers.CheckAnswersPageViewModel
 
 @{
     ViewData["Title"] = "Проверка ответов";
@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 
 <div class="content answers-page__check">
-    @if (string.IsNullOrWhiteSpace(survey?.name_survey))
+    @if (string.IsNullOrWhiteSpace(survey?.NameSurvey))
     {
         <div class="answers-page__error">
             <h2>Ошибка</h2>
@@ -25,11 +25,11 @@
             <p>На этой странице вы можете ознакомиться с ответами на анкету.</p>
         </div>
 
-        <h3>@survey.name_survey</h3>
+        <h3>@survey.NameSurvey</h3>
         
-        @if (!string.IsNullOrEmpty(survey.description))
+        @if (!string.IsNullOrEmpty(survey.Description))
         {
-            <p>@survey.description</p>
+            <p>@survey.Description</p>
         }
 
         <div class="table-container">
@@ -62,12 +62,12 @@
         </div>
 
         <div class="answers-page__actions">
-            <button class="answers-page__action-button" onclick="CSP(@survey.id_survey, @idOrganization)">Подписать</button>
-            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOrganization, 'file')">Скачать файл с анкетой</button>
+            <button class="answers-page__action-button" onclick="CSP(@survey.IdSurvey, @idOrganization)">Подписать</button>
+            <button class="answers-page__action-button" onclick="create_answer_report(@survey.IdSurvey, @idOrganization, 'file')">Скачать файл с анкетой</button>
         </div>
 
         <div id="block_btn_csp" class="answers-page__download-actions is-hidden">
-            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOrganization, 'archiv')">Скачать файл с анкетой и подписью</button>
+            <button class="answers-page__action-button" onclick="create_answer_report(@survey.IdSurvey, @idOrganization, 'archive')">Скачать файл с анкетой и подписью</button>
         </div>
     }
 </div>

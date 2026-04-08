@@ -1,5 +1,5 @@
-@model List<main_project.Models.User>
-@using main_project.Infrastructure.Security
+﻿@model List<MainProject.Models.User>
+@using MainProject.Infrastructure.Security
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
 <link rel="stylesheet" href="~/css/pages/users.css" asp-append-version="true" />
@@ -40,18 +40,18 @@
                     @foreach (var user in Model)
                     {
                         <tr>
-                            <td>@user.full_name</td>
-                            <td>@user.name_user</td>
-                            <td>@user.organization_name</td>
-                            <td>@AppRoles.GetDisplayName(user.name_role)</td>
-                            <td>@user.email</td>
-                            <td>@user.date_begin?.ToString("dd.MM.yyyy")</td>
-                            <td>@user.date_end?.ToString("dd.MM.yyyy")</td>
+                            <td>@user.FullName</td>
+                            <td>@user.NameUser</td>
+                            <td>@user.OrganizationName</td>
+                            <td>@AppRoles.GetDisplayName(user.NameRole)</td>
+                            <td>@user.Email</td>
+                            <td>@user.DateBegin?.ToString("dd.MM.yyyy")</td>
+                            <td>@user.DateEnd?.ToString("dd.MM.yyyy")</td>
                             <td class="action-icons">
-                                <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.organization_id, '@Html.Raw(AppRoles.Normalize(user.name_role))', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
+                                <div class="icon-container" onclick="openEditUserModal(@user.IdUser, '@Html.Raw(user.FullName)', '@Html.Raw(user.NameUser)', '@Html.Raw(user.Email)', @user.OrganizationId, '@Html.Raw(AppRoles.Normalize(user.NameRole))', '@user.DateBegin?.ToString("yyyy-MM-dd")', '@user.DateEnd?.ToString("yyyy-MM-dd")')">
                                     <span><i class="fas fa-pen-to-square"></i></span><span class="icon-tooltip">Редактировать</span>
                                 </div>
-                                <div class="icon-container" onclick="deleteUser(@user.id_user, '@Html.Raw(user.full_name)')">
+                                <div class="icon-container" onclick="deleteUser(@user.IdUser, '@Html.Raw(user.FullName)')">
                                     <span><i class="fas fa-trash"></i></span><span class="icon-tooltip">Удалить</span>
                                 </div>
                             </td>

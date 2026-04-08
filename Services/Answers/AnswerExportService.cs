@@ -1,9 +1,9 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
-using main_project.Models;
+using MainProject.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -17,7 +17,7 @@ using TableCell = DocumentFormat.OpenXml.Wordprocessing.TableCell;
 using TableCellProperties = DocumentFormat.OpenXml.Wordprocessing.TableCellProperties;
 using TableRow = DocumentFormat.OpenXml.Wordprocessing.TableRow;
 using Text = DocumentFormat.OpenXml.Wordprocessing.Text;
-namespace main_project.Services.Answers;
+namespace MainProject.Services.Answers;
 
 public sealed class AnswerExportService
 {
@@ -49,7 +49,7 @@ public sealed class AnswerExportService
         {
             Content = pdfBytes,
             ContentType = "application/pdf",
-            FileName = $"{CleanFileName(survey.name_survey ?? "Анкета")}_ответы_{DateTime.Now:yyyyMMdd}.pdf"
+            FileName = $"{CleanFileName(survey.NameSurvey ?? "Анкета")}_ответы_{DateTime.Now:yyyyMMdd}.pdf"
         };
     }
 
@@ -63,11 +63,11 @@ public sealed class AnswerExportService
         }
 
         var pdfBytes = GeneratePdfContent(survey, answers);
-        var cleanName = CleanFileName(survey.name_survey ?? "Анкета");
+        var cleanName = CleanFileName(survey.NameSurvey ?? "Анкета");
         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var pdfFileName = $"{cleanName}_ответы_{timestamp}.pdf";
         var zipFileName = $"{cleanName}_с_подписью_{timestamp}.zip";
-        var signature = answers.FirstOrDefault()?.csp;
+        var signature = answers.FirstOrDefault()?.Csp;
 
         using var memoryStream = new MemoryStream();
         using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
@@ -122,7 +122,7 @@ public sealed class AnswerExportService
 
         foreach (var row in rows)
         {
-            organizations.Add(row.organization_name ?? string.Empty);
+            organizations.Add(row.OrganizationName ?? string.Empty);
 
             if (row.Answers.Count == 0)
             {
@@ -156,13 +156,13 @@ public sealed class AnswerExportService
         var monthYear = now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
         monthYear = char.ToUpper(monthYear[0]) + monthYear.Substring(1);
 
-        var safeSurveyName = CleanFileName(survey.name_survey ?? "Анкета");
+        var safeSurveyName = CleanFileName(survey.NameSurvey ?? "Анкета");
         var fileName = $"Отчет по анкете {safeSurveyName}.docx";
         var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_{fileName}");
 
         var data = new Dictionary<string, string>
         {
-            { "##NAME_SURVEY##", survey.name_survey ?? string.Empty },
+            { "##NAME_SURVEY##", survey.NameSurvey ?? string.Empty },
             { "##COUNT_CRITERIES##", criteriaList.Count.ToString() },
             { "##MASS_CRITERIES_LIST##", string.Join(Environment.NewLine, criteriaList.Select((criterion, index) => $" - {criterion}; ({index + 1})")) },
             { "##MASS_NAMES_CRITERIES_FOR_COMMENTS##", string.Join("     ", criteriaList) },
@@ -178,7 +178,7 @@ public sealed class AnswerExportService
 
         try
         {
-            var archiveOutput = string.Equals(type, "archiv", StringComparison.OrdinalIgnoreCase);
+            var archiveOutput = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase);
             if (archiveOutput)
             {
                 using var zipStream = new MemoryStream();
@@ -244,20 +244,20 @@ public sealed class AnswerExportService
                 page.Header()
                     .AlignCenter()
                     .PaddingBottom(15)
-                    .Text($"Анкета: {survey.name_survey}")
+                    .Text($"Анкета: {survey.NameSurvey}")
                     .Bold()
                     .FontSize(18);
 
                 page.Content()
                     .Column(column =>
                     {
-                        if (!string.IsNullOrWhiteSpace(survey.description))
+                        if (!string.IsNullOrWhiteSpace(survey.Description))
                         {
                             column.Item()
                                 .Border(1)
                                 .BorderColor(Colors.Grey.Medium)
                                 .Padding(10)
-                                .Text(survey.description);
+                                .Text(survey.Description);
                         }
 
                         column.Item()

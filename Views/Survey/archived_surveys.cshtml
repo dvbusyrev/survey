@@ -1,4 +1,4 @@
-﻿@model List<main_project.Models.HistorySurvey>
+﻿@model List<MainProject.Models.HistorySurvey>
 @{
     ViewData["Title"] = "Архив анкет";
 }
@@ -33,22 +33,22 @@
     @foreach (var survey in Model)
     {
         <tr class="active">
-            <td onclick="showAnswersModal(@survey.id_survey)">@survey.name_survey</td>
-            <td onclick="showAnswersModal(@survey.id_survey)">@survey.description</td>
-            <td onclick="showAnswersModal(@survey.id_survey)">@survey.date_begin.ToString("yyyy-MM-dd")</td>
-            <td onclick="showAnswersModal(@survey.id_survey)">@survey.date_end.ToString("yyyy-MM-dd")</td>
-            <td onclick="showAnswersModal(@survey.id_survey)">
+            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.NameSurvey</td>
+            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.Description</td>
+            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.DateBegin.ToString("yyyy-MM-dd")</td>
+            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.DateEnd.ToString("yyyy-MM-dd")</td>
+            <td onclick="showAnswersModal(@survey.IdSurvey)">
                 @string.Join(", ", survey.Questions.Select(question => question.Text))
             </td>
             <td class="action-icons">
-<div class="icon-container" onclick="create_otchet_month(@survey.id_survey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
+<div class="icon-container" onclick="create_monthly_report(@survey.IdSurvey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
   <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
   <span class="icon-tooltip" data-tooltip="Сформировать отчёт по анкете">Сформировать отчёт</span>
 </div>
 
                                         
 <div class="icon-container" 
-     onclick="copy_archive_survey(@survey.id_survey)" 
+     onclick="copy_archived_survey(@survey.IdSurvey)" 
      role="button" 
      tabindex="0" 
      aria-label="Копировать и возобновить опрос">

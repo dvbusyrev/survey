@@ -1,8 +1,8 @@
-using Dapper;
-using main_project.Infrastructure.Database;
-using main_project.Models;
+﻿using Dapper;
+using MainProject.Infrastructure.Database;
+using MainProject.Models;
 
-namespace main_project.Services.Surveys;
+namespace MainProject.Services.Surveys;
 
 public sealed class SurveyUserService
 {
@@ -86,7 +86,7 @@ public sealed class SurveyUserService
 
         foreach (var survey in surveys)
         {
-            survey.organization_id = userOrganizationId.Value;
+            survey.OrganizationId = userOrganizationId.Value;
         }
 
         var totalPages = totalCount == 0

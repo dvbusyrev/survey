@@ -4,10 +4,10 @@ using System.Net;
 using System.Net.Mail;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Infrastructure.Security;
-using main_project.Models;
+using MainProject.Infrastructure.Security;
+using MainProject.Models;
 
-namespace main_project.Controllers
+namespace MainProject.Controllers
 {
     [Authorize(Roles = AppRoles.Admin)]
     public class EmailController : Controller
@@ -53,7 +53,8 @@ public IActionResult GetEmailSettings()
 
 
 [ValidateAntiForgeryToken]
-    public async Task<IActionResult> send_message()
+    [ActionName("send_message")]
+    public async Task<IActionResult> SendMessage()
     {
         try
         {
@@ -104,7 +105,8 @@ public IActionResult GetEmailSettings()
             return BadRequest(new { message = $"Ошибка: {ex.Message}" });
         }
     }
-                public async Task<IActionResult> update_settings()
+                [ActionName("update_settings")]
+                public async Task<IActionResult> UpdateSettings()
         {
             return View("update_settings");
         }

@@ -1,7 +1,7 @@
-using main_project.Infrastructure.Security;
+﻿using MainProject.Infrastructure.Security;
 using Npgsql;
 
-namespace main_project.Infrastructure.Database;
+namespace MainProject.Infrastructure.Database;
 
 public static class UserRoleBootstrapper
 {

@@ -55,12 +55,12 @@ function downloadReport(url, defaultFileName) {
         });
 }
 
-function create_otchet_month(id) {
-    downloadReport(`/create_otchet_month/${id}`, 'Отчет.docx');
+function create_monthly_report(id) {
+    downloadReport(`/create_monthly_report/${id}`, 'Отчет.docx');
 }
 
-function create_otchetAll_month() {
-    downloadReport('/create_otchetAll_month', 'Отчет_по_всем_анкетам.docx');
+function create_monthly_summary_report() {
+    downloadReport('/create_monthly_summary_report', 'Отчет_по_всем_анкетам.docx');
 }
 
 function sanitizeFileName(name) {
@@ -72,7 +72,7 @@ function sanitizeFileName(name) {
 }
 
 
-function create_otchetAll_kvartal(kvartal, year) {
+function createQuarterlyReport(quarter, year) {
     const xhr = new XMLHttpRequest();
     xhr.responseType = 'blob';
     
@@ -80,7 +80,7 @@ function create_otchetAll_kvartal(kvartal, year) {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 const contentDisposition = xhr.getResponseHeader('Content-Disposition');
-                let fileName = `Otchet_za_${kvartal}_kvartal.xlsx`;
+                let fileName = `quarterly_report_q${quarter}.xlsx`;
                 
                 if (contentDisposition) {
                     const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
@@ -106,7 +106,7 @@ function create_otchetAll_kvartal(kvartal, year) {
         console.error("Проблемы с интернетом");
     };
 
-    xhr.open("GET", `/create_otchet_kvartal/${kvartal}/${year}`, true);
+    xhr.open("GET", `/create_quarterly_report/${quarter}/${year}`, true);
     xhr.send();
 }
 
@@ -141,9 +141,8 @@ function submitExtension(id) {
             }
 
             data.push({ 
-                organization_id: parseInt(organization), 
-                new_end_date: endDate, 
-                id_survey: id 
+                organizationId: parseInt(organization), 
+                extendedUntil: endDate
             });
         }
     });
@@ -154,7 +153,7 @@ function submitExtension(id) {
     }
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/prodlenie_organizations", true);
+    xhr.open("POST", "/survey-extensions", true);
     xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
     xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
@@ -180,7 +179,7 @@ function submitExtension(id) {
     };
     
     try {
-        xhr.send(JSON.stringify(data));
+        xhr.send(JSON.stringify({ surveyId: id, extensions: data }));
     } catch (error) {
         console.error("Ошибка при отправке запроса:", error);
         alert("Произошла ошибка при отправке запроса");
@@ -1250,12 +1249,12 @@ function filterTable() {
 
 
 
-function copy_archive_survey(surveyId) {
+function copy_archived_survey(surveyId) {
 const data = {
   survey_id: surveyId,
 };
 
-  fetch('/copy_archive_survey', {
+  fetch('/copy_archived_survey', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -1276,7 +1275,7 @@ const data = {
 }
 
 
-function populateYears(kvartal, select) {
+function populateYears(quarter, select) {
   // Если уже есть опции кроме заглушки — не добавляем снова
   if (select.options.length > 1) return;
 
@@ -1290,10 +1289,10 @@ function populateYears(kvartal, select) {
   }
 }
 
-function onYearChange(kvartal, select) {
+function onYearChange(quarter, select) {
   const year = select.value;
   if (year) {
-    create_otchetAll_kvartal(kvartal, year);
+    createQuarterlyReport(quarter, year);
     select.selectedIndex = 0;
   }
 }

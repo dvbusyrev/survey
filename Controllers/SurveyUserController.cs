@@ -1,7 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using main_project.Services.Surveys;
-using main_project.Services;
+using MainProject.Services.Surveys;
+using MainProject.Services;
 
 [Authorize]
 public class SurveyUserController : Controller
@@ -67,7 +67,8 @@ public class SurveyUserController : Controller
     }
 
     [HttpGet("my-surveys")]
-    public IActionResult my_surveys(int? page, string? searchTerm, string? date)
+    [ActionName("my_surveys")]
+    public IActionResult MySurveys(int? page, string? searchTerm, string? date)
     {
         if (!_currentUserService.UserId.HasValue)
         {
@@ -79,7 +80,8 @@ public class SurveyUserController : Controller
 
     [HttpGet("survey_list_user/{id}")]
     [HttpGet("Survey/survey_list_user/{id}")]
-    public IActionResult survey_list_user(int id, int? page, string? searchTerm, string? date)
+    [ActionName("survey_list_user")]
+    public IActionResult SurveyListUser(int id, int? page, string? searchTerm, string? date)
     {
         return RenderSurveyListPage(id, page, searchTerm, date);
     }
@@ -127,9 +129,10 @@ public class SurveyUserController : Controller
     }
 
     [HttpGet("surveys/{id:int}/organizations/{organizationId:int}/questions")]
-    [HttpGet("zapolnenie_anketi/{id:int}/{organizationId:int}")]
-    [HttpGet("Survey/zapolnenie_anketi/{id:int}/{organizationId:int}")]
-    public IActionResult zapolnenie_anketi(int id, int organizationId)
+    [HttpGet("get_survey_questions/{id:int}/{organizationId:int}")]
+    [HttpGet("Survey/get_survey_questions/{id:int}/{organizationId:int}")]
+    [ActionName("get_survey_questions")]
+    public IActionResult GetSurveyQuestions(int id, int organizationId)
     {
         var accessResult = EnsureOrganizationAccess(organizationId);
         if (accessResult != null)

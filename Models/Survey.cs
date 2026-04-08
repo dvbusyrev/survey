@@ -1,23 +1,60 @@
-using main_project.Services.Surveys;
+﻿using MainProject.Services.Surveys;
+using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
-namespace main_project.Models
+namespace MainProject.Models
 {
     public class Survey
     {
-        public int id_survey { get; set; }
-        public string name_survey { get; set; }
-        public string? description { get; set; }
+        [JsonProperty("id_survey")]
+        [JsonPropertyName("id_survey")]
+        public int IdSurvey { get; set; }
+
+        [JsonProperty("name_survey")]
+        [JsonPropertyName("name_survey")]
+        public string NameSurvey { get; set; }
+
+        public string? Description { get; set; }
         public List<SurveyQuestionItem> Questions { get; set; } = new();
-        public DateTime date_create { get; set; }
-        public DateTime date_open { get; set; }
-        public DateTime date_close { get; set; }
-        public string? organization_name { get; set; }
-        public int organization_id { get; set; }
-        public string? csp { get; set; }
-        public DateTime completion_date { get; set; }
-        public DateTime date_begin { get; set; }
-        public DateTime date_end { get; set; }
-        public int id_answer { get; set; }
+
+        [JsonProperty("date_create")]
+        [JsonPropertyName("date_create")]
+        public DateTime DateCreate { get; set; }
+
+        [JsonProperty("date_open")]
+        [JsonPropertyName("date_open")]
+        public DateTime DateOpen { get; set; }
+
+        [JsonProperty("date_close")]
+        [JsonPropertyName("date_close")]
+        public DateTime DateClose { get; set; }
+
+        [JsonProperty("organization_name")]
+        [JsonPropertyName("organization_name")]
+        public string? OrganizationName { get; set; }
+
+        [JsonProperty("organization_id")]
+        [JsonPropertyName("organization_id")]
+        public int OrganizationId { get; set; }
+
+        public string? Csp { get; set; }
+
+        [JsonProperty("completion_date")]
+        [JsonPropertyName("completion_date")]
+        public DateTime CompletionDate { get; set; }
+
+        [JsonProperty("date_begin")]
+        [JsonPropertyName("date_begin")]
+        public DateTime DateBegin { get; set; }
+
+        [JsonProperty("date_end")]
+        [JsonPropertyName("date_end")]
+        public DateTime DateEnd { get; set; }
+
+        [JsonProperty("id_answer")]
+        [JsonPropertyName("id_answer")]
+        public int IdAnswer { get; set; }
+
         public List<HistoryAnswer> Answers { get; set; } = new List<HistoryAnswer>();
     }
 }

@@ -1,7 +1,7 @@
-using Newtonsoft.Json;
-using main_project.Models;
+﻿using Newtonsoft.Json;
+using MainProject.Models;
 
-namespace main_project.Services.Surveys;
+namespace MainProject.Services.Surveys;
 
 public sealed class UserSurveyArchivePageViewModel
 {

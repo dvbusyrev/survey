@@ -1,4 +1,4 @@
-namespace main_project.Services.Answers;
+﻿namespace MainProject.Services.Answers;
 
 public sealed class AnswerSigningService
 {
