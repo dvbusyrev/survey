@@ -6,7 +6,7 @@ namespace main_project.Services.Surveys;
 public sealed class UserSurveyArchivePageViewModel
 {
     public IReadOnlyList<Survey> ArchivedSurveys { get; init; } = Array.Empty<Survey>();
-    public int UserOmsuId { get; init; }
+    public int UserOrganizationId { get; init; }
     public int CurrentPage { get; init; } = 1;
     public int TotalPages { get; init; } = 1;
     public int TotalCount { get; init; }

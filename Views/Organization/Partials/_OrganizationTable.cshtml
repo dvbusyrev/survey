@@ -1,0 +1,54 @@
+@model IEnumerable<main_project.Models.Organization>
+
+<table id="data_table" class="organization-table">
+    <thead>
+        <tr class='table_tr'>
+            <th class="organization-table__th--start">Название организации</th>
+            <th>Дата начала</th>
+            <th>Дата окончания</th>
+            <th>Доступные анкеты</th>
+            <th>Email</th>
+            <th class="organization-table__th--end">Действия</th>
+        </tr>
+    </thead>
+    <tbody id="organizationTableBody">
+        @if (Model == null || !Model.Any())
+        {
+            <tr>
+                <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var organization in Model)
+            {
+                var encodedName = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(organization.organization_name ?? "");
+                var encodedEmail = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(organization.email ?? "");
+                <tr>
+                    <td>@organization.organization_name</td>
+                    <td>@(organization.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(organization.date_end?.ToString("dd.MM.yyyy") ?? "")</td>
+                    @if (organization.survey_names == "Не указано")
+                    {
+                        <td class="organization-table__empty-surveys">@organization.survey_names</td>
+                    }
+                    else
+                    {
+                        <td>@organization.survey_names</td>
+                    }
+                    <td>@organization.email</td>
+                    <td class="action-icons">
+                        <div class="icon-container" onclick="openEditOrganizationModal(@organization.organization_id, '@encodedName', '@encodedEmail', '@organization.date_begin?.ToString("yyyy-MM-dd")', '@organization.date_end?.ToString("yyyy-MM-dd")')">
+                            <span><i class="fas fa-pen-to-square"></i></span>
+                            <span class="icon-tooltip">Редактировать</span>
+                        </div>
+                        <div class="icon-container" onclick="delete_organization(@organization.organization_id)">
+                            <span><i class="fas fa-trash"></i></span>
+                            <span class="icon-tooltip">Удалить</span>
+                        </div>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

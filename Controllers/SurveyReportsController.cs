@@ -27,11 +27,11 @@ public class SurveyReportsController : Controller
     [HttpGet("reports/monthly/{id:int}")]
     [HttpGet("create_otchet_month/{id:int}")]
     [HttpGet("Survey/create_otchet_month/{id:int}")]
-    public IActionResult create_otchet_month(int id, int idOmsu = 0, string type = "")
+    public IActionResult create_otchet_month(int id, int idOrganization = 0, string type = "")
     {
         try
         {
-            var result = _surveyReportService.CreateSurveyMonthlyReport(id, idOmsu);
+            var result = _surveyReportService.CreateSurveyMonthlyReport(id, idOrganization);
             return File(result.Content, result.ContentType, result.FileName);
         }
         catch (Exception ex)

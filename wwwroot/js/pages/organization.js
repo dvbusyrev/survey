@@ -14,7 +14,7 @@
         element.className = isSuccess ? 'success-message' : 'error-message';
     }
 
-    function closeOmsuModal(modalId) {
+    function closeOrganizationModal(modalId) {
         const modal = byId(modalId);
         if (modal) {
             if (typeof window.hideSiteModal === 'function') {
@@ -25,7 +25,33 @@
         }
     }
 
-    async function submitOmsuUpdate(id, payload) {
+    function resetAddOrganizationForm() {
+        const form = byId('organizationForm');
+        const message = byId('message');
+        if (form) {
+            form.reset();
+        }
+
+        if (message) {
+            message.textContent = '';
+            message.className = 'organization-form__message';
+            message.style.display = 'none';
+        }
+    }
+
+    function openAddOrganizationModal() {
+        resetAddOrganizationForm();
+        const modal = byId('addOrganizationModal');
+        if (modal) {
+            if (typeof window.showSiteModal === 'function') {
+                window.showSiteModal(modal);
+            } else {
+                modal.style.display = 'flex';
+            }
+        }
+    }
+
+    async function submitOrganizationUpdate(id, payload) {
         const response = await fetch(`/organizations/${id}/update`, {
             method: 'POST',
             headers: {
@@ -41,14 +67,14 @@
         }
     }
 
-    async function add_omsu_bd() {
+    async function add_organization_bd() {
         const form = byId('organizationForm');
         if (!form) return;
 
         const message = byId('message');
         const payload = {
             Name: byId('Name')?.value?.trim() || '',
-            Email: byId('omsu_email')?.value?.trim() || '',
+            Email: byId('organization_email')?.value?.trim() || '',
             DateBegin: byId('DateBegin')?.value || '',
             DateEnd: byId('DateEnd')?.value || ''
         };
@@ -74,8 +100,9 @@
             }
 
             showMessage(message, result.message || 'Организация добавлена.', true);
+            closeOrganizationModal('addOrganizationModal');
             if (typeof window.handleTabClick === 'function') {
-                window.handleTabClick('get_omsu');
+                window.handleTabClick('get_organization');
             } else {
                 window.location.assign('/organizations');
             }
@@ -84,14 +111,14 @@
         }
     }
 
-    function openEditOmsuModal(id, name, email, dateBegin, dateEnd) {
-        byId('editOmsuId').value = id || '';
-        byId('omsuName').value = name || '';
-        byId('omsuEmail').value = email || '';
-        byId('omsuDateBegin').value = dateBegin || '';
-        byId('omsuDateEnd').value = dateEnd || '';
+    function openEditOrganizationModal(id, name, email, dateBegin, dateEnd) {
+        byId('editOrganizationId').value = id || '';
+        byId('organizationName').value = name || '';
+        byId('organizationEmail').value = email || '';
+        byId('organizationDateBegin').value = dateBegin || '';
+        byId('organizationDateEnd').value = dateEnd || '';
 
-        const modal = byId('editOmsuModal');
+        const modal = byId('editOrganizationModal');
         if (modal) {
             if (typeof window.showSiteModal === 'function') {
                 window.showSiteModal(modal);
@@ -101,17 +128,17 @@
         }
     }
 
-    async function updateOmsu() {
-        const id = byId('editOmsuId')?.value;
+    async function updateOrganization() {
+        const id = byId('editOrganizationId')?.value;
         if (!id) {
             alert('Не найден идентификатор организации');
             return;
         }
 
-        const name = byId('omsuName')?.value?.trim() || '';
-        const email = byId('omsuEmail')?.value?.trim() || '';
-        const dateBegin = byId('omsuDateBegin')?.value || '';
-        const dateEnd = byId('omsuDateEnd')?.value || '';
+        const name = byId('organizationName')?.value?.trim() || '';
+        const email = byId('organizationEmail')?.value?.trim() || '';
+        const dateBegin = byId('organizationDateBegin')?.value || '';
+        const dateEnd = byId('organizationDateEnd')?.value || '';
 
         if (!name || !dateBegin || !dateEnd) {
             alert('Заполните обязательные поля');
@@ -133,10 +160,10 @@
         ];
 
         try {
-            await submitOmsuUpdate(id, payload);
-            closeOmsuModal('editOmsuModal');
+            await submitOrganizationUpdate(id, payload);
+            closeOrganizationModal('editOrganizationModal');
             if (typeof window.handleTabClick === 'function') {
-                window.handleTabClick('get_omsu');
+                window.handleTabClick('get_organization');
             } else {
                 window.location.assign('/organizations');
             }
@@ -145,7 +172,7 @@
         }
     }
 
-    async function updateOmsuPage(id) {
+    async function updateOrganizationPage(id) {
         const payload = [
             byId('name')?.value?.trim() || '',
             byId('email')?.value?.trim() || '',
@@ -164,14 +191,14 @@
         }
 
         try {
-            await submitOmsuUpdate(id, payload);
+            await submitOrganizationUpdate(id, payload);
             window.location.assign('/organizations');
         } catch (error) {
             alert(error.message || 'Ошибка обновления организации');
         }
     }
 
-    async function delete_omsu(id) {
+    async function delete_organization(id) {
         if (!id) return;
         if (!await window.siteConfirm('Удалить организацию?', {
             title: 'Удаление организации',
@@ -193,24 +220,25 @@
             }
 
             if (typeof window.handleTabClick === 'function') {
-                window.handleTabClick('get_omsu');
+                window.handleTabClick('get_organization');
             }
         } catch (error) {
             alert(error.message || 'Ошибка удаления организации');
         }
     }
 
-    function archive_list_omsus() {
+    function archive_list_organizations() {
         if (typeof window.handleTabClick === 'function') {
-            window.handleTabClick('archive_list_omsus');
+            window.handleTabClick('archive_list_organizations');
         }
     }
 
-    window.closeOmsuModal = closeOmsuModal;
-    window.add_omsu_bd = add_omsu_bd;
-    window.openEditOmsuModal = openEditOmsuModal;
-    window.updateOmsu = updateOmsu;
-    window.updateOmsuPage = updateOmsuPage;
-    window.delete_omsu = delete_omsu;
-    window.archive_list_omsus = archive_list_omsus;
+    window.closeOrganizationModal = closeOrganizationModal;
+    window.openAddOrganizationModal = openAddOrganizationModal;
+    window.add_organization_bd = add_organization_bd;
+    window.openEditOrganizationModal = openEditOrganizationModal;
+    window.updateOrganization = updateOrganization;
+    window.updateOrganizationPage = updateOrganizationPage;
+    window.delete_organization = delete_organization;
+    window.archive_list_organizations = archive_list_organizations;
 })();

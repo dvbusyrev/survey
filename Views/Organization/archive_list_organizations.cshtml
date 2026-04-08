@@ -1,0 +1,22 @@
+@{
+    ViewData["Title"] = "Архив организаций";
+    var organizations = ViewBag.Organizations as IEnumerable<main_project.Models.Organization> ?? Array.Empty<main_project.Models.Organization>();
+}
+
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+
+<div class="content archive-page organization-page" id="default_content">
+    @{
+        ViewData["OrganizationSection"] = "archive";
+    }
+    @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationSubnav.cshtml")
+
+    <div class="note">
+        <h2>Список архивных организаций</h2>
+        <p>Ниже представлена таблица с архивными организациями</p>
+    </div>
+
+    @await Html.PartialAsync("~/Views/Organization/Partials/_ArchiveOrganizationTable.cshtml", organizations)
+</div>

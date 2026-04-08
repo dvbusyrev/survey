@@ -44,11 +44,11 @@ public sealed class SurveyReportService
             "Downloads");
     }
 
-    public GeneratedFileResult CreateSurveyMonthlyReport(int surveyId, int omsuId)
+    public GeneratedFileResult CreateSurveyMonthlyReport(int surveyId, int organizationId)
     {
         string surveyName = string.Empty;
         var criteriaList = new List<string>();
-        var omsus = new List<string>();
+        var organizations = new List<string>();
         var ratings = new List<List<int>>();
         var comments = new List<List<string>>();
         var srednee = new List<double>();
@@ -57,22 +57,18 @@ public sealed class SurveyReportService
         {
             surveyName = connection.ExecuteScalar<string?>(
                 @"SELECT name_survey
-                  FROM (
-                      SELECT name_survey FROM public.surveys WHERE id_survey = @surveyId
-                      UNION ALL
-                      SELECT name_survey FROM public.history_surveys WHERE id_survey = @surveyId
-                  ) sub
-                  LIMIT 1",
+                  FROM public.survey
+                  WHERE id_survey = @surveyId",
                 new { surveyId }) ?? string.Empty;
 
             criteriaList = LoadSurveyQuestions(connection, surveyId)
                 .Select(question => question.Text)
                 .ToList();
 
-            var surveyAnswers = LoadSurveyAnswers(connection, surveyId, omsuId == 0 ? null : omsuId);
+            var surveyAnswers = LoadSurveyAnswers(connection, surveyId, organizationId == 0 ? null : organizationId);
             foreach (var answer in surveyAnswers)
             {
-                omsus.Add(answer.name_omsu ?? string.Empty);
+                organizations.Add(answer.organization_name ?? string.Empty);
                 ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
                 comments.Add(answer.Answers.Select(item => item.Comment ?? string.Empty).ToList());
             }
@@ -94,9 +90,9 @@ public sealed class SurveyReportService
         }
 
         string currentMonth = DateTime.Now.ToString("MMMM yyyy").ToLower();
-        string fileName = omsuId == 0
+        string fileName = organizationId == 0
             ? $"Отчет по анкете {surveyName} ({currentMonth}).docx"
-            : $"Отчет по анкете {surveyName} для {omsus.FirstOrDefault()} ({currentMonth}).docx";
+            : $"Отчет по анкете {surveyName} для {organizations.FirstOrDefault()} ({currentMonth}).docx";
 
         using var mem = new MemoryStream();
         using (var document = WordprocessingDocument.Create(mem, WordprocessingDocumentType.Document, true))
@@ -190,10 +186,10 @@ public sealed class SurveyReportService
             }
             table.Append(headerRow);
 
-            for (int i = 0; i < omsus.Count; i++)
+            for (int i = 0; i < organizations.Count; i++)
             {
                 var dataRow = new TableRow();
-                dataRow.Append(CreateTableCell(omsus[i], false, false));
+                dataRow.Append(CreateTableCell(organizations[i], false, false));
 
                 for (int j = 0; j < criteriaList.Count; j++)
                 {
@@ -282,9 +278,7 @@ public sealed class SurveyReportService
         using (var command = connection.CreateCommand())
         {
             command.CommandText = @"
-                SELECT id_survey FROM public.surveys
-                UNION
-                SELECT id_survey FROM public.history_surveys";
+                SELECT id_survey FROM public.survey";
 
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -343,20 +337,18 @@ public sealed class SurveyReportService
                 string surveyName;
                 bool isArchive;
                 List<string> criteriaList;
-                var omsus = new List<string>();
+                var organizations = new List<string>();
                 var ratings = new List<List<int>>();
                 var srednee = new List<double>();
 
                 using (var connection = _connectionFactory.CreateConnection())
                 {
-                    isArchive = !connection.ExecuteScalar<bool>(
-                        "SELECT EXISTS(SELECT 1 FROM public.surveys WHERE id_survey = @surveyId)",
+                    isArchive = connection.ExecuteScalar<bool>(
+                        "SELECT date_close < NOW() FROM public.survey WHERE id_survey = @surveyId",
                         new { surveyId });
 
                     surveyName = connection.ExecuteScalar<string?>(
-                        !isArchive
-                            ? "SELECT name_survey FROM public.surveys WHERE id_survey = @surveyId"
-                            : "SELECT name_survey FROM public.history_surveys WHERE id_survey = @surveyId",
+                        "SELECT name_survey FROM public.survey WHERE id_survey = @surveyId",
                         new { surveyId }) ?? string.Empty;
 
                     criteriaList = LoadSurveyQuestions(connection, surveyId)
@@ -366,7 +358,7 @@ public sealed class SurveyReportService
                     var surveyAnswers = LoadSurveyAnswers(connection, surveyId);
                     foreach (var answer in surveyAnswers)
                     {
-                        omsus.Add(answer.name_omsu ?? string.Empty);
+                        organizations.Add(answer.organization_name ?? string.Empty);
                         ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
                     }
 
@@ -425,7 +417,7 @@ public sealed class SurveyReportService
                 }
                 body.AppendChild(questionsTable);
 
-                if (omsus.Count > 0)
+                if (organizations.Count > 0)
                 {
                     var orgsTable = new Table();
                     orgsTable.AppendChild(new TableProperties(
@@ -444,10 +436,10 @@ public sealed class SurveyReportService
                     oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Кол-во ответов")) { RunProperties = new RunProperties(new Bold()) })));
                     orgsTable.Append(oHeaderRow);
 
-                    for (int i = 0; i < omsus.Count; i++)
+                    for (int i = 0; i < organizations.Count; i++)
                     {
                         var row = new TableRow();
-                        row.Append(new TableCell(new Paragraph(new Run(new Text(omsus[i])))));
+                        row.Append(new TableCell(new Paragraph(new Run(new Text(organizations[i])))));
                         row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[i].Count > 0 ? ratings[i].Average().ToString("F1") : "0")))));
                         row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[i].Count.ToString())))));
                         orgsTable.Append(row);
@@ -569,7 +561,7 @@ public sealed class SurveyReportService
 
                 var monthAnswers = surveyAnswers
                     .Where(a => a.create_date_survey?.Month == month.Number && a.create_date_survey?.Year == year)
-                    .GroupBy(a => a.name_omsu)
+                    .GroupBy(a => a.organization_name)
                     .OrderBy(g => g.Key);
 
                 foreach (var orgGroup in monthAnswers)
@@ -674,25 +666,11 @@ public sealed class SurveyReportService
         IDbConnection connection,
         int surveyId)
     {
-        var activeQuestions = connection.Query<SurveyQuestionItem>(
-            @"SELECT
-                  question_order AS Id,
-                  question_text AS Text
-              FROM public.survey_questions
-              WHERE id_survey = @surveyId
-              ORDER BY question_order",
-            new { surveyId }).ToList();
-
-        if (activeQuestions.Count > 0)
-        {
-            return activeQuestions;
-        }
-
         return connection.Query<SurveyQuestionItem>(
             @"SELECT
                   question_order AS Id,
                   question_text AS Text
-              FROM public.history_survey_questions
+              FROM public.survey_question
               WHERE id_survey = @surveyId
               ORDER BY question_order",
             new { surveyId }).ToList();
@@ -701,29 +679,29 @@ public sealed class SurveyReportService
     private static IReadOnlyList<HistoryAnswer> LoadSurveyAnswers(
         IDbConnection connection,
         int surveyId,
-        int? omsuId = null)
+        int? organizationId = null)
     {
         var answers = connection.Query<HistoryAnswer>(
             @"SELECT
                   ha.id_answer,
-                  ha.id_omsu,
+                  ha.organization_id,
                   ha.id_survey,
                   ha.csp,
                   ha.completion_date,
                   ha.create_date_survey,
-                  o.name_omsu
-              FROM public.history_answer ha
-              LEFT JOIN public.omsu o
-                  ON o.id_omsu = ha.id_omsu
+                  o.organization_name
+              FROM public.answer ha
+              LEFT JOIN public.organization o
+                  ON o.organization_id = ha.organization_id
               WHERE ha.id_survey = @surveyId
-                AND (@omsuId IS NULL OR ha.id_omsu = @omsuId)
+                AND (@organizationId IS NULL OR ha.organization_id = @organizationId)
                 AND EXISTS (
                     SELECT 1
-                    FROM public.history_answer_items hai
+                    FROM public.answer_item hai
                     WHERE hai.id_answer = ha.id_answer
                 )
               ORDER BY ha.completion_date DESC",
-            new { surveyId, omsuId }).ToList();
+            new { surveyId, organizationId }).ToList();
 
         AttachAnswerItems(connection, answers);
         return answers;
@@ -739,32 +717,15 @@ public sealed class SurveyReportService
                   s.name_survey,
                   COALESCE(
                       (
-                          SELECT string_agg(o.name_omsu, ', ')
-                          FROM public.omsu_surveys os
-                          INNER JOIN public.omsu o
-                              ON o.id_omsu = os.id_omsu
+                          SELECT string_agg(o.organization_name, ', ')
+                          FROM public.organization_survey os
+                          INNER JOIN public.organization o
+                              ON o.organization_id = os.organization_id
                           WHERE os.id_survey = s.id_survey
                       ),
                       'Не указано'
-                  ) AS name_omsu
-              FROM public.surveys s
-
-              UNION ALL
-
-              SELECT
-                  hs.id_survey,
-                  hs.name_survey,
-                  COALESCE(
-                      (
-                          SELECT string_agg(o.name_omsu, ', ')
-                          FROM public.omsu_surveys os
-                          INNER JOIN public.omsu o
-                              ON o.id_omsu = os.id_omsu
-                          WHERE os.id_survey = hs.id_survey
-                      ),
-                      'Не указано'
-                  ) AS name_omsu
-              FROM public.history_surveys hs").ToList();
+                  ) AS organization_name
+              FROM public.survey s").ToList();
 
         AttachSurveyQuestions(connection, surveys);
         return surveys;
@@ -776,18 +737,19 @@ public sealed class SurveyReportService
 
         var answers = connection.Query<HistoryAnswer>(
             @"SELECT
-                  id_omsu,
-                  (SELECT name_omsu FROM public.omsu WHERE omsu.id_omsu = history_answer.id_omsu) AS name_omsu,
-                  csp,
-                  id_answer,
-                  id_survey,
-                  COALESCE(
-                      (SELECT name_survey FROM public.surveys WHERE surveys.id_survey = history_answer.id_survey),
-                      (SELECT name_survey FROM public.history_surveys WHERE history_surveys.id_survey = history_answer.id_survey)
-                  ) AS name_survey,
-                  completion_date,
-                  create_date_survey
-              FROM public.history_answer").ToList();
+                  a.organization_id,
+                  o.organization_name,
+                  a.csp,
+                  a.id_answer,
+                  a.id_survey,
+                  s.name_survey,
+                  a.completion_date,
+                  a.create_date_survey
+              FROM public.answer a
+              LEFT JOIN public.organization o
+                  ON o.organization_id = a.organization_id
+              LEFT JOIN public.survey s
+                  ON s.id_survey = a.id_survey").ToList();
 
         AttachAnswerItems(connection, answers);
         return answers;
@@ -829,23 +791,12 @@ public sealed class SurveyReportService
                   id_survey AS SurveyId,
                   question_order AS QuestionOrder,
                   question_text AS QuestionText
-              FROM public.survey_questions
-              WHERE id_survey = ANY(@surveyIds)
-              ORDER BY id_survey, question_order",
-            new { surveyIds });
-
-        var archiveRows = connection.Query<SurveyQuestionLookupRow>(
-            @"SELECT
-                  id_survey AS SurveyId,
-                  question_order AS QuestionOrder,
-                  question_text AS QuestionText
-              FROM public.history_survey_questions
+              FROM public.survey_question
               WHERE id_survey = ANY(@surveyIds)
               ORDER BY id_survey, question_order",
             new { surveyIds });
 
         var questionLookup = activeRows
-            .Concat(archiveRows)
             .GroupBy(row => row.SurveyId)
             .ToDictionary(
                 group => group.Key,
@@ -882,7 +833,7 @@ public sealed class SurveyReportService
                   question_text AS QuestionText,
                   rating AS Rating,
                   comment AS Comment
-              FROM public.history_answer_items
+              FROM public.answer_item
               WHERE id_answer = ANY(@answerIds)
               ORDER BY id_answer, question_order",
             new { answerIds });

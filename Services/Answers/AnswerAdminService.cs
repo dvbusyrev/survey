@@ -35,20 +35,17 @@ public sealed class AnswerAdminService
         const string sql = @"
             SELECT
                 ha.id_answer AS IdAnswer,
-                ha.id_omsu AS IdOmsu,
+                ha.organization_id AS IdOrganization,
                 ha.id_survey AS IdSurvey,
-                COALESCE(o.name_omsu, 'Нет данных') AS OrganizationName,
-                COALESCE(s.name_survey, hs.name_survey, 'Нет данных') AS SurveyName,
+                COALESCE(o.organization_name, 'Нет данных') AS OrganizationName,
+                COALESCE(s.name_survey, 'Нет данных') AS SurveyName,
                 ha.completion_date AS CompletionDate,
                 COALESCE(ha.csp, '') AS Signature
-            FROM public.history_answer ha
-            LEFT JOIN public.omsu o
-                ON o.id_omsu = ha.id_omsu
-            LEFT JOIN public.surveys s
+            FROM public.answer ha
+            LEFT JOIN public.organization o
+                ON o.organization_id = ha.organization_id
+            LEFT JOIN public.survey s
                 ON s.id_survey = ha.id_survey
-            LEFT JOIN public.history_surveys hs
-                ON hs.id_survey = ha.id_survey
-               AND s.id_survey IS NULL
             ORDER BY ha.completion_date DESC NULLS LAST, ha.id_answer DESC";
 
         var rows = connection.Query<AnswerListRow>(sql).ToList();
@@ -58,7 +55,7 @@ public sealed class AnswerAdminService
             Answers = rows.Select(row => new AnswerListItemViewModel
             {
                 IdAnswer = row.IdAnswer,
-                IdOmsu = row.IdOmsu,
+                IdOrganization = row.IdOrganization,
                 IdSurvey = row.IdSurvey,
                 OrganizationName = row.OrganizationName ?? "Нет данных",
                 SurveyName = row.SurveyName ?? "Нет данных",
@@ -74,27 +71,23 @@ public sealed class AnswerAdminService
 
         var surveyName = connection.ExecuteScalar<string?>(
             @"SELECT name_survey
-              FROM (
-                  SELECT name_survey FROM public.surveys WHERE id_survey = @surveyId
-                  UNION ALL
-                  SELECT name_survey FROM public.history_surveys WHERE id_survey = @surveyId
-              ) AS survey_names
-              LIMIT 1",
+              FROM public.survey
+              WHERE id_survey = @surveyId",
             new { surveyId }) ?? "Неизвестная анкета";
 
         const string sql = @"
             SELECT
-                o.name_omsu AS OrganizationName,
+                o.organization_name AS OrganizationName,
                 (ha.completion_date IS NOT NULL) AS IsCompleted,
                 (COALESCE(ha.csp, '') <> '') AS IsSigned
-            FROM public.omsu o
-            INNER JOIN public.omsu_surveys os
-                ON os.id_omsu = o.id_omsu
-            LEFT JOIN public.history_answer ha
-                ON o.id_omsu = ha.id_omsu
+            FROM public.organization o
+            INNER JOIN public.organization_survey os
+                ON os.organization_id = o.organization_id
+            LEFT JOIN public.answer ha
+                ON o.organization_id = ha.organization_id
                AND ha.id_survey = @surveyId
             WHERE os.id_survey = @surveyId
-            ORDER BY o.name_omsu";
+            ORDER BY o.organization_name";
 
         var items = connection.Query<SignatureRow>(sql, new { surveyId })
             .Select(row => new SurveySignatureStatusViewModel
@@ -121,7 +114,7 @@ public sealed class AnswerAdminService
             PieChart = BuildPieChart(),
             BarChart = BuildBarChart(),
             RadarChart = BuildRadarChart(),
-            AvgScoreByOmsuRadar = BuildAvgScoreByOmsuRadar()
+            AvgScoreByOrganizationRadar = BuildAvgScoreByOrganizationRadar()
         };
     }
 
@@ -134,7 +127,7 @@ public sealed class AnswerAdminService
                 EXTRACT(YEAR FROM completion_date)::int AS Year,
                 EXTRACT(MONTH FROM completion_date)::int AS Month,
                 COUNT(*)::int AS Count
-            FROM public.history_answer
+            FROM public.answer
             WHERE completion_date IS NOT NULL
             GROUP BY 1, 2
             ORDER BY 1, 2";
@@ -155,14 +148,11 @@ public sealed class AnswerAdminService
 
         const string sql = @"
             SELECT
-                COALESCE(s.name_survey, hs.name_survey, 'Неизвестно') AS Label,
+                COALESCE(s.name_survey, 'Неизвестно') AS Label,
                 COUNT(*)::int AS Count
-            FROM public.history_answer ha
-            LEFT JOIN public.surveys s
+            FROM public.answer ha
+            LEFT JOIN public.survey s
                 ON ha.id_survey = s.id_survey
-            LEFT JOIN public.history_surveys hs
-                ON ha.id_survey = hs.id_survey
-               AND s.id_survey IS NULL
             GROUP BY 1
             ORDER BY 1";
 
@@ -183,7 +173,7 @@ public sealed class AnswerAdminService
             SELECT
                 EXTRACT(YEAR FROM completion_date)::int AS Year,
                 COUNT(*)::int AS Count
-            FROM public.history_answer
+            FROM public.answer
             WHERE completion_date IS NOT NULL
             GROUP BY 1
             ORDER BY 1";
@@ -204,16 +194,13 @@ public sealed class AnswerAdminService
 
         const string sql = @"
             SELECT
-                COALESCE(s.name_survey, hs.name_survey, 'Неизвестно') AS SurveyType,
+                COALESCE(s.name_survey, 'Неизвестно') AS SurveyType,
                 hai.question_text AS QuestionLabel,
                 AVG(hai.rating::double precision) AS AvgRating
-            FROM public.history_answer ha
-            LEFT JOIN public.surveys s
+            FROM public.answer ha
+            LEFT JOIN public.survey s
                 ON ha.id_survey = s.id_survey
-            LEFT JOIN public.history_surveys hs
-                ON ha.id_survey = hs.id_survey
-               AND s.id_survey IS NULL
-            INNER JOIN public.history_answer_items hai
+            INNER JOIN public.answer_item hai
                 ON hai.id_answer = ha.id_answer
             WHERE hai.rating IS NOT NULL
             GROUP BY 1, 2
@@ -223,26 +210,26 @@ public sealed class AnswerAdminService
         return BuildDatasetChart(rows);
     }
 
-    private DatasetChartViewModel BuildAvgScoreByOmsuRadar()
+    private DatasetChartViewModel BuildAvgScoreByOrganizationRadar()
     {
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
             SELECT
-                o.name_omsu AS OmsuName,
+                o.organization_name AS OrganizationName,
                 EXTRACT(YEAR FROM ha.completion_date)::int AS Year,
                 AVG(hai.rating::double precision) AS AvgRating
-            FROM public.history_answer ha
-            INNER JOIN public.omsu o
-                ON ha.id_omsu = o.id_omsu
-            INNER JOIN public.history_answer_items hai
+            FROM public.answer ha
+            INNER JOIN public.organization o
+                ON ha.organization_id = o.organization_id
+            INNER JOIN public.answer_item hai
                 ON hai.id_answer = ha.id_answer
             WHERE ha.completion_date IS NOT NULL
               AND hai.rating IS NOT NULL
             GROUP BY 1, 2
             ORDER BY 2, 1";
 
-        var rows = connection.Query<OmsuAverageRow>(sql).ToList();
+        var rows = connection.Query<OrganizationAverageRow>(sql).ToList();
         if (rows.Count == 0)
         {
             return new DatasetChartViewModel();
@@ -257,7 +244,7 @@ public sealed class AnswerAdminService
             .ToList();
 
         var labels = rows
-            .Select(row => row.OmsuName ?? "Неизвестно")
+            .Select(row => row.OrganizationName ?? "Неизвестно")
             .Distinct()
             .OrderBy(name => name)
             .ToList();
@@ -271,7 +258,7 @@ public sealed class AnswerAdminService
                 Label = year.ToString(),
                 Data = labels
                     .Select(label => rows
-                        .Where(row => row.Year == year && (row.OmsuName ?? "Неизвестно") == label)
+                        .Where(row => row.Year == year && (row.OrganizationName ?? "Неизвестно") == label)
                         .Select(row => row.AvgRating)
                         .DefaultIfEmpty(0)
                         .First())
@@ -339,7 +326,7 @@ public sealed class AnswerAdminService
     private sealed class AnswerListRow
     {
         public int IdAnswer { get; set; }
-        public int IdOmsu { get; set; }
+        public int IdOrganization { get; set; }
         public int IdSurvey { get; set; }
         public string? OrganizationName { get; set; }
         public string? SurveyName { get; set; }
@@ -380,9 +367,9 @@ public sealed class AnswerAdminService
         public double AvgRating { get; set; }
     }
 
-    private sealed class OmsuAverageRow
+    private sealed class OrganizationAverageRow
     {
-        public string? OmsuName { get; set; }
+        public string? OrganizationName { get; set; }
         public int Year { get; set; }
         public double AvgRating { get; set; }
     }

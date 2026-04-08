@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 
 namespace main_project.Models
 {
-public class OMSUProd
+public class OrganizationProd
 {
-    public string name_omsu { get; set; } // Идентификатор организации (строка)
+    public string organization_name { get; set; } // Идентификатор организации (строка)
     public string date_end { get; set; } // Дата окончания (строка)
 }
 }

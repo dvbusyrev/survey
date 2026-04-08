@@ -89,8 +89,14 @@
 }
 
 .password-eye-wrap input[type="password"],
-.password-eye-wrap input[type="text"] {
+.password-eye-wrap input[type="text"],
+.password-eye-wrap input[data-password-field="true"] {
     padding-right: 44px !important;
+}
+
+.password-eye-wrap input.is-password-masked,
+input[data-password-field="true"].is-password-masked {
+    -webkit-text-security: disc;
 }
 
 .password-eye-btn {

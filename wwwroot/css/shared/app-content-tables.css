@@ -59,10 +59,10 @@
 }
 
 .menu-tab {
-  position: relative;
   display: flex;
   flex: 0 1 auto;
   align-items: center;
+  gap: 0.55rem;
   max-width: 100%;
   padding: 0.875rem 1rem;
   color: var(--text-secondary);
@@ -92,15 +92,15 @@
 }
 
 .menu-tab .count-badge {
-  position: absolute;
-  top: -10px;
-  right: -12px;
-  display: flex;
+  position: static;
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   min-width: 1.75rem;
   height: 1.5rem;
   padding: 0 0.6rem;
+  margin-left: 0.1rem;
   color: white;
   font-size: 0.75rem;
   font-weight: 700;
@@ -333,7 +333,9 @@ tbody tr:last-child td {
   margin-bottom: 1.5rem;
   color: #4a5568;
   line-height: 1.5;
-  text-align: center;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
 }
 
 @media (max-width: 900px) {

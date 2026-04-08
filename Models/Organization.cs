@@ -5,10 +5,10 @@ using System.Threading.Tasks;
 
 namespace main_project.Models
 {
-    public class OMSU
+    public class Organization
     {
-        public int id_omsu { get; set; }
-        public required string name_omsu { get; set; }
+        public int organization_id { get; set; }
+        public required string organization_name { get; set; }
         public DateTime? date_begin { get; set; }
         public DateTime? date_end { get; set; }
         public string? survey_names { get; set; }

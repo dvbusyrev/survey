@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using main_project.Models;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json.Linq;
-using main_project.Services.Surveys;
 
 namespace main_project.Services
 {
@@ -44,8 +43,8 @@ namespace main_project.Services
                 // Обработка анкет
                 ProcessExpiredSurveys(today);
                 
-                // Обработка OMSU
-                ProcessExpiredOmsus(today);
+                // Обработка организаций
+                ProcessExpiredOrganizations(today);
             }
             catch (Exception ex)
             {
@@ -58,19 +57,9 @@ namespace main_project.Services
         {
             var expiredSurveys = GetExpiredSurveys(currentDate);
 
-            _logger.LogInformation("Найдено {Count} просроченных анкет", expiredSurveys.Count);
-
-            foreach (var survey in expiredSurveys)
-            {
-                try
-                {
-                    ArchiveExpiredSurvey(survey, currentDate);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Ошибка при обработке анкеты {SurveyId}", survey.id_survey);
-                }
-            }
+            _logger.LogInformation(
+                "Найдено {Count} просроченных анкет. Перенос в архив отключен: анкеты остаются в public.survey и считаются архивными по дате закрытия.",
+                expiredSurveys.Count);
         }
 
         private List<Survey> GetExpiredSurveys(DateTime currentDate)
@@ -82,7 +71,7 @@ namespace main_project.Services
                 connection.Open();
 
                 var query = @"SELECT id_survey, name_survey, description, date_create, date_open, date_close
-                              FROM surveys 
+                              FROM public.survey 
                               WHERE date_close < @CurrentDate";
 
                 using (var command = new NpgsqlCommand(query, connection))
@@ -110,121 +99,38 @@ namespace main_project.Services
             return expiredSurveys;
         }
 
-        private void ArchiveExpiredSurvey(Survey survey, DateTime overdueDate)
-        {
-            using (var connection = new NpgsqlConnection(_connectionString))
-            {
-                connection.Open();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    try
-                    {
-                        // Перенос в архив
-                        var insertQuery = @"
-                            INSERT INTO history_surveys 
-                                (date_begin, date_end, id_survey, name_survey, description)
-                            VALUES 
-                                (@DateBegin, @DateEnd, @IdSurvey, @NameSurvey, @Description)";
-
-                        using (var command = new NpgsqlCommand(insertQuery, connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@DateBegin", survey.date_open);
-                            command.Parameters.AddWithValue("@DateEnd", survey.date_close);
-                            command.Parameters.AddWithValue("@IdSurvey", survey.id_survey);
-                            command.Parameters.AddWithValue("@NameSurvey", survey.name_survey);
-                            command.Parameters.AddWithValue("@Description", survey.description ?? (object)DBNull.Value);
-
-                            command.ExecuteNonQuery();
-                        }
-
-                        var questionRows = LoadSurveyQuestionRows(connection, transaction, survey.id_survey);
-                        foreach (var question in questionRows)
-                        {
-                            using var questionCommand = new NpgsqlCommand(
-                                @"INSERT INTO public.history_survey_questions (id_survey, question_order, question_text)
-                                  VALUES (@IdSurvey, @QuestionOrder, @QuestionText)",
-                                connection,
-                                transaction);
-
-                            questionCommand.Parameters.AddWithValue("@IdSurvey", survey.id_survey);
-                            questionCommand.Parameters.AddWithValue("@QuestionOrder", question.QuestionOrder);
-                            questionCommand.Parameters.AddWithValue("@QuestionText", question.QuestionText);
-                            questionCommand.ExecuteNonQuery();
-                        }
-
-                        // Удаление из основной таблицы
-                        using (var command = new NpgsqlCommand("DELETE FROM public.survey_questions WHERE id_survey = @Id", connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@Id", survey.id_survey);
-                            command.ExecuteNonQuery();
-                        }
-
-                        var deleteQuery = "DELETE FROM surveys WHERE id_survey = @Id";
-                        using (var command = new NpgsqlCommand(deleteQuery, connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@Id", survey.id_survey);
-                            command.ExecuteNonQuery();
-                        }
-
-                        // Создаем лог
-                        CreateLog(
-                            connection: connection,
-                            transaction: transaction,
-                            idUser: 0,
-                            idTarget: survey.id_survey,
-                            targetType: "survey",
-                            eventType: "SURVEY_OVERDUE",
-                            description: "Срок прохождения анкеты истёк",
-                            extraData: new JObject
-                            {
-                                ["survey_name"] = survey.name_survey,
-                                ["original_end_date"] = survey.date_close
-                            });
-
-                        transaction.Commit();
-                        _logger.LogInformation("Анкета {SurveyId} перенесена в архив", survey.id_survey);
-                    }
-                    catch (Exception ex)
-                    {
-                        transaction.Rollback();
-                        _logger.LogError(ex, "Ошибка архивации анкеты {SurveyId}", survey.id_survey);
-                        throw;
-                    }
-                }
-            }
-        }
         #endregion
 
-        #region OMSU Processing
-        private void ProcessExpiredOmsus(DateTime currentDate)
+        #region Organization Processing
+        private void ProcessExpiredOrganizations(DateTime currentDate)
         {
-            var expiredOmsus = GetExpiredOmsus(currentDate);
+            var expiredOrganizations = GetExpiredOrganizations(currentDate);
 
-            _logger.LogInformation("Найдено {Count} просроченных OMSU", expiredOmsus.Count);
+            _logger.LogInformation("Найдено {Count} просроченных организаций", expiredOrganizations.Count);
 
-            foreach (var omsu in expiredOmsus)
+            foreach (var organization in expiredOrganizations)
             {
                 try
                 {
-                    BlockExpiredOmsu(omsu, currentDate);
+                    BlockExpiredOrganization(organization, currentDate);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Ошибка при блокировке OMSU {OmsuId}", omsu.id_omsu);
+                    _logger.LogError(ex, "Ошибка при блокировке организации {OrganizationId}", organization.organization_id);
                 }
             }
         }
 
-        private List<OMSU> GetExpiredOmsus(DateTime currentDate)
+        private List<Organization> GetExpiredOrganizations(DateTime currentDate)
         {
-            var expiredOmsus = new List<OMSU>();
+            var expiredOrganizations = new List<Organization>();
 
             using (var connection = new NpgsqlConnection(_connectionString))
             {
                 connection.Open();
 
-                var query = @"SELECT id_omsu, name_omsu, date_begin, date_end, email, block
-                            FROM omsu 
+                var query = @"SELECT organization_id, organization_name, date_begin, date_end, email, block
+                            FROM public.organization 
                             WHERE date_end < @CurrentDate AND block = false";
 
                 using (var command = new NpgsqlCommand(query, connection))
@@ -235,10 +141,10 @@ namespace main_project.Services
                     {
                         while (reader.Read())
                         {
-                            expiredOmsus.Add(new OMSU
+                            expiredOrganizations.Add(new Organization
                             {
-                                id_omsu = reader.GetInt32(0),
-                                name_omsu = reader.GetString(1),
+                                organization_id = reader.GetInt32(0),
+                                organization_name = reader.GetString(1),
                                 date_begin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
                                 date_end = reader.GetDateTime(3),
                                 email = reader.IsDBNull(4) ? null : reader.GetString(4),
@@ -249,10 +155,10 @@ namespace main_project.Services
                 }
             }
 
-            return expiredOmsus;
+            return expiredOrganizations;
         }
 
-        private void BlockExpiredOmsu(OMSU omsu, DateTime blockDate)
+        private void BlockExpiredOrganization(Organization organization, DateTime blockDate)
         {
             using (var connection = new NpgsqlConnection(_connectionString))
             {
@@ -261,29 +167,29 @@ namespace main_project.Services
                 {
                     try
                     {
-                        // Блокировка OMSU
-                        var updateOmsuQuery = @"UPDATE omsu 
+                        // Блокировка организации
+                        var updateOrganizationQuery = @"UPDATE public.organization 
                                               SET block = true 
-                                              WHERE id_omsu = @IdOmsu";
+                                              WHERE organization_id = @IdOrganization";
 
-                        using (var command = new NpgsqlCommand(updateOmsuQuery, connection, transaction))
+                        using (var command = new NpgsqlCommand(updateOrganizationQuery, connection, transaction))
                         {
-                            command.Parameters.AddWithValue("@IdOmsu", omsu.id_omsu);
+                            command.Parameters.AddWithValue("@IdOrganization", organization.organization_id);
                             int affectedRows = command.ExecuteNonQuery();
 
                             if (affectedRows == 0)
                             {
-                                throw new Exception("OMSU не найден");
+                                throw new Exception("Организация не найдена");
                             }
                         }
 
-                        // Очистка id_omsu у пользователей
-                        var clearUserOmsuQuery = @"UPDATE users 
-                                                 SET id_omsu = NULL 
-                                                 WHERE id_omsu = @IdOmsu";
-                        using (var command = new NpgsqlCommand(clearUserOmsuQuery, connection, transaction))
+                        // Очистка organization_id у пользователей
+                        var clearUserOrganizationQuery = @"UPDATE public.app_user 
+                                                 SET organization_id = NULL 
+                                                 WHERE organization_id = @IdOrganization";
+                        using (var command = new NpgsqlCommand(clearUserOrganizationQuery, connection, transaction))
                         {
-                            command.Parameters.AddWithValue("@IdOmsu", omsu.id_omsu);
+                            command.Parameters.AddWithValue("@IdOrganization", organization.organization_id);
                             command.ExecuteNonQuery();
                         }
 
@@ -292,24 +198,24 @@ namespace main_project.Services
                             connection: connection,
                             transaction: transaction,
                             idUser: 0,
-                            idTarget: omsu.id_omsu,
+                            idTarget: organization.organization_id,
                             targetType: "organization",
-                            eventType: "BLOCK_OMSU",
+                            eventType: "BLOCK_ORGANIZATION",
                             description: "Блокировка организации",
                             extraData: new JObject
                             {
-                                ["organization_name"] = omsu.name_omsu,
-                                ["email"] = omsu.email,
-                                ["original_end_date"] = omsu.date_end
+                                ["organization_name"] = organization.organization_name,
+                                ["email"] = organization.email,
+                                ["original_end_date"] = organization.date_end
                             });
 
                         transaction.Commit();
-                        _logger.LogInformation("OMSU {OmsuId} заблокирован и очищен у пользователей", omsu.id_omsu);
+                        _logger.LogInformation("Организация {OrganizationId} заблокирована и очищена у пользователей", organization.organization_id);
                     }
                     catch (Exception ex)
                     {
                         transaction.Rollback();
-                        _logger.LogError(ex, "Ошибка блокировки OMSU {OmsuId}", omsu.id_omsu);
+                        _logger.LogError(ex, "Ошибка блокировки организации {OrganizationId}", organization.organization_id);
                         throw;
                     }
                 }
@@ -329,7 +235,7 @@ namespace main_project.Services
     JObject extraData = null)
 {
     var query = @"
-        INSERT INTO logs 
+        INSERT INTO public.log 
             (id_user, id_target, target_type, event_type, date, description, extra_data)
         VALUES 
             (@IdUser, @IdTarget, @TargetType, @EventType, @Date, @Description, @ExtraData)";
@@ -365,35 +271,6 @@ namespace main_project.Services
         public void Dispose()
         {
             _timer?.Dispose();
-        }
-
-        private static List<SurveyQuestionRow> LoadSurveyQuestionRows(
-            NpgsqlConnection connection,
-            NpgsqlTransaction transaction,
-            int surveyId)
-        {
-            var rows = new List<SurveyQuestionRow>();
-            using var command = new NpgsqlCommand(
-                @"SELECT question_order, question_text
-                  FROM public.survey_questions
-                  WHERE id_survey = @surveyId
-                  ORDER BY question_order",
-                connection,
-                transaction);
-
-            command.Parameters.AddWithValue("@surveyId", surveyId);
-
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                rows.Add(new SurveyQuestionRow
-                {
-                    QuestionOrder = reader.GetInt32(0),
-                    QuestionText = reader.GetString(1)
-                });
-            }
-
-            return rows;
         }
     }
 }

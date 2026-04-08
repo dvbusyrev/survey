@@ -13,10 +13,11 @@ body {
 }
 
 header {
+  --header-side-slot: clamp(220px, 28vw, 420px);
   position: relative;
   z-index: 10;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, var(--header-side-slot)) 1fr minmax(0, var(--header-side-slot));
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -35,7 +36,7 @@ header {
 }
 
 header img {
-  flex: 0 0 auto;
+  justify-self: start;
   width: 105px;
   height: calc(var(--header-height) - 8px);
   max-height: 68px;
@@ -44,9 +45,9 @@ header img {
 }
 
 header h1 {
-  position: static;
+  justify-self: center;
   min-width: 0;
-  width: 100%;
+  width: auto;
   max-width: none;
   margin: 0;
   padding: 0 8px;
@@ -60,23 +61,50 @@ header h1 {
 
 .header-right {
   display: flex;
-  flex: 0 0 auto;
+  width: 100%;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  min-width: 180px;
-  margin-left: auto;
+  gap: 14px;
+  min-width: 0;
 }
 
-#role {
-  max-width: min(24vw, 220px);
+#header-user-info,
+.header-user-info {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  gap: 2px;
+}
+
+.header-mode-label {
+  width: 100%;
   margin: 0;
-  font-size: clamp(0.65rem, 0.58rem + 0.16vw, 0.8rem);
-  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: clamp(0.56rem, 0.5rem + 0.14vw, 0.68rem);
+  line-height: 1.2;
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+#role {
+  width: 100%;
+  flex: 0 1 auto;
+  max-width: none;
+  margin: 0;
+  padding-right: 2px;
+  color: #fff;
+  font-size: clamp(0.66rem, 0.58rem + 0.16vw, 0.82rem);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .logout-button {
@@ -87,7 +115,7 @@ header h1 {
   justify-content: center;
   min-height: 30px;
   padding: 0.45rem 0.9rem;
-  margin: 0;
+  margin: 0 0 0 2px;
   color: #fff;
   font-size: 0.72rem;
   font-weight: 700;

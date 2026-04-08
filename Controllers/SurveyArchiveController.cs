@@ -28,7 +28,17 @@ public class SurveyArchiveController : Controller
             return Challenge();
         }
 
-        if (!_currentUserService.IsAdmin && _currentUserService.UserId != requestedUserId)
+        if (_currentUserService.IsAdmin)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return StatusCode(403, new { error = "Раздел архива анкет доступен только пользователям." });
+            }
+
+            return Redirect("/surveys");
+        }
+
+        if (_currentUserService.UserId != requestedUserId)
         {
             return Forbid();
         }
@@ -55,6 +65,12 @@ public class SurveyArchiveController : Controller
         if (!_currentUserService.UserId.HasValue)
         {
             return Challenge();
+        }
+
+        var accessResult = EnsureUserRouteAccess(_currentUserService.UserId.Value);
+        if (accessResult != null)
+        {
+            return accessResult;
         }
 
         var pageModel = _surveyArchiveService.GetUserArchivePage(

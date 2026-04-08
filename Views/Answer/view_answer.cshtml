@@ -30,7 +30,7 @@
                         <td colspan="3" class="survey-header">
                             <strong>Ответы на анкету: @Model.Survey.name_survey</strong>
                             <br />
-                            <span class="answers-page__completion-date">Организация: @answer.NameOmsu</span>
+                            <span class="answers-page__completion-date">Организация: @answer.NameOrganization</span>
                             <br />
                             <span class="answers-page__completion-date">Дата ответа: @answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</span>
                         </td>
@@ -46,11 +46,5 @@
                 }
             </tbody>
         </table>
-    </div>
-    <br />
-
-    <div id="block_btn_not_csp" class="button-container">
-        <br />
-        <button class="answers-page__action-button" onClick="window.history.back()">Вернуться к списку анкет</button>
     </div>
 </div>

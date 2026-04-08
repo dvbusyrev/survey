@@ -6,13 +6,13 @@ public sealed class CheckAnswersPageViewModel
 {
     public Survey Survey { get; init; } = new();
     public IReadOnlyList<AnswerPayloadItem> Answers { get; init; } = Array.Empty<AnswerPayloadItem>();
-    public int IdOmsu { get; init; }
+    public int IdOrganization { get; init; }
 }
 
 public sealed class UpdateAnswerPageViewModel
 {
     public int SurveyId { get; init; }
-    public int OmsuId { get; init; }
+    public int OrganizationId { get; init; }
     public IReadOnlyList<AnswerPayloadItem> Answers { get; init; } = Array.Empty<AnswerPayloadItem>();
 }
 
@@ -37,8 +37,8 @@ public sealed class SurveyAnswersSurveyViewModel
 public sealed class SurveyAnswerResultViewModel
 {
     public int Id { get; init; }
-    public int OmsuId { get; init; }
-    public string OmsuName { get; init; } = string.Empty;
+    public int OrganizationId { get; init; }
+    public string OrganizationName { get; init; } = string.Empty;
     public string Date { get; init; } = string.Empty;
     public IReadOnlyList<SurveyAnswerResultItemViewModel> Answers { get; init; } = Array.Empty<SurveyAnswerResultItemViewModel>();
     public bool IsSigned { get; init; }

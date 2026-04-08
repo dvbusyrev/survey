@@ -24,12 +24,18 @@ public class AnswerWorkflowController : Controller
     [HttpPost("api/insert_answer")]
     public IActionResult insert_answer([FromBody] HistoryAnswer historyAnswerData)
     {
+        var isAjaxRequest =
+            string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
+            || Request.Headers.Accept.Any(value => value.Contains("application/json", StringComparison.OrdinalIgnoreCase));
+
         if (historyAnswerData == null)
         {
-            return BadRequest("Данные ответа отсутствуют.");
+            return isAjaxRequest
+                ? BadRequest(new { error = "Данные ответа отсутствуют." })
+                : BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureOmsuAccess(historyAnswerData.id_omsu);
+        var accessResult = EnsureOrganizationAccess(historyAnswerData.organization_id);
         if (accessResult != null)
         {
             return accessResult;
@@ -40,7 +46,18 @@ public class AnswerWorkflowController : Controller
             var model = _answerWorkflowService.InsertAnswer(historyAnswerData);
             if (model == null)
             {
-                return NotFound("Анкета не найдена");
+                return isAjaxRequest
+                    ? NotFound(new { error = "Анкета не найдена." })
+                    : NotFound("Анкета не найдена");
+            }
+
+            if (isAjaxRequest)
+            {
+                return Ok(new
+                {
+                    success = true,
+                    message = "Ответы успешно сохранены."
+                });
             }
 
             return View("~/Views/Answer/check_answers.cshtml", model);
@@ -48,20 +65,22 @@ public class AnswerWorkflowController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при сохранении ответа");
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при сохранении ответа: {ex.Message}" });
+            return isAjaxRequest
+                ? StatusCode(500, new { error = $"Ошибка при сохранении ответа: {ex.Message}" })
+                : View("Error", new ErrorViewModel { Message = $"Ошибка при сохранении ответа: {ex.Message}" });
         }
     }
 
-    [HttpGet("answers/{idSurvey}/{idOmsu}/{type?}")]
-    [HttpGet("Answer/answers/{idSurvey}/{idOmsu}/{type?}")]
-    public IActionResult answers(int idSurvey, int idOmsu = 0, string type = "regular")
+    [HttpGet("answers/{idSurvey}/{idOrganization}/{type?}")]
+    [HttpGet("Answer/answers/{idSurvey}/{idOrganization}/{type?}")]
+    public IActionResult answers(int idSurvey, int idOrganization = 0, string type = "regular")
     {
-        var includeAllOmsuAnswers = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase)
+        var includeAllOrganizationAnswers = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase)
             && _answerAccessService.IsAdmin;
 
-        if (!includeAllOmsuAnswers)
+        if (!includeAllOrganizationAnswers)
         {
-            var accessResult = EnsureOmsuAccess(idOmsu);
+            var accessResult = EnsureOrganizationAccess(idOrganization);
             if (accessResult != null)
             {
                 return accessResult;
@@ -70,7 +89,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var response = _answerWorkflowService.GetAnswersResponse(idSurvey, idOmsu, type, includeAllOmsuAnswers);
+            var response = _answerWorkflowService.GetAnswersResponse(idSurvey, idOrganization, type, includeAllOrganizationAnswers);
             if (!response.Success)
             {
                 return NotFound(new
@@ -94,8 +113,8 @@ public class AnswerWorkflowController : Controller
                 answers = response.Answers.Select(answer => new
                 {
                     id = answer.Id,
-                    omsu_id = answer.OmsuId,
-                    omsu_name = answer.OmsuName,
+                    organization_id = answer.OrganizationId,
+                    organization_name = answer.OrganizationName,
                     date = answer.Date,
                     answers = answer.Answers.Select(item => new
                     {
@@ -120,13 +139,13 @@ public class AnswerWorkflowController : Controller
         }
     }
 
-    [HttpGet("answers/{idSurvey}/{idOmsu}/edit")]
-    [HttpPost("answers/{idSurvey}/{idOmsu}/edit")]
-    [HttpPost("update_answer/{idSurvey}/{idOmsu}")]
-    [HttpPost("Answer/update_answer/{idSurvey}/{idOmsu}")]
-    public IActionResult update_answer([FromRoute] int idSurvey, [FromRoute] int idOmsu)
+    [HttpGet("answers/{idSurvey}/{idOrganization}/edit")]
+    [HttpPost("answers/{idSurvey}/{idOrganization}/edit")]
+    [HttpPost("update_answer/{idSurvey}/{idOrganization}")]
+    [HttpPost("Answer/update_answer/{idSurvey}/{idOrganization}")]
+    public IActionResult update_answer([FromRoute] int idSurvey, [FromRoute] int idOrganization)
     {
-        var accessResult = EnsureOmsuAccess(idOmsu);
+        var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -134,7 +153,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var model = _answerWorkflowService.GetUpdateAnswerPage(idSurvey, idOmsu);
+            var model = _answerWorkflowService.GetUpdateAnswerPage(idSurvey, idOrganization);
             if (model == null)
             {
                 return NotFound("Ответы не найдены");
@@ -159,7 +178,7 @@ public class AnswerWorkflowController : Controller
             return BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureOmsuAccess(historyAnswerData.id_omsu);
+        var accessResult = EnsureOrganizationAccess(historyAnswerData.organization_id);
         if (accessResult != null)
         {
             return accessResult;
@@ -182,14 +201,14 @@ public class AnswerWorkflowController : Controller
         }
     }
 
-    private IActionResult? EnsureOmsuAccess(int requestedOmsuId)
+    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessOmsu(requestedOmsuId))
+        if (!_answerAccessService.CanAccessOrganization(requestedOrganizationId))
         {
             return Forbid();
         }

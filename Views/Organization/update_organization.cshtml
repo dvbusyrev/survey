@@ -1,14 +1,14 @@
-@model main_project.Models.OMSU
+@model main_project.Models.Organization
 @{
     ViewData["Title"] = "Редактирование организации";
 }
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/omsu.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
 
 @Html.AntiForgeryToken()
 
-    <div class="content omsu-form-page" id="default_content" data-page="omsu-update">
+    <div class="content organization-form-page" id="default_content" data-page="organization-update">
         <div class="note">
             <h2>Редактирование организации</h2>
             <p>В форме ниже вы можете изменить данные организации</p>
@@ -16,7 +16,7 @@
 
         <div class="form-group">
             <label for="name">Наименование:</label>
-            <input type="text" class="form-control" id="name" placeholder="Введите наименование" value="@Model?.name_omsu" required />
+            <input type="text" class="form-control" id="name" placeholder="Введите наименование" value="@Model?.organization_name" required />
         </div>
         <div class="form-group">
             <label for="email">Почта:</label>
@@ -34,9 +34,9 @@
            value="@(Model?.date_end?.ToString("yyyy-MM-dd"))" required />
 </div>
         
-        <div class="button-container omsu-form__actions">
-           <button type="button" class="btn" onclick="updateOmsuPage(@Model.id_omsu)">Обновить организацию</button>
+        <div class="button-container organization-form__actions">
+           <button type="button" class="btn" onclick="updateOrganizationPage(@Model.organization_id)">Обновить организацию</button>
         </div>
     </div>
 
-<script src="~/js/pages/omsu.js" asp-append-version="true"></script>
+<script src="~/js/pages/organization.js" asp-append-version="true"></script>

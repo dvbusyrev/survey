@@ -12,7 +12,7 @@
 
     <div class="users-page-toolbar">
         <button type="button" class="modal_btn modal_btn-primary" onclick="openAddUserModal()">Добавить пользователя</button>
-        <p class="back-button back-button--compact users-page__archive-link" id="check_archive_omsu" onclick="archive_list_users()">
+        <p class="back-button back-button--compact users-page__archive-link" id="check_archive_organization" onclick="archive_list_users()">
             Посмотреть архив ->
         </p>
     </div>
@@ -42,13 +42,13 @@
                         <tr>
                             <td>@user.full_name</td>
                             <td>@user.name_user</td>
-                            <td>@user.name_omsu</td>
+                            <td>@user.organization_name</td>
                             <td>@AppRoles.GetDisplayName(user.name_role)</td>
                             <td>@user.email</td>
                             <td>@user.date_begin?.ToString("dd.MM.yyyy")</td>
                             <td>@user.date_end?.ToString("dd.MM.yyyy")</td>
                             <td class="action-icons">
-                                <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.id_omsu, '@Html.Raw(AppRoles.Normalize(user.name_role))', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
+                                <div class="icon-container" onclick="openEditUserModal(@user.id_user, '@Html.Raw(user.full_name)', '@Html.Raw(user.name_user)', '@Html.Raw(user.email)', @user.organization_id, '@Html.Raw(AppRoles.Normalize(user.name_role))', '@user.date_begin?.ToString("yyyy-MM-dd")', '@user.date_end?.ToString("yyyy-MM-dd")')">
                                     <span><i class="fas fa-pen-to-square"></i></span><span class="icon-tooltip">Редактировать</span>
                                 </div>
                                 <div class="icon-container" onclick="deleteUser(@user.id_user, '@Html.Raw(user.full_name)')">
@@ -82,7 +82,7 @@
             </div>
             <div class="form-group">
                 <label>Пароль:</label>
-                <input type="password" id="password" class="form-control" required>
+                <input type="text" id="password" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" required>
             </div>
             <div class="form-group">
                 <label>Email:</label>
@@ -136,7 +136,7 @@
             </div>
             <div class="form-group">
                 <label>Пароль:</label>
-                <input type="password" id="editPassword" class="form-control" placeholder="Оставьте пустым">
+                <input type="text" id="editPassword" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" placeholder="Оставьте пустым">
             </div>
             <div class="form-group">
                 <label>Email:</label>

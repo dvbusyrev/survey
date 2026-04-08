@@ -9,13 +9,13 @@ public sealed class AnswerSigningService
         _answerDataService = answerDataService;
     }
 
-    public string GetSigningData(int surveyId, int omsuId)
+    public string GetSigningData(int surveyId, int organizationId)
     {
-        return $"Данные для подписи анкеты {surveyId} организации {omsuId}";
+        return $"Данные для подписи анкеты {surveyId} организации {organizationId}";
     }
 
-    public bool SaveSignature(int surveyId, int omsuId, string signature)
+    public bool SaveSignature(int surveyId, int organizationId, string signature)
     {
-        return _answerDataService.UpdateSignature(surveyId, omsuId, signature);
+        return _answerDataService.UpdateSignature(surveyId, organizationId, signature);
     }
 }

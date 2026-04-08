@@ -73,16 +73,16 @@ public class AuthController : Controller
                 connection.Open();
 
             using var command = connection.CreateCommand();
-            command.CommandText = @"SELECT u.id_user, u.name_role, u.name_user, COALESCE(o.name_omsu, '') AS name_omsu, u.hash_password
-                                    FROM public.users u
-                                    LEFT JOIN public.omsu o ON u.id_omsu = o.id_omsu
+            command.CommandText = @"SELECT u.id_user, u.name_role, u.name_user, COALESCE(o.organization_name, '') AS organization_name, u.hash_password
+                                    FROM public.app_user u
+                                    LEFT JOIN public.organization o ON u.organization_id = o.organization_id
                                     WHERE u.name_user = @username";
             command.Parameters.Add(new NpgsqlParameter("@username", NpgsqlTypes.NpgsqlDbType.Text) { Value = username });
 
             int idUser;
             string nameRole;
             string nameUser;
-            string nameOmsu;
+            string nameOrganization;
             string storedHash;
 
             using (var reader = command.ExecuteReader())
@@ -93,7 +93,7 @@ public class AuthController : Controller
                 idUser = reader.GetInt32(0);
                 nameRole = AppRoles.Normalize(reader.GetString(1));
                 nameUser = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
-                nameOmsu = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+                nameOrganization = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
                 storedHash = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
             }
 
@@ -108,7 +108,7 @@ public class AuthController : Controller
             if (verify == PasswordVerificationResult.SuccessRehashNeeded || isLegacyHash)
             {
                 using var updateCommand = connection.CreateCommand();
-                updateCommand.CommandText = "UPDATE public.users SET hash_password = @hash WHERE id_user = @id";
+                updateCommand.CommandText = "UPDATE public.app_user SET hash_password = @hash WHERE id_user = @id";
                 updateCommand.Parameters.Add(new NpgsqlParameter("@hash", NpgsqlTypes.NpgsqlDbType.Text)
                 {
                     Value = _passwordHasher.HashPassword(username, password)
@@ -122,7 +122,7 @@ public class AuthController : Controller
                 new Claim(ClaimTypes.NameIdentifier, idUser.ToString()),
                 new Claim(ClaimTypes.Name, nameUser),
                 new Claim(ClaimTypes.Role, nameRole),
-                new Claim("omsu_name", nameOmsu)
+                new Claim("organization_name", nameOrganization)
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -135,7 +135,7 @@ public class AuthController : Controller
                 role = nameRole,
                 userId = idUser,
                 nameUser,
-                nameOmsu
+                nameOrganization
             });
         }
         catch

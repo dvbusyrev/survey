@@ -17,24 +17,24 @@ public sealed class AnswerAccessService
     public bool IsAdmin => _currentUserService.IsAdmin;
     public int? UserId => _currentUserService.UserId;
 
-    public int? GetCurrentUserOmsuId()
+    public int? GetCurrentUserOrganizationId()
     {
         if (!UserId.HasValue)
         {
             return null;
         }
 
-        return _answerDataService.GetUserOmsuId(UserId.Value);
+        return _answerDataService.GetUserOrganizationId(UserId.Value);
     }
 
-    public bool CanAccessOmsu(int requestedOmsuId)
+    public bool CanAccessOrganization(int requestedOrganizationId)
     {
         if (IsAdmin)
         {
             return true;
         }
 
-        var currentOmsuId = GetCurrentUserOmsuId();
-        return currentOmsuId.HasValue && currentOmsuId.Value == requestedOmsuId;
+        var currentOrganizationId = GetCurrentUserOrganizationId();
+        return currentOrganizationId.HasValue && currentOrganizationId.Value == requestedOrganizationId;
     }
 }

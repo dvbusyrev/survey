@@ -43,6 +43,14 @@
             margin-top: 1rem;
         }
 
+        .comment-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
         .comment-container textarea {
             width: 100%;
             padding: 0.75rem;
@@ -76,6 +84,32 @@
         .submit-button:disabled {
             background-color: var(--text-light);
             cursor: not-allowed;
+        }
+
+        .user-survey-modal .modal-content,
+        .user-survey-modal__content {
+            width: min(1120px, calc(100vw - 48px));
+            max-width: calc(100vw - 48px);
+            max-height: calc(100dvh - 48px);
+            overflow: hidden;
+        }
+
+        .user-survey-modal__body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .user-survey-modal .survey-fill-container,
+        .user-survey-modal .check-answers-container,
+        .user-survey-modal .answers-container {
+            max-width: none;
+            margin: 0;
+        }
+
+        .user-survey-modal .survey-fill-container,
+        .user-survey-modal .check-answers-container {
+            padding: 2rem;
         }
 
         /* Сообщение об успешном заполнении */
@@ -246,6 +280,31 @@
             flex-shrink: 0;
             color: var(--text-light);
             transition: var(--transition);
+        }
+
+        .user-survey-tabs {
+            overflow: visible !important;
+            padding-top: 12px;
+        }
+
+        .user-survey-tab {
+            position: relative;
+            flex: 0 0 auto !important;
+            width: fit-content;
+            max-width: max-content;
+            align-self: flex-start;
+            gap: 0;
+            padding-right: 2.2rem;
+        }
+
+        .user-survey-tab .user-survey-count-badge {
+            position: absolute;
+            top: -0.35rem;
+            right: -0.35rem;
+            display: inline-flex;
+            margin-left: 0;
+            z-index: 3;
+            animation: none;
         }
 
         .survey-card:hover .dates svg {
@@ -602,6 +661,9 @@
             line-height: 1.6;
             margin-bottom: 1rem;
             color: var(--text-main);
+            text-align: justify;
+            text-justify: inter-word;
+            hyphens: auto;
         }
 
         .help-content ul, 
@@ -612,6 +674,9 @@
 
         .help-content li {
             margin-bottom: 0.5rem;
+            text-align: justify;
+            text-justify: inter-word;
+            hyphens: auto;
         }
 
         /* Стили для блока подписи */
@@ -681,6 +746,19 @@
                 width: 2.5rem;
                 height: 2.5rem;
                 font-size: 0.9rem;
+            }
+
+            .user-survey-modal .modal-content,
+            .user-survey-modal__content {
+                width: min(100vw - 24px, 100%);
+                max-width: calc(100vw - 24px);
+                max-height: calc(100dvh - 24px);
+            }
+
+            .user-survey-modal .survey-fill-container,
+            .user-survey-modal .check-answers-container,
+            .user-survey-modal .answers-container {
+                padding: 1rem;
             }
         }
 
@@ -1032,7 +1110,14 @@
 
         .comment-container {
             margin-top: 1rem;
-            display: none;
+        }
+
+        .comment-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            font-weight: 600;
         }
 
         .comment-container textarea {
@@ -1101,3 +1186,95 @@
         font-size: 0.9rem;
     }
         }
+
+.user-survey-modal__header {
+    padding-right: 56px;
+}
+
+.user-survey-modal__title {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: clamp(1.75rem, 1.45rem + 0.9vw, 2.25rem);
+}
+
+.user-survey-modal .note {
+    margin-top: 0;
+}
+
+.user-survey-modal .survey-title {
+    margin-top: 0;
+}
+
+.user-survey-modal .submit-container {
+    display: flex;
+    justify-content: center;
+    gap: 0.875rem;
+    flex-wrap: wrap;
+    text-align: center;
+}
+
+.user-survey-cancel-btn {
+    min-width: 180px;
+}
+
+@media (max-width: 768px) {
+    .user-survey-modal__header {
+        padding-right: 48px;
+    }
+}
+
+.search-container {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    flex-wrap: nowrap;
+}
+
+.search-container .search-box,
+.search-container .filter-select {
+    box-sizing: border-box;
+    height: 44px;
+    min-height: 44px;
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
+.search-container .search-box {
+    flex: 1 1 320px;
+    width: auto;
+    min-width: 280px;
+    padding: 0 14px;
+}
+
+.search-container .filter-sort {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    margin: 0;
+}
+
+.search-container .filter-select {
+    width: 220px;
+    min-width: 220px;
+    padding: 0 12px;
+}
+
+@media (max-width: 1100px) {
+    .search-container {
+        flex-wrap: wrap;
+    }
+
+    .search-container .filter-sort {
+        width: 100%;
+    }
+
+    .search-container .search-box,
+    .search-container .filter-select {
+        flex: 1 1 0;
+        min-width: 0;
+        width: 100%;
+    }
+}

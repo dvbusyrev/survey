@@ -6,7 +6,7 @@
 
     function syncBodyModalState() {
         const hasOpenModal = Boolean(
-            document.querySelector('.modal.modal--visible, .modal-overlay.active, .modal[style*="display: flex"], .modal[style*="display:flex"], .modal[style*="display: block"], .modal[style*="display:block"]')
+            document.querySelector('.modal.modal--visible, .modal-overlay.active, .notification-overlay.active, .modal[style*="display: flex"], .modal[style*="display:flex"], .modal[style*="display: block"], .modal[style*="display:block"], #loadingOverlay[style*="display: flex"], #loadingOverlay[style*="display:flex"]')
         );
 
         if (document.body) {
@@ -215,7 +215,7 @@
 
         hoistModal(modal);
 
-        if (modal.classList.contains('modal-overlay')) {
+        if (modal.classList.contains('modal-overlay') || modal.classList.contains('notification-overlay')) {
             modal.classList.add('active');
         } else {
             modal.classList.add('modal--visible');
@@ -238,7 +238,7 @@
             return false;
         }
 
-        if (modal.classList.contains('modal-overlay')) {
+        if (modal.classList.contains('modal-overlay') || modal.classList.contains('notification-overlay')) {
             modal.classList.remove('active');
         } else {
             modal.classList.remove('modal--visible');
@@ -277,7 +277,18 @@
     };
 
     document.addEventListener('click', function (event) {
-        const modal = event.target.closest('.modal.modal--visible, .modal-overlay.active');
+        const closeButton = event.target.closest('.modal-close');
+        if (closeButton) {
+            const ownedModal = closeButton.closest('.modal, .modal-overlay, .notification-overlay');
+            if (ownedModal) {
+                hideSiteModal(ownedModal);
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+        }
+
+        const modal = event.target.closest('.modal.modal--visible, .modal-overlay.active, .notification-overlay.active');
         if (modal && event.target === modal) {
             hideSiteModal(modal);
         }
@@ -288,7 +299,7 @@
             return;
         }
 
-        const activeModal = document.querySelector('.modal.modal--visible, .modal-overlay.active');
+        const activeModal = document.querySelector('.modal.modal--visible, .modal-overlay.active, .notification-overlay.active');
         if (activeModal) {
             hideSiteModal(activeModal);
         }

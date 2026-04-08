@@ -1,6 +1,8 @@
 using Dapper;
 using main_project.Infrastructure.Database;
 using main_project.Models;
+using main_project.Services.Answers;
+
 namespace main_project.Services.Surveys;
 
 public sealed class SurveyAnswersService
@@ -18,28 +20,8 @@ public sealed class SurveyAnswersService
 
         var survey = connection.QueryFirstOrDefault<Survey>(
             @"SELECT *
-              FROM (
-                  SELECT
-                      id_survey,
-                      name_survey,
-                      description,
-                      date_open,
-                      date_close
-                  FROM public.surveys
-                  WHERE id_survey = @surveyId
-
-                  UNION ALL
-
-                  SELECT
-                      id_survey,
-                      name_survey,
-                      description,
-                      date_begin AS date_open,
-                      date_end AS date_close
-                  FROM public.history_surveys
-                  WHERE id_survey = @surveyId
-              ) AS survey_data
-              LIMIT 1",
+              FROM public.survey
+              WHERE id_survey = @surveyId",
             new { surveyId });
 
         if (survey == null)
@@ -51,40 +33,26 @@ public sealed class SurveyAnswersService
             @"SELECT
                   ha.id_answer,
                   ha.id_survey,
-                  ha.id_omsu,
-                  o.name_omsu,
+                  ha.organization_id,
+                  o.organization_name,
                   ha.completion_date,
                   ha.create_date_survey,
-                  COALESCE(
-                      (
-                          SELECT jsonb_agg(
-                              jsonb_build_object(
-                                  'question_id', hai.question_order,
-                                  'question_text', hai.question_text,
-                                  'rating', hai.rating,
-                                  'comment', hai.comment
-                              )
-                              ORDER BY hai.question_order
-                          )::text
-                          FROM public.history_answer_items hai
-                          WHERE hai.id_answer = ha.id_answer
-                      ),
-                      '[]'
-                  ) AS answers,
                   ha.csp
-              FROM public.history_answer ha
-              INNER JOIN public.omsu o
-                  ON o.id_omsu = ha.id_omsu
+              FROM public.answer ha
+              INNER JOIN public.organization o
+                  ON o.organization_id = ha.organization_id
               WHERE ha.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
 
+        AttachAnswerItems(connection, answers);
+
         var mappedAnswers = answers.Select(answer => new SurveyAnswerEntryViewModel
         {
             IdAnswer = answer.id_answer,
-            IdOmsu = answer.id_omsu,
+            IdOrganization = answer.organization_id,
             IdSurvey = answer.id_survey,
-            NameOmsu = answer.name_omsu ?? string.Empty,
+            NameOrganization = answer.organization_name ?? string.Empty,
             Csp = answer.csp,
             CompletionDate = answer.completion_date,
             Details = answer.Answers.Select(item => new SurveyAnswerDetailViewModel
@@ -109,28 +77,8 @@ public sealed class SurveyAnswersService
 
         var survey = connection.QueryFirstOrDefault<Survey>(
             @"SELECT *
-              FROM (
-                  SELECT
-                      id_survey,
-                      name_survey,
-                      description,
-                      date_open,
-                      date_close
-                  FROM public.surveys
-                  WHERE id_survey = @surveyId
-
-                  UNION ALL
-
-                  SELECT
-                      id_survey,
-                      name_survey,
-                      description,
-                      date_begin AS date_open,
-                      date_end AS date_close
-                  FROM public.history_surveys
-                  WHERE id_survey = @surveyId
-              ) AS survey_data
-              LIMIT 1",
+              FROM public.survey
+              WHERE id_survey = @surveyId",
             new { surveyId });
 
         if (survey == null)
@@ -145,33 +93,20 @@ public sealed class SurveyAnswersService
         var answers = connection.Query<HistoryAnswer>(
             @"SELECT
                   ha.id_answer,
-                  ha.id_omsu,
+                  ha.organization_id,
                   ha.id_survey,
-                  o.name_omsu,
+                  o.organization_name,
                   ha.csp,
                   ha.completion_date,
-                  COALESCE(
-                      (
-                          SELECT jsonb_agg(
-                              jsonb_build_object(
-                                  'question_id', hai.question_order,
-                                  'question_text', hai.question_text,
-                                  'rating', hai.rating,
-                                  'comment', hai.comment
-                              )
-                              ORDER BY hai.question_order
-                          )::text
-                          FROM public.history_answer_items hai
-                          WHERE hai.id_answer = ha.id_answer
-                      ),
-                      '[]'
-                  ) AS answers
-              FROM public.history_answer ha
-              INNER JOIN public.omsu o
-                  ON ha.id_omsu = o.id_omsu
+                  ha.create_date_survey
+              FROM public.answer ha
+              INNER JOIN public.organization o
+                  ON ha.organization_id = o.organization_id
               WHERE ha.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
+
+        AttachAnswerItems(connection, answers);
 
         return new
         {
@@ -179,5 +114,57 @@ public sealed class SurveyAnswersService
             survey,
             answers
         };
+    }
+
+    private static void AttachAnswerItems(
+        global::System.Data.IDbConnection connection,
+        IEnumerable<HistoryAnswer> answers)
+    {
+        var answerList = answers.ToList();
+        if (answerList.Count == 0)
+        {
+            return;
+        }
+
+        var answerIds = answerList.Select(answer => answer.id_answer).Distinct().ToArray();
+        var rows = connection.Query<AnswerItemLookupRow>(
+            @"SELECT
+                  id_answer AS AnswerId,
+                  question_order AS QuestionOrder,
+                  question_text AS QuestionText,
+                  rating AS Rating,
+                  comment AS Comment
+              FROM public.answer_item
+              WHERE id_answer = ANY(@answerIds)
+              ORDER BY id_answer, question_order",
+            new { answerIds });
+
+        var lookup = rows
+            .GroupBy(row => row.AnswerId)
+            .ToDictionary(
+                group => group.Key,
+                group => (List<AnswerPayloadItem>)group
+                    .Select(row => new AnswerPayloadItem
+                    {
+                        QuestionId = row.QuestionOrder.ToString(),
+                        QuestionText = row.QuestionText,
+                        Rating = row.Rating,
+                        Comment = row.Comment
+                    })
+                    .ToList());
+
+        foreach (var answer in answerList)
+        {
+            answer.Answers = lookup.GetValueOrDefault(answer.id_answer, new List<AnswerPayloadItem>());
+        }
+    }
+
+    private sealed class AnswerItemLookupRow
+    {
+        public int AnswerId { get; init; }
+        public int QuestionOrder { get; init; }
+        public string QuestionText { get; init; } = string.Empty;
+        public int? Rating { get; init; }
+        public string? Comment { get; init; }
     }
 }

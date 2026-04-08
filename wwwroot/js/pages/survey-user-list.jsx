@@ -2,6 +2,7 @@
 const HelpContent = window.HelpContent;
 const SurveyFillPage = window.SurveyFillPage;
 const CheckAnswersPage = window.CheckAnswersPage;
+const UserSurveyModal = window.UserSurveyModal;
 
         const SurveyCard = ({ survey, isArchived, onClick }) => {
             const formatDate = (dateString) => {
@@ -167,16 +168,16 @@ const SurveyContent = ({
                 </p>
             </div>
 
-            <div className="menu-bar">
+            <div className="menu-bar user-survey-tabs">
                 <div 
-                    className={`menu-tab ${activeTab === 'active' ? 'active-tab' : ''}`}
+                    className={`menu-tab user-survey-tab ${activeTab === 'active' ? 'active-tab' : ''}`}
                     onClick={() => handleTabChange('active')}
                 >
                     Активные анкеты
-                    <span className="count-badge">{activeCount}</span>
+                    <span className="count-badge user-survey-count-badge">{activeCount}</span>
                 </div>
                 <div 
-                    className={`menu-tab ${activeTab === 'archived' ? 'active-tab' : ''}`}
+                    className={`menu-tab user-survey-tab ${activeTab === 'archived' ? 'active-tab' : ''}`}
                     onClick={() => handleTabChange('archived')}
                 >
                     Архив анкет
@@ -417,6 +418,7 @@ window.renderSurveyUserList = function(initialData) {
             const [helpContent, setHelpContent] = React.useState('');
             const [dateFilter, setDateFilter] = React.useState('');
             const [filterSigned, setFilterSigned] = React.useState(false);
+            const countsLoadedRef = React.useRef(false);
 
 React.useEffect(() => {
     if (loading) {
@@ -450,7 +452,6 @@ React.useEffect(() => {
             setTotalPages(1);
         } else {
             setSurveys(data.accessibleSurveys || []);
-            setActiveCount(data.totalCount || 0);
             setCurrentPage(data.currentPage || 1);
             setTotalPages(data.totalPages || 1);
         }
@@ -584,7 +585,8 @@ React.useEffect(() => {
             const handleBackToList = () => {
                 setCurrentView('survey-list');
                 setCurrentSurvey(null);
-                loadSurveyData(activeTab, currentPage, searchTerm);
+                loadSurveyData(activeTab, currentPage, searchTerm, filterSigned, dateFilter);
+                loadCounts();
             };
 
 
@@ -638,7 +640,10 @@ React.useEffect(() => {
             }, [surveys, activeTab, currentView]);
 
     React.useEffect(() => {
-        if (currentView !== 'survey-list') return;
+        if (!countsLoadedRef.current) {
+            loadCounts();
+            countsLoadedRef.current = true;
+        }
 
         if (firstDataRenderRef.current && currentContent === 'surveys' && activeTab === 'active' && currentPage === initialData.initialPage && searchTerm === initialData.initialSearchTerm && !filterSigned && !dateFilter) {
             firstDataRenderRef.current = false;
@@ -652,7 +657,7 @@ React.useEffect(() => {
         } else if (currentContent === 'help') {
             loadHelpContent();
         }
-    }, [currentContent, activeTab, currentPage, searchTerm, currentView, filterSigned, dateFilter]);
+    }, [currentContent, activeTab, currentPage, searchTerm, filterSigned, dateFilter]);
 
 const handleSearch = (e) => {
     e.preventDefault();
@@ -684,7 +689,12 @@ const handleSignedFilterChange = (e) => {
             if (initialData.userRole !== "user" && initialData.userRole !== "admin") {
                 return (
                     <div className="page-container">
-                        <Header userRole={initialData.userRole} displayName={initialData.displayName} />
+                        <Header
+                            userRole={initialData.userRole}
+                            displayName={initialData.displayName}
+                            userName={initialData.userName}
+                            organizationName={initialData.organizationName}
+                        />
                         <div className="admin-container">
                             <Navigation openVkladka={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
                             <div id="content_admin">
@@ -701,24 +711,16 @@ const handleSignedFilterChange = (e) => {
 
 return (
   <div className="page-container">
-    <Header userRole={initialData.userRole} displayName={initialData.displayName} />
+    <Header
+      userRole={initialData.userRole}
+      displayName={initialData.displayName}
+      userName={initialData.userName}
+      organizationName={initialData.organizationName}
+    />
     <div className="admin-container">
       <Navigation openVkladka={handleTabChange} activeTab={currentContent === 'help' ? 'help' : activeTab} userRole={initialData.userRole} userId={initialData.userId} />
       <div id="content_admin">
-        {currentView === 'survey-fill' ? (
-          <SurveyFillPage 
-            survey={currentSurvey} 
-            omsuId={initialData.userOmsuId}
-            onBack={handleBackToList}
-          />
-        ) : currentView === 'check-answers' ? (
-          <CheckAnswersPage
-            survey={currentSurvey}
-            omsuId={initialData.userOmsuId}
-            userRole={initialData.userRole}
-            onBack={handleBackToList}
-          />
-        ) : currentContent === 'surveys' ? (
+        {currentContent === 'surveys' ? (
           <SurveyContent 
       activeTab={activeTab}
       surveys={surveys}
@@ -748,6 +750,34 @@ return (
         )}
       </div>
     </div>
+    <UserSurveyModal
+      isOpen={currentView === 'survey-fill'}
+      onClose={handleBackToList}
+      title="Активная анкета"
+    >
+      {currentSurvey && (
+        <SurveyFillPage 
+          survey={currentSurvey} 
+          organizationId={initialData.userOrganizationId}
+          userRole={initialData.userRole}
+          onBack={handleBackToList}
+        />
+      )}
+    </UserSurveyModal>
+    <UserSurveyModal
+      isOpen={currentView === 'check-answers'}
+      onClose={handleBackToList}
+      title="Ответы на анкету"
+    >
+      {currentSurvey && (
+        <CheckAnswersPage
+          survey={currentSurvey}
+          organizationId={initialData.userOrganizationId}
+          userRole={initialData.userRole}
+          onBack={handleBackToList}
+        />
+      )}
+    </UserSurveyModal>
     <Footer />
   </div>
 );

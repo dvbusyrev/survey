@@ -7,15 +7,15 @@
     int totalPages = Model.TotalPages;
     string searchTerm = Model.SearchTerm;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
+    var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
-    var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
-        ? $"{nameOmsu}: {nameUser}"
+    var displayName = !string.IsNullOrWhiteSpace(nameOrganization) && !string.IsNullOrWhiteSpace(nameUser)
+        ? $"{nameOrganization}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
     var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
-    int userOmsuId = Model.UserOmsuId;
+    int userOrganizationId = Model.UserOrganizationId;
     var accessibleSurveys = Model.AccessibleSurveys;
 }
 <!DOCTYPE html>
@@ -63,13 +63,15 @@
 window.renderSurveyUserList({
     userId: @userId,
     userRole: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(userRole)),
-    userOmsuId: @userOmsuId,
+    userOrganizationId: @userOrganizationId,
     initialSurveys: @Html.Raw(Json.Serialize(accessibleSurveys)),
     initialPage: @currentPage,
     initialTotalPages: @totalPages,
     initialTotalCount: @Model.TotalCount,
     initialSearchTerm: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(searchTerm)),
-    displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName))
+    displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName)),
+    userName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameUser)),
+    organizationName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameOrganization))
 });
         </script>
     }

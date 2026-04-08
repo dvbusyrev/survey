@@ -141,7 +141,7 @@ function submitExtension(id) {
             }
 
             data.push({ 
-                id_omsu: parseInt(organization), 
+                organization_id: parseInt(organization), 
                 new_end_date: endDate, 
                 id_survey: id 
             });
@@ -154,7 +154,7 @@ function submitExtension(id) {
     }
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/prodlenie_omsus", true);
+    xhr.open("POST", "/prodlenie_organizations", true);
     xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
     xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
@@ -166,7 +166,12 @@ function submitExtension(id) {
                 console.error("Ошибка при отправке данных:", xhr.status, xhr.responseText);
                 try {
                     const response = JSON.parse(xhr.responseText);
-                    alert("Ошибка: " + (response.message || xhr.statusText));
+                    alert("Ошибка: " + (
+                        response.message ||
+                        (window.getHttpStatusMessage
+                            ? window.getHttpStatusMessage(xhr.status, xhr.statusText)
+                            : xhr.statusText)
+                    ));
                 } catch {
                     alert("Ошибка при отправке данных: " + xhr.status);
                 }
@@ -183,7 +188,7 @@ function submitExtension(id) {
 }
 
 
-async function delete_omsu(id) {
+async function delete_organization(id) {
     const confirmed = await window.siteConfirm("Вы уверены, что хотите удалить эту организацию?", {
         title: "Удаление организации",
         confirmText: "Удалить",
@@ -199,7 +204,7 @@ async function delete_omsu(id) {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 alert("Организация успешно удалена!");
-                handleTabClick("get_omsu");
+                handleTabClick("get_organization");
             } else {
                 console.error("Ошибка при удалении организации: " + xhr.status);
             }
@@ -216,7 +221,7 @@ async function delete_omsu(id) {
 }
 
 
-function get_omsu_name() {
+function get_organization_name() {
     var xhr = new XMLHttpRequest();
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {
@@ -307,14 +312,14 @@ if (password.length < 12) {
 
     let currentEditingUser = null;
 
-    function openEditModal(id, fullName, userName, email, omsu, role, dateBegin, dateEnd) {
+    function openEditModal(id, fullName, userName, email, organization, role, dateBegin, dateEnd) {
         currentEditingUser = id;
         
         document.getElementById('editUserId').value = id;
         document.getElementById('username').value = userName || '';
         document.getElementById('fullName').value = fullName || '';
         document.getElementById('email').value = email || '';
-        document.getElementById('organization').value = omsu || '';
+        document.getElementById('organization').value = organization || '';
         document.getElementById('role_bd').value = role || 'user';
         document.getElementById('editDateBegin').value = dateBegin || '';
         document.getElementById('editDateEnd').value = dateEnd || '';
@@ -641,7 +646,37 @@ function closeModal2() {
         }
     }
 }
-async function add_omsu_bd() {
+
+function resetAddOrganizationForm() {
+    const form = document.getElementById('organizationForm');
+    const messageDiv = document.getElementById('message');
+
+    if (form) {
+        form.reset();
+    }
+
+    if (messageDiv) {
+        messageDiv.textContent = '';
+        messageDiv.className = 'organization-form__message';
+        messageDiv.style.display = 'none';
+    }
+}
+
+function openAddOrganizationModal() {
+    resetAddOrganizationForm();
+    const modal = document.getElementById('addOrganizationModal');
+    if (!modal) {
+        return;
+    }
+
+    if (window.showSiteModal) {
+        window.showSiteModal(modal);
+    } else {
+        modal.style.display = 'flex';
+    }
+}
+
+async function add_organization_bd() {
     const form = document.getElementById('organizationForm');
     const messageDiv = document.getElementById('message');
     messageDiv.style.display = 'none';
@@ -676,7 +711,7 @@ if (startDate >= endDate) {
         // 1. Собираем данные из формы
         const formData = {
             Name: form.Name.value,
-            Email: form.omsu_email.value,
+            Email: form.organization_email.value,
             DateBegin: form.DateBegin.value,
             DateEnd: form.DateEnd.value
         };
@@ -701,8 +736,11 @@ if (startDate >= endDate) {
         messageDiv.textContent = result.success 
             ? 'Организация успешно создана!' 
             : 'Ошибка: ' + (result.error || 'Неизвестная ошибка');
-        handleTabClick("get_omsu");
-        alert("Организация успешно создана!")
+        if (result.success) {
+            closeOrganizationModal('addOrganizationModal');
+            handleTabClick("get_organization");
+            alert("Организация успешно создана!");
+        }
         
         messageDiv.className = result.success ? 'alert alert-success' : 'alert alert-danger';
         messageDiv.style.display = 'block';
@@ -718,7 +756,7 @@ if (startDate >= endDate) {
 }
 // СКРИПТ ДЛЯ РЕДАКТИРОВАНИЯ ОРГАНИЗАЦИЙ
         
-function closeOmsuModal(modalId) {
+function closeOrganizationModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         if (window.hideSiteModal) {
@@ -730,37 +768,37 @@ function closeOmsuModal(modalId) {
 }
 
 // Функция открытия модального окна редактирования
-function openEditOmsuModal(id, name, email, dateBegin, dateEnd) {
-    document.getElementById('editOmsuId').value = id;
-    document.getElementById('omsuName').value = name || '';
-    document.getElementById('omsuEmail').value = email || '';
-    document.getElementById('omsuDateBegin').value = dateBegin || '';
-    document.getElementById('omsuDateEnd').value = dateEnd || '';
+function openEditOrganizationModal(id, name, email, dateBegin, dateEnd) {
+    document.getElementById('editOrganizationId').value = id;
+    document.getElementById('organizationName').value = name || '';
+    document.getElementById('organizationEmail').value = email || '';
+    document.getElementById('organizationDateBegin').value = dateBegin || '';
+    document.getElementById('organizationDateEnd').value = dateEnd || '';
     if (window.showSiteModal) {
-        window.showSiteModal('editOmsuModal');
+        window.showSiteModal('editOrganizationModal');
     } else {
-        document.getElementById('editOmsuModal').style.display = 'flex';
+        document.getElementById('editOrganizationModal').style.display = 'flex';
     }
 }
 
 // Функция обновления организации с улучшенной обработкой данных
-async function updateOmsu() {
+async function updateOrganization() {
 
 
-    if (!document.getElementById('omsuName').value)
+    if (!document.getElementById('organizationName').value)
 {
     alert("Введите название организации!");
     return;
 }
 
-if (!document.getElementById('omsuDateBegin').value)
+if (!document.getElementById('organizationDateBegin').value)
 {
     alert("Выберите дату начала!");
     return;
 }
 
-const startDate = new Date(document.getElementById('omsuDateBegin').value);
-const endDate = new Date(document.getElementById('omsuDateEnd').value);
+const startDate = new Date(document.getElementById('organizationDateBegin').value);
+const endDate = new Date(document.getElementById('organizationDateEnd').value);
 
 if (startDate >= endDate) {
     alert("Дата начала должна быть раньше даты окончания!");
@@ -770,11 +808,11 @@ if (startDate >= endDate) {
 
     try {
         // 1. Получаем значения из формы
-        const id = document.getElementById('editOmsuId').value;
-        const name = document.getElementById('omsuName').value.trim();
-        const email = document.getElementById('omsuEmail').value.trim();
-        const dateBegin = document.getElementById('omsuDateBegin').value;
-        const dateEnd = document.getElementById('omsuDateEnd').value;
+        const id = document.getElementById('editOrganizationId').value;
+        const name = document.getElementById('organizationName').value.trim();
+        const email = document.getElementById('organizationEmail').value.trim();
+        const dateBegin = document.getElementById('organizationDateBegin').value;
+        const dateEnd = document.getElementById('organizationDateEnd').value;
 
         // 2. Валидация обязательных полей
         if (!name) {
@@ -792,7 +830,7 @@ if (startDate >= endDate) {
         }
 
         // 4. Подготовка данных в формате, ожидаемом сервером
-        const omsuData = [
+        const organizationData = [
             name,        // Название организации (обязательное)
             email || "", // Email (может быть пустым)
             dateBegin || "", // Дата начала (может быть пустой)
@@ -801,11 +839,11 @@ if (startDate >= endDate) {
 
         console.log('Отправляемые данные:', {
             id: id,
-            data: omsuData
+            data: organizationData
         });
 
         // 5. Блокируем кнопку на время отправки
-        const saveBtn = document.getElementById('saveOmsuBtn');
+        const saveBtn = document.getElementById('saveOrganizationBtn');
         saveBtn.disabled = true;
         saveBtn.textContent = 'Сохранение...';
 
@@ -817,7 +855,7 @@ if (startDate >= endDate) {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(omsuData)
+                body: JSON.stringify(organizationData)
             });
         } catch (networkError) {
             throw new Error("Ошибка сети. Проверьте соединение.");
@@ -837,9 +875,9 @@ if (startDate >= endDate) {
         // 8. Успешное завершение
         const result = await response.text();
         console.log("Организация успешно обновлена:", result);
-        closeOmsuModal('editOmsuModal');
+        closeOrganizationModal('editOrganizationModal');
         alert("Организация успешно отредактирована!");
-        handleTabClick("get_omsu");
+        handleTabClick("get_organization");
 
     } catch (error) {
         console.error('Ошибка при обновлении организации:', error);
@@ -852,7 +890,7 @@ if (startDate >= endDate) {
         
         alert(`Ошибка: ${errorMessage}`);
     } finally {
-        const saveBtn = document.getElementById('saveOmsuBtn');
+        const saveBtn = document.getElementById('saveOrganizationBtn');
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.textContent = 'Сохранить';
@@ -925,7 +963,7 @@ if (startDate >= endDate) {
                 const answersText = formatAnswers(answer.answers);
                 html += `
                     <tr>
-                        <td>${answer.name_omsu}</td>
+                        <td>${answer.organization_name}</td>
                         <td>${new Date(answer.completion_date).toLocaleDateString()}</td>
                         <td>${answersText}</td>
                     </tr>`;
@@ -1035,7 +1073,7 @@ function loadAndUploadFile(role) {
 
 function restoreSurveys(){handleTabClick("get_surveys");}
 
-function archive_list_omsus(){handleTabClick("archive_list_omsus");}
+function archive_list_organizations(){handleTabClick("archive_list_organizations");}
 function archive_list_users(){handleTabClick("archive_list_users");}
 
 

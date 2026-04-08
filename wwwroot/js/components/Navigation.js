@@ -27,6 +27,7 @@
     const isSurveySectionActive = isAdmin
         ? ['get_surveys', 'add_survey', 'list_answers_users', 'archiv_surveys'].includes(activeTab)
         : ['active', 'archived', 'answers_tab', 'archiv_surveys_for_user'].includes(activeTab);
+    const isOrganizationSectionActive = ['get_organization', 'add_organization', 'archive_list_organizations'].includes(activeTab);
 
     const navigate = (tab) => {
         setOpenSubmenu(null);
@@ -61,6 +62,36 @@
             return;
         }
 
+        if (tab === 'add_organization') {
+            const tryOpenAddOrganizationModal = () => {
+                if (typeof window.openAddOrganizationModal === 'function' && document.getElementById('addOrganizationModal')) {
+                    window.openAddOrganizationModal();
+                    return true;
+                }
+                return false;
+            };
+
+            if (tryOpenAddOrganizationModal()) {
+                return;
+            }
+
+            if (typeof openVkladka === 'function') {
+                openVkladka('get_organization');
+
+                let attempts = 0;
+                const timer = window.setInterval(() => {
+                    attempts += 1;
+                    if (tryOpenAddOrganizationModal() || attempts >= 30) {
+                        window.clearInterval(timer);
+                    }
+                }, 200);
+                return;
+            }
+
+            window.location.href = '/organizations/create';
+            return;
+        }
+
         if (typeof openVkladka === 'function') {
             openVkladka(tab);
             return;
@@ -85,7 +116,8 @@
             get_surveys: '/surveys',
             open_statistic: '/statistics',
             get_users: '/users',
-            get_omsu: '/organizations',
+            get_organization: '/organizations',
+            archive_list_organizations: '/organizations/archive',
             email: '/mail-settings',
             get_logs: '/logs'
         };
@@ -142,18 +174,21 @@
             )
         },
         {
-            id: 'get_omsu',
+            id: 'get_organization',
             label: 'Организации',
             class: 'organizations',
             icon: 'fa-building',
-            submenu: buildListAndAddSubmenu(
-                'get_omsu',
-                'Список организаций',
-                'org-list',
-                'add_omsu',
-                'Добавить организацию',
-                'org-add'
-            )
+            submenu: [
+                ...buildListAndAddSubmenu(
+                    'get_organization',
+                    'Список организаций',
+                    'org-list',
+                    'add_organization',
+                    'Добавить организацию',
+                    'org-add'
+                ),
+                { id: 'archive_list_organizations', label: 'Архив организаций', class: 'org-archive', icon: 'fa-archive-docs' }
+            ]
         },
         {
             id: 'otchets',
@@ -232,7 +267,11 @@
     },
         React.createElement('ul', { className: 'nav-list' },
             orderedNavItems.map(item => {
-                const itemActive = item.class === 'surveys' ? isSurveySectionActive : item.id === activeTab;
+                const itemActive = item.class === 'surveys'
+                    ? isSurveySectionActive
+                    : item.class === 'organizations'
+                        ? isOrganizationSectionActive
+                        : item.id === activeTab;
 
                 return React.createElement('li', {
                     key: item.id,

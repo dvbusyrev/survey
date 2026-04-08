@@ -3,52 +3,52 @@ function surveyEditGetOrganizationItems() {
     return organizationList ? organizationList.querySelectorAll('.organization-item') : [];
 }
 
-function surveyEditToggleOmsuSelection(element) {
+function surveyEditToggleOrganizationSelection(element) {
     const orgId = parseInt(element.dataset.id, 10);
     const orgName = element.dataset.name;
-    const index = surveyEditSelectedOmsu.findIndex(org => org.id === orgId);
+    const index = surveyEditSelectedOrganization.findIndex(org => org.id === orgId);
 
     if (element.dataset.selected === 'true') {
         element.dataset.selected = 'false';
         element.classList.remove('selected');
         if (index !== -1) {
-            surveyEditSelectedOmsu.splice(index, 1);
+            surveyEditSelectedOrganization.splice(index, 1);
         }
     } else {
         if (index === -1) {
-            surveyEditSelectedOmsu.push({ id: orgId, name: orgName });
+            surveyEditSelectedOrganization.push({ id: orgId, name: orgName });
         }
         element.dataset.selected = 'true';
         element.classList.add('selected');
     }
 }
 
-            function surveyEditSaveSelectedOmsu() {
-                surveyEditCloseModal('omsuModal');
-                surveyEditUpdateSelectedOmsuDisplay();
+            function surveyEditSaveSelectedOrganization() {
+                surveyEditCloseModal('organizationModal');
+                surveyEditUpdateSelectedOrganizationDisplay();
             }
 
- function surveyEditUpdateSelectedOmsuDisplay() {
-    var container = document.getElementById('selectedOmsuContainer');
-    var list = document.getElementById('selectedOmsuList');
-    var idsInput = document.getElementById('selectedOmsuIds');
+ function surveyEditUpdateSelectedOrganizationDisplay() {
+    var container = document.getElementById('selectedOrganizationContainer');
+    var list = document.getElementById('selectedOrganizationList');
+    var idsInput = document.getElementById('selectedOrganizationIds');
 
     // Находим все выбранные элементы
     var selectedElements = document.querySelectorAll('#organizationList .organization-item.selected');
 
     // Очищаем массив выбранных организаций
-    surveyEditSelectedOmsu = [];
+    surveyEditSelectedOrganization = [];
 
     // Заполняем массив из выбранных элементов
     selectedElements.forEach(function(el) {
         var id = parseInt(el.dataset.id, 10);
         var name = el.dataset.name;
-        surveyEditSelectedOmsu.push({ id: id, name: name });
+        surveyEditSelectedOrganization.push({ id: id, name: name });
     });
 
-    console.log('Выбрано организаций:', surveyEditSelectedOmsu.length);
+    console.log('Выбрано организаций:', surveyEditSelectedOrganization.length);
 
-    if (surveyEditSelectedOmsu.length === 0) {
+    if (surveyEditSelectedOrganization.length === 0) {
         container.style.display = 'none';
         if (idsInput) idsInput.value = '';
         list.innerHTML = '';
@@ -59,28 +59,28 @@ function surveyEditToggleOmsuSelection(element) {
     list.innerHTML = '';
 
     // Создаем элементы с выбранными организациями
-    surveyEditSelectedOmsu.forEach(function(org) {
+    surveyEditSelectedOrganization.forEach(function(org) {
         var item = document.createElement('span');
-        item.className = 'selected-omsu-item';
-        item.innerHTML = org.name + ' <button type="button" onclick="surveyEditRemoveOmsu(this, \'' + org.name.replace(/'/g, "\\'") + '\')"><i class="fas fa-xmark"></i></button>';
+        item.className = 'selected-organization-item';
+        item.innerHTML = org.name + ' <button type="button" onclick="surveyEditRemoveOrganization(this, \'' + org.name.replace(/'/g, "\\'") + '\')"><i class="fas fa-xmark"></i></button>';
         list.appendChild(item);
     });
 
     // Обновляем скрытое поле с id выбранных организаций
     if (idsInput) {
-        idsInput.value = surveyEditSelectedOmsu.map(function(org) { return org.id; }).join(',');
+        idsInput.value = surveyEditSelectedOrganization.map(function(org) { return org.id; }).join(',');
     }
 }
 
 
-            function surveyEditRemoveOmsu(button, name) {
-                for (var i = 0; i < surveyEditSelectedOmsu.length; i++) {
-                    if (surveyEditSelectedOmsu[i].name === name) {
-                        surveyEditSelectedOmsu.splice(i, 1);
+            function surveyEditRemoveOrganization(button, name) {
+                for (var i = 0; i < surveyEditSelectedOrganization.length; i++) {
+                    if (surveyEditSelectedOrganization[i].name === name) {
+                        surveyEditSelectedOrganization.splice(i, 1);
                         break;
                     }
                 }
-                surveyEditUpdateSelectedOmsuDisplay();
+                surveyEditUpdateSelectedOrganizationDisplay();
                 
                 if (surveyEditModalOpen) {
                     var orgItems = surveyEditGetOrganizationItems();
@@ -156,7 +156,7 @@ function surveyEditToggleOmsuSelection(element) {
         const endDate = document.getElementById('endDate');
         const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
         const surveyId = document.getElementById('surveyId')?.value;
-            console.log(surveyEditSelectedOmsu);
+            console.log(surveyEditSelectedOrganization);
         try {
             if (!surveyTitle?.value.trim() || !startDate?.value || !endDate?.value) {
                 alert('Пожалуйста, заполните все обязательные поля');
@@ -173,7 +173,7 @@ function surveyEditToggleOmsuSelection(element) {
                 return;
             }
 
-            if(surveyEditSelectedOmsu.length==0)
+            if(surveyEditSelectedOrganization.length==0)
             {
                 alert('Пожалуйста, выберите хотя бы одну организацию!');
                 return;
@@ -185,7 +185,7 @@ function surveyEditToggleOmsuSelection(element) {
                 Description: surveyDescription?.value.trim() || '',
                 StartDate: new Date(startDate.value).toISOString(),
                 EndDate: new Date(endDate.value).toISOString(),
-                Organizations: surveyEditSelectedOmsu.map(org => org.id),
+                Organizations: surveyEditSelectedOrganization.map(org => org.id),
                 Criteria: Array.from(document.querySelectorAll('.criteriy'))
                     .map(input => input.value.trim())
                     .filter(text => text !== '')
@@ -282,12 +282,12 @@ function surveyEditToggleOmsuSelection(element) {
             isValid = false;
         }
 
-        const omsuError = document.getElementById('omsuError');
-        if (surveyEditSelectedOmsu.length === 0) {
-            if (omsuError) omsuError.style.display = 'block';
+        const organizationError = document.getElementById('organizationError');
+        if (surveyEditSelectedOrganization.length === 0) {
+            if (organizationError) organizationError.style.display = 'block';
             isValid = false;
         } else {
-            if (omsuError) omsuError.style.display = 'none';
+            if (organizationError) organizationError.style.display = 'none';
         }
 
         return isValid;
@@ -391,7 +391,7 @@ function renderAnswers2(data, isArchive, container, title) {
             answerItems.forEach((item, index) => {
                 html += `
                     <tr>
-                        ${index === 0 && isArchive ? `<td rowspan="${rowSpan}" class="omsu-cell">${answer.omsu_name || 'Не указано'}</td>` : ''}
+                        ${index === 0 && isArchive ? `<td rowspan="${rowSpan}" class="organization-cell">${answer.organization_name || 'Не указано'}</td>` : ''}
                         <td class="question-cell">${item.question_text || 'Не указан'}</td>
                         <td class="rating-cell">${item.rating || '0'}/5</td>
                         <td class="comment-cell">${item.comment || 'Нет комментария'}</td>
@@ -405,7 +405,7 @@ function renderAnswers2(data, isArchive, container, title) {
         } else {
             html += `
                 <tr>
-                    ${isArchive ? '<td class="omsu-cell">' + (answer.omsu_name || 'Не указано') + '</td>' : ''}
+                    ${isArchive ? '<td class="organization-cell">' + (answer.organization_name || 'Не указано') + '</td>' : ''}
                     <td class="question-cell">Нет данных</td>
                     <td class="rating-cell">-</td>
                     <td class="comment-cell">-</td>
@@ -425,7 +425,7 @@ function renderAnswers2(data, isArchive, container, title) {
     container.innerHTML = html;
 }
 
-async function showAnswersModal(surveyId, omsuId = null) {
+async function showAnswersModal(surveyId, organizationId = null) {
     const modal = document.getElementById('answersModal');
     const container = document.getElementById('answersContainer');
     const title = document.getElementById('surveyAnswersTitle');
@@ -441,12 +441,12 @@ async function showAnswersModal(surveyId, omsuId = null) {
         }
         
         // Определяем тип запроса (архив или обычная анкета)
-        const isArchive = omsuId === null;
+        const isArchive = organizationId === null;
         
         // Формируем URL согласно API
         const url = isArchive 
             ? `/answers/${surveyId}/0/archive` 
-            : `/answers/${surveyId}/${omsuId}/regular`;
+            : `/answers/${surveyId}/${organizationId}/regular`;
         
         console.log('Fetching data from:', url); // Для отладки
         
@@ -481,7 +481,7 @@ async function showAnswersModal(surveyId, omsuId = null) {
                 <br />
                 <p><strong>${error.message}</strong></p>
                             <br />
-                <button onclick="showAnswersModal(${surveyId}, ${omsuId || 'null'})" class="retry-btn">
+                <button onclick="showAnswersModal(${surveyId}, ${organizationId || 'null'})" class="retry-btn">
                     Повторить попытку
                 </button>
             </div>

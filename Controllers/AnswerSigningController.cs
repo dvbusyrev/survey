@@ -20,12 +20,12 @@ public class AnswerSigningController : Controller
         _logger = logger;
     }
 
-    [HttpGet("signatures/{id}/{idOmsu}")]
-    [HttpGet("get_signing_data/{id}/{idOmsu}")]
-    [HttpGet("Answer/get_signing_data/{id}/{idOmsu}")]
-    public IActionResult GetSigningData(int id, int idOmsu)
+    [HttpGet("signatures/{id}/{idOrganization}")]
+    [HttpGet("get_signing_data/{id}/{idOrganization}")]
+    [HttpGet("Answer/get_signing_data/{id}/{idOrganization}")]
+    public IActionResult GetSigningData(int id, int idOrganization)
     {
-        var accessResult = EnsureOmsuAccess(idOmsu);
+        var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -33,7 +33,7 @@ public class AnswerSigningController : Controller
 
         try
         {
-            return Content(_answerSigningService.GetSigningData(id, idOmsu));
+            return Content(_answerSigningService.GetSigningData(id, idOrganization));
         }
         catch (Exception ex)
         {
@@ -42,12 +42,12 @@ public class AnswerSigningController : Controller
         }
     }
 
-    [HttpPost("signatures/{id}/{idOmsu}")]
-    [HttpPost("csp/{id}/{idOmsu}")]
-    [HttpPost("Answer/csp/{id}/{idOmsu}")]
-    public IActionResult CSP_answer([FromRoute] int id, [FromRoute] int idOmsu, [FromBody] JsonElement request)
+    [HttpPost("signatures/{id}/{idOrganization}")]
+    [HttpPost("csp/{id}/{idOrganization}")]
+    [HttpPost("Answer/csp/{id}/{idOrganization}")]
+    public IActionResult CSP_answer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] JsonElement request)
     {
-        var accessResult = EnsureOmsuAccess(idOmsu);
+        var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -61,7 +61,7 @@ public class AnswerSigningController : Controller
                 return BadRequest("Signature не может быть пустым.");
             }
 
-            if (!_answerSigningService.SaveSignature(id, idOmsu, signature))
+            if (!_answerSigningService.SaveSignature(id, idOrganization, signature))
             {
                 return NotFound("Запись для обновления не найдена.");
             }
@@ -75,14 +75,14 @@ public class AnswerSigningController : Controller
         }
     }
 
-    private IActionResult? EnsureOmsuAccess(int requestedOmsuId)
+    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessOmsu(requestedOmsuId))
+        if (!_answerAccessService.CanAccessOrganization(requestedOrganizationId))
         {
             return Forbid();
         }

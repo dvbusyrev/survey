@@ -35,10 +35,10 @@ public sealed class AnswerExportService
         _templatePath = Path.Combine(environment.ContentRootPath, "wwwroot", "docx", "shablon_docx.docx");
     }
 
-    public AnswerGeneratedFileResult? CreatePdfReport(int surveyId, int omsuId)
+    public AnswerGeneratedFileResult? CreatePdfReport(int surveyId, int organizationId)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var answers = _answerDataService.GetHistoryAnswers(surveyId, omsuId).ToList();
+        var answers = _answerDataService.GetHistoryAnswers(surveyId, organizationId).ToList();
         if (survey == null || answers.Count == 0)
         {
             return null;
@@ -53,10 +53,10 @@ public sealed class AnswerExportService
         };
     }
 
-    public AnswerGeneratedFileResult? CreateSignedArchive(int surveyId, int omsuId)
+    public AnswerGeneratedFileResult? CreateSignedArchive(int surveyId, int organizationId)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var answers = _answerDataService.GetHistoryAnswers(surveyId, omsuId).ToList();
+        var answers = _answerDataService.GetHistoryAnswers(surveyId, organizationId).ToList();
         if (survey == null || answers.Count == 0)
         {
             return null;
@@ -95,7 +95,7 @@ public sealed class AnswerExportService
         };
     }
 
-    public AnswerGeneratedFileResult? CreateSurveyReport(int surveyId, int omsuId, string? type)
+    public AnswerGeneratedFileResult? CreateSurveyReport(int surveyId, int organizationId, string? type)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
         var questions = _answerDataService.GetSurveyQuestions(surveyId);
@@ -110,19 +110,19 @@ public sealed class AnswerExportService
         }
 
         var criteriaList = questions.Select(question => question.Text).ToList();
-        var rows = _answerDataService.GetHistoryAnswers(surveyId, omsuId).ToList();
+        var rows = _answerDataService.GetHistoryAnswers(surveyId, organizationId).ToList();
         if (rows.Count == 0)
         {
             return null;
         }
 
-        var omsus = new List<string>();
+        var organizations = new List<string>();
         var ratings = new List<List<int>>();
         var comments = new List<List<string>>();
 
         foreach (var row in rows)
         {
-            omsus.Add(row.name_omsu ?? string.Empty);
+            organizations.Add(row.organization_name ?? string.Empty);
 
             if (row.Answers.Count == 0)
             {
@@ -168,7 +168,7 @@ public sealed class AnswerExportService
             { "##MASS_NAMES_CRITERIES_FOR_COMMENTS##", string.Join("     ", criteriaList) },
             { "##MASS_CRITERIES_FOR_TABLE##", string.Join("     ", criteriaList) },
             { "##DATE##", monthYear },
-            { "##MASS_OMSUS##", string.Join("\n", omsus) },
+            { "##MASS_OrganizationS##", string.Join("\n", organizations) },
             { "##MASS_RATINGS##", string.Join("\n", ratings.Select(row => string.Join("     ", row))) },
             { "##MASS_COMMENTS##", string.Join("\n", comments.Select(row => string.Join("     ", row))) },
             { "##SREDNEE##", string.Join("     ", averages.Select(value => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))) }
@@ -450,7 +450,7 @@ public sealed class AnswerExportService
                         }
                     }
 
-                    if (key == "##MASS_OMSUS##")
+                    if (key == "##MASS_OrganizationS##")
                     {
                         var cell = text.Ancestors<TableCell>().FirstOrDefault();
                         var row = cell?.Ancestors<TableRow>().FirstOrDefault();
@@ -459,11 +459,11 @@ public sealed class AnswerExportService
                             continue;
                         }
 
-                        var omsus = data[key].Split(new[] { "\n" }, StringSplitOptions.None);
+                        var organizations = data[key].Split(new[] { "\n" }, StringSplitOptions.None);
                         var ratings = data["##MASS_RATINGS##"].Split(new[] { "\n" }, StringSplitOptions.None);
                         var comments = data["##MASS_COMMENTS##"].Split(new[] { "\n" }, StringSplitOptions.None);
 
-                        text.Text = omsus[0];
+                        text.Text = organizations[0];
                         var baseCells = row.Elements<TableCell>().ToList();
                         if (baseCells.Count > 1)
                         {
@@ -482,17 +482,17 @@ public sealed class AnswerExportService
                         }
 
                         var currentRow = row;
-                        for (var omsuIndex = 1; omsuIndex < omsus.Length; omsuIndex++)
+                        for (var organizationIndex = 1; organizationIndex < organizations.Length; organizationIndex++)
                         {
                             var newRow = new TableRow();
-                            newRow.Append(new TableCell(new Paragraph(new Run(new Text(omsus[omsuIndex])))));
+                            newRow.Append(new TableCell(new Paragraph(new Run(new Text(organizations[organizationIndex])))));
 
-                            foreach (var rating in ratings[omsuIndex].Split(new[] { "     " }, StringSplitOptions.None))
+                            foreach (var rating in ratings[organizationIndex].Split(new[] { "     " }, StringSplitOptions.None))
                             {
                                 newRow.Append(new TableCell(new Paragraph(new Run(new Text(rating)))));
                             }
 
-                            foreach (var comment in comments[omsuIndex].Split(new[] { "     " }, StringSplitOptions.None))
+                            foreach (var comment in comments[organizationIndex].Split(new[] { "     " }, StringSplitOptions.None))
                             {
                                 newRow.Append(new TableCell(new Paragraph(new Run(new Text(comment)))));
                             }

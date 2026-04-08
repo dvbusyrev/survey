@@ -6,7 +6,9 @@ public static class DatabaseSchemaBootstrapper
 {
     public static void EnsureInitialized(NpgsqlConnection connection)
     {
-        OmsuSurveyLinkBootstrapper.EnsureInitialized(connection);
+        OrganizationSchemaBootstrapper.EnsureInitialized(connection);
+        SingularTableNamingBootstrapper.EnsureInitialized(connection);
+        OrganizationSurveyLinkBootstrapper.EnsureInitialized(connection);
         UserRoleBootstrapper.EnsureInitialized(connection);
         SurveyNormalizationBootstrapper.EnsureInitialized(connection);
         CrudAuditBootstrapper.EnsureInitialized(connection);

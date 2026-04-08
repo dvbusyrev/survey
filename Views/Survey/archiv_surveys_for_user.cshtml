@@ -3,14 +3,14 @@
 @using main_project.Infrastructure.Security
 @{
     ViewData["Title"] = "Архив анкет";
-    var userOmsuId = Model.UserOmsuId;
+    var userOrganizationId = Model.UserOrganizationId;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? "";
+    var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
-    var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
-        ? $"{nameOmsu}: {nameUser}"
+    var displayName = !string.IsNullOrWhiteSpace(nameOrganization) && !string.IsNullOrWhiteSpace(nameUser)
+        ? $"{nameOrganization}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
     var searchTerm = Model.SearchTerm;
 }
@@ -37,9 +37,13 @@
     <script src="~/js/components/Header.js" asp-append-version="true"></script>
     <script src="~/js/components/Navigation.js" asp-append-version="true"></script>
     <script src="~/js/components/Footer.js" asp-append-version="true"></script>
+    <script type="text/babel" src="~/js/pages/survey-user-flow.jsx" asp-append-version="true"></script>
 
     <script type="text/babel">
-        const SurveyCard = ({ survey }) => {
+        const CheckAnswersPage = window.CheckAnswersPage;
+        const UserSurveyModal = window.UserSurveyModal;
+
+        const SurveyCard = ({ survey, onClick }) => {
             const formatDate = (dateString) => {
                 if (!dateString) return 'Не указано';
                 try {
@@ -53,7 +57,7 @@
             if (!survey) return null;
 
             return (
-                <div className="survey-card" onClick={() => window.location.href = `/surveys/${survey.id_survey}/organizations/${survey.id_omsu}/questions`}>
+                <div className="survey-card" onClick={() => onClick(survey)}>
                     <h3>{survey.name_survey || 'Без названия'}</h3>
                     <p>{survey.description || 'Нет описания'}</p>
                     <p>Дата заполнения: {formatDate(survey.completion_date)}</p>
@@ -70,9 +74,11 @@
                 surveys: @Html.Raw(Json.Serialize(Model.ArchivedSurveys)),
                 userId: @userId,
                 userRole: '@userRole',
-                userOmsuId: @userOmsuId,
+                userOrganizationId: @userOrganizationId,
                 searchTerm: '@searchTerm',
-                displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName))
+                displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName)),
+                userName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameUser)),
+                organizationName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameOrganization))
             };
 
             const [searchTerm, setSearchTerm] = React.useState(initialData.searchTerm);
@@ -80,6 +86,7 @@
             const [error, setError] = React.useState(null);
             const [surveys, setSurveys] = React.useState(initialData.surveys || []);
             const [activeCount, setActiveCount] = React.useState(0);
+            const [currentSurvey, setCurrentSurvey] = React.useState(null);
 
             React.useEffect(() => {
                 const loadActiveCount = async () => {
@@ -132,6 +139,15 @@
                 window.location.href = '/my-surveys';
             };
 
+            const handleSurveyClick = (survey) => {
+                setCurrentSurvey(survey);
+            };
+
+            const handleCloseSurveyModal = () => {
+                setCurrentSurvey(null);
+                loadData(searchTerm);
+            };
+
             if (initialData.userRole !== "user" && initialData.userRole !== "admin") {
                 return (
                     <div className="access-denied">
@@ -143,7 +159,12 @@
 
             return (
                 <div className="page-container">
-                    <Header userRole={initialData.userRole} displayName={initialData.displayName} />
+                    <Header
+                        userRole={initialData.userRole}
+                        displayName={initialData.displayName}
+                        userName={initialData.userName}
+                        organizationName={initialData.organizationName}
+                    />
                     <div className="admin-container">
                         <Navigation activeTab="archiv_surveys_for_user" userRole={initialData.userRole} userId={initialData.userId} />
                         <div id="content_admin">
@@ -152,12 +173,12 @@
                                 <p>Ниже вы можете ознакомиться с архивными анкетами</p>
                             </div>
 
-                            <div className="menu-bar">
-                                <span className="menu-tab" onClick={switchToActive}>
+                            <div className="menu-bar user-survey-tabs">
+                                <span className="menu-tab user-survey-tab" onClick={switchToActive}>
                                     Активные анкеты
-                                    <span className="count-badge">{activeCount}</span>
+                                    <span className="count-badge user-survey-count-badge">{activeCount}</span>
                                 </span>
-                                <span className="menu-tab active-tab">
+                                <span className="menu-tab user-survey-tab active-tab">
                                     Архив анкет
                                 </span>
                             </div>
@@ -184,6 +205,7 @@
                                             <SurveyCard
                                                 key={survey.id_survey}
                                                 survey={survey}
+                                                onClick={handleSurveyClick}
                                             />
                                         ))
                                     ) : (
@@ -195,6 +217,20 @@
                             )}
                         </div>
                     </div>
+                    <UserSurveyModal
+                        isOpen={Boolean(currentSurvey)}
+                        onClose={handleCloseSurveyModal}
+                        title="Ответы на анкету"
+                    >
+                        {currentSurvey && (
+                            <CheckAnswersPage
+                                survey={currentSurvey}
+                                organizationId={initialData.userOrganizationId}
+                                userRole={initialData.userRole}
+                                onBack={handleCloseSurveyModal}
+                            />
+                        )}
+                    </UserSurveyModal>
                     <Footer />
                 </div>
             );

@@ -19,6 +19,37 @@
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
         }
 
+        body,
+        .content,
+        .inner-container,
+        .form-title,
+        .form-label,
+        .checkbox-group,
+        .checkbox-label,
+        .icon-container,
+        .password-toggle-btn,
+        .submit-button,
+        .modal-overlay,
+        .modal-content,
+        .modal-title,
+        .modal-message,
+        .modal-button {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        input,
+        textarea,
+        select,
+        option,
+        [contenteditable="true"],
+        [contenteditable="plaintext-only"] {
+            -webkit-user-select: text;
+            user-select: text;
+            -webkit-touch-callout: default;
+        }
+
         .content {
             min-height: 100vh;
             display: flex;
@@ -153,6 +184,10 @@ background:
         .form-input::placeholder {
             color: #9ca3af;
             font-size: 0.8rem;
+        }
+
+        .form-input.is-password-masked {
+            -webkit-text-security: disc;
         }
 
         .checkbox-group {
@@ -568,13 +603,20 @@ background:
                                         <i className="fas fa-lock"></i>
                                     </div>
                                     <input
-                                        type={showPassword ? "text" : "password"}
-                                        className="form-input"
+                                        type="text"
+                                        className={`form-input ${showPassword ? '' : 'is-password-masked'}`}
                                         id="password"
                                         name="password"
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
+                                        autoComplete="current-password"
+                                        autoCapitalize="none"
+                                        autoCorrect="off"
+                                        spellCheck={false}
+                                        inputMode="text"
+                                        lang="ru"
+                                        data-password-field="true"
                                         placeholder="Введите пароль"
                                     />
                                     <button

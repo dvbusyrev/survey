@@ -1,0 +1,39 @@
+@{
+    ViewData["Title"] = "Список организаций";
+    var organizations = ViewBag.Organizations as IEnumerable<main_project.Models.Organization> ?? Array.Empty<main_project.Models.Organization>();
+    var openAddOrganizationModal = ViewBag.OpenAddOrganizationModal as bool? ?? false;
+}
+
+@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+
+<div class="content organization-page" id="default_content" data-page="organization-list">
+    @{
+        ViewData["OrganizationSection"] = "list";
+    }
+    @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationSubnav.cshtml")
+
+    <div class="note">
+        <h2>Список организаций</h2>
+        <p>Ниже представлена таблица с существующими организациями</p>
+    </div>
+
+    @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationToolbar.cshtml")
+    @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
+</div>
+
+@await Html.PartialAsync("~/Views/Organization/Partials/_AddOrganizationModal.cshtml")
+@await Html.PartialAsync("~/Views/Organization/Partials/_EditOrganizationModal.cshtml")
+
+<script src="~/js/pages/organization.js" asp-append-version="true"></script>
+<script>
+(function(){
+    if (@(openAddOrganizationModal.ToString().ToLowerInvariant())) {
+        setTimeout(function(){
+            if (typeof window.openAddOrganizationModal === 'function') {
+                window.openAddOrganizationModal();
+            }
+        }, 0);
+    }
+})();
+</script>

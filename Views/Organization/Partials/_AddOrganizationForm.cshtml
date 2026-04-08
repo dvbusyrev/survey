@@ -1,4 +1,4 @@
-<form id="organizationForm" class="omsu-form">
+<form id="organizationForm" class="organization-form">
     @Html.AntiForgeryToken()
 
     <div class="form-group">
@@ -7,11 +7,11 @@
     </div>
 
     <div class="form-group">
-        <label for="omsu_email">Email организации</label>
-        <input type="text" class="form-control" id="omsu_email" required>
+        <label for="organization_email">Email организации</label>
+        <input type="text" class="form-control" id="organization_email" required>
     </div>
 
-    <div class="omsu-form__row">
+    <div class="organization-form__row">
         <div class="form-group">
             <label for="DateBegin">Дата начала</label>
             <input type="date" class="form-control" id="DateBegin" required>
@@ -23,9 +23,9 @@
         </div>
     </div>
 
-    <div class="button-container omsu-form__actions">
-        <button type="button" class="btn btn-primary" onclick="add_omsu_bd()">Добавить</button>
+    <div class="button-container organization-form__actions">
+        <button type="button" class="btn btn-primary" onclick="add_organization_bd()">Добавить</button>
     </div>
 
-    <div id="message" class="omsu-form__message"></div>
+    <div id="message" class="organization-form__message"></div>
 </form>

@@ -25,11 +25,11 @@ public sealed class SurveyArchiveService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var userOmsuId = connection.ExecuteScalar<int?>(
-            "SELECT id_omsu FROM public.users WHERE id_user = @userId",
+        var userOrganizationId = connection.ExecuteScalar<int?>(
+            "SELECT organization_id FROM public.app_user WHERE id_user = @userId",
             new { userId });
 
-        if (!userOmsuId.HasValue)
+        if (!userOrganizationId.HasValue)
         {
             return null;
         }
@@ -42,7 +42,7 @@ public sealed class SurveyArchiveService
 
         var filters = new List<string>();
         var parameters = new DynamicParameters();
-        parameters.Add("userOmsuId", userOmsuId.Value);
+        parameters.Add("userOrganizationId", userOrganizationId.Value);
         parameters.Add("searchPattern", string.IsNullOrWhiteSpace(normalizedSearchTerm) ? null : $"%{normalizedSearchTerm}%");
         parameters.Add("offset", Math.Max(currentPage - 1, 0) * pageSize);
         parameters.Add("pageSize", pageSize);
@@ -88,30 +88,17 @@ public sealed class SurveyArchiveService
                     s.name_survey,
                     s.description,
                     s.date_open,
-                    s.date_close,
-                    ha.completion_date,
-                    ha.csp,
-                    ha.id_omsu
-                FROM public.surveys s
-                INNER JOIN public.history_answer ha
-                    ON s.id_survey = ha.id_survey
-                WHERE ha.id_omsu = @userOmsuId
-
-                UNION
-
-                SELECT
-                    hs.id_survey,
-                    hs.name_survey,
-                    hs.description,
-                    hs.date_begin AS date_open,
-                    hs.date_end AS date_close,
-                    ha.completion_date,
-                    ha.csp,
-                    ha.id_omsu
-                FROM public.history_surveys hs
-                INNER JOIN public.history_answer ha
-                    ON hs.id_survey = ha.id_survey
-                WHERE ha.id_omsu = @userOmsuId
+                    GREATEST(COALESCE(os.extended_until, s.date_close), s.date_close) AS date_close,
+                    a.completion_date,
+                    a.csp,
+                    a.organization_id
+                FROM public.survey s
+                INNER JOIN public.answer a
+                    ON s.id_survey = a.id_survey
+                LEFT JOIN public.organization_survey os
+                    ON os.organization_id = a.organization_id
+                   AND os.id_survey = a.id_survey
+                WHERE a.organization_id = @userOrganizationId
             ) AS archived";
 
         var totalCount = connection.ExecuteScalar<int>(
@@ -127,7 +114,7 @@ public sealed class SurveyArchiveService
                     archived.date_close,
                     archived.completion_date,
                     archived.csp,
-                    archived.id_omsu
+                    archived.organization_id
                {archivedSql}
                {whereClause}
                ORDER BY archived.completion_date DESC
@@ -142,7 +129,7 @@ public sealed class SurveyArchiveService
         return new UserSurveyArchivePageViewModel
         {
             ArchivedSurveys = archivedSurveys,
-            UserOmsuId = userOmsuId.Value,
+            UserOrganizationId = userOrganizationId.Value,
             CurrentPage = Math.Max(currentPage, 1),
             TotalPages = totalPages,
             TotalCount = totalCount,
@@ -159,12 +146,13 @@ public sealed class SurveyArchiveService
 
         const string sql = @"
             SELECT
-                hs.id_survey,
-                hs.date_begin,
-                hs.date_end,
-                hs.name_survey,
-                hs.description
-            FROM public.history_surveys hs
+                s.id_survey,
+                s.date_open AS date_begin,
+                s.date_close AS date_end,
+                s.name_survey,
+                s.description
+            FROM public.survey s
+            WHERE s.date_close < NOW()
             ORDER BY id_survey DESC";
 
         var surveys = connection.Query<HistorySurvey>(sql).ToList();
@@ -180,12 +168,13 @@ public sealed class SurveyArchiveService
         var archiveSurvey = await connection.QueryFirstOrDefaultAsync<HistorySurvey>(
             @"SELECT
                   id_survey,
-                  date_begin,
-                  date_end,
+                  date_open AS date_begin,
+                  date_close AS date_end,
                   name_survey,
                   description
-              FROM public.history_surveys
-              WHERE id_survey = @surveyId",
+              FROM public.survey
+              WHERE id_survey = @surveyId
+                AND date_close < NOW()",
             new { surveyId = request.SurveyId },
             transaction);
 
@@ -198,14 +187,14 @@ public sealed class SurveyArchiveService
             @"SELECT
                   question_order AS Id,
                   question_text AS Text
-              FROM public.history_survey_questions
+              FROM public.survey_question
               WHERE id_survey = @surveyId
               ORDER BY question_order",
             new { surveyId = request.SurveyId },
             transaction).ToList();
 
         var newSurveyId = await connection.ExecuteScalarAsync<int>(
-            @"INSERT INTO public.surveys
+            @"INSERT INTO public.survey
                 (name_survey, description, date_create, date_open, date_close)
               VALUES
                 (@nameSurvey, @description, @dateCreate, @dateOpen, @dateClose)
@@ -223,7 +212,7 @@ public sealed class SurveyArchiveService
         foreach (var question in archiveSurvey.Questions.OrderBy(q => q.Id))
         {
             await connection.ExecuteAsync(
-                @"INSERT INTO public.survey_questions (id_survey, question_order, question_text)
+                @"INSERT INTO public.survey_question (id_survey, question_order, question_text)
                   VALUES (@idSurvey, @questionOrder, @questionText);",
                 new
                 {
@@ -254,7 +243,7 @@ public sealed class SurveyArchiveService
                   id_survey AS SurveyId,
                   question_order AS QuestionOrder,
                   question_text AS QuestionText
-              FROM public.history_survey_questions
+              FROM public.survey_question
               WHERE id_survey = ANY(@surveyIds)
               ORDER BY id_survey, question_order",
             new { surveyIds });

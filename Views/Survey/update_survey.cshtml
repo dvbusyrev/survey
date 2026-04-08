@@ -1,6 +1,6 @@
 @model main_project.Services.Surveys.SurveyEditPageViewModel
 @{
-    var selectedOmsuNamesJson = System.Text.Json.JsonSerializer.Serialize(Model.SelectedOmsuNames);
+    var selectedOrganizationNamesJson = System.Text.Json.JsonSerializer.Serialize(Model.SelectedOrganizationNames);
 }
 <!DOCTYPE html>
 <html lang="ru">
@@ -23,8 +23,6 @@
             <h2>Обновление анкеты</h2>
             <p>Заполните форму ниже для обновления анкеты</p>
         </div>
-
-        <a class="back-button" href="/surveys">← Вернуться к списку анкет</a>
 
         <div class="step">
             <h3>Шаг 1</h3>
@@ -50,12 +48,12 @@
 
             <div class="form-group">
                 <label>Организации:</label>
-                <button type="button" class="btn" onclick="surveyEditOpenOmsuModal()">Выбрать ОМСУ</button>
-                <input type="hidden" id="selectedOmsuIds" value="@string.Join(",", Model.SelectedOmsuIds)" />
-                <div id="selectedOmsuContainer" class="selected-omsu" style="display: none;">
-                    <div id="selectedOmsuList"></div>
+                <button type="button" class="btn" onclick="surveyEditOpenOrganizationModal()">Выбрать ОМСУ</button>
+                <input type="hidden" id="selectedOrganizationIds" value="@string.Join(",", Model.SelectedOrganizationIds)" />
+                <div id="selectedOrganizationContainer" class="selected-organization" style="display: none;">
+                    <div id="selectedOrganizationList"></div>
                 </div>
-                <div class="error-message" id="omsuError">Выберите хотя бы одну организацию</div>
+                <div class="error-message" id="organizationError">Выберите хотя бы одну организацию</div>
             </div>
         </div>
         <br />
@@ -82,50 +80,50 @@
         </div>
     </div>
 
-<div id="omsuModal" class="modal">
+<div id="organizationModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2 class="h2_modal">Выбор организаций (ОМСУ)</h2>
         </div>
-        <span class="modal-close" onclick="surveyEditCloseModal('omsuModal')"><i class="fas fa-xmark"></i></span>
+        <span class="modal-close" onclick="surveyEditCloseModal('organizationModal')"><i class="fas fa-xmark"></i></span>
         <div class="modal-body">
             <div class="organization-list" id="organizationList">
-    @foreach (var omsu in Model.AllOmsu)
+    @foreach (var organization in Model.AllOrganization)
     {
-        var isSelected = Model.SelectedOmsuIds.Contains(omsu.Id);
+        var isSelected = Model.SelectedOrganizationIds.Contains(organization.Id);
         if (isSelected)
         {
             <div class="organization-item selected"
-                 onclick="surveyEditToggleOmsuSelection(this)"
-                 data-id="@omsu.Id"
-                 data-name="@omsu.Name"
+                 onclick="surveyEditToggleOrganizationSelection(this)"
+                 data-id="@organization.Id"
+                 data-name="@organization.Name"
                  data-selected="true">
-                @omsu.Name
+                @organization.Name
             </div>
         }
         else
         {
             <div class="organization-item"
-                 onclick="surveyEditToggleOmsuSelection(this)"
-                 data-id="@omsu.Id"
-                 data-name="@omsu.Name"
+                 onclick="surveyEditToggleOrganizationSelection(this)"
+                 data-id="@organization.Id"
+                 data-name="@organization.Name"
                  data-selected="false">
-                @omsu.Name
+                @organization.Name
             </div>
         }
     }
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" class="modal_btn modal_btn-primary" onclick="surveyEditSaveSelectedOmsu()">Сохранить</button>
-            <button type="button" class="modal_btn modal_btn-secondary" onclick="surveyEditCloseModal('omsuModal')">Отмена</button>
+            <button type="button" class="modal_btn modal_btn-primary" onclick="surveyEditSaveSelectedOrganization()">Сохранить</button>
+            <button type="button" class="modal_btn modal_btn-secondary" onclick="surveyEditCloseModal('organizationModal')">Отмена</button>
         </div>
     </div>
 </div>
 
 <input type="hidden" id="surveyId" value="@Model.Survey.id_survey" />
 <script>
-    window.selectedOmsuNames = @Html.Raw(selectedOmsuNamesJson);
+    window.selectedOrganizationNames = @Html.Raw(selectedOrganizationNamesJson);
     if (typeof window.surveyEditInit === 'function') {
         window.setTimeout(function () {
             window.surveyEditInit();

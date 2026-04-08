@@ -27,6 +27,6 @@ public class CurrentUserService
 
     public string UserName => User?.FindFirstValue(ClaimTypes.Name) ?? string.Empty;
     public string Role => User?.FindFirstValue(ClaimTypes.Role) ?? string.Empty;
-    public string OmsuName => User?.FindFirst("omsu_name")?.Value ?? string.Empty;
+    public string OrganizationName => User?.FindFirst("organization_name")?.Value ?? string.Empty;
     public bool IsAdmin => User?.IsInRole(AppRoles.Admin) ?? false;
 }

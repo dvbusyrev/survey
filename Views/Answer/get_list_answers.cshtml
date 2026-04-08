@@ -44,7 +44,7 @@
             {
                 foreach (var answer in Model.Answers)
                 {
-                    <tr class="active answers-page__row" onclick="showAnswersModal(@answer.IdSurvey, @answer.IdOmsu)">
+                    <tr class="active answers-page__row" onclick="showAnswersModal(@answer.IdSurvey, @answer.IdOrganization)">
                         <td>@answer.OrganizationName</td>
                         <td>@answer.SurveyName</td>
                         <td>@answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</td>

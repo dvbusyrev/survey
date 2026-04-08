@@ -14,12 +14,12 @@ public sealed class AnswerDataService
         _connectionFactory = connectionFactory;
     }
 
-    public int? GetUserOmsuId(int userId)
+    public int? GetUserOrganizationId(int userId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         return connection.ExecuteScalar<int?>(
-            "SELECT id_omsu FROM public.users WHERE id_user = @userId",
+            "SELECT organization_id FROM public.app_user WHERE id_user = @userId",
             new { userId });
     }
 
@@ -32,24 +32,8 @@ public sealed class AnswerDataService
                   id_survey,
                   name_survey,
                   description
-              FROM (
-                  SELECT
-                      id_survey,
-                      name_survey,
-                      description
-                  FROM public.surveys
-                  WHERE id_survey = @surveyId
-
-                  UNION ALL
-
-                  SELECT
-                      id_survey,
-                      name_survey,
-                      description
-                  FROM public.history_surveys
-                  WHERE id_survey = @surveyId
-              ) AS survey_data
-              LIMIT 1",
+              FROM public.survey
+              WHERE id_survey = @surveyId",
             new { surveyId });
     }
 
@@ -57,46 +41,32 @@ public sealed class AnswerDataService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var activeQuestions = connection.Query<SurveyQuestionItem>(
-            @"SELECT
-                  question_order AS Id,
-                  question_text AS Text
-              FROM public.survey_questions
-              WHERE id_survey = @surveyId
-              ORDER BY question_order",
-            new { surveyId }).ToList();
-
-        if (activeQuestions.Count > 0)
-        {
-            return activeQuestions;
-        }
-
         return connection.Query<SurveyQuestionItem>(
             @"SELECT
                   question_order AS Id,
                   question_text AS Text
-              FROM public.history_survey_questions
+              FROM public.survey_question
               WHERE id_survey = @surveyId
               ORDER BY question_order",
             new { surveyId }).ToList();
     }
 
-    public HistoryAnswer? GetHistoryAnswer(int surveyId, int omsuId)
+    public HistoryAnswer? GetHistoryAnswer(int surveyId, int organizationId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var historyAnswer = connection.QueryFirstOrDefault<HistoryAnswer>(
             @"SELECT
                   id_answer,
-                  id_omsu,
+                  organization_id,
                   id_survey,
                   completion_date,
                   create_date_survey,
                   csp
-              FROM public.history_answer
+              FROM public.answer
               WHERE id_survey = @surveyId
-                AND id_omsu = @omsuId",
-            new { surveyId, omsuId });
+                AND organization_id = @organizationId",
+            new { surveyId, organizationId });
 
         if (historyAnswer == null)
         {
@@ -107,28 +77,28 @@ public sealed class AnswerDataService
         return historyAnswer;
     }
 
-    public IReadOnlyList<HistoryAnswer> GetHistoryAnswers(int surveyId, int? omsuId = null)
+    public IReadOnlyList<HistoryAnswer> GetHistoryAnswers(int surveyId, int? organizationId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        if (omsuId.HasValue)
+        if (organizationId.HasValue)
         {
             var answers = connection.Query<HistoryAnswer>(
                 @"SELECT
                       ha.id_answer,
-                      ha.id_omsu,
+                      ha.organization_id,
                       ha.id_survey,
                       ha.csp,
                       ha.completion_date,
                       ha.create_date_survey,
-                      o.name_omsu
-                  FROM public.history_answer ha
-                  LEFT JOIN public.omsu o
-                      ON o.id_omsu = ha.id_omsu
+                      o.organization_name
+                  FROM public.answer ha
+                  LEFT JOIN public.organization o
+                      ON o.organization_id = ha.organization_id
                   WHERE ha.id_survey = @surveyId
-                    AND ha.id_omsu = @omsuId
+                    AND ha.organization_id = @organizationId
                   ORDER BY ha.completion_date DESC",
-                new { surveyId, omsuId }).ToList();
+                new { surveyId, organizationId }).ToList();
 
             AttachAnswerItems(connection, answers);
             return answers;
@@ -137,15 +107,15 @@ public sealed class AnswerDataService
         var allAnswers = connection.Query<HistoryAnswer>(
             @"SELECT
                   ha.id_answer,
-                  ha.id_omsu,
+                  ha.organization_id,
                   ha.id_survey,
                   ha.csp,
                   ha.completion_date,
                   ha.create_date_survey,
-                  o.name_omsu
-              FROM public.history_answer ha
-              LEFT JOIN public.omsu o
-                  ON o.id_omsu = ha.id_omsu
+                  o.organization_name
+              FROM public.answer ha
+              LEFT JOIN public.organization o
+                  ON o.organization_id = ha.organization_id
               WHERE ha.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
@@ -162,22 +132,22 @@ public sealed class AnswerDataService
         var items = BuildNormalizedAnswerItems(connection, historyAnswerData.id_survey, historyAnswerData.Answers);
 
         var idAnswer = connection.ExecuteScalar<int>(
-            @"INSERT INTO public.history_answer (
-                  id_omsu,
+            @"INSERT INTO public.answer (
+                  organization_id,
                   id_survey,
                   completion_date,
                   create_date_survey
               )
               VALUES (
-                  @idOmsu,
+                  @idOrganization,
                   @idSurvey,
                   @completionDate,
-                  (SELECT date_create FROM public.surveys WHERE id_survey = @idSurvey)
+                  (SELECT date_create FROM public.survey WHERE id_survey = @idSurvey)
               )
               RETURNING id_answer",
             new
             {
-                idOmsu = historyAnswerData.id_omsu,
+                idOrganization = historyAnswerData.organization_id,
                 idSurvey = historyAnswerData.id_survey,
                 completionDate = DateTime.Now
             },
@@ -196,12 +166,12 @@ public sealed class AnswerDataService
 
         var answerId = connection.ExecuteScalar<int?>(
             @"SELECT id_answer
-              FROM public.history_answer
-              WHERE id_omsu = @idOmsu
+              FROM public.answer
+              WHERE organization_id = @idOrganization
                 AND id_survey = @idSurvey",
             new
             {
-                idOmsu = historyAnswerData.id_omsu,
+                idOrganization = historyAnswerData.organization_id,
                 idSurvey = historyAnswerData.id_survey
             },
             transaction);
@@ -215,13 +185,13 @@ public sealed class AnswerDataService
         var items = BuildNormalizedAnswerItems(connection, historyAnswerData.id_survey, historyAnswerData.Answers);
 
         var rowsAffected = connection.Execute(
-            @"UPDATE public.history_answer
+            @"UPDATE public.answer
               SET completion_date = @completionDate
-              WHERE id_omsu = @idOmsu
+              WHERE organization_id = @idOrganization
                 AND id_survey = @idSurvey",
             new
             {
-                idOmsu = historyAnswerData.id_omsu,
+                idOrganization = historyAnswerData.organization_id,
                 idSurvey = historyAnswerData.id_survey,
                 completionDate = DateTime.Now
             },
@@ -239,29 +209,30 @@ public sealed class AnswerDataService
         return true;
     }
 
-    public bool UpdateSignature(int surveyId, int omsuId, string signature)
+    public bool UpdateSignature(int surveyId, int organizationId, string signature)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var rowsAffected = connection.Execute(
-            @"UPDATE public.history_answer
+            @"UPDATE public.answer
               SET csp = @signature
-              WHERE id_omsu = @omsuId
+              WHERE organization_id = @organizationId
                 AND id_survey = @surveyId",
-            new { signature, omsuId, surveyId });
+            new { signature, organizationId, surveyId });
 
         return rowsAffected > 0;
     }
 
-    public void DeleteAccessExtension(int omsuId, int surveyId)
+    public void ClearSurveyExtension(int organizationId, int surveyId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         connection.Execute(
-            @"DELETE FROM public.access_extensions
-              WHERE id_omsu = @omsuId
+            @"UPDATE public.organization_survey
+              SET extended_until = NULL
+              WHERE organization_id = @organizationId
                 AND id_survey = @surveyId",
-            new { omsuId, surveyId });
+            new { organizationId, surveyId });
     }
 
     private static IReadOnlyList<HistoryAnswerItemRow> BuildNormalizedAnswerItems(
@@ -277,22 +248,11 @@ public sealed class AnswerDataService
 
         var questionLookup = connection.Query<SurveyQuestionRow>(
             @"SELECT question_order AS QuestionOrder, question_text AS QuestionText
-              FROM public.survey_questions
+              FROM public.survey_question
               WHERE id_survey = @surveyId
               ORDER BY question_order",
             new { surveyId })
             .ToDictionary(q => q.QuestionOrder, q => q.QuestionText);
-
-        if (questionLookup.Count == 0)
-        {
-            questionLookup = connection.Query<SurveyQuestionRow>(
-                    @"SELECT question_order AS QuestionOrder, question_text AS QuestionText
-                      FROM public.history_survey_questions
-                      WHERE id_survey = @surveyId
-                      ORDER BY question_order",
-                    new { surveyId })
-                .ToDictionary(q => q.QuestionOrder, q => q.QuestionText);
-        }
 
         var normalizedItems = new List<HistoryAnswerItemRow>();
         foreach (var item in parsedItems)
@@ -334,7 +294,7 @@ public sealed class AnswerDataService
                   question_text AS QuestionText,
                   rating AS Rating,
                   comment AS Comment
-              FROM public.history_answer_items
+              FROM public.answer_item
               WHERE id_answer = ANY(@answerIds)
               ORDER BY id_answer, question_order",
             new { answerIds });
@@ -366,14 +326,14 @@ public sealed class AnswerDataService
         IReadOnlyList<HistoryAnswerItemRow> items)
     {
         connection.Execute(
-            "DELETE FROM public.history_answer_items WHERE id_answer = @answerId",
+            "DELETE FROM public.answer_item WHERE id_answer = @answerId",
             new { answerId },
             transaction);
 
         foreach (var item in items)
         {
             connection.Execute(
-                @"INSERT INTO public.history_answer_items (id_answer, question_order, question_text, rating, comment)
+                @"INSERT INTO public.answer_item (id_answer, question_order, question_text, rating, comment)
                   VALUES (@answerId, @questionOrder, @questionText, @rating, @comment)",
                 new
                 {

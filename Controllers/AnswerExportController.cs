@@ -19,12 +19,12 @@ public class AnswerExportController : Controller
         _logger = logger;
     }
 
-    [HttpGet("answers/{idSurvey}/{idOmsu}/pdf")]
-    [HttpGet("create_pdf_report/{idSurvey}/{idOmsu}")]
-    [HttpGet("Answer/create_pdf_report/{idSurvey}/{idOmsu}")]
-    public IActionResult CreatePdfReport(int idSurvey, int idOmsu)
+    [HttpGet("answers/{idSurvey}/{idOrganization}/pdf")]
+    [HttpGet("create_pdf_report/{idSurvey}/{idOrganization}")]
+    [HttpGet("Answer/create_pdf_report/{idSurvey}/{idOrganization}")]
+    public IActionResult CreatePdfReport(int idSurvey, int idOrganization)
     {
-        var accessResult = EnsureOmsuAccess(idOmsu);
+        var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -32,7 +32,7 @@ public class AnswerExportController : Controller
 
         try
         {
-            var result = _answerExportService.CreatePdfReport(idSurvey, idOmsu);
+            var result = _answerExportService.CreatePdfReport(idSurvey, idOrganization);
             if (result == null)
             {
                 return NotFound("Ответы не найдены");
@@ -47,12 +47,12 @@ public class AnswerExportController : Controller
         }
     }
 
-    [HttpGet("answers/{idSurvey}/{idOmsu}/signed-archive")]
-    [HttpGet("download_signed_archive/{idSurvey}/{idOmsu}")]
-    [HttpGet("Answer/download_signed_archive/{idSurvey}/{idOmsu}")]
-    public IActionResult DownloadSignedArchive(int idSurvey, int idOmsu)
+    [HttpGet("answers/{idSurvey}/{idOrganization}/signed-archive")]
+    [HttpGet("download_signed_archive/{idSurvey}/{idOrganization}")]
+    [HttpGet("Answer/download_signed_archive/{idSurvey}/{idOrganization}")]
+    public IActionResult DownloadSignedArchive(int idSurvey, int idOrganization)
     {
-        var accessResult = EnsureOmsuAccess(idOmsu);
+        var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -60,7 +60,7 @@ public class AnswerExportController : Controller
 
         try
         {
-            var result = _answerExportService.CreateSignedArchive(idSurvey, idOmsu);
+            var result = _answerExportService.CreateSignedArchive(idSurvey, idOrganization);
             if (result == null)
             {
                 return NotFound("Ответы не найдены");
@@ -75,13 +75,13 @@ public class AnswerExportController : Controller
         }
     }
 
-    [HttpGet("answers/{idSurvey}/{idOmsu}/report/{type?}")]
-    [HttpGet("create_otchet_for_me/{idSurvey}/{idOmsu}/{type?}")]
+    [HttpGet("answers/{idSurvey}/{idOrganization}/report/{type?}")]
+    [HttpGet("create_otchet_for_me/{idSurvey}/{idOrganization}/{type?}")]
     [HttpGet("Answer/create_otchet_for_me")]
-    [HttpGet("Answer/create_otchet_for_me/{idSurvey}/{idOmsu}/{type?}")]
-    public IActionResult create_otchet_for_me(int idSurvey, int idOmsu, string type = "file")
+    [HttpGet("Answer/create_otchet_for_me/{idSurvey}/{idOrganization}/{type?}")]
+    public IActionResult create_otchet_for_me(int idSurvey, int idOrganization, string type = "file")
     {
-        var accessResult = EnsureOmsuAccess(idOmsu);
+        var accessResult = EnsureOrganizationAccess(idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -89,7 +89,7 @@ public class AnswerExportController : Controller
 
         try
         {
-            var result = _answerExportService.CreateSurveyReport(idSurvey, idOmsu, type);
+            var result = _answerExportService.CreateSurveyReport(idSurvey, idOrganization, type);
             if (result == null)
             {
                 return NotFound("Не удалось сформировать отчет");
@@ -104,22 +104,22 @@ public class AnswerExportController : Controller
         }
     }
 
-    [HttpGet("answers/{idSurvey}/{idOmsu}/archive")]
-    [HttpGet("create_archiv_for_me/{idSurvey}/{idOmsu}")]
-    [HttpGet("Answer/create_archiv_for_me/{idSurvey}/{idOmsu}")]
-    public IActionResult create_archiv_for_me(int idSurvey, int idOmsu)
+    [HttpGet("answers/{idSurvey}/{idOrganization}/archive")]
+    [HttpGet("create_archiv_for_me/{idSurvey}/{idOrganization}")]
+    [HttpGet("Answer/create_archiv_for_me/{idSurvey}/{idOrganization}")]
+    public IActionResult create_archiv_for_me(int idSurvey, int idOrganization)
     {
-        return create_otchet_for_me(idSurvey, idOmsu, "archiv");
+        return create_otchet_for_me(idSurvey, idOrganization, "archiv");
     }
 
-    private IActionResult? EnsureOmsuAccess(int requestedOmsuId)
+    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessOmsu(requestedOmsuId))
+        if (!_answerAccessService.CanAccessOrganization(requestedOrganizationId))
         {
             return Forbid();
         }

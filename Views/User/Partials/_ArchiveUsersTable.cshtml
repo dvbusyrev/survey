@@ -26,7 +26,7 @@
                 <tr>
                     <td>@(string.IsNullOrWhiteSpace(user.full_name) ? "Не указано" : user.full_name)</td>
                     <td>@user.name_user</td>
-                    <td>@(string.IsNullOrWhiteSpace(user.name_omsu) ? "Не указано" : user.name_omsu)</td>
+                    <td>@(string.IsNullOrWhiteSpace(user.organization_name) ? "Не указано" : user.organization_name)</td>
                     <td>@AppRoles.GetDisplayName(user.name_role)</td>
                     <td>@(user.date_begin?.ToString("dd.MM.yyyy") ?? "")</td>
                     <td>@(user.date_end?.ToString("dd.MM.yyyy") ?? "")</td>

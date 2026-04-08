@@ -33,7 +33,7 @@ public sealed class DeleteSurveyRequest
     public int SurveyId { get; set; }
 }
 
-public sealed class OmsuSelectionItem
+public sealed class OrganizationSelectionItem
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -42,8 +42,8 @@ public sealed class OmsuSelectionItem
 public sealed class SurveyEditPageViewModel
 {
     public Survey Survey { get; init; } = new();
-    public IReadOnlyList<OmsuSelectionItem> AllOmsu { get; init; } = Array.Empty<OmsuSelectionItem>();
-    public IReadOnlyList<int> SelectedOmsuIds { get; init; } = Array.Empty<int>();
-    public IReadOnlyList<string> SelectedOmsuNames { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<OrganizationSelectionItem> AllOrganization { get; init; } = Array.Empty<OrganizationSelectionItem>();
+    public IReadOnlyList<int> SelectedOrganizationIds { get; init; } = Array.Empty<int>();
+    public IReadOnlyList<string> SelectedOrganizationNames { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> Criteria { get; init; } = Array.Empty<string>();
 }

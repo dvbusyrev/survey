@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using main_project.Infrastructure.Database;
 using Npgsql;
-using NpgsqlTypes;
 using System.Text.Json;
 
 namespace main_project.Controllers
@@ -20,8 +19,8 @@ namespace main_project.Controllers
         }
 
         [HttpPost]
-        [Route("prodlenie_omsus")]
-        public IActionResult prodlenie_omsus([FromBody] ExtensionRequest request)
+        [Route("prodlenie_organizations")]
+        public IActionResult prodlenie_organizations([FromBody] ExtensionRequest request)
         {
             _logger.LogInformation("Получен запрос на продление анкеты: {Request}", JsonSerializer.Serialize(request));
 
@@ -88,7 +87,7 @@ namespace main_project.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Критическая ошибка в методе prodlenie_omsus");
+                _logger.LogError(ex, "Критическая ошибка в методе prodlenie_organizations");
                 return StatusCode(500, new { 
                     success = false,
                     message = "Внутренняя ошибка сервера", 
@@ -106,8 +105,8 @@ namespace main_project.Controllers
             
             foreach (var ext in request.extensions)
             {
-                if (ext.omsu_id <= 0) 
-                    errors.Add($"Неверный ID организации: {ext.omsu_id}");
+                if (ext.organization_id <= 0) 
+                    errors.Add($"Неверный ID организации: {ext.organization_id}");
                 
                 if (!DateTime.TryParse(ext.new_end_date, out var endDate) || endDate <= DateTime.Today)
                     errors.Add($"Неверная дата окончания: {ext.new_end_date}");
@@ -121,38 +120,21 @@ namespace main_project.Controllers
             foreach (var ext in request.extensions)
             {
                 var endDate = DateTime.Parse(ext.new_end_date);
-                _logger.LogDebug("Обработка: surveyId={SurveyId}, omsuId={OmsuId}, endDate={EndDate}", 
-                    request.survey_id, ext.omsu_id, endDate);
+                _logger.LogDebug("Обработка: surveyId={SurveyId}, organizationId={OrganizationId}, endDate={EndDate}", 
+                    request.survey_id, ext.organization_id, endDate);
 
-                // 1. Добавление записи о продлении (с использованием RETURNING для получения id)
                 using (var cmd = new NpgsqlCommand(
-                    @"INSERT INTO access_extensions 
-                    (id_survey, id_omsu, new_end_date, created_at)
-                    VALUES (@surveyId, @omsuId, @endDate, @createdAt)
-                    RETURNING id", 
+                    @"INSERT INTO public.organization_survey (organization_id, id_survey, extended_until)
+                      VALUES (@organizationId, @surveyId, @endDate)
+                      ON CONFLICT (organization_id, id_survey) DO UPDATE
+                      SET extended_until = EXCLUDED.extended_until",
                     connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@surveyId", request.survey_id);
-                    cmd.Parameters.AddWithValue("@omsuId", ext.omsu_id);
+                    cmd.Parameters.AddWithValue("@organizationId", ext.organization_id);
                     cmd.Parameters.AddWithValue("@endDate", endDate);
-                    cmd.Parameters.AddWithValue("@createdAt", DateTime.Now);
-                    
-                    var newId = cmd.ExecuteScalar();
-                    _logger.LogDebug("Добавлена запись в access_extensions с ID: {Id}", newId);
-                }
-
-                // 2. Обновление даты окончания анкеты
-                using (var cmd = new NpgsqlCommand(
-                    @"UPDATE surveys 
-                    SET date_close = @endDate 
-                    WHERE id_survey = @surveyId", 
-                    connection, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@surveyId", request.survey_id);
-                    cmd.Parameters.AddWithValue("@endDate", endDate);
-                    
-                    int affected = cmd.ExecuteNonQuery();
-                    _logger.LogDebug("Обновлено анкет: {Count}", affected);
+                    var affected = cmd.ExecuteNonQuery();
+                    _logger.LogDebug("Обновлена запись продления в organization_survey, строк: {Count}", affected);
                 }
             }
         }
@@ -166,7 +148,7 @@ namespace main_project.Controllers
 
     public class ExtensionItem
     {
-        public int omsu_id { get; set; }
+        public int organization_id { get; set; }
         public string new_end_date { get; set; } = string.Empty;
     }
 }

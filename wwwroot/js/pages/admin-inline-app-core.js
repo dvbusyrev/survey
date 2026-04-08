@@ -14,7 +14,7 @@ var newPage = "";
         const [loading, setLoading] = useState(false);
         const [showLoader, setShowLoader] = useState(false);
         const [monthFilter, setMonthFilter] = useState('');
-        const [omsuFilter, setOmsuFilter] = useState('');
+        const [organizationFilter, setOrganizationFilter] = useState('');
         const [currentPage, setCurrentPage] = useState(1);
         const [modal, setModal] = useState({
             isOpen: false,
@@ -85,12 +85,12 @@ const ExtensionModal = ({ survey, onClose }) => {
     const [organizations, setOrganizations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [extensions, setExtensions] = useState([{ id_omsu: '', date_close: '' }]);
+    const [extensions, setExtensions] = useState([{ organization_id: '', date_close: '' }]);
     
     const today = new Date().toISOString().split('T')[0];
 
     const isFormValid = () => {
-        return extensions.every(ext => ext.id_omsu && ext.date_close) && 
+        return extensions.every(ext => ext.organization_id && ext.date_close) && 
                extensions.some(ext => ext.date_close > today);
     };
 
@@ -106,10 +106,10 @@ const ExtensionModal = ({ survey, onClose }) => {
                 
                 const orgs = Array.isArray(data) 
                     ? data
-                        .filter(org => org && (org.id_omsu !== undefined || org.id !== undefined))
+                        .filter(org => org && (org.organization_id !== undefined || org.id !== undefined))
                         .map(org => ({
-                            id_omsu: String(org.id_omsu ?? org.id),
-                            name_omsu: String(org.name_omsu ?? org.name)
+                            organization_id: String(org.organization_id ?? org.id),
+                            organization_name: String(org.organization_name ?? org.name)
                         }))
                     : [];
 
@@ -127,7 +127,7 @@ const ExtensionModal = ({ survey, onClose }) => {
     }, []);
 
     const isOrganizationSelected = (orgId, currentIndex) => {
-        return extensions.some((ext, idx) => idx !== currentIndex && ext.id_omsu === orgId);
+        return extensions.some((ext, idx) => idx !== currentIndex && ext.organization_id === orgId);
     };
 
     const handleChange = (index, field, value) => {
@@ -137,7 +137,7 @@ const ExtensionModal = ({ survey, onClose }) => {
     };
 
     const addExtension = () => {
-        setExtensions([...extensions, { id_omsu: '', date_close: '' }]);
+        setExtensions([...extensions, { organization_id: '', date_close: '' }]);
     };
 
     const removeExtension = (index) => {
@@ -147,7 +147,7 @@ const ExtensionModal = ({ survey, onClose }) => {
     };
 
  const handleSubmit = async () => {
-    if (extensions.some(ext => !ext.id_omsu || !ext.date_close)) {
+    if (extensions.some(ext => !ext.organization_id || !ext.date_close)) {
         alert('Пожалуйста, заполните все поля');
         return;
     }
@@ -161,13 +161,13 @@ const ExtensionModal = ({ survey, onClose }) => {
         const requestData = {
             survey_id: survey.id_survey,
             extensions: extensions.map(ext => ({
-                omsu_id: parseInt(ext.id_omsu),
+                organization_id: parseInt(ext.organization_id),
                 new_end_date: ext.date_close
             }))
         };
 
 
-        const response = await fetch('/prodlenie_omsus', {
+        const response = await fetch('/prodlenie_organizations', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -189,7 +189,9 @@ const ExtensionModal = ({ survey, onClose }) => {
         if (!response.ok || !responseData?.success) {
             const errorMsg = responseData?.message || 
                             responseData?.error || 
-                            `Ошибка сервера: ${response.status} ${response.statusText}`;
+                            (window.getResponseErrorMessage
+                                ? window.getResponseErrorMessage(response, 'Ошибка сервера')
+                                : `Ошибка сервера: ${response.status}`);
             throw new Error(errorMsg);
         }
 
@@ -216,19 +218,19 @@ const ExtensionModal = ({ survey, onClose }) => {
                                 <div style={{ flex: 1 }}>
                                     <label>ОМСУ:</label>
                                     <select
-                                        value={ext.id_omsu}
-                                        onChange={(e) => handleChange(index, 'id_omsu', e.target.value)}
+                                        value={ext.organization_id}
+                                        onChange={(e) => handleChange(index, 'organization_id', e.target.value)}
                                         style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
                                         required
                                     >
                                         <option value="">-- Выберите ОМСУ --</option>
                                         {organizations.map((org) => {
-                                            const alreadySelected = isOrganizationSelected(org.id_omsu, index);
+                                            const alreadySelected = isOrganizationSelected(org.organization_id, index);
                                             return React.createElement('option', {
-                                                key: org.id_omsu,
-                                                value: org.id_omsu,
+                                                key: org.organization_id,
+                                                value: org.organization_id,
                                                 disabled: alreadySelected
-                                            }, `${org.name_omsu}${alreadySelected ? ' (уже выбрана)' : ''}`);
+                                            }, `${org.organization_name}${alreadySelected ? ' (уже выбрана)' : ''}`);
                                         })}
                                     </select>
                                 </div>
@@ -334,19 +336,19 @@ const ExtensionModal = ({ survey, onClose }) => {
     
     {/* Фильтр по ОМСУ */}
     <select
-        value={omsuFilter}
-        onChange={(e) => setOmsuFilter(e.target.value)}
+        value={organizationFilter}
+        onChange={(e) => setOrganizationFilter(e.target.value)}
         className="filter-select"
     >
         <option value="">Все ОМСУ</option>
         {Array.from(new Set(
             initialData.surveys.flatMap(s => 
-                s.name_omsu ? s.name_omsu.split(',').map(name => name.trim()) : []
+                s.organization_name ? s.organization_name.split(',').map(name => name.trim()) : []
             ).filter(Boolean)
-        )).map((omsu, index) => React.createElement(
+        )).map((organization, index) => React.createElement(
             'option',
-            { key: index, value: omsu },
-            omsu
+            { key: index, value: organization },
+            organization
         ))}
     </select>
     
@@ -354,11 +356,11 @@ const ExtensionModal = ({ survey, onClose }) => {
         Добавить
     </button>
     
-    {(monthFilter || omsuFilter) && (
+    {(monthFilter || organizationFilter) && (
         <button 
             onClick={() => {
                 setMonthFilter('');
-                setOmsuFilter('');
+                setOrganizationFilter('');
             }}
             className="reset-filter-btn"
         >
@@ -397,17 +399,17 @@ const ExtensionModal = ({ survey, onClose }) => {
     return surveys.filter(survey => {
         const matchesSearch = searchTerm === '' || 
             survey.name_survey.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            survey.name_omsu?.toLowerCase().includes(searchTerm.toLowerCase());
+            survey.organization_name?.toLowerCase().includes(searchTerm.toLowerCase());
         
         const matchesMonth = monthFilter === '' || 
             (new Date(survey.date_open).getMonth() + 1).toString() === monthFilter;
         
-        const matchesOmsu = omsuFilter === '' || 
-            (survey.name_omsu && survey.name_omsu.split(',').some(
-                name => name.trim().toLowerCase() === omsuFilter.toLowerCase()
+        const matchesOrganization = organizationFilter === '' || 
+            (survey.organization_name && survey.organization_name.split(',').some(
+                name => name.trim().toLowerCase() === organizationFilter.toLowerCase()
             ));
         
-        return matchesSearch && matchesMonth && matchesOmsu;
+        return matchesSearch && matchesMonth && matchesOrganization;
     });
 };
 
@@ -419,7 +421,7 @@ const ExtensionModal = ({ survey, onClose }) => {
     
     filteredSurveys = filteredSurveys.filter(survey => 
         survey.name_survey.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        survey.name_omsu?.toLowerCase().includes(searchTerm.toLowerCase())
+        survey.organization_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
             return (
@@ -464,19 +466,19 @@ const ExtensionModal = ({ survey, onClose }) => {
                     <option value="12">Декабрь</option>
                 </select>
                 <select 
-                    value={omsuFilter}
-                    onChange={(e) => setOmsuFilter(e.target.value)}
+                    value={organizationFilter}
+                    onChange={(e) => setOrganizationFilter(e.target.value)}
                     className="filter-select"
                 >
                     <option value="">Все ОМСУ</option>
                     {Array.from(new Set(
                         initialData.surveys
-                            .flatMap(s => s.name_omsu?.split(',').map(name => name.trim()) || [])
+                            .flatMap(s => s.organization_name?.split(',').map(name => name.trim()) || [])
                             .filter(Boolean)
-                    )).map((omsu, index) => React.createElement(
+                    )).map((organization, index) => React.createElement(
                         'option',
-                        { key: index, value: omsu },
-                        omsu
+                        { key: index, value: organization },
+                        organization
                     ))}
                 </select>
                     </div>
@@ -506,8 +508,8 @@ const ExtensionModal = ({ survey, onClose }) => {
                                     <td>{survey.name_survey}</td>
                                     <td>{new Date(survey.date_open).toLocaleString('ru', { month: 'long' })}</td>
                                     <td>
-                                        {survey.name_omsu 
-                                            ? survey.name_omsu.split(',')
+                                        {survey.organization_name 
+                                            ? survey.organization_name.split(',')
                                                 .map(name => name.trim())
                                                 .filter(name => name)
                                                 .join(', ')
@@ -703,18 +705,18 @@ const radarChartRef = useRef(null);
                     }
 
 
- if (radarChartRef.current && chartsData.avgScoreByOmsuRadar) {
-        console.log('Radar data:', chartsData.avgScoreByOmsuRadar); // ЛОГ для отладки структуры
+ if (radarChartRef.current && chartsData.avgScoreByOrganizationRadar) {
+        console.log('Radar data:', chartsData.avgScoreByOrganizationRadar); // ЛОГ для отладки структуры
         chartInstances.current.radar = new Chart(radarChartRef.current, {
             type: 'radar',
-            data: chartsData.avgScoreByOmsuRadar,
+            data: chartsData.avgScoreByOrganizationRadar,
             options: {
                 ...commonOptions,
                 plugins: {
                     ...commonOptions.plugins,
                     legend: {
                         ...commonOptions.plugins.legend,
-                        display: shouldShowLegend(chartsData.avgScoreByOmsuRadar)
+                        display: shouldShowLegend(chartsData.avgScoreByOrganizationRadar)
                     },
                     title: {
                         display: true,
@@ -957,7 +959,7 @@ case 'get_list_csp':
                 case 'get_logs': endpoint = '/logs'; newPage = "get_logs"; break;
                 case 'download_logs': endpoint = '/logs/export'; newPage = "download_logs"; break;
                 case 'get_users': endpoint = '/users'; newPage = "get_users"; break;
-                case 'get_omsu': endpoint = '/organizations'; newPage = "get_omsu"; break;
+                case 'get_organization': endpoint = '/organizations'; newPage = "get_organization"; break;
                 case 'copy_survey': 
                     endpoint = `/surveys/${modal.data?.id_survey}/copy`;
                     newPage = "copy_survey";
@@ -979,14 +981,14 @@ case 'delete_user':
                 newPage = "delete_user";
                 options.method = 'POST';
                 break;
-case 'archive_list_omsus': endpoint = '/organizations/archive'; newPage = "archive_list_omsus"; break;
+case 'archive_list_organizations': endpoint = '/organizations/archive'; newPage = "archive_list_organizations"; break;
 case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_users"; break;
 
-                case 'add_omsu': endpoint = '/organizations/create'; newPage = "add_omsu"; break;
-                case 'update_omsu': endpoint = `/organizations/${modal.data?.id_omsu}/edit`; newPage = "update_omsu"; break;
-                case 'delete_omsu':
-                    endpoint = `/organizations/${modal.data?.id_omsu}/delete`;
-                    newPage = "delete_omsu";
+                case 'add_organization': endpoint = '/organizations/create'; newPage = "add_organization"; break;
+                case 'update_organization': endpoint = `/organizations/${modal.data?.organization_id}/edit`; newPage = "update_organization"; break;
+                case 'delete_organization':
+                    endpoint = `/organizations/${modal.data?.organization_id}/delete`;
+                    newPage = "delete_organization";
                     options.method = 'POST';
                     break;
                                case 'help':
@@ -1017,7 +1019,13 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
             }
             
             const response = await fetch(endpoint, options);
-            if (!response.ok) throw new Error(`Ошибка загрузки: ${response.statusText}`);
+            if (!response.ok) {
+                throw new Error(
+                    window.getResponseErrorMessage
+                        ? window.getResponseErrorMessage(response, 'Ошибка загрузки')
+                        : `Ошибка загрузки: ${response.status}`
+                );
+            }
 
             if (tab === 'download_logs') {
                 newPage = "download_logs";
@@ -1231,7 +1239,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
     if (activeTab === 'get_surveys') {
         setContent(renderSurveys());
     }
-}, [searchTerm, monthFilter, omsuFilter, activeTab, currentPage]);
+}, [searchTerm, monthFilter, organizationFilter, activeTab, currentPage]);
 
                 useEffect(() => {
                     if (activeTab !== 'update_survey') {
@@ -1248,7 +1256,12 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 }, [activeTab, content]);
             return (
             <div className="page-container">
-                <Header userRole={initialData.userRole} displayName={initialData.displayName} />
+                <Header
+                    userRole={initialData.userRole}
+                    displayName={initialData.displayName}
+                    userName={initialData.userName}
+                    organizationName={initialData.organizationName}
+                />
                 <div className="admin-container">
                     <Navigation 
                         openVkladka={openVkladka} 
@@ -1281,7 +1294,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
         );
     };
             // СКРИПТЫ ДЛЯ ВКЛАДКИ ДОБАВЛЕНИЯ НОВОЙ АНКЕТЫ
-            let selectedOmsu = [];
+            let selectedOrganization = [];
             let allOrganizations = [];
             let criteriaConfirmed = false;
 
@@ -1299,8 +1312,8 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
             }
 
             // Открытие модального окна для выбора организаций
-            function openOmsuModal() {
-                const modal = safeGetElement('omsuModal');
+            function openOrganizationModal() {
+                const modal = safeGetElement('organizationModal');
                 if (window.showSiteModal) {
                     window.showSiteModal(modal);
                 } else {
@@ -1364,7 +1377,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 orgList.innerHTML = '';
                 
                 allOrganizations.forEach(org => {
-                    const isSelected = selectedOmsu.some(o => o.id === org.id);
+                    const isSelected = selectedOrganization.some(o => o.id === org.id);
                     const orgItem = document.createElement('div');
                     orgItem.className = `organization-item ${isSelected ? 'selected' : ''}`;
                     orgItem.innerHTML = `
@@ -1389,25 +1402,25 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
 
             // Переключение выбора организации
             function toggleOrganizationSelection(id, name) {
-                const index = selectedOmsu.findIndex(o => o.id === id);
+                const index = selectedOrganization.findIndex(o => o.id === id);
                 
                 if (index === -1) {
-                    selectedOmsu.push({ id, name });
+                    selectedOrganization.push({ id, name });
                 } else {
-                    selectedOmsu.splice(index, 1);
+                    selectedOrganization.splice(index, 1);
                 }
             }
 
-            function saveSelectedOmsu() {
-                closeModal('omsuModal');
-                updateSelectedOmsuDisplay();
+            function saveSelectedOrganization() {
+                closeModal('organizationModal');
+                updateSelectedOrganizationDisplay();
             }
 
-            function updateSelectedOmsuDisplay() {
-                const container = safeGetElement('selectedOmsuContainer');
-                const list = safeGetElement('selectedOmsuList');
+            function updateSelectedOrganizationDisplay() {
+                const container = safeGetElement('selectedOrganizationContainer');
+                const list = safeGetElement('selectedOrganizationList');
                 
-                if (selectedOmsu.length === 0) {
+                if (selectedOrganization.length === 0) {
                     container.style.display = 'none';
                     return;
                 }
@@ -1415,22 +1428,22 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 container.style.display = 'block';
                 list.innerHTML = '';
                 
-                selectedOmsu.forEach(org => {
+                selectedOrganization.forEach(org => {
                     const item = document.createElement('div');
-                    item.className = 'selected-omsu-item';
+                    item.className = 'selected-organization-item';
                     item.innerHTML = `
                         ${escapeHtml(org.name)}
-                        <button onclick="removeSelectedOmsu(${org.id})"><i class="fas fa-xmark"></i></button>
+                        <button onclick="removeSelectedOrganization(${org.id})"><i class="fas fa-xmark"></i></button>
                     `;
                     list.appendChild(item);
                 });
             }
 
-            function removeSelectedOmsu(id) {
-                selectedOmsu = selectedOmsu.filter(org => org.id !== id);
-                updateSelectedOmsuDisplay();
+            function removeSelectedOrganization(id) {
+                selectedOrganization = selectedOrganization.filter(org => org.id !== id);
+                updateSelectedOrganizationDisplay();
                 
-                if (document.getElementById('omsuModal').classList.contains('active')) {
+                if (document.getElementById('organizationModal').classList.contains('active')) {
                     renderOrganizationsList();
                 }
             }
@@ -1488,10 +1501,18 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 document.getElementById('notificationTitle').textContent = title;
                 document.getElementById('notificationTitle').className = 'notification-title notification-success';
                 document.getElementById('notificationMessage').textContent = message;
-                notification.classList.add('active');
+                if (window.showSiteModal) {
+                    window.showSiteModal(notification);
+                } else {
+                    notification.classList.add('active');
+                }
                 
                 setTimeout(() => {
-                    notification.classList.remove('active');
+                    if (window.hideSiteModal) {
+                        window.hideSiteModal(notification);
+                    } else {
+                        notification.classList.remove('active');
+                    }
                 }, 3000);
             }
 
@@ -1500,16 +1521,28 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                 document.getElementById('notificationTitle').textContent = title;
                 document.getElementById('notificationTitle').className = 'notification-title notification-error';
                 document.getElementById('notificationMessage').textContent = message;
-                notification.classList.add('active');
+                if (window.showSiteModal) {
+                    window.showSiteModal(notification);
+                } else {
+                    notification.classList.add('active');
+                }
                 
                 setTimeout(() => {
-                    notification.classList.remove('active');
+                    if (window.hideSiteModal) {
+                        window.hideSiteModal(notification);
+                    } else {
+                        notification.classList.remove('active');
+                    }
                 }, 3000);
             }
 
             function hideNotification() {
                 const notification = safeGetElement('notification');
-                notification.classList.remove('active');
+                if (window.hideSiteModal) {
+                    window.hideSiteModal(notification);
+                } else {
+                    notification.classList.remove('active');
+                }
             }
 
             function addSurvey() {
@@ -1522,11 +1555,16 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     Description: safeGetElement('surveyDescription').value.trim(),
                     StartDate: safeGetElement('startDate').value,
                     EndDate: safeGetElement('endDate').value,
-                    Organizations: selectedOmsu.map(org => org.id),
+                    Organizations: selectedOrganization.map(org => org.id),
                     Criteria: Array.from(document.querySelectorAll('.criteriy')).map(input => input.value.trim())
                 };
                 
-                safeGetElement('loadingOverlay').style.display = 'flex';
+                const loadingOverlay = safeGetElement('loadingOverlay');
+                if (window.showSiteModal) {
+                    window.showSiteModal(loadingOverlay);
+                } else {
+                    loadingOverlay.style.display = 'flex';
+                }
                 
                 fetch('/surveys/create', {
                     method: 'POST',
@@ -1559,7 +1597,12 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     console.error('Error:', error);
                 })
                 .finally(() => {
-                    safeGetElement('loadingOverlay').style.display = 'none';
+                    const loadingOverlay = safeGetElement('loadingOverlay');
+                    if (window.hideSiteModal) {
+                        window.hideSiteModal(loadingOverlay);
+                    } else {
+                        loadingOverlay.style.display = 'none';
+                    }
                 });
             }
 
@@ -1587,7 +1630,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     safeGetElement('endDate').classList.remove('invalid');
                 }
                 
-                if (selectedOmsu.length === 0) {
+                if (selectedOrganization.length === 0) {
                     showError('Ошибка', 'Выберите хотя бы одну организацию');
                     isValid = false;
                 }
@@ -1602,16 +1645,16 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
 
             // СКРИПТЫ ДЛЯ ВКЛАДКИ РЕДАКТИРОВАНИЯ АНКЕТЫ
             
-            var surveyEditSelectedOmsu = [];
+            var surveyEditSelectedOrganization = [];
             var surveyEditModalOpen = false;
             var surveyEditAllOrganizations = [];
 
             function surveyEditInit() {
-                var selectedIdsInput = document.getElementById('selectedOmsuIds');
-                surveyEditSelectedOmsu = [];
+                var selectedIdsInput = document.getElementById('selectedOrganizationIds');
+                surveyEditSelectedOrganization = [];
                 if (selectedIdsInput && selectedIdsInput.value) {
                     var ids = selectedIdsInput.value.split(',');
-                    var names = window.selectedOmsuNames || initialData.selectedOmsuNames || [];
+                    var names = window.selectedOrganizationNames || initialData.selectedOrganizationNames || [];
                     
                     for (var i = 0; i < ids.length; i++) {
                         if (!ids[i]) {
@@ -1630,7 +1673,7 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                         }
 
                         if (resolvedName) {
-                            surveyEditSelectedOmsu.push({
+                            surveyEditSelectedOrganization.push({
                                 id: parsedId,
                                 name: resolvedName
                             });
@@ -1638,12 +1681,12 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     }
                 }
 
-                if (surveyEditSelectedOmsu.length === 0) {
+                if (surveyEditSelectedOrganization.length === 0) {
                     var preselectedItems = document.querySelectorAll('#organizationList .organization-item[data-selected="true"]');
                     preselectedItems.forEach(function(item) {
                         var fallbackId = parseInt(item.dataset.id, 10);
                         if (!Number.isNaN(fallbackId)) {
-                            surveyEditSelectedOmsu.push({
+                            surveyEditSelectedOrganization.push({
                                 id: fallbackId,
                                 name: item.dataset.name || ''
                             });
@@ -1658,22 +1701,22 @@ case 'archive_list_users': endpoint = '/users/archive'; newPage = "archive_list_
                     }
                 });
 
-                if (typeof surveyEditUpdateSelectedOmsuDisplay === 'function') {
-                    surveyEditUpdateSelectedOmsuDisplay();
+                if (typeof surveyEditUpdateSelectedOrganizationDisplay === 'function') {
+                    surveyEditUpdateSelectedOrganizationDisplay();
                 }
             }
 
-            function surveyEditOpenOmsuModal() {
+            function surveyEditOpenOrganizationModal() {
                 var orgItems = document.querySelectorAll('#organizationList .organization-item');
                 orgItems.forEach(item => {
-                    var isSelected = surveyEditSelectedOmsu.some(org => org.id === parseInt(item.dataset.id, 10));
+                    var isSelected = surveyEditSelectedOrganization.some(org => org.id === parseInt(item.dataset.id, 10));
                     item.dataset.selected = isSelected ? 'true' : 'false';
                     item.classList.toggle('selected', isSelected);
                 });
                 if (window.showSiteModal) {
-                    window.showSiteModal('omsuModal');
+                    window.showSiteModal('organizationModal');
                 } else {
-                    document.getElementById('omsuModal').style.display = 'flex';
+                    document.getElementById('organizationModal').style.display = 'flex';
                 }
                 surveyEditModalOpen = true;
             }

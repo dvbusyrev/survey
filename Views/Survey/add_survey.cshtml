@@ -46,12 +46,12 @@
             
             <div class="form-group">
                 <label>Выбор организаций:</label>
-                <button type="button" class="btn" onclick="openOmsuModal()">Выбрать ОМСУ</button>
+                <button type="button" class="btn" onclick="openOrganizationModal()">Выбрать ОМСУ</button>
             </div>
             
-            <div id="selectedOmsuContainer" class="selected-omsu" style="display: none;">
+            <div id="selectedOrganizationContainer" class="selected-organization" style="display: none;">
                 <h4>Выбранные организации:</h4>
-                <div id="selectedOmsuList"></div>
+                <div id="selectedOrganizationList"></div>
             </div>
         </div>
         <br />
@@ -71,15 +71,16 @@
             <button type="button" class="criteria-btn btn-success" id="conf_btn" onclick="confirmCriteries()">Подтвердить критерии</button>
             <button type="button" class="criteria-btn btn-info" id="add_crit" onclick="addRowCriteriy()">Добавить критерий</button>
             <button type="button" class="criteria-btn btn-success" style="display: none;" id="add_survey_btn" onclick="addSurvey()">Создать анкету</button>
+            <button type="button" class="modal_btn modal_btn-secondary" onclick="window.location.href='/surveys'">Отмена</button>
         </div>
     </div>
 
     <!-- Модальное окно для выбора организаций -->
-    <div id="omsuModal" class="modal-overlay">
+    <div id="organizationModal" class="modal-overlay">
    <div class="modal-content">
         <div class="modal-header">
                 <h3 class="h2_modal">Выбор организаций (ОМСУ)</h3>
-                <button class="modal-close" onclick="closeModal('omsuModal')"><i class="fas fa-xmark"></i></button>
+                <button class="modal-close" onclick="closeModal('organizationModal')"><i class="fas fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <div id="loadingOrgs" style="text-align: center; padding: 20px;">
@@ -89,8 +90,8 @@
                 <div id="organizationList" class="organization-list" style="display: none;"></div>
             </div>
             <div class="modal-footer">
-            <button type="button" class="modal_btn modal_btn-primary" onclick="saveSelectedOmsu()">Сохранить</button>
-                <button type="button" class="modal_btn modal_btn-secondary" onclick="closeModal('omsuModal')">Отмена</button>
+            <button type="button" class="modal_btn modal_btn-primary" onclick="saveSelectedOrganization()">Сохранить</button>
+                <button type="button" class="modal_btn modal_btn-secondary" onclick="closeModal('organizationModal')">Отмена</button>
             </div>
         </div>
     </div>
@@ -105,7 +106,7 @@
     </div>
 
     <!-- Индикатор загрузки -->
-    <div id="loadingOverlay">
+    <div id="loadingOverlay" class="notification-overlay loading-overlay">
         <div style="text-align: center;">
             <div class="spinner"></div>
             <div class="loading-text">Идет обработка данных...</div>

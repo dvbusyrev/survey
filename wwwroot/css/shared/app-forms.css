@@ -21,7 +21,7 @@
 .form-group select,
 .form-group textarea,
 .form-control,
-.omsu-dropdown {
+.organization-dropdown {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -59,7 +59,7 @@ textarea.form-control {
 .form-group select:focus,
 .form-group textarea:focus,
 .form-control:focus,
-.omsu-dropdown:focus {
+.organization-dropdown:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
@@ -212,14 +212,14 @@ a.btn:focus,
   background-color: #138496;
 }
 
-.selected-omsu {
+.selected-organization {
   margin-top: 15px;
   padding: 15px;
   background-color: #e9ecef;
   border-radius: 5px;
 }
 
-.selected-omsu-item {
+.selected-organization-item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -236,7 +236,7 @@ a.btn:focus,
   transition: all 0.2s ease;
 }
 
-.selected-omsu-item button {
+.selected-organization-item button {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -254,11 +254,11 @@ a.btn:focus,
   transition: color 0.2s ease;
 }
 
-.selected-omsu-item button i {
+.selected-organization-item button i {
   pointer-events: none;
 }
 
-.selected-omsu-item button:hover {
+.selected-organization-item button:hover {
   color: #a71d2a;
   transform: scale(1.1);
 }

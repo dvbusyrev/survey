@@ -203,55 +203,55 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "organizations_clean",
     pattern: "organizations",
-    defaults: new { controller = "OMSU", action = "get_omsu" }
+    defaults: new { controller = "Organization", action = "get_organization" }
 );
 
 app.MapControllerRoute(
     name: "organizations_data_clean",
     pattern: "organizations/data",
-    defaults: new { controller = "OMSU", action = "get_omsu", variantType = "data" }
+    defaults: new { controller = "Organization", action = "get_organization", variantType = "data" }
 );
 
 app.MapControllerRoute(
     name: "organizations_create_clean",
     pattern: "organizations/create",
-    defaults: new { controller = "OMSU", action = "add_omsu" }
+    defaults: new { controller = "Organization", action = "add_organization" }
 );
 
 app.MapControllerRoute(
     name: "organizations_create_post_clean",
     pattern: "organizations/create/save",
-    defaults: new { controller = "OMSU", action = "add_omsu_bd" }
+    defaults: new { controller = "Organization", action = "add_organization_bd" }
 );
 
 app.MapControllerRoute(
     name: "organizations_edit_clean",
     pattern: "organizations/{id}/edit",
-    defaults: new { controller = "OMSU", action = "update_omsu" }
+    defaults: new { controller = "Organization", action = "update_organization" }
 );
 
 app.MapControllerRoute(
     name: "organizations_update_clean",
     pattern: "organizations/{id}/update",
-    defaults: new { controller = "OMSU", action = "update_omsu_bd" }
+    defaults: new { controller = "Organization", action = "update_organization_bd" }
 );
 
 app.MapControllerRoute(
     name: "organizations_delete_clean",
     pattern: "organizations/{id}/delete",
-    defaults: new { controller = "OMSU", action = "delete_omsu" }
+    defaults: new { controller = "Organization", action = "delete_organization" }
 );
 
 app.MapControllerRoute(
     name: "organizations_archive_clean",
     pattern: "organizations/archive",
-    defaults: new { controller = "OMSU", action = "archive_list_omsus" }
+    defaults: new { controller = "Organization", action = "archive_list_organizations" }
 );
 
 app.MapControllerRoute(
     name: "organizations_variant_clean",
     pattern: "organizations/{variantType}",
-    defaults: new { controller = "OMSU", action = "get_omsu" }
+    defaults: new { controller = "Organization", action = "get_organization" }
 );
 
 app.MapControllerRoute(
@@ -297,9 +297,9 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "archive_list_omsus",
-    pattern: "archive_list_omsus",
-    defaults: new { controller = "OMSU", action = "archive_list_omsus" }
+    name: "archive_list_organizations",
+    pattern: "archive_list_organizations",
+    defaults: new { controller = "Organization", action = "archive_list_organizations" }
 );
 
 app.MapControllerRoute(
@@ -328,13 +328,13 @@ app.MapControllerRoute(
 
 app.MapControllerRoute(
     name: "download_signed_archive",
-    pattern: "download_signed_archive/{idSurvey}/{idOmsu}",
+    pattern: "download_signed_archive/{idSurvey}/{idOrganization}",
     defaults: new { controller = "AnswerExport", action = "DownloadSignedArchive" }
 );
 
 app.MapControllerRoute(
     name: "get_signing_data",
-    pattern: "get_signing_data/{id}/{idOmsu}",
+    pattern: "get_signing_data/{id}/{idOrganization}",
     defaults: new { controller = "AnswerSigning", action = "GetSigningData" }
 );
 
@@ -407,13 +407,13 @@ app.MapControllerRoute(
 
 app.MapControllerRoute(
     name: "zapolnenie_anketi",
-    pattern: "zapolnenie_anketi/{id:int}/{omsuId:int}",
+    pattern: "zapolnenie_anketi/{id:int}/{organizationId:int}",
     defaults: new { controller = "SurveyUser", action = "zapolnenie_anketi" }
 );
 
 app.MapControllerRoute(
     name: "csp",
-    pattern: "csp/{id:int}/{idOmsu:int}",
+    pattern: "csp/{id:int}/{idOrganization:int}",
     defaults: new { controller = "AnswerSigning", action = "CSP_answer" }
 );
 
@@ -425,27 +425,27 @@ app.MapControllerRoute(
 
 app.MapControllerRoute(
     name: "create_otchet_for_me",
-    pattern: "create_otchet_for_me/{idSurvey}/{idOmsu}/{type}",
+    pattern: "create_otchet_for_me/{idSurvey}/{idOrganization}/{type}",
     defaults: new { controller = "AnswerExport", action = "create_otchet_for_me" }
 );
 
 app.MapControllerRoute(
     name: "update_answer",
-    pattern: "update_answer/{idSurvey}/{idOmsu}",
+    pattern: "update_answer/{idSurvey}/{idOrganization}",
     defaults: new { controller = "AnswerWorkflow", action = "update_answer" }
 );
 
 
 app.MapControllerRoute(
     name: "answers",
-    pattern: "answers/{idSurvey}/{idOmsu}/{type}",
+    pattern: "answers/{idSurvey}/{idOrganization}/{type}",
     defaults: new { controller = "AnswerWorkflow", action = "answers" }
 );
 
 
 app.MapControllerRoute(
     name: "create_archiv_for_me",
-    pattern: "create_archiv_for_me/{idSurvey}/{idOmsu}",
+    pattern: "create_archiv_for_me/{idSurvey}/{idOrganization}",
     defaults: new { controller = "AnswerExport", action = "create_archiv_for_me" }
 );
 
@@ -509,21 +509,21 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "add_omsu_bd",
-    pattern: "add_omsu_bd",
-    defaults: new { controller = "OMSU", action = "add_omsu_bd" }
+    name: "add_organization_bd",
+    pattern: "add_organization_bd",
+    defaults: new { controller = "Organization", action = "add_organization_bd" }
 );
 
 app.MapControllerRoute(
-    name: "update_omsu",
-    pattern: "update_omsu/{id}",
-    defaults: new { controller = "OMSU", action = "update_omsu" }
+    name: "update_organization",
+    pattern: "update_organization/{id}",
+    defaults: new { controller = "Organization", action = "update_organization" }
 );
 
 app.MapControllerRoute(
-    name: "update_omsu_bd",
-    pattern: "update_omsu_bd/{id}",
-    defaults: new { controller = "OMSU", action = "update_omsu_bd" }
+    name: "update_organization_bd",
+    pattern: "update_organization_bd/{id}",
+    defaults: new { controller = "Organization", action = "update_organization_bd" }
 );
 
 app.MapControllerRoute(
@@ -553,9 +553,9 @@ app.MapControllerRoute(
 
 
 app.MapControllerRoute(
-    name: "delete_omsu",
-    pattern: "delete_omsu/{id}",
-    defaults: new { controller = "OMSU", action = "delete_omsu" });
+    name: "delete_organization",
+    pattern: "delete_organization/{id}",
+    defaults: new { controller = "Organization", action = "delete_organization" });
 
 app.MapControllerRoute(
     name: "delete_user",
@@ -609,20 +609,20 @@ app.MapControllerRoute(
     defaults: new { controller = "User", action = "add_user"});
 
 app.MapControllerRoute(
-    name: "add_omsu",
-    pattern: "add_omsu",
-    defaults: new { controller = "OMSU", action = "add_omsu"});
+    name: "add_organization",
+    pattern: "add_organization",
+    defaults: new { controller = "Organization", action = "add_organization"});
 
 
 app.MapControllerRoute(
-    name: "get_omsu",
-    pattern: "get_omsu",
-    defaults: new { controller = "OMSU", action = "get_omsu" });
+    name: "get_organization",
+    pattern: "get_organization",
+    defaults: new { controller = "Organization", action = "get_organization" });
 
 app.MapControllerRoute(
-    name: "get_omsu",
-    pattern: "get_omsu/{variantType}",
-    defaults: new { controller = "OMSU", action = "get_omsu" });
+    name: "get_organization",
+    pattern: "get_organization/{variantType}",
+    defaults: new { controller = "Organization", action = "get_organization" });
 
 app.MapControllerRoute(
     name: "default",
@@ -630,9 +630,9 @@ app.MapControllerRoute(
 );
 
 app.MapControllerRoute(
-    name: "prodlenie_omsus",
-    pattern: "prodlenie_omsus",
-    defaults: new { controller = "Ae", action = "prodlenie_omsus"});
+    name: "prodlenie_organizations",
+    pattern: "prodlenie_organizations",
+    defaults: new { controller = "Ae", action = "prodlenie_organizations"});
 
 app.MapControllerRoute(
     name: "get_organizations",

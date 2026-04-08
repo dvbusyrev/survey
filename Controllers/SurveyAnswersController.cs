@@ -16,11 +16,11 @@ public class SurveyAnswersController : Controller
     }
 
     [Authorize(Roles = AppRoles.Admin)]
-    [HttpGet("view_answer/{idSurvey}/{idOmsu}/{type}")]
-    [HttpPost("view_answer/{idSurvey}/{idOmsu}/{type}")]
-    [HttpGet("Survey/view_answer/{idSurvey}/{idOmsu}/{type}")]
-    [HttpPost("Survey/view_answer/{idSurvey}/{idOmsu}/{type}")]
-    public IActionResult ViewAnswer(int idSurvey, int idOmsu, string type)
+    [HttpGet("view_answer/{idSurvey}/{idOrganization}/{type}")]
+    [HttpPost("view_answer/{idSurvey}/{idOrganization}/{type}")]
+    [HttpGet("Survey/view_answer/{idSurvey}/{idOrganization}/{type}")]
+    [HttpPost("Survey/view_answer/{idSurvey}/{idOrganization}/{type}")]
+    public IActionResult ViewAnswer(int idSurvey, int idOrganization, string type)
     {
         try
         {

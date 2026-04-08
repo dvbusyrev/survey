@@ -6,6 +6,7 @@ const SurveyFillPage = ({ initialData }) => {
             const [isSubmitted, setIsSubmitted] = React.useState(false);
 
             const handleRatingClick = (questionId, rating) => {
+                setError(null);
                 setAnswers(prev => ({
                     ...prev,
                     [questionId]: {
@@ -17,6 +18,7 @@ const SurveyFillPage = ({ initialData }) => {
             };
 
             const handleCommentChange = (questionId, comment) => {
+                setError(null);
                 setAnswers(prev => ({
                     ...prev,
                     [questionId]: {
@@ -39,7 +41,7 @@ const SurveyFillPage = ({ initialData }) => {
                     });
                     
                     if (!allQuestionsAnswered) {
-                        throw new Error('Пожалуйста, ответьте на все вопросы. Для оценок ниже 5 требуется комментарий.');
+                        throw new Error('Пожалуйста, ответьте на все вопросы. Для оценки ниже 5 заполните поле "Ваш комментарий".');
                     }
                     
                     const response = await fetch('/api/submit_answers', {
@@ -49,7 +51,7 @@ const SurveyFillPage = ({ initialData }) => {
                         },
                         body: JSON.stringify({
                             surveyId: initialData.surveyId,
-                            omsuId: initialData.omsuId,
+                            organizationId: initialData.organizationId,
                             answers: Object.entries(answers).map(([questionId, answer]) => ({
                                 questionId,
                                 rating: answer.rating,
@@ -93,15 +95,16 @@ const SurveyFillPage = ({ initialData }) => {
 
             return (
                 <div className="page-container">
-                    <Header userRole={initialData.userRole} displayName={initialData.displayName} />
+                    <Header
+                        userRole={initialData.userRole}
+                        displayName={initialData.displayName}
+                        userName={initialData.userName}
+                        organizationName={initialData.organizationName}
+                    />
                     <div className="admin-container">
                         <Navigation activeTab="answers_tab" userRole={initialData.userRole} userId={initialData.userId} />
                         <div id="content_admin">
                             <div className="survey-fill-container">
-                                <button onClick={handleBackToList} className="back-button">
-                                    ← Вернуться к списку анкет
-                                </button>
-                                
                                 <div className="note">
                                     <h2>Заполнение анкеты</h2>
                                     <p>Пожалуйста, оцените каждый вопрос по шкале от 1 до 5</p>
@@ -137,10 +140,11 @@ const SurveyFillPage = ({ initialData }) => {
                                                     </button>
                                                 ))}
                                             </div>
-                                            {answer.rating < 5 && (
-                                                <div className="comment-container" style={{display: 'block'}}>
+                                            {answer.rating > 0 && answer.rating < 5 && (
+                                                <div className="comment-container">
+                                                    <label className="comment-label">Ваш комментарий</label>
                                                     <textarea 
-                                                        placeholder="Пожалуйста, укажите комментарий..." 
+                                                        placeholder="Напишите комментарий"
                                                         value={answer.comment || ''}
                                                         onChange={(e) => handleCommentChange(questionId, e.target.value)}
                                                     />
@@ -154,11 +158,7 @@ const SurveyFillPage = ({ initialData }) => {
                                     <button 
                                         onClick={submitAnswers} 
                                         className="submit-button"
-                                        disabled={loading || !initialData.questions.every(q => {
-                                            const questionId = q.id || q.Id;
-                                            const answer = answers[questionId];
-                                            return answer?.rating && (answer.rating >= 5 || answer.comment);
-                                        })}
+                                        disabled={loading}
                                     >
                                         {loading ? (
                                             <>

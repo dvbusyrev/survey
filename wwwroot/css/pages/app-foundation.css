@@ -42,6 +42,36 @@ body {
   font-family: "Inter", sans-serif;
   line-height: 1.5;
   overflow-x: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+img,
+svg,
+button,
+a,
+.btn,
+.modal_btn,
+.nav-link,
+.submenu-link,
+.menu-tab,
+.icon-container {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
+input,
+textarea,
+select,
+option,
+[contenteditable="true"],
+[contenteditable="plaintext-only"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 .page-container {
@@ -102,12 +132,15 @@ body {
   margin: 0;
   color: var(--text-secondary);
   font-size: 1rem;
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
 }
 
 .page-toolbar,
 .users-page-toolbar,
 .users-toolbar,
-.omsu-toolbar {
+.organization-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -205,6 +238,13 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+.access-denied p,
+.text-justify {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+}
+
 @media (max-width: 900px) {
   .admin-container {
     grid-template-columns: 1fr;
@@ -239,6 +279,13 @@ body {
   #content_admin,
   #content_user {
     padding: 0.875rem;
+  }
+
+  .note p,
+  .access-denied p,
+  .text-justify {
+    text-align: left;
+    hyphens: manual;
   }
 
   .access-denied {

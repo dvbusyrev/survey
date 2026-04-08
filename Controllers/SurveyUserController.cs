@@ -27,7 +27,17 @@ public class SurveyUserController : Controller
             return Challenge();
         }
 
-        if (!_currentUserService.IsAdmin && _currentUserService.UserId != requestedUserId)
+        if (_currentUserService.IsAdmin)
+        {
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return StatusCode(403, new { error = "Раздел активных анкет доступен только пользователям." });
+            }
+
+            return Redirect("/surveys");
+        }
+
+        if (_currentUserService.UserId != requestedUserId)
         {
             return Forbid();
         }
@@ -35,7 +45,7 @@ public class SurveyUserController : Controller
         return null;
     }
 
-    private IActionResult? EnsureOmsuAccess(int requestedOmsuId)
+    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
     {
         if (_currentUserService.IsAdmin)
         {
@@ -47,8 +57,8 @@ public class SurveyUserController : Controller
             return Challenge();
         }
 
-        var currentOmsuId = _surveyUserService.GetUserOmsuId(_currentUserService.UserId.Value);
-        if (!currentOmsuId.HasValue || currentOmsuId.Value != requestedOmsuId)
+        var currentOrganizationId = _surveyUserService.GetUserOrganizationId(_currentUserService.UserId.Value);
+        if (!currentOrganizationId.HasValue || currentOrganizationId.Value != requestedOrganizationId)
         {
             return Forbid();
         }
@@ -116,12 +126,12 @@ public class SurveyUserController : Controller
         }
     }
 
-    [HttpGet("surveys/{id:int}/organizations/{omsuId:int}/questions")]
-    [HttpGet("zapolnenie_anketi/{id:int}/{omsuId:int}")]
-    [HttpGet("Survey/zapolnenie_anketi/{id:int}/{omsuId:int}")]
-    public IActionResult zapolnenie_anketi(int id, int omsuId)
+    [HttpGet("surveys/{id:int}/organizations/{organizationId:int}/questions")]
+    [HttpGet("zapolnenie_anketi/{id:int}/{organizationId:int}")]
+    [HttpGet("Survey/zapolnenie_anketi/{id:int}/{organizationId:int}")]
+    public IActionResult zapolnenie_anketi(int id, int organizationId)
     {
-        var accessResult = EnsureOmsuAccess(omsuId);
+        var accessResult = EnsureOrganizationAccess(organizationId);
         if (accessResult != null)
         {
             return accessResult;

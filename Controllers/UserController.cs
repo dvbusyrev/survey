@@ -28,7 +28,7 @@ public class UserController : Controller
 command.CommandText = @"
     SELECT 
         id_user,
-        (SELECT name_omsu FROM public.omsu WHERE public.users.id_omsu = public.omsu.id_omsu) AS name_omsu,
+        (SELECT organization_name FROM public.organization WHERE public.app_user.organization_id = public.organization.organization_id) AS organization_name,
         name_user,
         name_role,
         hash_password,
@@ -36,8 +36,8 @@ command.CommandText = @"
         date_end,
         full_name,
         email,
-        id_omsu
-    FROM public.users
+        organization_id
+    FROM public.app_user
     WHERE date_end IS NULL OR date_end >= CURRENT_DATE;
 ";
 
@@ -51,7 +51,7 @@ command.CommandText = @"
                             var user = new User
                             {
                                 id_user = reader.GetInt32(0),
-                                name_omsu = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                                organization_name = reader.IsDBNull(1) ? "" : reader.GetString(1),
                                 name_user = reader.GetString(2),
                                 name_role = reader.GetString(3),
                                 hash_password = reader.GetString(4),
@@ -59,7 +59,7 @@ date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
 date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                                 full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
                                 email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                                id_omsu = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                                organization_id = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                             };
                             users.Add(user);
                         }
@@ -105,9 +105,9 @@ public IActionResult update_user(int id)
 
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT u.id_user, u.full_name, u.name_user, u.email, o.name_omsu, u.id_omsu, u.name_role, u.date_begin, u.date_end, u.hash_password 
-            FROM public.users u
-            JOIN public.omsu o ON u.id_omsu = o.id_omsu
+            SELECT u.id_user, u.full_name, u.name_user, u.email, o.organization_name, u.organization_id, u.name_role, u.date_begin, u.date_end, u.hash_password 
+            FROM public.app_user u
+            JOIN public.organization o ON u.organization_id = o.organization_id
             WHERE u.id_user = @id";
 
         command.Parameters.Add(new NpgsqlParameter("@id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
@@ -124,8 +124,8 @@ public IActionResult update_user(int id)
                         full_name = reader.GetString(1),
                         name_user = reader.GetString(2),
                         email = reader.GetString(3),
-                        name_omsu = reader.GetString(4),
-                        id_omsu = reader.GetInt32(5),
+                        organization_name = reader.GetString(4),
+                        organization_id = reader.GetInt32(5),
                         name_role = reader.GetString(6),
                         date_begin = reader.GetDateTime(7),
                         date_end = reader.GetDateTime(8),
@@ -193,8 +193,8 @@ public IActionResult add_user_bd([FromBody] Dictionary<string, string> formData)
             using (var cmd = connection.CreateCommand())
             {
                 cmd.CommandText = @"
-                    INSERT INTO public.users 
-                    (id_omsu, name_user, full_name, name_role, hash_password, email, date_begin) 
+                    INSERT INTO public.app_user 
+                    (organization_id, name_user, full_name, name_role, hash_password, email, date_begin) 
                     VALUES (@org, @user, @name, @role, @pwd, @email, NOW() )";
                 
                 cmd.Parameters.Add(new NpgsqlParameter("@org", NpgsqlDbType.Integer) { 
@@ -244,15 +244,15 @@ private static bool IsPasswordValid(string password, out string errorMessage)
         return false;
     }
 
-    if (!System.Text.RegularExpressions.Regex.IsMatch(password, "[a-z]"))
+    if (!System.Text.RegularExpressions.Regex.IsMatch(password, @"\p{Ll}"))
     {
-        errorMessage = "Пароль должен содержать хотя бы одну строчную латинскую букву.";
+        errorMessage = "Пароль должен содержать хотя бы одну строчную букву.";
         return false;
     }
 
-    if (!System.Text.RegularExpressions.Regex.IsMatch(password, "[A-Z]"))
+    if (!System.Text.RegularExpressions.Regex.IsMatch(password, @"\p{Lu}"))
     {
-        errorMessage = "Пароль должен содержать хотя бы одну заглавную латинскую букву.";
+        errorMessage = "Пароль должен содержать хотя бы одну заглавную букву.";
         return false;
     }
 
@@ -262,15 +262,9 @@ private static bool IsPasswordValid(string password, out string errorMessage)
         return false;
     }
 
-    if (!System.Text.RegularExpressions.Regex.IsMatch(password, @"[^a-zA-Z0-9]"))
+    if (!System.Text.RegularExpressions.Regex.IsMatch(password, @"[^\p{L}\p{Nd}]"))
     {
         errorMessage = "Пароль должен содержать хотя бы один спецсимвол.";
-        return false;
-    }
-
-    if (System.Text.RegularExpressions.Regex.IsMatch(password, "[А-Яа-яЁё]"))
-    {
-        errorMessage = "Пароль должен содержать только латинские буквы.";
         return false;
     }
 
@@ -298,11 +292,11 @@ public IActionResult update_user_bd(int id, [FromBody] Dictionary<string, string
             
             using (var cmd = connection.CreateCommand())
             {
-                var query = new StringBuilder("UPDATE public.users SET ");
+                var query = new StringBuilder("UPDATE public.app_user SET ");
                 var parameters = new List<NpgsqlParameter>();
                 
                 // Обязательные поля
-                query.Append("name_user = @username, full_name = @fullName, id_omsu = @organization, ");
+                query.Append("name_user = @username, full_name = @fullName, organization_id = @organization, ");
                 parameters.Add(new NpgsqlParameter("@username", formData["username"]));
                 parameters.Add(new NpgsqlParameter("@fullName", formData["fullName"]));
                 parameters.Add(new NpgsqlParameter("@organization", int.Parse(formData["organizationId"])));
@@ -408,7 +402,7 @@ public IActionResult delete_user(int id)
         {
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "DELETE FROM public.users WHERE id_user = @id";
+                command.CommandText = "DELETE FROM public.app_user WHERE id_user = @id";
                 command.Parameters.Add(new NpgsqlParameter("@id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
 
                 int rowsAffected = command.ExecuteNonQuery();
@@ -435,8 +429,8 @@ List<User> users = new List<User>();
         {
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = "SELECT id_user, (SELECT name_omsu FROM public.omsu WHERE public.users.id_omsu = public.omsu.id_omsu) AS name_omsu, "+
-                "name_user, name_role, hash_password, date_begin, date_end, full_name, email, id_omsu FROM public.users WHERE date_end < CURRENT_DATE";
+                command.CommandText = "SELECT id_user, (SELECT organization_name FROM public.organization WHERE public.app_user.organization_id = public.organization.organization_id) AS organization_name, "+
+                "name_user, name_role, hash_password, date_begin, date_end, full_name, email, organization_id FROM public.app_user WHERE date_end < CURRENT_DATE";
 
                 try
                 {
@@ -447,7 +441,7 @@ List<User> users = new List<User>();
                             var user = new User
                             {
                                 id_user = reader.GetInt32(0),
-                                name_omsu = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                                organization_name = reader.IsDBNull(1) ? "" : reader.GetString(1),
                                 name_user = reader.GetString(2),
                                 name_role = reader.GetString(3),
                                 hash_password = reader.GetString(4),
@@ -455,7 +449,7 @@ date_begin = reader.IsDBNull(5) ? null : (DateTime?)reader.GetDateTime(5),
 date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                                 full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
                                 email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                                id_omsu = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                                organization_id = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                             };
                             users.Add(user);
                         }
@@ -483,7 +477,7 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
             command.CommandText = @"
                 SELECT 
                     id_user,
-                    (SELECT name_omsu FROM public.omsu WHERE public.users.id_omsu = public.omsu.id_omsu) AS name_omsu,
+                    (SELECT organization_name FROM public.organization WHERE public.app_user.organization_id = public.organization.organization_id) AS organization_name,
                     name_user,
                     name_role,
                     hash_password,
@@ -491,8 +485,8 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                     date_end,
                     full_name,
                     email,
-                    id_omsu
-                FROM public.users
+                    organization_id
+                FROM public.app_user
                 WHERE date_end IS NULL OR date_end >= CURRENT_DATE;";
 
             using (var reader = command.ExecuteReader())
@@ -502,7 +496,7 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                     users.Add(new User
                     {
                         id_user = reader.GetInt32(0),
-                        name_omsu = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                        organization_name = reader.IsDBNull(1) ? "" : reader.GetString(1),
                         name_user = reader.GetString(2),
                         name_role = reader.GetString(3),
                         hash_password = reader.GetString(4),
@@ -510,7 +504,7 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                         date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
                         full_name = reader.IsDBNull(7) ? null : reader.GetString(7),
                         email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                        id_omsu = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
+                        organization_id = reader.IsDBNull(9) ? 0 : reader.GetInt32(9),
                     });
                 }
             }
@@ -526,7 +520,7 @@ date_end = reader.IsDBNull(6) ? null : (DateTime?)reader.GetDateTime(6),
         using (var connection = _connectionFactory.CreateConnection())
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT id_omsu, name_omsu FROM public.omsu WHERE block = false ORDER BY name_omsu";
+            command.CommandText = "SELECT organization_id, organization_name FROM public.organization WHERE block = false ORDER BY organization_name";
 
             using (var reader = command.ExecuteReader())
             {

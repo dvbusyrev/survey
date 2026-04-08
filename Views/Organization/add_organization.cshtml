@@ -3,15 +3,15 @@
 }
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/omsu.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
 
-<div class="content omsu-form-page" id="default_content" data-page="omsu-add">
+<div class="content organization-form-page" id="default_content" data-page="organization-add">
     <div class="note">
         <h2>Добавление новой организации</h2>
         <p>В форме ниже вы можете задать данные для новой организации</p>
     </div>
 
-    @await Html.PartialAsync("~/Views/OMSU/Partials/_AddOmsuForm.cshtml")
+    @await Html.PartialAsync("~/Views/Organization/Partials/_AddOrganizationForm.cshtml")
 </div>
 
-<script src="~/js/pages/omsu.js" asp-append-version="true"></script>
+<script src="~/js/pages/organization.js" asp-append-version="true"></script>

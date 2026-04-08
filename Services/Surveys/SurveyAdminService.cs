@@ -30,15 +30,16 @@ public sealed class SurveyAdminService
                 s.date_close,
                 COALESCE(
                     (
-                        SELECT string_agg(o.name_omsu, ', ')
-                        FROM public.omsu_surveys os
-                        INNER JOIN public.omsu o
-                            ON o.id_omsu = os.id_omsu
+                        SELECT string_agg(o.organization_name, ', ')
+                        FROM public.organization_survey os
+                        INNER JOIN public.organization o
+                            ON o.organization_id = os.organization_id
                         WHERE os.id_survey = s.id_survey
                     ),
                     'Не указано'
-                ) AS name_omsu
-            FROM public.surveys s
+                ) AS organization_name
+            FROM public.survey s
+            WHERE s.date_close >= NOW()
             ORDER BY s.id_survey DESC;";
 
         var surveys = connection.Query<Survey>(sql).ToList();
@@ -62,7 +63,7 @@ public sealed class SurveyAdminService
                 })
                 .ToList();
             var newSurveyId = await connection.ExecuteScalarAsync<int>(
-                @"INSERT INTO surveys (name_survey, description, date_create, date_open, date_close)
+                @"INSERT INTO public.survey (name_survey, description, date_create, date_open, date_close)
                   VALUES (@Title, @Description, NOW(), @StartDate, @EndDate)
                   RETURNING id_survey",
                 new
@@ -75,7 +76,7 @@ public sealed class SurveyAdminService
                 transaction);
 
             await ReplaceSurveyQuestionsAsync(connection, transaction, newSurveyId, questionRows);
-            await InsertOmsuSurveyAssignmentsAsync(connection, transaction, newSurveyId, request.Organizations);
+            await InsertOrganizationSurveyAssignmentsAsync(connection, transaction, newSurveyId, request.Organizations);
 
             await LogSurveyCreationAsync(connection, transaction, newSurveyId, request.Title);
             transaction.Commit();
@@ -101,7 +102,7 @@ public sealed class SurveyAdminService
                 date_open,
                 date_close,
                 description
-              FROM public.surveys s
+              FROM public.survey s
               WHERE id_survey = @id",
             new { id });
 
@@ -112,27 +113,27 @@ public sealed class SurveyAdminService
 
         AttachSurveyQuestions(connection, new[] { survey });
 
-        var allOmsu = connection.Query<OmsuSelectionItem>(
-            @"SELECT id_omsu AS Id, name_omsu AS Name
-              FROM public.omsu
+        var allOrganization = connection.Query<OrganizationSelectionItem>(
+            @"SELECT organization_id AS Id, organization_name AS Name
+              FROM public.organization
               WHERE block = false
-              ORDER BY name_omsu").ToList();
+              ORDER BY organization_name").ToList();
 
-        var selectedOmsu = connection.Query<OmsuSelectionItem>(
-            @"SELECT o.id_omsu AS Id, o.name_omsu AS Name
-              FROM public.omsu_surveys os
-              INNER JOIN public.omsu o
-                  ON o.id_omsu = os.id_omsu
+        var selectedOrganization = connection.Query<OrganizationSelectionItem>(
+            @"SELECT o.organization_id AS Id, o.organization_name AS Name
+              FROM public.organization_survey os
+              INNER JOIN public.organization o
+                  ON o.organization_id = os.organization_id
               WHERE os.id_survey = @surveyId
-              ORDER BY name_omsu",
+              ORDER BY organization_name",
             new { surveyId = id }).ToList();
 
         return new SurveyEditPageViewModel
         {
             Survey = survey,
-            AllOmsu = allOmsu,
-            SelectedOmsuIds = selectedOmsu.Select(o => o.Id).ToList(),
-            SelectedOmsuNames = selectedOmsu.Select(o => o.Name).ToList(),
+            AllOrganization = allOrganization,
+            SelectedOrganizationIds = selectedOrganization.Select(o => o.Id).ToList(),
+            SelectedOrganizationNames = selectedOrganization.Select(o => o.Name).ToList(),
             Criteria = GetCriteria(connection, id)
         };
     }
@@ -145,7 +146,7 @@ public sealed class SurveyAdminService
         try
         {
             var exists = connection.ExecuteScalar<bool>(
-                "SELECT EXISTS(SELECT 1 FROM surveys WHERE id_survey = @id)",
+                "SELECT EXISTS(SELECT 1 FROM public.survey WHERE id_survey = @id)",
                 new { id },
                 transaction);
 
@@ -163,7 +164,7 @@ public sealed class SurveyAdminService
                 })
                 .ToList();
             var affectedRows = connection.Execute(
-                @"UPDATE surveys SET
+                @"UPDATE public.survey SET
                     name_survey = @Title,
                     description = @Description,
                     date_open = @StartDate::date,
@@ -188,7 +189,7 @@ public sealed class SurveyAdminService
             ReplaceSurveyQuestionsAsync(connection, transaction, id, questionRows)
                 .GetAwaiter()
                 .GetResult();
-            UpdateOmsuSurveyAssignments(connection, transaction, id, model.Organizations);
+            UpdateOrganizationSurveyAssignments(connection, transaction, id, model.Organizations);
             transaction.Commit();
 
             return true;
@@ -211,7 +212,7 @@ public sealed class SurveyAdminService
                   s.description,
                   s.date_open,
                   s.date_close
-              FROM public.surveys s
+              FROM public.survey s
               WHERE id_survey = @id",
             new { id });
 
@@ -235,7 +236,7 @@ public sealed class SurveyAdminService
                       s.id_survey,
                       s.name_survey,
                       s.description
-                  FROM public.surveys s
+                  FROM public.survey s
                   WHERE id_survey = @Id",
                 new { Id = id },
                 transaction);
@@ -247,7 +248,7 @@ public sealed class SurveyAdminService
             }
 
             var newSurveyId = await connection.ExecuteScalarAsync<int>(
-                @"INSERT INTO surveys (name_survey, description, date_create, date_open, date_close)
+                @"INSERT INTO public.survey (name_survey, description, date_create, date_open, date_close)
                   VALUES (@Name, @Description, NOW(), @StartDate, @EndDate)
                   RETURNING id_survey",
                 new
@@ -260,9 +261,9 @@ public sealed class SurveyAdminService
                 transaction);
 
             await connection.ExecuteAsync(
-                @"INSERT INTO public.survey_questions (id_survey, question_order, question_text)
+                @"INSERT INTO public.survey_question (id_survey, question_order, question_text)
                   SELECT @NewId, question_order, question_text
-                  FROM public.survey_questions
+                  FROM public.survey_question
                   WHERE id_survey = @OldId
                   ON CONFLICT (id_survey, question_order) DO UPDATE
                   SET question_text = EXCLUDED.question_text",
@@ -274,11 +275,11 @@ public sealed class SurveyAdminService
                 transaction);
 
             await connection.ExecuteAsync(
-                @"INSERT INTO public.omsu_surveys (id_omsu, id_survey)
-                  SELECT id_omsu, @NewId
-                  FROM public.omsu_surveys
+                @"INSERT INTO public.organization_survey (organization_id, id_survey)
+                  SELECT organization_id, @NewId
+                  FROM public.organization_survey
                   WHERE id_survey = @OldId
-                  ON CONFLICT (id_omsu, id_survey) DO NOTHING",
+                  ON CONFLICT (organization_id, id_survey) DO NOTHING",
                 new
                 {
                     NewId = newSurveyId,
@@ -304,22 +305,22 @@ public sealed class SurveyAdminService
         try
         {
             connection.Execute(
-                "DELETE FROM public.survey_questions WHERE id_survey = @id",
+                "DELETE FROM public.survey_question WHERE id_survey = @id",
                 new { id = surveyId },
                 transaction);
 
             connection.Execute(
-                "DELETE FROM public.history_answer WHERE id_survey = @id",
+                "DELETE FROM public.answer WHERE id_survey = @id",
                 new { id = surveyId },
                 transaction);
 
             connection.Execute(
-                "DELETE FROM public.omsu_surveys WHERE id_survey = @id",
+                "DELETE FROM public.organization_survey WHERE id_survey = @id",
                 new { id = surveyId },
                 transaction);
 
             var deletedId = connection.ExecuteScalar<int?>(
-                "DELETE FROM public.surveys WHERE id_survey = @id RETURNING id_survey",
+                "DELETE FROM public.survey WHERE id_survey = @id RETURNING id_survey",
                 new { id = surveyId },
                 transaction);
 
@@ -367,37 +368,37 @@ public sealed class SurveyAdminService
         }
     }
 
-    private void UpdateOmsuSurveyAssignments(
+    private void UpdateOrganizationSurveyAssignments(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
-        IEnumerable<int> omsuIds)
+        IEnumerable<int> organizationIds)
     {
         connection.Execute(
-            "DELETE FROM public.omsu_surveys WHERE id_survey = @surveyId",
+            "DELETE FROM public.organization_survey WHERE id_survey = @surveyId",
             new { surveyId },
             transaction);
 
-        InsertOmsuSurveyAssignmentsAsync(connection, transaction, surveyId, omsuIds)
+        InsertOrganizationSurveyAssignmentsAsync(connection, transaction, surveyId, organizationIds)
             .GetAwaiter()
             .GetResult();
     }
 
-    private static async Task InsertOmsuSurveyAssignmentsAsync(
+    private static async Task InsertOrganizationSurveyAssignmentsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
-        IEnumerable<int> omsuIds)
+        IEnumerable<int> organizationIds)
     {
-        foreach (var omsuId in omsuIds.Distinct())
+        foreach (var organizationId in organizationIds.Distinct())
         {
             await connection.ExecuteAsync(
-                @"INSERT INTO public.omsu_surveys (id_omsu, id_survey)
-                  VALUES (@omsuId, @surveyId)
-                  ON CONFLICT (id_omsu, id_survey) DO NOTHING",
+                @"INSERT INTO public.organization_survey (organization_id, id_survey)
+                  VALUES (@organizationId, @surveyId)
+                  ON CONFLICT (organization_id, id_survey) DO NOTHING",
                 new
                 {
-                    omsuId,
+                    organizationId,
                     surveyId
                 },
                 transaction);
@@ -410,7 +411,7 @@ public sealed class SurveyAdminService
     {
         return connection.Query<string>(
             @"SELECT question_text
-              FROM public.survey_questions
+              FROM public.survey_question
               WHERE id_survey = @surveyId
               ORDER BY question_order",
             new { surveyId }).ToList();
@@ -432,7 +433,7 @@ public sealed class SurveyAdminService
                   id_survey AS IdSurvey,
                   question_order AS QuestionOrder,
                   question_text AS QuestionText
-              FROM public.survey_questions
+              FROM public.survey_question
               WHERE id_survey = ANY(@surveyIds)
               ORDER BY id_survey, question_order",
             new { surveyIds });
@@ -469,14 +470,14 @@ public sealed class SurveyAdminService
         IReadOnlyList<SurveyQuestionRow> questionRows)
     {
         await connection.ExecuteAsync(
-            "DELETE FROM public.survey_questions WHERE id_survey = @surveyId",
+            "DELETE FROM public.survey_question WHERE id_survey = @surveyId",
             new { surveyId },
             transaction);
 
         foreach (var question in questionRows.OrderBy(q => q.QuestionOrder))
         {
             await connection.ExecuteAsync(
-                @"INSERT INTO public.survey_questions (id_survey, question_order, question_text)
+                @"INSERT INTO public.survey_question (id_survey, question_order, question_text)
                   VALUES (@surveyId, @questionOrder, @questionText)",
                 new
                 {

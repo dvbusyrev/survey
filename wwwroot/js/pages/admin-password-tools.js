@@ -1,4 +1,17 @@
 (function () {
+    function setPasswordVisibility(input, btn, isVisible) {
+        if (!input) return;
+
+        input.dataset.passwordVisible = isVisible ? 'true' : 'false';
+        input.classList.toggle('is-password-masked', !isVisible);
+
+        if (btn) {
+            btn.classList.toggle('is-visible', isVisible);
+            btn.setAttribute('aria-label', isVisible ? 'Скрыть пароль' : 'Показать пароль');
+            btn.setAttribute('title', isVisible ? 'Скрыть пароль' : 'Показать пароль');
+        }
+    }
+
     function addPasswordEye(input) {
         if (!input || input.dataset.eyeApplied === 'true') return;
         if (input.closest('.password-eye-wrap')) {
@@ -30,20 +43,18 @@
         `;
 
         btn.addEventListener('click', function () {
-            const isPassword = input.type === 'password';
-            input.type = isPassword ? 'text' : 'password';
-            btn.classList.toggle('is-visible', isPassword);
-            btn.setAttribute('aria-label', isPassword ? 'Скрыть пароль' : 'Показать пароль');
-            btn.setAttribute('title', isPassword ? 'Скрыть пароль' : 'Показать пароль');
+            const isVisible = input.dataset.passwordVisible === 'true';
+            setPasswordVisibility(input, btn, !isVisible);
         });
 
         wrapper.appendChild(btn);
+        setPasswordVisibility(input, btn, input.dataset.passwordVisible === 'true');
         input.dataset.eyeApplied = 'true';
     }
 
     function initUserModalPasswordEyes() {
         const passwordFields = document.querySelectorAll(
-            '#addUserModal input[type="password"], #editUserModal input[type="password"], input[name="password"]'
+            '#addUserModal input[data-password-field="true"], #editUserModal input[data-password-field="true"], input[name="password"][data-password-field="true"], #addUserModal input[type="password"], #editUserModal input[type="password"], input[name="password"]'
         );
         passwordFields.forEach(addPasswordEye);
     }

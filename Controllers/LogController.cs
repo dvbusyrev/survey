@@ -32,7 +32,7 @@ public IActionResult insert_log(int id_user, int id_target, string target_type, 
         using var connection = _connectionFactory.CreateConnection();
         using var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO public.logs (id_user, id_target, target_type, event_type, date, extra_data, description)
+            INSERT INTO public.log (id_user, id_target, target_type, event_type, date, extra_data, description)
             VALUES (@id_user, @id_target, @target_type, @event_type, @date, @extra_data, @description);
         ";
 
@@ -71,13 +71,13 @@ public IActionResult get_logs()
                             "l.extra_data, "+
                             "l.description, "+
                             "(SELECT u.name_user "+
-                            "FROM public.users u "+
+                            "FROM public.app_user u "+
                             "WHERE u.id_user = l.id_user) AS name_user,"+
                             "(SELECT s.name_survey "+
-                            "FROM public.surveys s "+
+                            "FROM public.survey s "+
                             "WHERE s.id_survey = l.id_target) AS name_survey "+
                         "FROM "+
-                            "public.logs l;";
+                            "public.log l;";
     try
     {
         using var reader = command.ExecuteReader();
@@ -123,13 +123,13 @@ public IActionResult get_dump_logs()
                             "l.extra_data, "+
                             "l.description, "+
                             "(SELECT u.name_user "+
-                            "FROM public.users u "+
+                            "FROM public.app_user u "+
                             "WHERE u.id_user = l.id_user) AS name_user,"+
                             "(SELECT s.name_survey "+
-                            "FROM public.surveys s "+
+                            "FROM public.survey s "+
                             "WHERE s.id_survey = l.id_target) AS name_survey "+
                         "FROM "+
-                            "public.logs l;";
+                            "public.log l;";
     try
     {
         using var reader = command.ExecuteReader();
@@ -204,7 +204,7 @@ private string GenerateLogText(List<Log> logs)
         {
             sb.AppendLine($"{log.date} Анкета {log.name_survey}({log.id_target}) перенесена в архив. Причина: {log.description}");
         }
-        else if (log.event_type == "BLOCK_OMSU")
+        else if (log.event_type == "BLOCK_Organization" || log.event_type == "BLOCK_ORGANIZATION")
         {
             sb.AppendLine($"{log.date} Организация {log.id_target} заблокирована. Подробности: {FormatExtraData(log.extra_data)}");
         }

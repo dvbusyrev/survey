@@ -7,15 +7,17 @@
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
-    var nameOmsu = User.FindFirst("omsu_name")?.Value ?? Context.Session.GetString("name_omsu") ?? "";
+    var nameOrganization = User.FindFirst("organization_name")?.Value ?? Context.Session.GetString("organization_name") ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
-    var displayName = !string.IsNullOrWhiteSpace(nameOmsu) && !string.IsNullOrWhiteSpace(nameUser)
-        ? $"{nameOmsu}: {nameUser}"
+    var displayName = !string.IsNullOrWhiteSpace(nameOrganization) && !string.IsNullOrWhiteSpace(nameUser)
+        ? $"{nameOrganization}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
 
     ViewBag.UserRole = userRole;
     ViewBag.UserId = userId;
     ViewBag.DisplayName = displayName;
+    ViewBag.UserName = nameUser;
+    ViewBag.OrganizationName = nameOrganization;
 }
 
 <!DOCTYPE html>
@@ -28,7 +30,9 @@
             userRole: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserRole ?? "")),
             userId: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserId ?? 0)),
             displayName: @Html.Raw(JsonSerializer.Serialize(ViewBag.DisplayName ?? "")),
-            selectedOmsuNames: @Html.Raw(JsonSerializer.Serialize(ViewBag.SelectedOmsuNames ?? new List<string>())),
+            userName: @Html.Raw(JsonSerializer.Serialize(ViewBag.UserName ?? "")),
+            organizationName: @Html.Raw(JsonSerializer.Serialize(ViewBag.OrganizationName ?? "")),
+            selectedOrganizationNames: @Html.Raw(JsonSerializer.Serialize(ViewBag.SelectedOrganizationNames ?? new List<string>())),
             surveys: @Html.Raw(JsonSerializer.Serialize(Model ?? new List<main_project.Models.Survey>(), new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

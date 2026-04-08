@@ -8,8 +8,8 @@ BEGIN;
 -- supports legacy hashes and automatically rehashes them on the next login.
 -- Change the password immediately after the first login.
 
-INSERT INTO public.users (
-    id_omsu,
+INSERT INTO public.app_user (
+    organization_id,
     name_user,
     full_name,
     name_role,

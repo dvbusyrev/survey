@@ -1,38 +1,31 @@
 BEGIN;
 
 -- Remove the temporary bootstrap data created during recovery.
-DELETE FROM public.history_answer
+DELETE FROM public.answer
 WHERE id_survey IN (
     SELECT id_survey
-    FROM public.surveys
+    FROM public.survey
     WHERE name_survey = 'Анкета МКУ'
 );
 
-DELETE FROM public.access_extensions
+DELETE FROM public.organization_survey
 WHERE id_survey IN (
     SELECT id_survey
-    FROM public.surveys
+    FROM public.survey
     WHERE name_survey = 'Анкета МКУ'
 );
 
-DELETE FROM public.omsu_surveys
-WHERE id_survey IN (
-    SELECT id_survey
-    FROM public.surveys
-    WHERE name_survey = 'Анкета МКУ'
-);
-
-DELETE FROM public.surveys
+DELETE FROM public.survey
 WHERE name_survey = 'Анкета МКУ';
 
-DELETE FROM public.users
+DELETE FROM public.app_user
 WHERE name_user IN ('admin', 'Гордеев_СВ', 'мку1');
 
-DELETE FROM public.omsu
-WHERE name_omsu IN ('Администрирование', 'МКУ');
+DELETE FROM public.organization
+WHERE organization_name IN ('Администрирование', 'МКУ');
 
-INSERT INTO public.omsu (
-    name_omsu,
+INSERT INTO public.organization (
+    organization_name,
     date_begin,
     date_end,
     block,
@@ -43,21 +36,21 @@ VALUES
     ('МКУ', CURRENT_DATE, NULL, false, NULL);
 
 WITH admin_org AS (
-    SELECT id_omsu
-    FROM public.omsu
-    WHERE name_omsu = 'Администрирование'
-    ORDER BY id_omsu DESC
+    SELECT organization_id
+    FROM public.organization
+    WHERE organization_name = 'Администрирование'
+    ORDER BY organization_id DESC
     LIMIT 1
 ),
 user_org AS (
-    SELECT id_omsu
-    FROM public.omsu
-    WHERE name_omsu = 'МКУ'
-    ORDER BY id_omsu DESC
+    SELECT organization_id
+    FROM public.organization
+    WHERE organization_name = 'МКУ'
+    ORDER BY organization_id DESC
     LIMIT 1
 )
-INSERT INTO public.users (
-    id_omsu,
+INSERT INTO public.app_user (
+    organization_id,
     name_user,
     full_name,
     name_role,
@@ -68,7 +61,7 @@ INSERT INTO public.users (
 )
 VALUES
     (
-        (SELECT id_omsu FROM admin_org),
+        (SELECT organization_id FROM admin_org),
         'Гордеев_СВ',
         'Гордеев_СВ',
         'admin',
@@ -78,7 +71,7 @@ VALUES
         NULL
     ),
     (
-        (SELECT id_omsu FROM user_org),
+        (SELECT organization_id FROM user_org),
         'мку1',
         'мку1',
         'user',
@@ -89,14 +82,14 @@ VALUES
     );
 
 WITH mku_org AS (
-    SELECT id_omsu
-    FROM public.omsu
-    WHERE name_omsu = 'МКУ'
-    ORDER BY id_omsu DESC
+    SELECT organization_id
+    FROM public.organization
+    WHERE organization_name = 'МКУ'
+    ORDER BY organization_id DESC
     LIMIT 1
 ),
 new_survey AS (
-    INSERT INTO public.surveys (
+    INSERT INTO public.survey (
         name_survey,
         description,
         date_create,
@@ -113,7 +106,7 @@ new_survey AS (
     RETURNING id_survey, date_create
 ),
 insert_questions AS (
-    INSERT INTO public.survey_questions (id_survey, question_order, question_text)
+    INSERT INTO public.survey_question (id_survey, question_order, question_text)
     SELECT
         ns.id_survey,
         question_data.question_order,
@@ -127,21 +120,21 @@ insert_questions AS (
     ) AS question_data(question_order, question_text)
 ),
 link_mku AS (
-    INSERT INTO public.omsu_surveys (id_omsu, id_survey)
+    INSERT INTO public.organization_survey (organization_id, id_survey)
     SELECT
-        (SELECT id_omsu FROM mku_org),
+        (SELECT organization_id FROM mku_org),
         (SELECT id_survey FROM new_survey)
 ),
 new_answer AS (
-    INSERT INTO public.history_answer (
-        id_omsu,
+    INSERT INTO public.answer (
+        organization_id,
         id_survey,
         csp,
         completion_date,
         create_date_survey
     )
     SELECT
-        (SELECT id_omsu FROM mku_org),
+        (SELECT organization_id FROM mku_org),
         ns.id_survey,
         NULL,
         NOW(),
@@ -149,7 +142,7 @@ new_answer AS (
     FROM new_survey ns
     RETURNING id_answer
 )
-INSERT INTO public.history_answer_items (
+INSERT INTO public.answer_item (
     id_answer,
     question_order,
     question_text,

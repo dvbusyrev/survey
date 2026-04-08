@@ -24,7 +24,7 @@ public static class UserRoleBootstrapper
 
             using (var normalizeCommand = new NpgsqlCommand(
                        """
-                       UPDATE public.users
+                       UPDATE public.app_user
                        SET name_role = CASE
                            WHEN name_role IS NULL THEN name_role
                            WHEN LOWER(BTRIM(name_role)) IN ('админ', 'администратор', 'admin', 'administrator')
@@ -57,14 +57,24 @@ public static class UserRoleBootstrapper
                                SELECT 1
                                FROM pg_constraint
                                WHERE conname = 'chk_users_name_role'
-                                 AND conrelid = 'public.users'::regclass
+                                 AND conrelid = 'public.app_user'::regclass
                            ) THEN
-                               ALTER TABLE public.users
+                               ALTER TABLE public.app_user
                                    DROP CONSTRAINT chk_users_name_role;
                            END IF;
 
-                           ALTER TABLE public.users
-                               ADD CONSTRAINT chk_users_name_role
+                           IF EXISTS (
+                               SELECT 1
+                               FROM pg_constraint
+                               WHERE conname = 'chk_app_user_name_role'
+                                 AND conrelid = 'public.app_user'::regclass
+                           ) THEN
+                               ALTER TABLE public.app_user
+                                   DROP CONSTRAINT chk_app_user_name_role;
+                           END IF;
+
+                           ALTER TABLE public.app_user
+                               ADD CONSTRAINT chk_app_user_name_role
                                CHECK (name_role IN ('admin', 'user'));
                        EXCEPTION
                            WHEN duplicate_object THEN
@@ -85,7 +95,7 @@ public static class UserRoleBootstrapper
         using var command = new NpgsqlCommand(
             """
             SELECT string_agg(DISTINCT name_role, ', ' ORDER BY name_role)
-            FROM public.users
+            FROM public.app_user
             WHERE name_role NOT IN ('admin', 'user');
             """,
             connection);
@@ -94,7 +104,7 @@ public static class UserRoleBootstrapper
         if (!string.IsNullOrWhiteSpace(unsupportedRoles))
         {
             throw new InvalidOperationException(
-                $"В public.users обнаружены неподдерживаемые роли: {unsupportedRoles}. " +
+                $"В public.app_user обнаружены неподдерживаемые роли: {unsupportedRoles}. " +
                 $"Допустимые роли: {string.Join(", ", AppRoles.SupportedRoles)}.");
         }
     }

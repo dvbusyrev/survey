@@ -167,7 +167,7 @@ async function ensureCadesPluginLoaded() {
     return cadesPluginLoadPromise;
 }
 
-async function CSP(id, id_omsu) {
+async function CSP(id, organization_id) {
     console.log("Начало работы CSP");
     try {
         await ensureCadesPluginLoaded();
@@ -178,11 +178,11 @@ async function CSP(id, id_omsu) {
             return;
         }
 
-        const dataToSign = await getDataForSignature(id, id_omsu);
+        const dataToSign = await getDataForSignature(id, organization_id);
         
         const signature = await createDigitalSignature(dataToSign);
         
-        await sendSignatureToServer(id, id_omsu, signature);
+        await sendSignatureToServer(id, organization_id, signature);
         
         updateUISuccess();
     } catch (error) {
@@ -265,8 +265,8 @@ async function checkCSPAvailable() {
 }
 
 
-async function getDataForSignature(id, id_omsu) {
-    const response = await fetch(`/get_signing_data/${id}/${id_omsu}`);
+async function getDataForSignature(id, organization_id) {
+    const response = await fetch(`/get_signing_data/${id}/${organization_id}`);
     if (!response.ok) throw new Error('Ошибка получения данных');
     return await response.text();
 }
@@ -378,8 +378,8 @@ async function getCertificateInfo(cert) {
 }
 
 
-async function sendSignatureToServer(id, id_omsu, signature) {
-    const response = await fetch(`/csp/${id}/${id_omsu}`, {
+async function sendSignatureToServer(id, organization_id, signature) {
+    const response = await fetch(`/csp/${id}/${organization_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signature })
@@ -558,8 +558,56 @@ window.HelpContent = ({ content, loading, error }) => {
   return openDoc();
 };
 
+window.UserSurveyModal = ({ isOpen, onClose, title = '', children, className = '' }) => {
+    React.useEffect(() => {
+        if (!isOpen) {
+            return undefined;
+        }
 
-window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                onClose?.();
+            }
+        };
+
+        document.body.classList.add('modal-open');
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.body.classList.remove('modal-open');
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isOpen, onClose]);
+
+    if (!isOpen) {
+        return null;
+    }
+
+    return (
+        <div
+            className={`modal modal--visible user-survey-modal ${className}`.trim()}
+            aria-hidden={!isOpen}
+            onClick={() => onClose?.()}
+        >
+            <div className="modal-content user-survey-modal__content" onClick={(event) => event.stopPropagation()}>
+                <button type="button" className="modal-close" onClick={() => onClose?.()}>
+                    <i className="fas fa-xmark"></i>
+                </button>
+                {title ? (
+                    <div className="modal-header user-survey-modal__header">
+                        <h2 className="h2_modal user-survey-modal__title">{title}</h2>
+                    </div>
+                ) : null}
+                <div className="modal-body user-survey-modal__body">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+window.SurveyFillPage = ({ survey, organizationId, userRole, onBack }) => {
     const [questions, setQuestions] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null);
@@ -569,14 +617,19 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
         showResults: false,
         resultsData: null
     });
+    const normalizeQuestion = React.useCallback((question, index) => ({
+        ...question,
+        id: question?.id ?? question?.Id ?? (index + 1),
+        text: question?.text ?? question?.Text ?? `Вопрос ${index + 1}`
+    }), []);
 
     React.useEffect(() => {
         const loadQuestions = async () => {
             try {
-                const response = await fetch(`/surveys/${survey.id_survey}/organizations/${survey.id_omsu}/questions`);
+                const response = await fetch(`/surveys/${survey.id_survey}/organizations/${survey.organization_id}/questions`);
                 if (!response.ok) throw new Error('Не удалось загрузить вопросы анкеты');
                 const data = await response.json();
-                setQuestions(data.questions || []);
+                setQuestions((data.questions || []).map((question, index) => normalizeQuestion(question, index)));
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -584,13 +637,18 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
             }
         };
         loadQuestions();
-    }, [survey.id_survey, survey.id_omsu]);
+    }, [survey.id_survey, survey.organization_id, normalizeQuestion]);
 
     const submitAnswers = async () => {
+        if (!allQuestionsAnswered) {
+            setError('Пожалуйста, ответьте на все вопросы. Для оценки ниже 5 заполните поле "Ваш комментарий".');
+            return;
+        }
+
         try {
             const answersArray = Object.entries(answers).map(([questionId, answer]) => ({
                 question_id: questionId,
-                question_text: questions.find(q => q.Id == questionId)?.Text || '',
+                question_text: questions.find(q => String(q.id) === String(questionId))?.text || '',
                 rating: answer.rating,
                 comment: answer.comment || ''
             }));
@@ -599,15 +657,32 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
-                    id_omsu: omsuId,
+                    organization_id: organizationId,
                     id_survey: survey.id_survey,
                     answers: answersArray
                 })
             });
 
-            if (!response.ok) throw new Error('Ошибка при отправке ответов');
+            if (!response.ok) {
+                let errorMessage = 'Ошибка при отправке ответов';
+
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData?.error || errorData?.message || errorMessage;
+                } catch {
+                    const errorText = await response.text();
+                    if (errorText) {
+                        errorMessage = errorText;
+                    }
+                }
+
+                throw new Error(errorMessage);
+            }
+
+            await response.json().catch(() => null);
 
             setSubmissionState({
                 isSubmitted: true,
@@ -615,7 +690,7 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
                 resultsData: {
                     Survey: survey,
                     Answers: answersArray,
-                    IdOmsu: omsuId
+                    IdOrganization: organizationId
                 }
             });
 
@@ -634,6 +709,11 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
 
     if (loading) return <div className="loading">Загрузка анкеты...</div>;
     if (error) return <div className="error-message">{error}</div>;
+
+    const allQuestionsAnswered = questions.length > 0 && questions.every(question => {
+        const answer = answers[question.id];
+        return answer?.rating && (answer.rating >= 5 || answer.comment);
+    });
 
     if (submissionState.isSubmitted && !submissionState.showResults) {
         return (
@@ -658,47 +738,50 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
 
     return (
         <div className="survey-fill-container">
-            <button onClick={onBack} className="back-button">
-                ← Вернуться к списку анкет
-            </button>
-            
             <div className="note">
                 <h2>{survey.name_survey}</h2>
                 <p>{survey.description || 'Анкета без описания'}</p>
             </div>
             
            {questions.map((question, qIndex) => (
-    <div key={`question-${question.Id}-${qIndex}`} className="question-container">
-        <h3>{question.Text}</h3>
+    <div key={`question-${question.id}-${qIndex}`} className="question-container">
+        <h3>{question.text}</h3>
         <div className="rating-buttons">
             {[1, 2, 3, 4, 5].map(rating => (
                 <button
-                    key={`rating-${question.Id}-${rating}`}
-                    className={`btn_crit ${answers[question.Id]?.rating === rating ? 'active' : ''}`}
-                    onClick={() => setAnswers(prev => ({
-                        ...prev,
-                        [question.Id]: {
-                            rating,
-                            comment: rating < 5 ? prev[question.Id]?.comment || '' : ''
-                        }
-                    }))}
+                    key={`rating-${question.id}-${rating}`}
+                    className={`btn_crit ${answers[question.id]?.rating === rating ? 'active' : ''}`}
+                    onClick={() => {
+                        setError(null);
+                        setAnswers(prev => ({
+                            ...prev,
+                            [question.id]: {
+                                rating,
+                                comment: rating < 5 ? prev[question.id]?.comment || '' : ''
+                            }
+                        }));
+                    }}
                 >
                     {rating}
                 </button>
             ))}
         </div>
-        {answers[question.Id]?.rating < 5 && (
+        {answers[question.id]?.rating > 0 && answers[question.id]?.rating < 5 && (
             <div className="comment-container">
+                <label className="comment-label">Ваш комментарий</label>
                 <textarea 
-                    value={answers[question.Id]?.comment || ''}
-                    onChange={(e) => setAnswers(prev => ({
-                        ...prev,
-                        [question.Id]: {
-                            ...prev[question.Id],
-                            comment: e.target.value
-                        }
-                    }))}
-                    placeholder="Ваш комментарий..."
+                    value={answers[question.id]?.comment || ''}
+                    onChange={(e) => {
+                        setError(null);
+                        setAnswers(prev => ({
+                            ...prev,
+                            [question.id]: {
+                                ...prev[question.id],
+                                comment: e.target.value
+                            }
+                        }));
+                    }}
+                    placeholder="Напишите комментарий"
                 />
             </div>
         )}
@@ -709,10 +792,15 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
                 <button 
                     onClick={submitAnswers}
                     className="submit-button"
-                    disabled={!Object.values(answers).every(a => a.rating) || 
-                             Object.values(answers).some(a => a.rating < 5 && !a.comment)}
                 >
                     Отправить ответы
+                </button>
+                <button
+                    type="button"
+                    className="modal_btn modal_btn-secondary user-survey-cancel-btn"
+                    onClick={onBack}
+                >
+                    Отмена
                 </button>
             </div>
         </div>
@@ -723,10 +811,6 @@ window.SurveyFillPage = ({ survey, omsuId, userRole, onBack }) => {
 window.CheckAnswersView = ({ data, userRole, onBack }) => {
     return (
         <div className="content" id="default_content">
-            <button onClick={onBack} className="back-button">
-                ← Вернуться к списку анкет
-            </button>
-            
             <div className="note">
                 <h2>Вы успешно прошли анкету!</h2>
                 <p>На этой странице вы можете ознакомиться с ответами на анкету.</p>
@@ -756,13 +840,13 @@ window.CheckAnswersView = ({ data, userRole, onBack }) => {
             <div id="block_btn_not_csp" className="button-container">
                 <button 
                     className="submit-button" 
-                    onClick={() => CSP(data.Survey.id_survey, data.IdOmsu)}
+                    onClick={() => CSP(data.Survey.id_survey, data.IdOrganization)}
                 >
                     Подписать
                 </button>
                 <button 
                     className="submit-button" 
-                    onClick={() => createPdfReport(data.Survey.id_survey, data.IdOmsu)}
+                    onClick={() => createPdfReport(data.Survey.id_survey, data.IdOrganization)}
                 >
 
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -778,7 +862,7 @@ window.CheckAnswersView = ({ data, userRole, onBack }) => {
 <div id="block_btn_csp" className="button-container" style={{display: 'none'}}>
     <button 
         className="submit-button" 
-        onClick={() => downloadSignedArchive(data.Survey.id_survey, data.IdOmsu)}
+        onClick={() => downloadSignedArchive(data.Survey.id_survey, data.IdOrganization)}
     >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -793,9 +877,9 @@ window.CheckAnswersView = ({ data, userRole, onBack }) => {
 };
 
 
-window.createPdfReport = async function(surveyId, omsuId) {
+window.createPdfReport = async function(surveyId, organizationId) {
     try {
-        const response = await fetch(`/create_pdf_report/${surveyId}/${omsuId}`);
+        const response = await fetch(`/create_pdf_report/${surveyId}/${organizationId}`);
         if (!response.ok) throw new Error('Ошибка создания PDF');
         
         const blob = await response.blob();
@@ -885,7 +969,7 @@ const downloadSigned = async (surveyData) => {
 
 
 
-window.downloadSignedArchive = async function(surveyId, omsuId) {
+window.downloadSignedArchive = async function(surveyId, organizationId) {
     try {
         const loadingIndicator = document.createElement('div');
         loadingIndicator.className = 'loading-overlay';
@@ -897,7 +981,7 @@ window.downloadSignedArchive = async function(surveyId, omsuId) {
         `;
         document.body.appendChild(loadingIndicator);
 
-        const response = await fetch(`/download_signed_archive/${surveyId}/${omsuId}`);
+        const response = await fetch(`/download_signed_archive/${surveyId}/${organizationId}`);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
@@ -933,7 +1017,7 @@ window.downloadSignedArchive = async function(surveyId, omsuId) {
 }
 
 
-window.CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
+window.CheckAnswersPage = ({ survey, organizationId, userRole, onBack }) => {
     const [data, setData] = React.useState({
         loading: true,
         error: null,
@@ -948,7 +1032,7 @@ window.CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
                 console.log(`Загрузка ответов для анкеты ${survey.id_survey}`);
                 setData(prev => ({ ...prev, loading: true, error: null }));
                 
-                const response = await fetch(`/answers/${survey.id_survey}/${omsuId}/${userRole}`);
+                const response = await fetch(`/answers/${survey.id_survey}/${organizationId}/${userRole}`);
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => null);
@@ -983,7 +1067,7 @@ window.CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
         };
 
         fetchSurveyAnswers();
-    }, [survey.id_survey, omsuId, userRole]);
+    }, [survey.id_survey, organizationId, userRole]);
 
     if (data.loading) {
         return (
@@ -997,19 +1081,12 @@ window.CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
         return (
             <div className="error-container">
                 <p>{data.error}</p>
-                <div onClick={onBack} className="back-link">
-                    ← Вернуться к списку анкет
-                </div>
             </div>
         );
     }
 
     return (
         <div className="answers-container">
-            <div onClick={onBack} className="back-link">
-                ← Вернуться к списку анкет
-            </div>
-            
             <h1 className="survey-title">
                 Ответы на анкету: <span className="survey-name">{data.surveyName}</span>
             </h1>
@@ -1034,38 +1111,56 @@ window.CheckAnswersPage = ({ survey, omsuId, userRole, onBack }) => {
                     Нет данных для отображения
                 </div>
             ) : (
-                <div className="answers-content">
-                    {data.answers.map((group, groupIndex) => (
-                        <div key={`group-${groupIndex}-${group.date}`} className="answer-block">
-                            <div className="answer-date">
-                                <span className="calendar-icon">📅</span> {group.date || 'Дата не указана'}
-                            </div>
-                            
-                            <table className="answers-table">
-                                <thead>
-                                    <tr>
-                                        <th>Вопрос</th>
-                                        <th>Оценка</th>
-                                        <th>Комментарий</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {group.answers.map((answer, answerIndex) => (
-                                        <tr key={`answer-${groupIndex}-${answerIndex}-${answer.question_text}`}>
-                                            <td data-label="Вопрос">{answer.question_text}</td>
-                                            <td data-label="Оценка" className="rating-cell">
-                                                <span className="rating-badge">
-                                                    {answer.rating}
-                                                </span>
-                                            </td>
-                                            <td data-label="Комментарий">{answer.comment}</td>
+                <>
+                    <div className="answers-content">
+                        {data.answers.map((group, groupIndex) => (
+                            <div key={`group-${groupIndex}-${group.date}`} className="answer-block">
+                                <div className="answer-date">
+                                    <span className="calendar-icon">📅</span> {group.date || 'Дата не указана'}
+                                </div>
+                                
+                                <table className="answers-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Вопрос</th>
+                                            <th>Оценка</th>
+                                            <th>Комментарий</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
-                </div>
+                                    </thead>
+                                    <tbody>
+                                        {group.answers.map((answer, answerIndex) => (
+                                            <tr key={`answer-${groupIndex}-${answerIndex}-${answer.question_text}`}>
+                                                <td data-label="Вопрос">{answer.question_text}</td>
+                                                <td data-label="Оценка" className="rating-cell">
+                                                    <span className="rating-badge">
+                                                        {answer.rating}
+                                                    </span>
+                                                </td>
+                                                <td data-label="Комментарий">{answer.comment}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="submit-container user-survey-modal-actions">
+                        <button
+                            type="button"
+                            className="submit-button"
+                            onClick={() => createPdfReport(survey.id_survey, organizationId)}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span> </span>
+                            Скачать PDF с анкетой
+                        </button>
+                    </div>
+                </>
             )}
         </div>
     );

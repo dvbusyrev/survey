@@ -18,11 +18,11 @@
 
 Из `wwwroot/dumps/logs_dump_20250425_062004.txt` удалось вытащить такие соответствия:
 
-- `id_omsu = 34`: `sdgffhfg`, email `hlebopashev.anton@yandex.ru`
-- `id_omsu = 35`: `fdghfghf`, email `hlebopashev.anton@yandex.ru`
-- `id_omsu = 37`: `КУКУ`, email `hlebopashev.anton@yandex.ru`
-- `id_omsu = 38`: `sdgfddfghfhf`, email `hlebopashev.anton@yandex.ru`
-- `id_omsu = 39`: `уарпарапр`, email `hlebopashev.anton@yandex.ru`
+- `organization_id = 34`: `sdgffhfg`, email `hlebopashev.anton@yandex.ru`
+- `organization_id = 35`: `fdghfghf`, email `hlebopashev.anton@yandex.ru`
+- `organization_id = 37`: `КУКУ`, email `hlebopashev.anton@yandex.ru`
+- `organization_id = 38`: `sdgfddfghfhf`, email `hlebopashev.anton@yandex.ru`
+- `organization_id = 39`: `уарпарапр`, email `hlebopashev.anton@yandex.ru`
 
 ## Ограничения
 

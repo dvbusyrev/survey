@@ -13,10 +13,19 @@ public sealed class AnswerWorkflowService
 
     public CheckAnswersPageViewModel? InsertAnswer(HistoryAnswer historyAnswerData)
     {
-        _answerDataService.InsertHistoryAnswer(historyAnswerData);
-        _answerDataService.DeleteAccessExtension(historyAnswerData.id_omsu, historyAnswerData.id_survey);
+        var existingAnswer = _answerDataService.GetHistoryAnswer(historyAnswerData.id_survey, historyAnswerData.organization_id);
+        if (existingAnswer == null)
+        {
+            _answerDataService.InsertHistoryAnswer(historyAnswerData);
+        }
+        else
+        {
+            _answerDataService.UpdateHistoryAnswer(historyAnswerData);
+        }
 
-        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.id_omsu, historyAnswerData.Answers);
+        _answerDataService.ClearSurveyExtension(historyAnswerData.organization_id, historyAnswerData.id_survey);
+
+        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.organization_id, historyAnswerData.Answers);
     }
 
     public CheckAnswersPageViewModel? UpdateAnswer(HistoryAnswer historyAnswerData)
@@ -27,12 +36,12 @@ public sealed class AnswerWorkflowService
             return null;
         }
 
-        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.id_omsu, historyAnswerData.Answers);
+        return BuildCheckAnswersPage(historyAnswerData.id_survey, historyAnswerData.organization_id, historyAnswerData.Answers);
     }
 
-    public UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int omsuId)
+    public UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int organizationId)
     {
-        var historyAnswer = _answerDataService.GetHistoryAnswer(surveyId, omsuId);
+        var historyAnswer = _answerDataService.GetHistoryAnswer(surveyId, organizationId);
         if (historyAnswer == null || historyAnswer.Answers.Count == 0)
         {
             return null;
@@ -41,12 +50,12 @@ public sealed class AnswerWorkflowService
         return new UpdateAnswerPageViewModel
         {
             SurveyId = surveyId,
-            OmsuId = omsuId,
+            OrganizationId = organizationId,
             Answers = historyAnswer.Answers
         };
     }
 
-    public SurveyAnswersResponse GetAnswersResponse(int surveyId, int omsuId, string? type, bool includeAllOmsuAnswers)
+    public SurveyAnswersResponse GetAnswersResponse(int surveyId, int organizationId, string? type, bool includeAllOrganizationAnswers)
     {
         var surveyInfo = _answerDataService.GetSurveyInfo(surveyId);
         if (surveyInfo == null)
@@ -60,7 +69,7 @@ public sealed class AnswerWorkflowService
 
         var historyAnswers = _answerDataService.GetHistoryAnswers(
             surveyId,
-            includeAllOmsuAnswers ? null : omsuId);
+            includeAllOrganizationAnswers ? null : organizationId);
 
         if (historyAnswers.Count == 0)
         {
@@ -75,8 +84,8 @@ public sealed class AnswerWorkflowService
             .Select(answer => new SurveyAnswerResultViewModel
             {
                 Id = answer.id_answer,
-                OmsuId = answer.id_omsu,
-                OmsuName = answer.name_omsu ?? "Неизвестно",
+                OrganizationId = answer.organization_id,
+                OrganizationName = answer.organization_name ?? "Неизвестно",
                 Date = answer.completion_date?.ToString("dd.MM.yyyy HH:mm") ?? "Дата не указана",
                 Answers = answer.Answers
                     .Select(item => new SurveyAnswerResultItemViewModel
@@ -106,7 +115,7 @@ public sealed class AnswerWorkflowService
         };
     }
 
-    private CheckAnswersPageViewModel? BuildCheckAnswersPage(int surveyId, int omsuId, IReadOnlyList<AnswerPayloadItem> answers)
+    private CheckAnswersPageViewModel? BuildCheckAnswersPage(int surveyId, int organizationId, IReadOnlyList<AnswerPayloadItem> answers)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
         if (survey == null)
@@ -118,7 +127,7 @@ public sealed class AnswerWorkflowService
         {
             Survey = survey,
             Answers = answers,
-            IdOmsu = omsuId
+            IdOrganization = organizationId
         };
     }
 }

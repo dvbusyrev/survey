@@ -4,7 +4,7 @@
     ViewData["Title"] = "Проверка ответов";
     var survey = Model.Survey;
     var answers = Model.Answers;
-    var idOmsu = Model.IdOmsu;
+    var idOrganization = Model.IdOrganization;
 }
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
@@ -62,12 +62,12 @@
         </div>
 
         <div class="answers-page__actions">
-            <button class="answers-page__action-button" onclick="CSP(@survey.id_survey, @idOmsu)">Подписать</button>
-            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'file')">Скачать файл с анкетой</button>
+            <button class="answers-page__action-button" onclick="CSP(@survey.id_survey, @idOrganization)">Подписать</button>
+            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOrganization, 'file')">Скачать файл с анкетой</button>
         </div>
 
         <div id="block_btn_csp" class="answers-page__download-actions is-hidden">
-            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOmsu, 'archiv')">Скачать файл с анкетой и подписью</button>
+            <button class="answers-page__action-button" onclick="create_otchet_for_me(@survey.id_survey, @idOrganization, 'archiv')">Скачать файл с анкетой и подписью</button>
         </div>
     }
 </div>
