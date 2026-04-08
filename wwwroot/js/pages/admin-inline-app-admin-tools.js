@@ -133,13 +133,6 @@ function submitExtension(id) {
                 return;
             }
 
-            const today = new Date().toISOString().split('T')[0];
-            if (endDate <= today) {
-                alert("Дата окончания должна быть в будущем!");
-                isValid = false;
-                return;
-            }
-
             data.push({ 
                 organizationId: parseInt(organization), 
                 extendedUntil: endDate
@@ -257,12 +250,6 @@ function submitFormAdd() {
         alert("Введите пароль!");
         return;
     }
-
-const password = document.getElementById('password').value;
-if (password.length < 12) {
-    alert("Пароль должен содержать не меньше 12 символов!");
-    return;
-}
 
             if (!document.getElementById('organization').value){
         alert("Выберите организацию пользователя!");
@@ -545,21 +532,6 @@ async function updateUser() {
         return;
     }
 
-                if (!document.getElementById('editDateBegin').value)
-    {
-        alert("Введите дату начала!");
-        return;
-    }
-
-const startDate = new Date(document.getElementById('editDateBegin').value);
-const endDate = new Date(document.getElementById('editDateEnd').value);
-
-if (startDate >= endDate) {
-    alert("Дата начала должна быть раньше даты окончания!");
-    return;
-}
-    
-    
     try {
         // Получаем элементы
         const modal = getSafeElement('editUserModal');
@@ -582,14 +554,6 @@ if (startDate >= endDate) {
         // Валидация
         if (!elements.username.value || !elements.organization.value) {
             throw new Error('Заполните все обязательные поля');
-        }
-
-        if (elements.dateBegin.value && elements.dateEnd.value) {
-            const beginDate = new Date(elements.dateBegin.value);
-            const endDate = new Date(elements.dateEnd.value);
-            if (endDate < beginDate) {
-                throw new Error('Дата окончания не может быть раньше даты начала');
-            }
         }
 
         // Формируем данные
@@ -687,25 +651,6 @@ async function add_organization_bd() {
 }
 
 
-if (!document.getElementById('DateBegin').value)
-{
-    alert("Выберите дату начала!");
-    return;
-}
-
-
-
-const startDate = new Date(document.getElementById('DateBegin').value);
-const endDate = new Date(document.getElementById('DateEnd').value);
-
-if (startDate >= endDate) {
-    alert("Дата начала должна быть раньше даты окончания!");
-    return;
-}
-
-
-
-
     try {
         // 1. Собираем данные из формы
         const formData = {
@@ -790,21 +735,6 @@ async function updateOrganization() {
     return;
 }
 
-if (!document.getElementById('organizationDateBegin').value)
-{
-    alert("Выберите дату начала!");
-    return;
-}
-
-const startDate = new Date(document.getElementById('organizationDateBegin').value);
-const endDate = new Date(document.getElementById('organizationDateEnd').value);
-
-if (startDate >= endDate) {
-    alert("Дата начала должна быть раньше даты окончания!");
-    return;
-}
-
-
     try {
         // 1. Получаем значения из формы
         const id = document.getElementById('editOrganizationId').value;
@@ -813,40 +743,25 @@ if (startDate >= endDate) {
         const dateBegin = document.getElementById('organizationDateBegin').value;
         const dateEnd = document.getElementById('organizationDateEnd').value;
 
-        // 2. Валидация обязательных полей
-        if (!name) {
-            throw new Error("Название организации обязательно для заполнения");
-        }
-
-        // 3. Проверка дат
-        if (dateBegin && dateEnd) {
-            const beginDate = new Date(dateBegin);
-            const endDate = new Date(dateEnd);
-            
-            if (endDate < beginDate) {
-                throw new Error("Дата окончания не может быть раньше даты начала");
-            }
-        }
-
-        // 4. Подготовка данных в формате, ожидаемом сервером
-        const organizationData = [
-            name,        // Название организации (обязательное)
-            email || "", // Email (может быть пустым)
-            dateBegin || "", // Дата начала (может быть пустой)
-            dateEnd || ""    // Дата окончания (может быть пустой)
-        ];
+        // 2. Подготовка данных в формате, ожидаемом сервером
+        const organizationData = {
+            Name: name,
+            Email: email || "",
+            DateBegin: dateBegin || "",
+            DateEnd: dateEnd || ""
+        };
 
         console.log('Отправляемые данные:', {
             id: id,
             data: organizationData
         });
 
-        // 5. Блокируем кнопку на время отправки
+        // 3. Блокируем кнопку на время отправки
         const saveBtn = document.getElementById('saveOrganizationBtn');
         saveBtn.disabled = true;
         saveBtn.textContent = 'Сохранение...';
 
-        // 6. Отправка данных с обработкой возможных ошибок сети
+        // 4. Отправка данных с обработкой возможных ошибок сети
         let response;
         try {
             response = await fetch(`/organizations/${id}/update`, {
@@ -860,7 +775,7 @@ if (startDate >= endDate) {
             throw new Error("Ошибка сети. Проверьте соединение.");
         }
 
-        // 7. Проверка ответа сервера
+        // 5. Проверка ответа сервера
         if (!response.ok) {
             let errorText;
             try {
@@ -871,7 +786,7 @@ if (startDate >= endDate) {
             throw new Error(errorText);
         }
 
-        // 8. Успешное завершение
+        // 6. Успешное завершение
         const result = await response.text();
         console.log("Организация успешно обновлена:", result);
         closeOrganizationModal('editOrganizationModal');

@@ -44,12 +44,19 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var model = _answerWorkflowService.InsertAnswer(answerData);
-            if (model == null)
+            var result = _answerWorkflowService.InsertAnswer(answerData);
+            if (!result.Success)
             {
+                if (result.NotFound)
+                {
+                    return isAjaxRequest
+                        ? NotFound(new OperationResponse { Error = result.Error })
+                        : NotFound(result.Error ?? "Анкета не найдена");
+                }
+
                 return isAjaxRequest
-                    ? NotFound(new OperationResponse { Error = "Анкета не найдена." })
-                    : NotFound("Анкета не найдена");
+                    ? BadRequest(new OperationResponse { Error = result.Error })
+                    : BadRequest(result.Error ?? "Некорректные данные ответа.");
             }
 
             if (isAjaxRequest)
@@ -61,7 +68,7 @@ public class AnswerWorkflowController : Controller
                 });
             }
 
-            return View("~/Views/Answer/check_answers.cshtml", model);
+            return View("~/Views/Answer/check_answers.cshtml", result.Model);
         }
         catch (Exception ex)
         {
@@ -160,13 +167,18 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var model = _answerWorkflowService.UpdateAnswer(answerData);
-            if (model == null)
+            var result = _answerWorkflowService.UpdateAnswer(answerData);
+            if (!result.Success)
             {
-                return NotFound("Запись для обновления не найдена.");
+                if (result.NotFound)
+                {
+                    return NotFound(result.Error ?? "Запись для обновления не найдена.");
+                }
+
+                return BadRequest(result.Error ?? "Некорректные данные ответа.");
             }
 
-            return View("~/Views/Answer/check_answers.cshtml", model);
+            return View("~/Views/Answer/check_answers.cshtml", result.Model);
         }
         catch (Exception ex)
         {

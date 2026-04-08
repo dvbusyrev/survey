@@ -44,39 +44,52 @@ public sealed class SurveyAdminService
         return surveys;
     }
 
-    public async Task<int> CreateSurveyAsync(SurveyAddRequest request)
+    public async Task<SurveyCommandResult> CreateSurveyAsync(SurveyAddRequest? request)
     {
+        if (!TryValidateCreateRequest(
+                request,
+                out var title,
+                out var description,
+                out var startDate,
+                out var endDate,
+                out var organizationIds,
+                out var questionRows,
+                out var validationError))
+        {
+            return new SurveyCommandResult
+            {
+                Message = validationError
+            };
+        }
+
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
         try
         {
-            var questionRows = request.Criteria
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Select((text, index) => new SurveyQuestionRow
-                {
-                    QuestionOrder = index + 1,
-                    QuestionText = text.Trim()
-                })
-                .ToList();
             var newSurveyId = await connection.ExecuteScalarAsync<int>(
                 @"INSERT INTO public.survey (name_survey, description, date_create, date_open, date_close)
                   VALUES (@Title, @Description, NOW(), @StartDate, @EndDate)
                   RETURNING id_survey",
                 new
                 {
-                    request.Title,
-                    request.Description,
-                    StartDate = DateTime.Parse(request.StartDate),
-                    EndDate = DateTime.Parse(request.EndDate)
+                    Title = title,
+                    Description = description,
+                    StartDate = startDate,
+                    EndDate = endDate
                 },
                 transaction);
 
             await ReplaceSurveyQuestionsAsync(connection, transaction, newSurveyId, questionRows);
-            await InsertOrganizationSurveyAssignmentsAsync(connection, transaction, newSurveyId, request.Organizations);
+            await InsertOrganizationSurveyAssignmentsAsync(connection, transaction, newSurveyId, organizationIds);
             transaction.Commit();
 
-            return newSurveyId;
+            return new SurveyCommandResult
+            {
+                Success = true,
+                Message = "Анкета успешно создана",
+                SurveyId = newSurveyId
+            };
         }
         catch
         {
@@ -133,8 +146,24 @@ public sealed class SurveyAdminService
         };
     }
 
-    public bool UpdateSurvey(int id, SurveyUpdateRequest model)
+    public SurveyCommandResult UpdateSurvey(int id, SurveyUpdateRequest? model)
     {
+        if (!TryValidateUpdateRequest(
+                model,
+                out var title,
+                out var description,
+                out var startDate,
+                out var endDate,
+                out var organizationIds,
+                out var questionRows,
+                out var validationError))
+        {
+            return new SurveyCommandResult
+            {
+                Message = validationError
+            };
+        }
+
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
@@ -147,17 +176,13 @@ public sealed class SurveyAdminService
 
             if (!exists)
             {
-                return false;
+                return new SurveyCommandResult
+                {
+                    NotFound = true,
+                    Message = "Анкета не найдена"
+                };
             }
 
-            var questionRows = model.Criteria
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .Select((text, index) => new SurveyQuestionRow
-                {
-                    QuestionOrder = index + 1,
-                    QuestionText = text.Trim()
-                })
-                .ToList();
             var affectedRows = connection.Execute(
                 @"UPDATE public.survey SET
                     name_survey = @Title,
@@ -168,26 +193,35 @@ public sealed class SurveyAdminService
                 new
                 {
                     id,
-                    model.Title,
-                    model.Description,
-                    model.StartDate,
-                    model.EndDate
+                    Title = title,
+                    Description = description,
+                    StartDate = startDate,
+                    EndDate = endDate
                 },
                 transaction);
 
             if (affectedRows == 0)
             {
                 transaction.Rollback();
-                return false;
+                return new SurveyCommandResult
+                {
+                    NotFound = true,
+                    Message = "Анкета не найдена"
+                };
             }
 
             ReplaceSurveyQuestionsAsync(connection, transaction, id, questionRows)
                 .GetAwaiter()
                 .GetResult();
-            UpdateOrganizationSurveyAssignments(connection, transaction, id, model.Organizations);
+            UpdateOrganizationSurveyAssignments(connection, transaction, id, organizationIds);
             transaction.Commit();
 
-            return true;
+            return new SurveyCommandResult
+            {
+                Success = true,
+                Message = "Анкета успешно обновлена",
+                SurveyId = id
+            };
         }
         catch
         {
@@ -219,8 +253,16 @@ public sealed class SurveyAdminService
         return survey;
     }
 
-    public async Task<int?> CopySurveyAsync(int id, SurveyCopyRequest request)
+    public async Task<SurveyCommandResult> CopySurveyAsync(int id, SurveyCopyRequest? request)
     {
+        if (!TryValidateCopyRequest(request, out var startDate, out var endDate, out var validationError))
+        {
+            return new SurveyCommandResult
+            {
+                Message = validationError
+            };
+        }
+
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
@@ -239,7 +281,11 @@ public sealed class SurveyAdminService
             if (originalSurvey == null)
             {
                 transaction.Rollback();
-                return null;
+                return new SurveyCommandResult
+                {
+                    NotFound = true,
+                    Message = "Анкета не найдена"
+                };
             }
 
             var newSurveyId = await connection.ExecuteScalarAsync<int>(
@@ -250,8 +296,8 @@ public sealed class SurveyAdminService
                 {
                     Name = $"{originalSurvey.NameSurvey} (Копия)",
                     Description = originalSurvey.Description,
-                    StartDate = DateTime.Parse(request.StartDate),
-                    EndDate = DateTime.Parse(request.EndDate)
+                    StartDate = startDate,
+                    EndDate = endDate
                 },
                 transaction);
 
@@ -283,13 +329,216 @@ public sealed class SurveyAdminService
                 transaction);
 
             transaction.Commit();
-            return newSurveyId;
+            return new SurveyCommandResult
+            {
+                Success = true,
+                Message = "Анкета успешно скопирована",
+                SurveyId = newSurveyId
+            };
         }
         catch
         {
             transaction.Rollback();
             throw;
         }
+    }
+
+    private static bool TryValidateCreateRequest(
+        SurveyAddRequest? request,
+        out string title,
+        out string description,
+        out DateTime startDate,
+        out DateTime endDate,
+        out IReadOnlyList<int> organizationIds,
+        out IReadOnlyList<SurveyQuestionRow> questionRows,
+        out string validationError)
+    {
+        title = string.Empty;
+        description = string.Empty;
+        startDate = default;
+        endDate = default;
+        organizationIds = Array.Empty<int>();
+        questionRows = Array.Empty<SurveyQuestionRow>();
+        validationError = string.Empty;
+
+        if (request == null)
+        {
+            validationError = "Неверные данные запроса";
+            return false;
+        }
+
+        title = request.Title?.Trim() ?? string.Empty;
+        description = request.Description?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            validationError = "Название анкеты обязательно";
+            return false;
+        }
+
+        if (!TryParseDateRange(request.StartDate, request.EndDate, out startDate, out endDate, out validationError))
+        {
+            return false;
+        }
+
+        if (!TryNormalizeOrganizationIds(request.Organizations, out organizationIds, out validationError))
+        {
+            return false;
+        }
+
+        return TryBuildQuestionRows(request.Criteria, out questionRows, out validationError);
+    }
+
+    private static bool TryValidateUpdateRequest(
+        SurveyUpdateRequest? request,
+        out string title,
+        out string description,
+        out DateTime startDate,
+        out DateTime endDate,
+        out IReadOnlyList<int> organizationIds,
+        out IReadOnlyList<SurveyQuestionRow> questionRows,
+        out string validationError)
+    {
+        title = string.Empty;
+        description = string.Empty;
+        startDate = default;
+        endDate = default;
+        organizationIds = Array.Empty<int>();
+        questionRows = Array.Empty<SurveyQuestionRow>();
+        validationError = string.Empty;
+
+        if (request == null)
+        {
+            validationError = "Данные анкеты не предоставлены";
+            return false;
+        }
+
+        title = request.Title?.Trim() ?? string.Empty;
+        description = request.Description?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            validationError = "Название анкеты обязательно";
+            return false;
+        }
+
+        if (!TryValidateDateRange(request.StartDate, request.EndDate, out validationError))
+        {
+            return false;
+        }
+
+        startDate = request.StartDate;
+        endDate = request.EndDate;
+
+        if (!TryNormalizeOrganizationIds(request.Organizations, out organizationIds, out validationError))
+        {
+            return false;
+        }
+
+        return TryBuildQuestionRows(request.Criteria, out questionRows, out validationError);
+    }
+
+    private static bool TryValidateCopyRequest(
+        SurveyCopyRequest? request,
+        out DateTime startDate,
+        out DateTime endDate,
+        out string validationError)
+    {
+        startDate = default;
+        endDate = default;
+        validationError = string.Empty;
+
+        if (request == null)
+        {
+            validationError = "Неверные данные запроса";
+            return false;
+        }
+
+        return TryParseDateRange(request.StartDate, request.EndDate, out startDate, out endDate, out validationError);
+    }
+
+    private static bool TryParseDateRange(
+        string? rawStartDate,
+        string? rawEndDate,
+        out DateTime startDate,
+        out DateTime endDate,
+        out string validationError)
+    {
+        startDate = default;
+        endDate = default;
+        validationError = string.Empty;
+
+        if (!DateTime.TryParse(rawStartDate, out startDate)
+            || !DateTime.TryParse(rawEndDate, out endDate))
+        {
+            validationError = "Неверный формат даты";
+            return false;
+        }
+
+        return TryValidateDateRange(startDate, endDate, out validationError);
+    }
+
+    private static bool TryValidateDateRange(DateTime startDate, DateTime endDate, out string validationError)
+    {
+        validationError = string.Empty;
+
+        if (startDate == default || endDate == default)
+        {
+            validationError = "Неверный формат даты";
+            return false;
+        }
+
+        if (endDate <= startDate)
+        {
+            validationError = "Дата окончания должна быть позже даты начала";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryNormalizeOrganizationIds(
+        IEnumerable<int>? rawOrganizationIds,
+        out IReadOnlyList<int> organizationIds,
+        out string validationError)
+    {
+        organizationIds = (rawOrganizationIds ?? Array.Empty<int>())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        if (organizationIds.Count == 0)
+        {
+            validationError = "Выберите хотя бы одну организацию";
+            return false;
+        }
+
+        validationError = string.Empty;
+        return true;
+    }
+
+    private static bool TryBuildQuestionRows(
+        IEnumerable<string>? rawCriteria,
+        out IReadOnlyList<SurveyQuestionRow> questionRows,
+        out string validationError)
+    {
+        questionRows = (rawCriteria ?? Array.Empty<string>())
+            .Where(text => !string.IsNullOrWhiteSpace(text))
+            .Select((text, index) => new SurveyQuestionRow
+            {
+                QuestionOrder = index + 1,
+                QuestionText = text.Trim()
+            })
+            .ToList();
+
+        if (questionRows.Count == 0)
+        {
+            validationError = "Добавьте хотя бы один критерий";
+            return false;
+        }
+
+        validationError = string.Empty;
+        return true;
     }
 
     public List<Survey>? DeleteSurvey(int surveyId)

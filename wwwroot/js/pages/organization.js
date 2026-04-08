@@ -140,24 +140,12 @@
         const dateBegin = byId('organizationDateBegin')?.value || '';
         const dateEnd = byId('organizationDateEnd')?.value || '';
 
-        if (!name || !dateBegin || !dateEnd) {
-            alert('Заполните обязательные поля');
-            return;
-        }
-
-        const startDate = new Date(dateBegin);
-        const endDate = new Date(dateEnd);
-        if (endDate < startDate) {
-            alert('Дата окончания не может быть раньше даты начала');
-            return;
-        }
-
-        const payload = [
-            name,
-            email,
-            dateBegin,
-            dateEnd
-        ];
+        const payload = {
+            Name: name,
+            Email: email,
+            DateBegin: dateBegin,
+            DateEnd: dateEnd
+        };
 
         try {
             await submitOrganizationUpdate(id, payload);
@@ -173,22 +161,12 @@
     }
 
     async function updateOrganizationPage(id) {
-        const payload = [
-            byId('name')?.value?.trim() || '',
-            byId('email')?.value?.trim() || '',
-            byId('date_begin')?.value || '',
-            byId('date_end')?.value || ''
-        ];
-
-        if (!payload[0] || !payload[2] || !payload[3]) {
-            alert('Заполните обязательные поля');
-            return;
-        }
-
-        if (new Date(payload[3]) < new Date(payload[2])) {
-            alert('Дата окончания не может быть раньше даты начала');
-            return;
-        }
+        const payload = {
+            Name: byId('name')?.value?.trim() || '',
+            Email: byId('email')?.value?.trim() || '',
+            DateBegin: byId('date_begin')?.value || '',
+            DateEnd: byId('date_end')?.value || ''
+        };
 
         try {
             await submitOrganizationUpdate(id, payload);

@@ -11,6 +11,14 @@ public sealed class OperationResponse
     public string? Details { get; init; }
 }
 
+public sealed class AnswerMutationResult
+{
+    public bool Success { get; init; }
+    public bool NotFound { get; init; }
+    public string? Error { get; init; }
+    public CheckAnswersPageViewModel? Model { get; init; }
+}
+
 public sealed class CheckAnswersPageViewModel
 {
     public Survey Survey { get; init; } = new();

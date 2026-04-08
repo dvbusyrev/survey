@@ -1,24 +1,18 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Infrastructure.Database;
 using MainProject.Infrastructure.Security;
-using Npgsql;
-using System.Data;
+using MainProject.Services;
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 
 public class AuthController : Controller
 {
-    private readonly IDbConnectionFactory _connectionFactory;
-    private static readonly PasswordHasher<string> _passwordHasher = new();
+    private readonly AuthService _authService;
 
-    public AuthController(IDbConnectionFactory connectionFactory)
+    public AuthController(AuthService authService)
     {
-        _connectionFactory = connectionFactory;
+        _authService = authService;
     }
 
     [AllowAnonymous]
@@ -68,64 +62,20 @@ public class AuthController : Controller
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return StatusCode(400, "Имя пользователя и пароль не могут быть пустыми");
 
-        using var connection = _connectionFactory.CreateConnection();
-
         try
         {
-            if (connection.State != ConnectionState.Open)
-                connection.Open();
-
-            using var command = connection.CreateCommand();
-            command.CommandText = @"SELECT u.id_user, u.name_role, u.name_user, COALESCE(o.organization_name, '') AS organization_name, u.hash_password
-                                    FROM public.app_user u
-                                    LEFT JOIN public.organization o ON u.organization_id = o.organization_id
-                                    WHERE u.name_user = @username";
-            command.Parameters.Add(new NpgsqlParameter("@username", NpgsqlTypes.NpgsqlDbType.Text) { Value = username });
-
-            int idUser;
-            string nameRole;
-            string nameUser;
-            string nameOrganization;
-            string storedHash;
-
-            using (var reader = command.ExecuteReader())
+            var loginResult = _authService.Authenticate(username, password);
+            if (!loginResult.Success)
             {
-                if (!reader.Read())
-                    return StatusCode(401, "Неверное имя пользователя или пароль");
-
-                idUser = reader.GetInt32(0);
-                nameRole = AppRoles.Normalize(reader.GetString(1));
-                nameUser = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
-                nameOrganization = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
-                storedHash = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
-            }
-
-            if (!AppRoles.IsSupported(nameRole))
-                return StatusCode(500, "Для пользователя задана неподдерживаемая роль");
-
-            bool isLegacyHash;
-            var verify = VerifyPassword(username, storedHash, password, out isLegacyHash);
-            if (verify == PasswordVerificationResult.Failed)
-                return StatusCode(401, "Неверное имя пользователя или пароль");
-
-            if (verify == PasswordVerificationResult.SuccessRehashNeeded || isLegacyHash)
-            {
-                using var updateCommand = connection.CreateCommand();
-                updateCommand.CommandText = "UPDATE public.app_user SET hash_password = @hash WHERE id_user = @id";
-                updateCommand.Parameters.Add(new NpgsqlParameter("@hash", NpgsqlTypes.NpgsqlDbType.Text)
-                {
-                    Value = _passwordHasher.HashPassword(username, password)
-                });
-                updateCommand.Parameters.Add(new NpgsqlParameter("@id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = idUser });
-                updateCommand.ExecuteNonQuery();
+                return StatusCode(loginResult.StatusCode, loginResult.ErrorMessage);
             }
 
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, idUser.ToString()),
-                new Claim(ClaimTypes.Name, nameUser),
-                new Claim(ClaimTypes.Role, nameRole),
-                new Claim("organization_name", nameOrganization)
+                new Claim(ClaimTypes.NameIdentifier, loginResult.UserId.ToString()),
+                new Claim(ClaimTypes.Name, loginResult.UserName),
+                new Claim(ClaimTypes.Role, loginResult.Role),
+                new Claim("organization_name", loginResult.OrganizationName)
             };
 
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -135,49 +85,15 @@ public class AuthController : Controller
 
             return Json(new
             {
-                role = nameRole,
-                userId = idUser,
-                nameUser,
-                nameOrganization
+                role = loginResult.Role,
+                userId = loginResult.UserId,
+                nameUser = loginResult.UserName,
+                nameOrganization = loginResult.OrganizationName
             });
         }
         catch
         {
             return StatusCode(500, "Ошибка сервера при попытке авторизации");
         }
-    }
-
-    private PasswordVerificationResult VerifyPassword(string username, string storedHash, string password, out bool isLegacyHash)
-    {
-        isLegacyHash = false;
-
-        if (string.IsNullOrWhiteSpace(storedHash))
-            return PasswordVerificationResult.Failed;
-
-        try
-        {
-            var result = _passwordHasher.VerifyHashedPassword(username, storedHash, password);
-            if (result != PasswordVerificationResult.Failed)
-                return result;
-        }
-        catch
-        {
-        }
-
-        if (storedHash == ComputeLegacySha512(password))
-        {
-            isLegacyHash = true;
-            return PasswordVerificationResult.SuccessRehashNeeded;
-        }
-
-        return PasswordVerificationResult.Failed;
-    }
-
-    private static string ComputeLegacySha512(string password)
-    {
-        using var sha512 = SHA512.Create();
-        var bytes = Encoding.UTF8.GetBytes(password);
-        var hash = sha512.ComputeHash(bytes);
-        return Convert.ToBase64String(hash);
     }
 }

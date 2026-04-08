@@ -1,5 +1,11 @@
-﻿@model List<MainProject.Models.User>
+﻿@model MainProject.Services.Admin.UserListPageViewModel
 @using MainProject.Infrastructure.Security
+
+@{
+    var users = Model?.Users ?? Array.Empty<MainProject.Models.User>();
+    var organizations = Model?.Organizations ?? Array.Empty<MainProject.Services.Admin.SelectionOption>();
+    var openAddUserModal = Model?.OpenAddUserModal ?? false;
+}
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
 <link rel="stylesheet" href="~/css/pages/users.css" asp-append-version="true" />
@@ -32,12 +38,12 @@
                 </tr>
             </thead>
             <tbody>
-                @if (Model == null || !Model.Any()) {
+                @if (!users.Any()) {
                     <tr>
                         <td colspan="8" class="table-empty-cell">Результаты не найдены!</td>
                     </tr>
                 } else {
-                    @foreach (var user in Model)
+                    @foreach (var user in users)
                     {
                         <tr>
                             <td>@user.FullName</td>
@@ -92,12 +98,9 @@
                 <label>Организация:</label>
                 <select id="organization" class="form-control" required>
                     <option value="">Выберите организацию</option>
-                    @if (ViewBag.Organizations != null)
+                    @foreach (var org in organizations)
                     {
-                        foreach (var org in ViewBag.Organizations)
-                        {
-                            <option value="@org.Id">@org.Name</option>
-                        }
+                        <option value="@org.Id">@org.Name</option>
                     }
                 </select>
             </div>
@@ -145,12 +148,9 @@
             <div class="form-group">
                 <label>Организация:</label>
                 <select id="editOrganization" class="form-control" required>
-                    @if (ViewBag.Organizations != null)
+                    @foreach (var org in organizations)
                     {
-                        foreach (var org in ViewBag.Organizations)
-                        {
-                            <option value="@org.Id">@org.Name</option>
-                        }
+                        <option value="@org.Id">@org.Name</option>
                     }
                 </select>
             </div>
@@ -201,7 +201,7 @@
 
 <script>
 (function(){
-    if (@((ViewBag.OpenAddUserModal ?? false).ToString().ToLower())) {
+    if (@(openAddUserModal.ToString().ToLower())) {
         setTimeout(function(){
             if (typeof window.openAddUserModal === 'function') {
                 window.openAddUserModal();

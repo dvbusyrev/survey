@@ -37,48 +37,21 @@ public class SurveyAdminController : Controller
     [HttpPost("add_survey_bd")]
     [ValidateAntiForgeryToken]
     [ActionName("add_survey_bd")]
-    public async Task<IActionResult> AddSurveyBd([FromBody] SurveyAddRequest request)
+    public async Task<IActionResult> AddSurveyBd([FromBody] SurveyAddRequest? request)
     {
         try
         {
-            if (request == null)
+            var result = await _surveyAdminService.CreateSurveyAsync(request);
+            if (!result.Success)
             {
-                return BadRequest(new { success = false, message = "Неверные данные запроса" });
+                return BadRequest(new { success = false, message = result.Message });
             }
-
-            if (string.IsNullOrWhiteSpace(request.Title))
-            {
-                return BadRequest(new { success = false, message = "Название анкеты обязательно" });
-            }
-
-            if (!DateTime.TryParse(request.StartDate, out var startDate) ||
-                !DateTime.TryParse(request.EndDate, out var endDate))
-            {
-                return BadRequest(new { success = false, message = "Неверный формат даты" });
-            }
-
-            if (endDate <= startDate)
-            {
-                return BadRequest(new { success = false, message = "Дата окончания должна быть позже даты начала" });
-            }
-
-            if (request.Criteria == null || request.Criteria.Count == 0)
-            {
-                return BadRequest(new { success = false, message = "Добавьте хотя бы один критерий" });
-            }
-
-            if (request.Organizations == null || request.Organizations.Count == 0)
-            {
-                return BadRequest(new { success = false, message = "Выберите хотя бы одну организацию" });
-            }
-
-            var newSurveyId = await _surveyAdminService.CreateSurveyAsync(request);
 
             return Ok(new
             {
                 success = true,
-                message = "Анкета успешно создана",
-                surveyId = newSurveyId
+                message = result.Message,
+                surveyId = result.SurveyId
             });
         }
         catch (PostgresException ex)
@@ -104,46 +77,26 @@ public class SurveyAdminController : Controller
     [HttpPost("surveys/{id:int}/update")]
     [HttpPost("update_survey_bd/{id}")]
     [ValidateAntiForgeryToken]
-    public IActionResult UpdateSurvey(int id, [FromBody] SurveyUpdateRequest model)
+    public IActionResult UpdateSurvey(int id, [FromBody] SurveyUpdateRequest? model)
     {
         try
         {
-            if (model == null)
+            var result = _surveyAdminService.UpdateSurvey(id, model);
+            if (!result.Success)
             {
-                return BadRequest(new { success = false, message = "Данные анкеты не предоставлены" });
-            }
+                if (result.NotFound)
+                {
+                    return NotFound(new { success = false, message = result.Message });
+                }
 
-            if (string.IsNullOrWhiteSpace(model.Title))
-            {
-                return BadRequest(new { success = false, message = "Название анкеты обязательно" });
-            }
-
-            if (model.StartDate >= model.EndDate)
-            {
-                return BadRequest(new { success = false, message = "Дата окончания должна быть позже даты начала" });
-            }
-
-            if (model.Criteria == null || model.Criteria.All(string.IsNullOrWhiteSpace))
-            {
-                return BadRequest(new { success = false, message = "Добавьте хотя бы один критерий" });
-            }
-
-            if (model.Organizations == null || !model.Organizations.Any())
-            {
-                return BadRequest(new { success = false, message = "Выберите хотя бы одну организацию" });
-            }
-
-            var updated = _surveyAdminService.UpdateSurvey(id, model);
-            if (!updated)
-            {
-                return NotFound(new { success = false, message = "Анкета не найдена" });
+                return BadRequest(new { success = false, message = result.Message });
             }
 
             return Ok(new
             {
                 success = true,
-                message = "Анкета успешно обновлена",
-                surveyId = id
+                message = result.Message,
+                surveyId = result.SurveyId
             });
         }
         catch (Exception ex)
@@ -163,37 +116,26 @@ public class SurveyAdminController : Controller
     [HttpPost("Survey/copy_survey_bd/{id}")]
     [ValidateAntiForgeryToken]
     [ActionName("copy_survey_bd")]
-    public async Task<IActionResult> CopySurveyBd(int id, [FromBody] SurveyCopyRequest request)
+    public async Task<IActionResult> CopySurveyBd(int id, [FromBody] SurveyCopyRequest? request)
     {
         try
         {
-            if (request == null)
+            var result = await _surveyAdminService.CopySurveyAsync(id, request);
+            if (!result.Success)
             {
-                return BadRequest(new { success = false, message = "Неверные данные запроса" });
-            }
+                if (result.NotFound)
+                {
+                    return NotFound(new { success = false, message = result.Message });
+                }
 
-            if (!DateTime.TryParse(request.StartDate, out var startDate) ||
-                !DateTime.TryParse(request.EndDate, out var endDate))
-            {
-                return BadRequest(new { success = false, message = "Неверный формат даты" });
-            }
-
-            if (endDate <= startDate)
-            {
-                return BadRequest(new { success = false, message = "Дата окончания должна быть позже даты начала" });
-            }
-
-            var newSurveyId = await _surveyAdminService.CopySurveyAsync(id, request);
-            if (!newSurveyId.HasValue)
-            {
-                return NotFound(new { success = false, message = "Анкета не найдена" });
+                return BadRequest(new { success = false, message = result.Message });
             }
 
             return Ok(new
             {
                 success = true,
-                message = "Анкета успешно скопирована",
-                surveyId = newSurveyId.Value
+                message = result.Message,
+                surveyId = result.SurveyId
             });
         }
         catch (PostgresException ex)

@@ -1,193 +1,63 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Infrastructure.Database;
 using MainProject.Infrastructure.Security;
 using MainProject.Models;
-using Newtonsoft.Json;
-using Npgsql;
-using NpgsqlTypes;
+using MainProject.Services.Admin;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class OrganizationController : Controller
 {
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly OrganizationManagementService _organizationManagementService;
 
-    public OrganizationController(IDbConnectionFactory connectionFactory)
+    public OrganizationController(OrganizationManagementService organizationManagementService)
     {
-        _connectionFactory = connectionFactory;
+        _organizationManagementService = organizationManagementService;
     }
 
-[ActionName("get_organization")]
-public IActionResult GetOrganization(string variantType, bool openAddOrganizationModal = false)
-{
-    if (variantType == "data")
+    [ActionName("get_organization")]
+    public IActionResult GetOrganization(string? variantType, bool openAddOrganizationModal = false)
     {
-        var organizations = new List<object>();
-
-        using (var connection = _connectionFactory.CreateConnection())
-        using (var command = connection.CreateCommand())
+        if (string.Equals(variantType, "data", StringComparison.OrdinalIgnoreCase))
         {
-            command.CommandText = "SELECT organization_id, organization_name FROM public.organization WHERE block = false";
-
             try
             {
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        organizations.Add(new 
-                        {
-                            id = reader.GetInt32(0),
-                            name = reader.GetString(1)
-                        });
-                    }
-                }
-                return Json(organizations);
+                return Json(_organizationManagementService.GetOrganizationOptions());
             }
             catch (Exception ex)
             {
                 return Json(new { error = $"Ошибка при получении списка организаций: {ex.Message}" });
             }
         }
-    }
-    else
-    {
-        List<Organization> organizations = new List<Organization>();
-        List<Survey> surveys = new List<Survey>();
 
-        using (var connection = _connectionFactory.CreateConnection())
-        using (var command = connection.CreateCommand())
+        try
         {
-            command.CommandText = "SELECT " +
-                                  "o.organization_id, " +
-                                  "o.organization_name, " +
-                                  "o.date_begin, " +
-                                  "o.date_end, " +
-                                  "COALESCE((SELECT array_agg(s.name_survey ORDER BY s.name_survey) " +
-                                  "FROM public.organization_survey os " +
-                                  "INNER JOIN public.survey s ON s.id_survey = os.id_survey " +
-                                  "WHERE os.organization_id = o.organization_id), ARRAY[]::text[]) AS survey_names, " +
-                                  "o.block, " +
-                                  "o.email " +
-                                  "FROM " +
-                                  "public.organization o WHERE block = false;";
-
-            try
-            {
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        var surveyNames = reader.IsDBNull(4)
-                            ? Array.Empty<string>()
-                            : (reader.GetValue(4) as string[] ?? Array.Empty<string>());
-                        var organization = new Organization
-                        {
-                            OrganizationId = reader.GetInt32(0),
-                            OrganizationName = reader.GetString(1),
-                            DateBegin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                            DateEnd = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            SurveyNames = surveyNames.Length == 0
-                                ? "Не указано"
-                                : string.Join(", ", surveyNames),
-                            Block = reader.GetBoolean(5),
-                            Email = reader.IsDBNull(6) ? null : reader.GetString(6),
-                        };
-                        organizations.Add(organization);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка организаций: {ex.Message}" });
-            }
-
-            using (var command2 = connection.CreateCommand())
-            {
-                command2.CommandText = "SELECT id_survey, name_survey FROM public.survey;";
-
-                try
-                {
-                    using (var reader = command2.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            var survey = new Survey
-                            {
-                                IdSurvey = reader.GetInt32(0),
-                                NameSurvey = reader.GetString(1),
-                                Questions = new List<MainProject.Services.Surveys.SurveyQuestionItem>(),
-                                DateClose = DateTime.Now,
-                                DateCreate = DateTime.Now,
-                                DateOpen = DateTime.Now
-                            };
-                            surveys.Add(survey);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка анкет: {ex.Message}" });
-                }
-            }
+            var pageModel = _organizationManagementService.GetActiveOrganizationsPage(openAddOrganizationModal);
+            return View(pageModel);
         }
-
-        ViewBag.Organizations = organizations;
-        ViewBag.Surveys = surveys;
-        ViewBag.OpenAddOrganizationModal = openAddOrganizationModal;
-
-        return View();
+        catch (Exception ex)
+        {
+            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка организаций: {ex.Message}" });
+        }
     }
-}
 
-[HttpPost]
+    [HttpPost]
     [ActionName("delete_organization")]
     public IActionResult DeleteOrganization(int id)
     {
-
-        using (var connection = _connectionFactory.CreateConnection())
+        try
         {
-            using (var command = connection.CreateCommand())
+            var result = _organizationManagementService.ArchiveOrganization(id);
+            if (!result.Success)
             {
-                command.CommandText = "UPDATE public.organization SET block = true WHERE organization_id = @id";
-                command.Parameters.Add(new NpgsqlParameter("@id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
-
-                int rowsAffected = command.ExecuteNonQuery();
-                if (rowsAffected == 0)
-                {
-                    return BadRequest("Произошла ошибка при удалении организации.");
-                }
+                return BadRequest(result.Message);
             }
+
+            return Ok(result.Message);
         }
-
-        return Ok("Организация успешно удалена.");
-    }
-
-    public IActionResult UpdateListSurveys(int organizationId, int surveyId)
-    {
-        using (var connection = _connectionFactory.CreateConnection())
+        catch (Exception ex)
         {
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = @"
-                    INSERT INTO public.organization_survey (organization_id, id_survey)
-                    VALUES (@organizationId, @surveyId)
-                    ON CONFLICT (organization_id, id_survey) DO NOTHING";
-                command.Parameters.Add(new NpgsqlParameter("@surveyId", NpgsqlTypes.NpgsqlDbType.Integer) { Value = surveyId });
-                command.Parameters.Add(new NpgsqlParameter("@organizationId", NpgsqlTypes.NpgsqlDbType.Integer) { Value = organizationId });
-
-                try
-                {
-                    command.ExecuteNonQuery();
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest($"Ошибка при обновлении списка анкет: {ex.Message}");
-                }
-            }
+            return BadRequest($"Ошибка при удалении организации: {ex.Message}");
         }
-
-        return Ok("Список анкет успешно обновлен.");
     }
 
     [ActionName("add_organization")]
@@ -196,336 +66,96 @@ public IActionResult GetOrganization(string variantType, bool openAddOrganizatio
         return Redirect("/organizations?openAddOrganizationModal=true");
     }
 
-
-[ActionName("archive_list_organizations")]
-public IActionResult ArchiveListOrganizations(string variantType)
-{
-    if (variantType == "data")
+    [ActionName("archive_list_organizations")]
+    public IActionResult ArchiveListOrganizations()
     {
-        var organizations = new List<object>();
-
-        using (var connection = _connectionFactory.CreateConnection())
-        using (var command = connection.CreateCommand())
+        try
         {
-            command.CommandText = "SELECT organization_id, organization_name FROM public.organization WHERE block = false";
-
-            try
-            {
-                using (var reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        organizations.Add(new 
-                        {
-                            id = reader.GetInt32(0),
-                            name = reader.GetString(1)
-                        });
-                    }
-                }
-                return Json(organizations);
-            }
-            catch (Exception ex)
-            {
-                return Json(new { error = $"Ошибка при получении списка организаций: {ex.Message}" });
-            }
+            return View(_organizationManagementService.GetArchivedOrganizations());
+        }
+        catch (Exception ex)
+        {
+            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка организаций: {ex.Message}" });
         }
     }
-    else
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [ActionName("add_organization_bd")]
+    public IActionResult AddOrganizationBd([FromBody] OrganizationSaveRequest request)
     {
-        List<Organization> organizations = new List<Organization>();
-        List<Survey> surveys = new List<Survey>();
-
-        using (var connection = _connectionFactory.CreateConnection())
-        using (var command = connection.CreateCommand())
+        try
         {
-            command.CommandText = "SELECT " +
-                                  "o.organization_id, " +
-                                  "o.organization_name, " +
-                                  "o.date_begin, " +
-                                  "o.date_end, " +
-                                  "COALESCE((SELECT array_agg(s.name_survey ORDER BY s.name_survey) " +
-                                  "FROM public.organization_survey os " +
-                                  "INNER JOIN public.survey s ON s.id_survey = os.id_survey " +
-                                  "WHERE os.organization_id = o.organization_id), ARRAY[]::text[]) AS survey_names, " +
-                                  "o.block, " +
-                                  "o.email " +
-                                  "FROM " +
-                                  "public.organization o WHERE block = true;";
-
-            try
+            var result = _organizationManagementService.CreateOrganization(request);
+            if (!result.Success)
             {
-                using (var reader = command.ExecuteReader())
+                return BadRequest(new
                 {
-                    while (reader.Read())
-                    {
-                        var surveyNames = reader.IsDBNull(4)
-                            ? Array.Empty<string>()
-                            : (reader.GetValue(4) as string[] ?? Array.Empty<string>());
-                        var organization = new Organization
-                        {
-                            OrganizationId = reader.GetInt32(0),
-                            OrganizationName = reader.GetString(1),
-                            DateBegin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                            DateEnd = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            SurveyNames = surveyNames.Length == 0
-                                ? "Не указано"
-                                : string.Join(", ", surveyNames),
-                            Block = reader.GetBoolean(5),
-                            Email = reader.IsDBNull(6) ? null : reader.GetString(6),
-                        };
-                        organizations.Add(organization);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка организаций: {ex.Message}" });
-            }
-
-            using (var command2 = connection.CreateCommand())
-            {
-                command2.CommandText = "SELECT id_survey, name_survey FROM public.survey;";
-
-                try
-                {
-                    using (var reader = command2.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            var survey = new Survey
-                            {
-                                IdSurvey = reader.GetInt32(0),
-                                NameSurvey = reader.GetString(1),
-                                Questions = new List<MainProject.Services.Surveys.SurveyQuestionItem>(),
-                                DateClose = DateTime.Now,
-                                DateCreate = DateTime.Now,
-                                DateOpen = DateTime.Now
-                            };
-                            surveys.Add(survey);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка анкет: {ex.Message}" });
-                }
-            }
-        }
-
-        ViewBag.Organizations = organizations;
-        ViewBag.Surveys = surveys;
-
-        return View();
-    }
-}
-
-
-[HttpPost]
-[ValidateAntiForgeryToken]
-[ActionName("add_organization_bd")]
-public IActionResult AddOrganizationBd([FromBody] Dictionary<string, string> formData)
-{
-    try
-    {
-        Console.WriteLine("====== ПОЛУЧЕННЫЕ ДАННЫЕ ======");
-        Console.WriteLine($"Название: {formData["Name"]}");
-        Console.WriteLine($"Email: {formData["Email"]}");
-        Console.WriteLine($"Дата начала: {formData["DateBegin"]}");
-        Console.WriteLine($"Дата окончания: {formData["DateEnd"]}");
-        Console.WriteLine("==============================");
-
-        using (var connection = _connectionFactory.CreateConnection())
-        {
-            
-            using (var cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = @"
-                    INSERT INTO public.organization 
-                    (organization_name, email, date_begin, date_end, block) 
-                    VALUES (@organization_name, @email, @date_begin, @date_end, false)";
-
-cmd.Parameters.Add(new NpgsqlParameter("@organization_name", NpgsqlDbType.Text) { 
-    Value = formData["Name"] 
-});
-cmd.Parameters.Add(new NpgsqlParameter("@email", NpgsqlDbType.Text) { 
-    Value = string.IsNullOrEmpty(formData["Email"]) ? DBNull.Value : (object)formData["Email"]
-});
-
-cmd.Parameters.Add(new NpgsqlParameter("@date_begin", NpgsqlDbType.Date) { 
-    Value = string.IsNullOrEmpty(formData["DateBegin"]) ? DBNull.Value : 
-            (object)DateTime.Parse(formData["DateBegin"])
-});
-
-cmd.Parameters.Add(new NpgsqlParameter("@date_end", NpgsqlDbType.Date) { 
-    Value = string.IsNullOrEmpty(formData["DateEnd"]) ? DBNull.Value : 
-            (object)DateTime.Parse(formData["DateEnd"])
-});
-                var newId = cmd.ExecuteScalar();
-
-                return Json(new 
-                {
-                    success = true,
-                    message = "Пользователь успешно добавлен",
-                    userId = newId,
-                    shouldReload = true
+                    success = false,
+                    message = result.Message,
+                    error = result.Error
                 });
             }
-        }
-    }
-    catch (NpgsqlException dbEx)
-    {
-        Console.WriteLine($"❌ Ошибка БД: {dbEx.Message}");
-        return StatusCode(500, new 
-        {
-            success = false,
-            error = "Ошибка базы данных",
-            details = dbEx.Message
-        });
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"❌ Ошибка: {ex.Message}");
-        return StatusCode(500, new 
-        {
-            success = false,
-            error = ex.Message
-        });
-    }
-}
 
-public class OrganizationModel
-{
-    public string Name { get; set; }
-    public string Email { get; set; }
-    public DateTime DateBegin { get; set; }
-    public DateTime DateEnd { get; set; }
-}
-
-[ActionName("update_organization")]
-public IActionResult UpdateOrganization(int id)
-{
-    Organization organization = null;
-
-    using (var connection = _connectionFactory.CreateConnection())
-    {
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = @"
-                SELECT organization_name, email, date_begin, date_end, organization_id
-                FROM public.organization 
-                WHERE organization_id = @id";
-
-            command.Parameters.Add(new NpgsqlParameter("@id", NpgsqlTypes.NpgsqlDbType.Integer) { Value = id });
-
-            try
+            return Json(new
             {
-                using (var reader = command.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        organization = new Organization
-                        {
-                            OrganizationName = reader.GetString(0),
-                            Email = reader.IsDBNull(1) ? null : reader.GetString(1),
-                            DateBegin = reader.IsDBNull(2) ? (DateTime?)null : reader.GetDateTime(2),
-                            DateEnd = reader.IsDBNull(3) ? (DateTime?)null : reader.GetDateTime(3),
-                            OrganizationId = reader.GetInt32(4)
-                        };
-                    }
-                }
-            }
-            catch (Exception ex)
+                success = true,
+                message = result.Message,
+                organizationId = result.EntityId,
+                shouldReload = result.ShouldReload
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new
             {
-                return View("Error", new ErrorViewModel { Message = $"Ошибка при получении данных организации: {ex.Message}" });
-            }
+                success = false,
+                error = ex.Message
+            });
         }
     }
 
-    if (organization == null)
+    [ActionName("update_organization")]
+    public IActionResult UpdateOrganization(int id)
     {
-        return NotFound("Организация не найдена.");
-    }
-
-    return View(organization);
-}
-
-[HttpPost("update_organization_bd/{id}")]
-[ActionName("update_organization_bd")]
-public IActionResult UpdateOrganizationBd(int id, [FromBody] string[] dataOrganization)
-{
-    if (dataOrganization == null || dataOrganization.Length != 4)
-    {
-        return BadRequest("Некорректные данные организации.");
-    }
-
-    string name = dataOrganization[0];
-    string email = dataOrganization[1];
-    string dateBeginStr = dataOrganization[2];
-    string dateEndStr = dataOrganization[3];
-
-    if (string.IsNullOrWhiteSpace(name))
-    {
-        return BadRequest("Название организации обязательно для заполнения.");
-    }
-
-    DateTime? dateBegin = null;
-    DateTime? dateEnd = null;
-
-    if (!string.IsNullOrWhiteSpace(dateBeginStr))
-    {
-        if (!DateTime.TryParse(dateBeginStr, out DateTime parsedDateBegin))
+        try
         {
-            return BadRequest("Некорректный формат даты начала.");
-        }
-        dateBegin = parsedDateBegin;
-    }
-
-    if (!string.IsNullOrWhiteSpace(dateEndStr))
-    {
-        if (!DateTime.TryParse(dateEndStr, out DateTime parsedDateEnd))
-        {
-            return BadRequest("Некорректный формат даты окончания.");
-        }
-        dateEnd = parsedDateEnd;
-    }
-
-    if (dateBegin.HasValue && dateEnd.HasValue && dateEnd < dateBegin)
-    {
-        return BadRequest("Дата окончания не может быть раньше даты начала.");
-    }
-
-    try
-    {
-        using (var connection = _connectionFactory.CreateConnection())
-        {
-            var command = new NpgsqlCommand(@"
-                UPDATE public.organization 
-                SET organization_name = @name, 
-                    email = @email, 
-                    date_begin = @dateBegin, 
-                    date_end = @dateEnd 
-                WHERE organization_id = @id", 
-                (NpgsqlConnection)connection);
-
-            command.Parameters.AddWithValue("@name", name);
-            command.Parameters.AddWithValue("@email", string.IsNullOrEmpty(email) ? DBNull.Value : (object)email);
-            command.Parameters.AddWithValue("@dateBegin", dateBegin ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@dateEnd", dateEnd ?? (object)DBNull.Value);
-            command.Parameters.AddWithValue("@id", id);
-
-            int rowsAffected = command.ExecuteNonQuery();
-            
-            if (rowsAffected == 0)
+            var organization = _organizationManagementService.GetOrganizationById(id);
+            if (organization == null)
             {
                 return NotFound("Организация не найдена.");
             }
-        }
 
-        return Ok("Организация успешно обновлена");
+            return View(organization);
+        }
+        catch (Exception ex)
+        {
+            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении данных организации: {ex.Message}" });
+        }
     }
-    catch (Exception ex)
+
+    [HttpPost("update_organization_bd/{id}")]
+    [ActionName("update_organization_bd")]
+    public IActionResult UpdateOrganizationBd(int id, [FromBody] OrganizationSaveRequest request)
     {
-        return StatusCode(500, $"Ошибка при обновлении организации: {ex.Message}");
+        try
+        {
+            var result = _organizationManagementService.UpdateOrganization(id, request);
+            if (!result.Success)
+            {
+                if (!string.IsNullOrWhiteSpace(result.Error))
+                {
+                    return BadRequest(result.Message);
+                }
+
+                return NotFound(result.Message);
+            }
+
+            return Ok(result.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Ошибка при обновлении организации: {ex.Message}");
+        }
     }
-}
 }

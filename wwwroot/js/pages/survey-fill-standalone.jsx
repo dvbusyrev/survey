@@ -32,28 +32,21 @@ const SurveyFillPage = ({ initialData }) => {
                 try {
                     setLoading(true);
                     setError(null);
-                    
-                    // Проверяем, что все вопросы заполнены
-                    const allQuestionsAnswered = initialData.questions.every(q => {
-                        const questionId = q.id || q.Id;
-                        const answer = answers[questionId];
-                        return answer?.rating && (answer.rating >= 5 || answer.comment);
-                    });
-                    
-                    if (!allQuestionsAnswered) {
-                        throw new Error('Пожалуйста, ответьте на все вопросы. Для оценки ниже 5 заполните поле "Ваш комментарий".');
-                    }
-                    
-                    const response = await fetch('/api/submit_answers', {
+
+                    const response = await fetch('/answers/create', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
                         },
                         body: JSON.stringify({
-                            surveyId: initialData.surveyId,
-                            organizationId: initialData.organizationId,
+                            id_survey: initialData.surveyId,
+                            organization_id: initialData.organizationId,
                             answers: Object.entries(answers).map(([questionId, answer]) => ({
-                                questionId,
+                                question_id: questionId,
+                                question_text: initialData.questions.find(q => String(q.id || q.Id) === String(questionId))?.text
+                                    || initialData.questions.find(q => String(q.id || q.Id) === String(questionId))?.Text
+                                    || '',
                                 rating: answer.rating,
                                 comment: answer.comment || ''
                             }))

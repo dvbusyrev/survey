@@ -1,7 +1,9 @@
-﻿@{
+﻿@model MainProject.Services.Admin.OrganizationListPageViewModel
+
+@{
     ViewData["Title"] = "Список организаций";
-    var organizations = ViewBag.Organizations as IEnumerable<MainProject.Models.Organization> ?? Array.Empty<MainProject.Models.Organization>();
-    var openAddOrganizationModal = ViewBag.OpenAddOrganizationModal as bool? ?? false;
+    var organizations = Model?.Organizations ?? Array.Empty<MainProject.Models.Organization>();
+    var openAddOrganizationModal = Model?.OpenAddOrganizationModal ?? false;
 }
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
@@ -18,8 +20,8 @@
         <p>Ниже представлена таблица с существующими организациями</p>
     </div>
 
-    @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationToolbar.cshtml")
-    @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
+@await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationToolbar.cshtml")
+@await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
 </div>
 
 @await Html.PartialAsync("~/Views/Organization/Partials/_AddOrganizationModal.cshtml")

@@ -640,12 +640,8 @@ window.SurveyFillPage = ({ survey, organizationId, userRole, onBack }) => {
     }, [survey.id_survey, survey.organization_id, normalizeQuestion]);
 
     const submitAnswers = async () => {
-        if (!allQuestionsAnswered) {
-            setError('Пожалуйста, ответьте на все вопросы. Для оценки ниже 5 заполните поле "Ваш комментарий".');
-            return;
-        }
-
         try {
+            setError(null);
             const answersArray = Object.entries(answers).map(([questionId, answer]) => ({
                 question_id: questionId,
                 question_text: questions.find(q => String(q.id) === String(questionId))?.text || '',
@@ -709,11 +705,6 @@ window.SurveyFillPage = ({ survey, organizationId, userRole, onBack }) => {
 
     if (loading) return <div className="loading">Загрузка анкеты...</div>;
     if (error) return <div className="error-message">{error}</div>;
-
-    const allQuestionsAnswered = questions.length > 0 && questions.every(question => {
-        const answer = answers[question.id];
-        return answer?.rating && (answer.rating >= 5 || answer.comment);
-    });
 
     if (submissionState.isSubmitted && !submissionState.showResults) {
         return (

@@ -33,6 +33,14 @@ public sealed class DeleteSurveyRequest
     public int SurveyId { get; set; }
 }
 
+public sealed class SurveyCommandResult
+{
+    public bool Success { get; init; }
+    public bool NotFound { get; init; }
+    public string Message { get; init; } = string.Empty;
+    public int? SurveyId { get; init; }
+}
+
 public sealed class OrganizationSelectionItem
 {
     public int Id { get; set; }

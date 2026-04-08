@@ -1,6 +1,8 @@
-﻿@{
+﻿@model IEnumerable<MainProject.Models.Organization>
+
+@{
     ViewData["Title"] = "Архив организаций";
-    var organizations = ViewBag.Organizations as IEnumerable<MainProject.Models.Organization> ?? Array.Empty<MainProject.Models.Organization>();
+    var organizations = Model ?? Array.Empty<MainProject.Models.Organization>();
 }
 
 @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
