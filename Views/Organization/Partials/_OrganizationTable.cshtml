@@ -22,8 +22,6 @@
         {
             foreach (var organization in Model)
             {
-                var encodedName = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(organization.OrganizationName ?? "");
-                var encodedEmail = System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(organization.Email ?? "");
                 <tr>
                     <td>@organization.OrganizationName</td>
                     <td>@(organization.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
@@ -38,11 +36,20 @@
                     }
                     <td>@organization.Email</td>
                     <td class="action-icons">
-                        <div class="icon-container" onclick="openEditOrganizationModal(@organization.OrganizationId, '@encodedName', '@encodedEmail', '@organization.DateBegin?.ToString("yyyy-MM-dd")', '@organization.DateEnd?.ToString("yyyy-MM-dd")')">
+                        <div class="icon-container"
+                             data-organization-id="@organization.OrganizationId"
+                             data-organization-name="@(organization.OrganizationName ?? string.Empty)"
+                             data-organization-email="@(organization.Email ?? string.Empty)"
+                             data-organization-date-begin="@(organization.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                             data-organization-date-end="@(organization.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                             data-click-call="openEditOrganizationModalFromTrigger"
+                             data-click-pass-element="true">
                             <span><i class="fas fa-pen-to-square"></i></span>
                             <span class="icon-tooltip">Редактировать</span>
                         </div>
-                        <div class="icon-container" onclick="delete_organization(@organization.OrganizationId)">
+                        <div class="icon-container"
+                             data-click-call="deleteOrganization"
+                             data-click-args='[@organization.OrganizationId]'>
                             <span><i class="fas fa-trash"></i></span>
                             <span class="icon-tooltip">Удалить</span>
                         </div>

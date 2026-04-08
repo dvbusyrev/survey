@@ -11,27 +11,27 @@ public sealed class AnswerWorkflowService
         _answerDataService = answerDataService;
     }
 
-    public AnswerMutationResult InsertAnswer(HistoryAnswer historyAnswerData)
+    public AnswerMutationResult InsertAnswer(AnswerRecord answerRecord)
     {
-        var validationResult = ValidateAnswerSubmission(historyAnswerData);
+        var validationResult = ValidateAnswerSubmission(answerRecord);
         if (!validationResult.Success)
         {
             return validationResult;
         }
 
-        var existingAnswer = _answerDataService.GetHistoryAnswer(historyAnswerData.IdSurvey, historyAnswerData.OrganizationId);
+        var existingAnswer = _answerDataService.GetAnswerRecord(answerRecord.IdSurvey, answerRecord.OrganizationId);
         if (existingAnswer == null)
         {
-            _answerDataService.InsertHistoryAnswer(historyAnswerData);
+            _answerDataService.InsertAnswerRecord(answerRecord);
         }
         else
         {
-            _answerDataService.UpdateHistoryAnswer(historyAnswerData);
+            _answerDataService.UpdateAnswerRecord(answerRecord);
         }
 
-        _answerDataService.ClearSurveyExtension(historyAnswerData.OrganizationId, historyAnswerData.IdSurvey);
+        _answerDataService.ClearSurveyExtension(answerRecord.OrganizationId, answerRecord.IdSurvey);
 
-        var model = BuildCheckAnswersPage(historyAnswerData.IdSurvey, historyAnswerData.OrganizationId, historyAnswerData.Answers);
+        var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
         if (model == null)
         {
             return new AnswerMutationResult
@@ -48,15 +48,15 @@ public sealed class AnswerWorkflowService
         };
     }
 
-    public AnswerMutationResult UpdateAnswer(HistoryAnswer historyAnswerData)
+    public AnswerMutationResult UpdateAnswer(AnswerRecord answerRecord)
     {
-        var validationResult = ValidateAnswerSubmission(historyAnswerData);
+        var validationResult = ValidateAnswerSubmission(answerRecord);
         if (!validationResult.Success)
         {
             return validationResult;
         }
 
-        var updated = _answerDataService.UpdateHistoryAnswer(historyAnswerData);
+        var updated = _answerDataService.UpdateAnswerRecord(answerRecord);
         if (!updated)
         {
             return new AnswerMutationResult
@@ -66,7 +66,7 @@ public sealed class AnswerWorkflowService
             };
         }
 
-        var model = BuildCheckAnswersPage(historyAnswerData.IdSurvey, historyAnswerData.OrganizationId, historyAnswerData.Answers);
+        var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
         if (model == null)
         {
             return new AnswerMutationResult
@@ -85,8 +85,8 @@ public sealed class AnswerWorkflowService
 
     public UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int organizationId)
     {
-        var historyAnswer = _answerDataService.GetHistoryAnswer(surveyId, organizationId);
-        if (historyAnswer == null || historyAnswer.Answers.Count == 0)
+        var answerRecord = _answerDataService.GetAnswerRecord(surveyId, organizationId);
+        if (answerRecord == null || answerRecord.Answers.Count == 0)
         {
             return null;
         }
@@ -95,7 +95,7 @@ public sealed class AnswerWorkflowService
         {
             SurveyId = surveyId,
             OrganizationId = organizationId,
-            Answers = historyAnswer.Answers
+            Answers = answerRecord.Answers
         };
     }
 
@@ -111,11 +111,11 @@ public sealed class AnswerWorkflowService
             };
         }
 
-        var historyAnswers = _answerDataService.GetHistoryAnswers(
+        var answerRecords = _answerDataService.GetAnswerRecords(
             surveyId,
             includeAllOrganizationAnswers ? null : organizationId);
 
-        if (historyAnswers.Count == 0)
+        if (answerRecords.Count == 0)
         {
             return new SurveyAnswersResponse
             {
@@ -124,7 +124,7 @@ public sealed class AnswerWorkflowService
             };
         }
 
-        var mappedAnswers = historyAnswers
+        var mappedAnswers = answerRecords
             .Select(answer => new SurveyAnswerResultViewModel
             {
                 Id = answer.IdAnswer,
@@ -153,7 +153,7 @@ public sealed class AnswerWorkflowService
                 Name = surveyInfo.NameSurvey ?? string.Empty,
                 Description = surveyInfo.Description,
                 IsArchive = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase),
-                Csp = historyAnswers.FirstOrDefault(answer => !string.IsNullOrWhiteSpace(answer.Csp))?.Csp
+                Csp = answerRecords.FirstOrDefault(answer => !string.IsNullOrWhiteSpace(answer.Csp))?.Csp
             },
             Answers = mappedAnswers
         };
@@ -175,19 +175,19 @@ public sealed class AnswerWorkflowService
         };
     }
 
-    private AnswerMutationResult ValidateAnswerSubmission(HistoryAnswer historyAnswerData)
+    private AnswerMutationResult ValidateAnswerSubmission(AnswerRecord answerRecord)
     {
-        if (historyAnswerData.IdSurvey <= 0)
+        if (answerRecord.IdSurvey <= 0)
         {
             return CreateValidationFailure("Неверный идентификатор анкеты.");
         }
 
-        if (historyAnswerData.OrganizationId <= 0)
+        if (answerRecord.OrganizationId <= 0)
         {
             return CreateValidationFailure("Неверный идентификатор организации.");
         }
 
-        var survey = _answerDataService.GetSurveyInfo(historyAnswerData.IdSurvey);
+        var survey = _answerDataService.GetSurveyInfo(answerRecord.IdSurvey);
         if (survey == null)
         {
             return new AnswerMutationResult
@@ -197,13 +197,13 @@ public sealed class AnswerWorkflowService
             };
         }
 
-        var surveyQuestions = _answerDataService.GetSurveyQuestions(historyAnswerData.IdSurvey);
+        var surveyQuestions = _answerDataService.GetSurveyQuestions(answerRecord.IdSurvey);
         if (surveyQuestions.Count == 0)
         {
             return CreateValidationFailure("Анкета не содержит вопросов.");
         }
 
-        if (historyAnswerData.Answers.Count == 0)
+        if (answerRecord.Answers.Count == 0)
         {
             return CreateValidationFailure("Необходимо ответить на все вопросы анкеты.");
         }
@@ -213,7 +213,7 @@ public sealed class AnswerWorkflowService
             .ToHashSet();
 
         var answeredQuestionOrders = new HashSet<int>();
-        foreach (var answer in historyAnswerData.Answers)
+        foreach (var answer in answerRecord.Answers)
         {
             var questionOrder = ParseQuestionOrder(answer.QuestionId);
             if (questionOrder <= 0 || !expectedQuestionOrders.Contains(questionOrder))

@@ -3,7 +3,7 @@
         <div class="modal-header">
             <h2 class="h2_modal">Добавление организации</h2>
         </div>
-        <span class="modal-close" onclick="closeOrganizationModal('addOrganizationModal')"><i class="fas fa-xmark"></i></span>
+        <span class="modal-close" data-modal-close="addOrganizationModal"><i class="fas fa-xmark"></i></span>
         <div class="modal-body">
             <form id="organizationForm">
                 @Html.AntiForgeryToken()
@@ -32,8 +32,8 @@
             </form>
         </div>
         <div class="modal-footer">
-            <button type="button" class="modal_btn modal_btn-primary" onclick="add_organization_bd()">Сохранить</button>
-            <button type="button" class="modal_btn modal_btn-secondary" onclick="closeOrganizationModal('addOrganizationModal')">Отмена</button>
+            <button type="button" class="modal_btn modal_btn-primary" data-click-call="createOrganization">Сохранить</button>
+            <button type="button" class="modal_btn modal_btn-secondary" data-modal-close="addOrganizationModal">Отмена</button>
         </div>
     </div>
 </div>

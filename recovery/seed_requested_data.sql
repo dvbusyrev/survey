@@ -65,7 +65,7 @@ VALUES
         'Гордеев_СВ',
         'Гордеев_СВ',
         'admin',
-        'ww3JowX+rRT3iSa6OTHiCX+QflwFcdRzGOFguIkZm2X9LhTkV0JDX9sVFkUy2YiseuLaDb1nh5QY9N2S8OlegA==',
+        'AQAAAAIAAYagAAAAEIxEcIcuk6eEmtW66OYBgzV99+ICAodnrZN2SbsAGbbeOKIpBbmxQsJvNfo3QCREKw==',
         NULL,
         NOW(),
         NULL
@@ -75,7 +75,7 @@ VALUES
         'мку1',
         'мку1',
         'user',
-        'PJkJr+wlNU1VHa4hWQuybjjVPyFzuNPcPu5MBH56scHri4UQPjvnumE7MbtcnDYhTcnxSkL9ei/bhIVrylxEwg==',
+        'AQAAAAIAAYagAAAAEDjGnSSgzkgXPPVzrh2bJd7GLKCisktA8GIdQk0N6rdpWFJ2OgUc9sgxUZRfoEl3eA==',
         NULL,
         NOW(),
         NULL

@@ -1,7 +1,9 @@
 ﻿@model Survey
 @using System.Security.Claims
+@using System.Text.Json
 @using MainProject.Infrastructure.Security
 @{
+    ViewData["Title"] = "Прохождение анкеты";
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
@@ -13,43 +15,27 @@
     var questions = ViewBag.Questions as List<Dictionary<string, object>> ?? new List<Dictionary<string, object>>();
     var surveyId = ViewBag.Id;
     var organizationId = ViewBag.Organization_id;
+    var surveyFillBootstrapJson = JsonSerializer.Serialize(new
+    {
+        userId,
+        userRole,
+        organizationId,
+        surveyId,
+        questions,
+        displayName,
+        userName = nameUser,
+        organizationName = nameOrganization
+    });
 }
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Прохождение анкеты</title>
-
-  <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
-
-    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+@section PageStyles {
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-</head>
-<body>
-    <div id="root"></div>
+}
 
-        <script src="~/js/react.development.js"></script>
-    <script src="~/js/react-dom.development.js"></script>
-    <script src="~/js/babel.min.js"></script>
-    <script src="~/js/components/Header.js" asp-append-version="true"></script>
-    <script src="~/js/components/Navigation.js" asp-append-version="true"></script>
-    <script src="~/js/components/Footer.js" asp-append-version="true"></script>
+<div id="root"></div>
+<template id="survey-fill-bootstrap">@surveyFillBootstrapJson</template>
+
+@section Scripts {
+    @await Html.PartialAsync("~/Views/Shared/_ReactChromeScripts.cshtml")
     <script type="text/babel" src="~/js/pages/survey-fill-standalone.jsx" asp-append-version="true"></script>
-    <script type="text/babel">
-        window.renderStandaloneSurveyFill({
-            userId: @userId,
-            userRole: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(userRole)),
-            organizationId: @organizationId,
-            surveyId: @surveyId,
-            questions: @Html.Raw(Json.Serialize(questions)),
-            displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName)),
-            userName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameUser)),
-            organizationName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameOrganization))
-        });
-    </script>
-</body>
-</html>
+}

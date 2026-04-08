@@ -12,7 +12,7 @@ namespace MainProject.Models
 
         [JsonProperty("name_survey")]
         [JsonPropertyName("name_survey")]
-        public string NameSurvey { get; set; }
+        public string NameSurvey { get; set; } = string.Empty;
 
         public string? Description { get; set; }
         public List<SurveyQuestionItem> Questions { get; set; } = new();
@@ -55,6 +55,6 @@ namespace MainProject.Models
         [JsonPropertyName("id_answer")]
         public int IdAnswer { get; set; }
 
-        public List<HistoryAnswer> Answers { get; set; } = new List<HistoryAnswer>();
+        public List<AnswerRecord> Answers { get; set; } = new();
     }
 }

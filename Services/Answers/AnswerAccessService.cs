@@ -37,4 +37,24 @@ public sealed class AnswerAccessService
         var currentOrganizationId = GetCurrentUserOrganizationId();
         return currentOrganizationId.HasValue && currentOrganizationId.Value == requestedOrganizationId;
     }
+
+    public bool CanSubmitAnswer(int surveyId, int requestedOrganizationId)
+    {
+        if (!CanAccessOrganization(requestedOrganizationId))
+        {
+            return false;
+        }
+
+        return IsAdmin || _answerDataService.IsSurveyAssignedToOrganization(surveyId, requestedOrganizationId);
+    }
+
+    public bool CanAccessAnswerRecord(int surveyId, int requestedOrganizationId)
+    {
+        if (!CanAccessOrganization(requestedOrganizationId))
+        {
+            return false;
+        }
+
+        return IsAdmin || _answerDataService.AnswerRecordExists(surveyId, requestedOrganizationId);
+    }
 }

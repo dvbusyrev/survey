@@ -11,12 +11,12 @@ public class UserController : Controller
         _userManagementService = userManagementService;
     }
 
-    [ActionName("get_users")]
+    [HttpGet("users")]
     public IActionResult GetUsers()
     {
         try
         {
-            return View(_userManagementService.GetActiveUsersPage());
+            return View("get_users", _userManagementService.GetActiveUsersPage());
         }
         catch (Exception ex)
         {
@@ -24,7 +24,7 @@ public class UserController : Controller
         }
     }
 
-    [ActionName("add_user")]
+    [HttpGet("users/create")]
     public IActionResult AddUser()
     {
         try
@@ -37,7 +37,7 @@ public class UserController : Controller
         }
     }
 
-    [ActionName("update_user")]
+    [HttpGet("users/{id:int}/edit")]
     public IActionResult UpdateUser(int id)
     {
         try
@@ -48,7 +48,7 @@ public class UserController : Controller
                 return NotFound("Пользователь не найден.");
             }
 
-            return View(user);
+            return View("update_user", user);
         }
         catch (Exception ex)
         {
@@ -56,9 +56,8 @@ public class UserController : Controller
         }
     }
 
-    [HttpPost]
-    [ActionName("add_user_bd")]
-    public IActionResult AddUserBd([FromBody] UserSaveRequest request)
+    [HttpPost("users/create")]
+    public IActionResult CreateUser([FromBody] UserSaveRequest request)
     {
         try
         {
@@ -79,8 +78,8 @@ public class UserController : Controller
         }
     }
 
-    [ActionName("update_user_bd")]
-    public IActionResult UpdateUserBd(int id, [FromBody] UserUpdateRequest request)
+    [HttpPost("users/{id:int}/update")]
+    public IActionResult UpdateUserAction(int id, [FromBody] UserUpdateRequest request)
     {
         try
         {
@@ -110,8 +109,7 @@ public class UserController : Controller
         }
     }
 
-    [HttpPost]
-    [ActionName("delete_user")]
+    [HttpPost("users/{id:int}/delete")]
     public IActionResult DeleteUser(int id)
     {
         try
@@ -130,12 +128,12 @@ public class UserController : Controller
         }
     }
 
-    [ActionName("archive_list_users")]
+    [HttpGet("users/archive")]
     public IActionResult ArchiveListUsers()
     {
         try
         {
-            return View(_userManagementService.GetArchivedUsers());
+            return View("archive_list_users", _userManagementService.GetArchivedUsers());
         }
         catch (Exception ex)
         {

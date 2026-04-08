@@ -10,7 +10,7 @@
         class="menu-tab organization-subnav__tab @(listActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(listActive ? "true" : "false")"
-        onclick="if (typeof window.handleTabClick === 'function') { event.preventDefault(); window.handleTabClick('get_organization'); }">
+        data-tab-target="get_organization">
         Организации
     </a>
     <a
@@ -18,7 +18,7 @@
         class="menu-tab organization-subnav__tab @(archiveActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(archiveActive ? "true" : "false")"
-        onclick="if (typeof window.handleTabClick === 'function') { event.preventDefault(); window.handleTabClick('archive_list_organizations'); }">
+        data-tab-target="archive_list_organizations">
         Архив
     </a>
 </div>

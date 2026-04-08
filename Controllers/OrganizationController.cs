@@ -14,7 +14,8 @@ public class OrganizationController : Controller
         _organizationManagementService = organizationManagementService;
     }
 
-    [ActionName("get_organization")]
+    [HttpGet("organizations")]
+    [HttpGet("organizations/{variantType}")]
     public IActionResult GetOrganization(string? variantType, bool openAddOrganizationModal = false)
     {
         if (string.Equals(variantType, "data", StringComparison.OrdinalIgnoreCase))
@@ -32,7 +33,7 @@ public class OrganizationController : Controller
         try
         {
             var pageModel = _organizationManagementService.GetActiveOrganizationsPage(openAddOrganizationModal);
-            return View(pageModel);
+            return View("get_organization", pageModel);
         }
         catch (Exception ex)
         {
@@ -40,8 +41,7 @@ public class OrganizationController : Controller
         }
     }
 
-    [HttpPost]
-    [ActionName("delete_organization")]
+    [HttpPost("organizations/{id:int}/delete")]
     public IActionResult DeleteOrganization(int id)
     {
         try
@@ -60,18 +60,18 @@ public class OrganizationController : Controller
         }
     }
 
-    [ActionName("add_organization")]
+    [HttpGet("organizations/create")]
     public IActionResult AddOrganization()
     {
         return Redirect("/organizations?openAddOrganizationModal=true");
     }
 
-    [ActionName("archive_list_organizations")]
+    [HttpGet("organizations/archive")]
     public IActionResult ArchiveListOrganizations()
     {
         try
         {
-            return View(_organizationManagementService.GetArchivedOrganizations());
+            return View("archive_list_organizations", _organizationManagementService.GetArchivedOrganizations());
         }
         catch (Exception ex)
         {
@@ -79,10 +79,9 @@ public class OrganizationController : Controller
         }
     }
 
-    [HttpPost]
+    [HttpPost("organizations/create")]
     [ValidateAntiForgeryToken]
-    [ActionName("add_organization_bd")]
-    public IActionResult AddOrganizationBd([FromBody] OrganizationSaveRequest request)
+    public IActionResult CreateOrganization([FromBody] OrganizationSaveRequest request)
     {
         try
         {
@@ -115,7 +114,7 @@ public class OrganizationController : Controller
         }
     }
 
-    [ActionName("update_organization")]
+    [HttpGet("organizations/{id:int}/edit")]
     public IActionResult UpdateOrganization(int id)
     {
         try
@@ -126,7 +125,7 @@ public class OrganizationController : Controller
                 return NotFound("Организация не найдена.");
             }
 
-            return View(organization);
+            return View("update_organization", organization);
         }
         catch (Exception ex)
         {
@@ -134,9 +133,8 @@ public class OrganizationController : Controller
         }
     }
 
-    [HttpPost("update_organization_bd/{id}")]
-    [ActionName("update_organization_bd")]
-    public IActionResult UpdateOrganizationBd(int id, [FromBody] OrganizationSaveRequest request)
+    [HttpPost("organizations/{id:int}/update")]
+    public IActionResult UpdateOrganizationAction(int id, [FromBody] OrganizationSaveRequest request)
     {
         try
         {

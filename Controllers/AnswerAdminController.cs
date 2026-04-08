@@ -16,10 +16,6 @@ public class AnswerAdminController : Controller
     }
 
     [HttpGet("surveys/answers")]
-    [HttpGet("get_list_answers")]
-    [HttpGet("Answer/get_list_answers")]
-    [HttpGet("list_answers_users")]
-    [ActionName("get_list_answers")]
     public IActionResult GetListAnswers()
     {
         try
@@ -34,12 +30,6 @@ public class AnswerAdminController : Controller
     }
 
     [HttpGet("surveys/{id:int}/signatures")]
-    [HttpPost("surveys/{id:int}/signatures")]
-    [HttpGet("get_survey_signatures/{id:int}")]
-    [HttpPost("get_survey_signatures/{id:int}")]
-    [HttpGet("Answer/get_survey_signatures/{id:int}")]
-    [HttpPost("Answer/get_survey_signatures/{id:int}")]
-    [ActionName("get_survey_signatures")]
     public IActionResult GetSurveySignatures(int id)
     {
         if (id <= 0)
@@ -59,18 +49,12 @@ public class AnswerAdminController : Controller
     }
 
     [HttpGet("statistics")]
-    [HttpGet("open_statistics")]
-    [HttpGet("Answer/open_statistics")]
-    [ActionName("open_statistics")]
     public IActionResult OpenStatistics()
     {
         return View("~/Views/Answer/open_statistics.cshtml");
     }
 
     [HttpGet("statistics/data")]
-    [HttpGet("get_statistics_data")]
-    [HttpGet("Answer/get_statistics_data")]
-    [ActionName("get_statistics_data")]
     public IActionResult GetStatisticsData()
     {
         try

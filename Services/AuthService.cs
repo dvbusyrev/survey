@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Dapper;
 using MainProject.Infrastructure.Database;
 using MainProject.Infrastructure.Security;
@@ -57,7 +55,7 @@ public sealed class AuthService
             };
         }
 
-        var verificationResult = VerifyPassword(user.UserName, user.PasswordHash, password, out var isLegacyHash);
+        var verificationResult = VerifyPassword(user.UserName, user.PasswordHash, password);
         if (verificationResult == PasswordVerificationResult.Failed)
         {
             return new LoginResult
@@ -68,7 +66,7 @@ public sealed class AuthService
             };
         }
 
-        if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded || isLegacyHash)
+        if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
         {
             connection.Execute(
                 """
@@ -94,10 +92,8 @@ public sealed class AuthService
         };
     }
 
-    private static PasswordVerificationResult VerifyPassword(string username, string storedHash, string password, out bool isLegacyHash)
+    private static PasswordVerificationResult VerifyPassword(string username, string storedHash, string password)
     {
-        isLegacyHash = false;
-
         if (string.IsNullOrWhiteSpace(storedHash))
         {
             return PasswordVerificationResult.Failed;
@@ -113,23 +109,10 @@ public sealed class AuthService
         }
         catch
         {
-        }
-
-        if (storedHash == ComputeLegacySha512(password))
-        {
-            isLegacyHash = true;
-            return PasswordVerificationResult.SuccessRehashNeeded;
+            return PasswordVerificationResult.Failed;
         }
 
         return PasswordVerificationResult.Failed;
-    }
-
-    private static string ComputeLegacySha512(string password)
-    {
-        using var sha512 = SHA512.Create();
-        var bytes = Encoding.UTF8.GetBytes(password);
-        var hash = sha512.ComputeHash(bytes);
-        return Convert.ToBase64String(hash);
     }
 
     private sealed class AuthUserRow

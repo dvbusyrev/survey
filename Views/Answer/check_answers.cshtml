@@ -7,69 +7,88 @@
     var idOrganization = Model.IdOrganization;
 }
 
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+}
 
-<div class="content answers-page__check">
+<div class="app-page app-page--narrow answers-page__check" id="default_content" data-page="answers-check">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Проверка ответов",
+            Description = "На этой странице вы можете ознакомиться с сохранёнными ответами и выгрузить итоговые документы."
+        })
     @if (string.IsNullOrWhiteSpace(survey?.NameSurvey))
     {
-        <div class="answers-page__error">
-            <h2>Ошибка</h2>
-            <p>Информация об анкете не найдена</p>
-        </div>
+        <section class="app-page__section">
+            <div class="answers-page__error">
+                <h2>Ошибка</h2>
+                <p>Информация об анкете не найдена</p>
+            </div>
+        </section>
     }
     else
     {
-        <div class="note">
-            <h2>Вы успешно прошли анкету!</h2>
-            <p>На этой странице вы можете ознакомиться с ответами на анкету.</p>
-        </div>
+        <section class="app-page__section app-page__stack">
+            <h3>@survey.NameSurvey</h3>
 
-        <h3>@survey.NameSurvey</h3>
-        
-        @if (!string.IsNullOrEmpty(survey.Description))
-        {
-            <p>@survey.Description</p>
-        }
-
-        <div class="table-container">
-            @if (answers == null || !answers.Any())
+            @if (!string.IsNullOrEmpty(survey.Description))
             {
-                <p>Ответы не найдены</p>
+                <p>@survey.Description</p>
             }
-            else
-            {
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Вопрос</th>
-                            <th>Оценка</th>
-                            <th>Комментарий</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var answer in answers)
-                        {
+        </section>
+
+        <section class="app-page__section">
+            <div class="table-container">
+                @if (answers == null || !answers.Any())
+                {
+                    <p>Ответы не найдены</p>
+                }
+                else
+                {
+                    <table>
+                        <thead>
                             <tr>
-                                <td>@answer.DisplayQuestion</td>
-                                <td>@answer.DisplayRating</td>
-                                <td>@answer.Comment</td>
+                                <th>Вопрос</th>
+                                <th>Оценка</th>
+                                <th>Комментарий</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </div>
+                        </thead>
+                        <tbody>
+                            @foreach (var answer in answers)
+                            {
+                                <tr>
+                                    <td>@answer.DisplayQuestion</td>
+                                    <td>@answer.DisplayRating</td>
+                                    <td>@answer.Comment</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
 
-        <div class="answers-page__actions">
-            <button class="answers-page__action-button" onclick="CSP(@survey.IdSurvey, @idOrganization)">Подписать</button>
-            <button class="answers-page__action-button" onclick="create_answer_report(@survey.IdSurvey, @idOrganization, 'file')">Скачать файл с анкетой</button>
-        </div>
+        <section class="app-page__section">
+            <div class="answers-page__actions">
+                <button class="answers-page__action-button"
+                        data-click-call="CSP"
+                        data-click-args='[@survey.IdSurvey, @idOrganization]'>Подписать</button>
+                <button class="answers-page__action-button"
+                        data-click-call="createAnswerReport"
+                        data-click-args='[@survey.IdSurvey, @idOrganization, "file"]'>Скачать файл с анкетой</button>
+            </div>
 
-        <div id="block_btn_csp" class="answers-page__download-actions is-hidden">
-            <button class="answers-page__action-button" onclick="create_answer_report(@survey.IdSurvey, @idOrganization, 'archive')">Скачать файл с анкетой и подписью</button>
-        </div>
+            <div id="block_btn_csp" class="answers-page__download-actions is-hidden">
+                <button class="answers-page__action-button"
+                        data-click-call="createAnswerReport"
+                        data-click-args='[@survey.IdSurvey, @idOrganization, "archive"]'>Скачать файл с анкетой и подписью</button>
+            </div>
+        </section>
     }
 </div>
 
-<script src="~/js/pages/check-answers.js" asp-append-version="true"></script>
+@section Scripts {
+    <script src="~/js/pages/check-answers.js" asp-append-version="true"></script>
+}

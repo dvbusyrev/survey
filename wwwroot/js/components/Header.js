@@ -23,7 +23,7 @@
                 React.createElement('p', { id: 'role', title: normalizedDisplayName }, normalizedDisplayName)
             ),
             React.createElement('button', { className: 'logout-button', onClick: () => {
-                fetch('/Auth/logout_account', { method: 'GET' })
+                fetch('/auth/logout', { method: 'POST' })
                     .then(response => {
                         if (response.ok) {
                             window.location.href = '/';

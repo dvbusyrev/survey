@@ -48,20 +48,14 @@ public class SurveyArchiveController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("surveys/archive")]
-    [HttpGet("archived_surveys")]
-    [HttpGet("Survey/archived_surveys")]
-    [ActionName("archived_surveys")]
     public IActionResult ArchivedSurveys()
     {
-        return View(
-            "~/Views/Survey/archived_surveys.cshtml",
-            _surveyArchiveService.GetAdminArchiveSurveys());
+            return View(
+                "~/Views/Survey/archived_surveys.cshtml",
+                _surveyArchiveService.GetAdminArchivedSurveys());
     }
 
-    [HttpGet("archived_surveys_for_user")]
-    [HttpGet("Survey/archived_surveys_for_user")]
     [HttpGet("my-surveys/archive")]
-    [ActionName("archived_surveys_for_user")]
     public IActionResult ArchivedSurveysForUser()
     {
         if (!_currentUserService.UserId.HasValue)
@@ -93,8 +87,6 @@ public class SurveyArchiveController : Controller
     }
 
     [HttpGet("my-surveys/archive/{id:int}")]
-    [HttpGet("get_archived_surveys/{id}")]
-    [HttpGet("Survey/get_archived_surveys/{id}")]
     public IActionResult GetListArchive(
         int id,
         int? page,
@@ -162,9 +154,6 @@ public class SurveyArchiveController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpPost("surveys/archive/copy")]
-    [HttpPost("copy_archived_survey")]
-    [HttpPost("Survey/copy_archived_survey")]
-    [ActionName("copy_archived_survey")]
     public async Task<IActionResult> CopyArchivedSurvey([FromBody] ArchiveSurveyCopyRequest request)
     {
         if (request == null || request.SurveyId <= 0)

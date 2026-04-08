@@ -1,11 +1,34 @@
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<style>option{color: black}</style>
-<p>Файл DOCX с инструкцией для администраторов успешно скачан. Пожалуйста, проверьте загрузки.</p>
-<br />
-<br />
-<br />
-<select class="btn" onchange="handleSelectChange(this)">
-    <option value="" disabled selected>Загрузить новую инструкцию</option>
-    <option value="admin">Для администратора</option>
-    <option value="user">Для пользователя</option>
-</select>
+@{
+    ViewData["Title"] = "Инструкции";
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
+}
+
+<div class="app-page app-page--narrow help-page" id="default_content" data-page="help-page">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Инструкции",
+            Description = "Здесь можно скачать текущую инструкцию и загрузить новую версию для администраторов или пользователей."
+        })
+
+    <section class="app-page__section app-page__stack">
+        <p class="help-page__message">Файл DOCX с инструкцией для администраторов успешно скачан. Пожалуйста, проверьте загрузки.</p>
+        <div class="help-page__actions">
+            <select class="btn"
+                    data-change-call="handleSelectChange"
+                    data-change-pass-element="true">
+                <option value="" disabled selected>Загрузить новую инструкцию</option>
+                <option value="admin">Для администратора</option>
+                <option value="user">Для пользователя</option>
+            </select>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/pages/help-page.js" asp-append-version="true"></script>
+}

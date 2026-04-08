@@ -17,7 +17,7 @@
 ## Что уже подготовлено
 
 - `recovery/reconstruct_schema.sql`: схема PostgreSQL, собранная по SQL из контроллеров.
-- `recovery/seed_temp_admin.sql`: временный админ `admin / TempAdmin12345!`.
+- `recovery/seed_temp_admin.sql`: временный админ `admin / TempAdmin12345!` с современным hash-форматом ASP.NET Identity.
 - `recovery/recovered_hints.md`: подсказки, вытащенные из `wwwroot/dumps`.
 
 ## Как поднять пустую восстановленную БД локально
@@ -66,4 +66,4 @@ psql -d survey_recovered -f recovery/seed_temp_admin.sql
 - Ответы хранятся в `answer` и `answer_item`; это предметные данные, а не технический аудит.
 - Продление доступа хранится не в отдельной таблице, а в `organization_survey.extended_until`.
 - Отдельной таблицы `log` больше нет: страница логов и выгрузка строятся из audit-таблиц `*_l`.
-- `app_user.organization_id` сделан nullable, потому что `SurveyExpirationService` выставляет `organization_id = NULL` у просроченных организаций.
+- `app_user.organization_id` остаётся nullable для системных и recovery-пользователей без привязки к организации, например для временного администратора.

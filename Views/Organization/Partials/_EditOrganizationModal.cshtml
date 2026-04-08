@@ -3,7 +3,7 @@
         <div class="modal-header">
             <h2 class="h2_modal">Редактирование организации</h2>
         </div>
-        <span class="modal-close" onclick="closeOrganizationModal('editOrganizationModal')"><i class="fas fa-xmark"></i></span>
+        <span class="modal-close" data-modal-close="editOrganizationModal"><i class="fas fa-xmark"></i></span>
         <div class="modal-body">
             <input type="hidden" id="editOrganizationId">
             <div class="form-group">
@@ -24,8 +24,8 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button id="saveOrganizationBtn" onclick="updateOrganization()" class="modal_btn modal_btn-primary">Сохранить</button>
-            <button onclick="closeOrganizationModal('editOrganizationModal')" class="modal_btn modal_btn-secondary">Отмена</button>
+            <button id="saveOrganizationBtn" data-click-call="updateOrganization" class="modal_btn modal_btn-primary">Сохранить</button>
+            <button data-modal-close="editOrganizationModal" class="modal_btn modal_btn-secondary">Отмена</button>
         </div>
     </div>
 </div>

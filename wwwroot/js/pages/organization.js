@@ -67,7 +67,7 @@
         }
     }
 
-    async function add_organization_bd() {
+    async function createOrganization() {
         const form = byId('organizationForm');
         if (!form) return;
 
@@ -85,7 +85,7 @@
         }
 
         try {
-            const response = await fetch('/organizations/create/save', {
+            const response = await fetch('/organizations/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -126,6 +126,22 @@
                 modal.style.display = 'flex';
             }
         }
+    }
+
+    function openEditOrganizationModalFromTrigger(trigger) {
+        const organizationId = Number.parseInt(trigger?.dataset?.organizationId || '', 10);
+        if (!Number.isFinite(organizationId) || organizationId <= 0) {
+            alert('Не найден идентификатор организации');
+            return;
+        }
+
+        openEditOrganizationModal(
+            organizationId,
+            trigger?.dataset?.organizationName || '',
+            trigger?.dataset?.organizationEmail || '',
+            trigger?.dataset?.organizationDateBegin || '',
+            trigger?.dataset?.organizationDateEnd || ''
+        );
     }
 
     async function updateOrganization() {
@@ -176,7 +192,7 @@
         }
     }
 
-    async function delete_organization(id) {
+    async function deleteOrganization(id) {
         if (!id) return;
         if (!await window.siteConfirm('Удалить организацию?', {
             title: 'Удаление организации',
@@ -205,18 +221,11 @@
         }
     }
 
-    function archive_list_organizations() {
-        if (typeof window.handleTabClick === 'function') {
-            window.handleTabClick('archive_list_organizations');
-        }
-    }
-
     window.closeOrganizationModal = closeOrganizationModal;
     window.openAddOrganizationModal = openAddOrganizationModal;
-    window.add_organization_bd = add_organization_bd;
-    window.openEditOrganizationModal = openEditOrganizationModal;
+    window.createOrganization = createOrganization;
+    window.openEditOrganizationModalFromTrigger = openEditOrganizationModalFromTrigger;
     window.updateOrganization = updateOrganization;
     window.updateOrganizationPage = updateOrganizationPage;
-    window.delete_organization = delete_organization;
-    window.archive_list_organizations = archive_list_organizations;
+    window.deleteOrganization = deleteOrganization;
 })();

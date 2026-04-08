@@ -3,6 +3,19 @@ function surveyEditGetOrganizationItems() {
     return organizationList ? organizationList.querySelectorAll('.organization-item') : [];
 }
 
+function surveyEditCreateIconButton(iconClass, label) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-label', label);
+
+    const icon = document.createElement('i');
+    icon.className = iconClass;
+    icon.setAttribute('aria-hidden', 'true');
+    button.appendChild(icon);
+
+    return button;
+}
+
 function surveyEditToggleOrganizationSelection(element) {
     const orgId = parseInt(element.dataset.id, 10);
     const orgName = element.dataset.name;
@@ -46,8 +59,6 @@ function surveyEditToggleOrganizationSelection(element) {
         surveyEditSelectedOrganization.push({ id: id, name: name });
     });
 
-    console.log('Выбрано организаций:', surveyEditSelectedOrganization.length);
-
     if (surveyEditSelectedOrganization.length === 0) {
         container.style.display = 'none';
         if (idsInput) idsInput.value = '';
@@ -62,7 +73,14 @@ function surveyEditToggleOrganizationSelection(element) {
     surveyEditSelectedOrganization.forEach(function(org) {
         var item = document.createElement('span');
         item.className = 'selected-organization-item';
-        item.innerHTML = org.name + ' <button type="button" onclick="surveyEditRemoveOrganization(this, \'' + org.name.replace(/'/g, "\\'") + '\')"><i class="fas fa-xmark"></i></button>';
+
+        item.appendChild(document.createTextNode(org.name + ' '));
+
+        var removeButton = surveyEditCreateIconButton('fas fa-xmark', 'Убрать организацию');
+        removeButton.dataset.clickCall = 'surveyEditRemoveOrganization';
+        removeButton.dataset.clickArgs = JSON.stringify([org.id]);
+        item.appendChild(removeButton);
+
         list.appendChild(item);
     });
 
@@ -73,19 +91,17 @@ function surveyEditToggleOrganizationSelection(element) {
 }
 
 
-            function surveyEditRemoveOrganization(button, name) {
-                for (var i = 0; i < surveyEditSelectedOrganization.length; i++) {
-                    if (surveyEditSelectedOrganization[i].name === name) {
-                        surveyEditSelectedOrganization.splice(i, 1);
-                        break;
-                    }
-                }
+            function surveyEditRemoveOrganization(orgId) {
+                surveyEditSelectedOrganization = surveyEditSelectedOrganization.filter(function (org) {
+                    return org.id !== orgId;
+                });
+
                 surveyEditUpdateSelectedOrganizationDisplay();
                 
                 if (surveyEditModalOpen) {
                     var orgItems = surveyEditGetOrganizationItems();
                     for (var i = 0; i < orgItems.length; i++) {
-                        if (orgItems[i].dataset.name === name) {
+                        if (parseInt(orgItems[i].dataset.id, 10) === orgId) {
                             orgItems[i].dataset.selected = 'false';
                             orgItems[i].classList.remove('selected');
                         }
@@ -156,7 +172,6 @@ function surveyEditToggleOrganizationSelection(element) {
         const endDate = document.getElementById('endDate');
         const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
         const surveyId = document.getElementById('surveyId')?.value;
-            console.log(surveyEditSelectedOrganization);
         try {
             if (!surveyTitle?.value.trim() || !startDate?.value || !endDate?.value) {
                 alert('Пожалуйста, заполните все обязательные поля');
@@ -357,146 +372,3 @@ function surveyEditToggleOrganizationSelection(element) {
                     console.error('Error:', error);
                 });
             }
-
-
-// СКРИПТЫ ДЛЯ ВКЛАДКИ ПРОСМОТРА ОТВЕТОВ (АДМИН)
-
-function renderAnswers2(data, isArchive, container, title) {
-    // Устанавливаем заголовок
-    title.textContent = `Ответы на архивную анкету: ${data.survey.name}`;
-    
-    let html = `
-        <div class="survey-info">
-            ${data.survey.description ? `<p class="survey-description">Описание: ${data.survey.description}</p><br />` : ''}
-        </div>
-        <div class="answers-table-container">
-            <table class="answers-table">
-                <thead>
-                    <tr class="table-tr">
-                        ${isArchive ? '<th>Организация</th>' : ''}
-                        <th>Вопрос</th>
-                        <th>Оценка</th>
-                        <th>Комментарий</th>
-                        <th>Дата</th>
-                        <th>Подпись</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-
-    data.answers.forEach(answer => {
-        const answerItems = Array.isArray(answer.answers) ? answer.answers : [];
-        const rowSpan = answerItems.length > 0 ? answerItems.length : 1;
-        
-        if (answerItems.length > 0) {
-            answerItems.forEach((item, index) => {
-                html += `
-                    <tr>
-                        ${index === 0 && isArchive ? `<td rowspan="${rowSpan}" class="organization-cell">${answer.organization_name || 'Не указано'}</td>` : ''}
-                        <td class="question-cell">${item.question_text || 'Не указан'}</td>
-                        <td class="rating-cell">${item.rating || '0'}/5</td>
-                        <td class="comment-cell">${item.comment || 'Нет комментария'}</td>
-                        ${index === 0 ? `
-                        <td rowspan="${rowSpan}" class="date-cell">${answer.date || 'Не указана'}</td>
-                        <td rowspan="${rowSpan}" class="signature-cell">
-                            ${answer.is_signed ? '<span class="signed">✓</span>' : '<span class="not-signed">✗</span>'}
-                        </td>` : ''}
-                    </tr>`;
-            });
-        } else {
-            html += `
-                <tr>
-                    ${isArchive ? '<td class="organization-cell">' + (answer.organization_name || 'Не указано') + '</td>' : ''}
-                    <td class="question-cell">Нет данных</td>
-                    <td class="rating-cell">-</td>
-                    <td class="comment-cell">-</td>
-                    <td class="date-cell">${answer.date || 'Не указана'}</td>
-                    <td class="signature-cell">
-                        ${answer.is_signed ? '<span class="signed">✓</span>' : '<span class="not-signed">✗</span>'}
-                    </td>
-                </tr>`;
-        }
-    });
-    
-    html += `
-                </tbody>
-            </table>
-        </div>`;
-    
-    container.innerHTML = html;
-}
-
-async function showAnswersModal(surveyId, organizationId = null) {
-    const modal = document.getElementById('answersModal');
-    const container = document.getElementById('answersContainer');
-    const title = document.getElementById('surveyAnswersTitle');
-    
-    try {
-        // Очищаем предыдущие данные
-        container.innerHTML = '<div class="loading">Загрузка данных...</div>';
-        title.textContent = 'Загрузка...';
-        if (window.showSiteModal) {
-            window.showSiteModal(modal);
-        } else {
-            modal.style.display = 'flex';
-        }
-        
-        // Определяем тип запроса (архив или обычная анкета)
-        const isArchive = organizationId === null;
-        
-        // Формируем URL согласно API
-        const url = isArchive 
-            ? `/answers/${surveyId}/0/archive` 
-            : `/answers/${surveyId}/${organizationId}/regular`;
-        
-        console.log('Fetching data from:', url); // Для отладки
-        
-        const response = await fetch(url, {
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Ошибка сервера: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-            throw new Error(data.error || 'Неизвестная ошибка сервера');
-        }
-        
-        // Проверяем структуру данных
-        if (!data.survey || !data.answers) {
-            throw new Error('Неверный формат данных от сервера');
-        }
-        
-        // Отображаем полученные данные
-        renderAnswers2(data, isArchive, container, title);
-    } catch (error) {
-        console.error('Ошибка:', error);
-        container.innerHTML = `
-            <div class="error-message">
-                <p>Ошибка загрузки данных:</p>
-                <br />
-                <p><strong>${error.message}</strong></p>
-                            <br />
-                <button onclick="showAnswersModal(${surveyId}, ${organizationId || 'null'})" class="retry-btn">
-                    Повторить попытку
-                </button>
-            </div>
-        `;
-    }
-}
-
-// Закрытие модального окна при клике вне его
-window.addEventListener('click', function(event) {
-    const modal = document.getElementById('answersModal');
-    if (event.target === modal) {
-        if (window.hideSiteModal) {
-            window.hideSiteModal(modal);
-        } else {
-            modal.style.display = 'none';
-        }
-    }
-});

@@ -1,71 +1,85 @@
-﻿@model List<MainProject.Models.HistorySurvey>
+﻿@model List<MainProject.Models.ArchivedSurvey>
 @{
     ViewData["Title"] = "Архив анкет";
 }
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
-<div class="content archive-page">
-    <div class="note">
-        <h2>Архив анкет</h2>
-        <p>На этой странице вы можете посмотреть архивные анкеты</p>
-    </div>
 
-<div class="filter-sort">
-    <select id="filterSurvey" class="filter-select" 
-            onclick="loadSurveyOptions()" 
-            onchange="applySurveyFilter()">
-        <option value="">Все анкеты</option>
-    </select>
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
+}
+
+<div class="app-page archive-page" id="default_content" data-page="surveys-archive">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Архив анкет",
+            Description = "На этой странице вы можете посмотреть архивные анкеты."
+        })
+
+    <section class="app-page__section">
+        <div class="filter-sort">
+            <select id="filterSurvey" class="filter-select"
+                    data-focus-call="loadSurveyOptions"
+                    data-change-call="applySurveyFilter">
+                <option value="">Все анкеты</option>
+            </select>
+        </div>
+    </section>
+
+    <section class="app-page__section app-page__section--flush">
+        <table id="data_table" class="surveys-table surveys-table--archive">
+            <thead>
+                <tr class='table_tr'>
+                    <th class="table-th--start">Название анкеты</th>
+                    <th>Описание</th>
+                    <th>Дата начала</th>
+                    <th>Дата окончания</th>
+                    <th>Вопросы</th>
+                    <th class="table-th--end">Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var survey in Model)
+                {
+                    <tr class="active">
+                        <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.NameSurvey</td>
+                        <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.Description</td>
+                        <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.DateBegin.ToString("yyyy-MM-dd")</td>
+                        <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.DateEnd.ToString("yyyy-MM-dd")</td>
+                        <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>
+                            @string.Join(", ", survey.Questions.Select(question => question.Text))
+                        </td>
+                        <td class="action-icons">
+                            <div class="icon-container"
+                                 data-click-call="createMonthlyReport"
+                                 data-click-args='[@survey.IdSurvey]'
+                                 role="button" tabindex="0" aria-label="Сформировать отчёт">
+                                <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
+                                <span class="icon-tooltip" data-tooltip="Сформировать отчёт по анкете">Сформировать отчёт</span>
+                            </div>
+
+                            <div class="icon-container"
+                                 data-click-call="copyArchivedSurvey"
+                                 data-click-args='[@survey.IdSurvey]'
+                                 role="button"
+                                 tabindex="0"
+                                 aria-label="Копировать и возобновить опрос">
+                                <span><i class="fas fa-clipboard-copy"></i></span>
+                                <span class="icon-tooltip">Копировать и возобновить</span>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                <tr id="none_result" class="is-hidden">
+                    <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    @await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
 </div>
 
-    <table id="data_table" class="surveys-table surveys-table--archive">
-        <thead>
-            <tr class='table_tr'>
-                <th class="table-th--start">Название анкеты</th>
-                <th>Описание</th>
-                <th>Дата начала</th>
-                <th>Дата окончания</th>
-                <th>Вопросы</th>
-                <th class="table-th--end">Действия</th>
-            </tr>
-        </thead>
-        <tbody>
-    @foreach (var survey in Model)
-    {
-        <tr class="active">
-            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.NameSurvey</td>
-            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.Description</td>
-            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.DateBegin.ToString("yyyy-MM-dd")</td>
-            <td onclick="showAnswersModal(@survey.IdSurvey)">@survey.DateEnd.ToString("yyyy-MM-dd")</td>
-            <td onclick="showAnswersModal(@survey.IdSurvey)">
-                @string.Join(", ", survey.Questions.Select(question => question.Text))
-            </td>
-            <td class="action-icons">
-<div class="icon-container" onclick="create_monthly_report(@survey.IdSurvey)" role="button" tabindex="0" aria-label="Сформировать отчёт">
-  <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
-  <span class="icon-tooltip" data-tooltip="Сформировать отчёт по анкете">Сформировать отчёт</span>
-</div>
-
-                                        
-<div class="icon-container" 
-     onclick="copy_archived_survey(@survey.IdSurvey)" 
-     role="button" 
-     tabindex="0" 
-     aria-label="Копировать и возобновить опрос">
-    <span><i class="fas fa-clipboard-copy"></i></span>
-    <span class="icon-tooltip">Копировать и возобновить</span>
-</div>
-
-            </td>
-        </tr>
-    }
-    <tr id="none_result" class="is-hidden">
-        <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
-    </tr>
-</tbody>
-    </table>
-</div>
-
-@await Html.PartialAsync("~/Views/Shared/_AnswersModal.cshtml")
-
-<script src="~/js/pages/admin-archives.js" asp-append-version="true"></script>
+@section Scripts {
+    @await Html.PartialAsync("~/Views/Shared/_AdminArchiveScripts.cshtml")
+}

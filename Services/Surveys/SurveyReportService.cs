@@ -676,12 +676,12 @@ public sealed class SurveyReportService
             new { surveyId }).ToList();
     }
 
-    private static IReadOnlyList<HistoryAnswer> LoadSurveyAnswers(
+    private static IReadOnlyList<AnswerRecord> LoadSurveyAnswers(
         IDbConnection connection,
         int surveyId,
         int? organizationId = null)
     {
-        var answers = connection.Query<HistoryAnswer>(
+        var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
                   ha.organization_id,
@@ -731,11 +731,11 @@ public sealed class SurveyReportService
         return surveys;
     }
 
-    private List<HistoryAnswer> GetAnswersFromDatabase()
+    private List<AnswerRecord> GetAnswersFromDatabase()
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var answers = connection.Query<HistoryAnswer>(
+        var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   a.organization_id,
                   o.organization_name,
@@ -757,13 +757,19 @@ public sealed class SurveyReportService
 
     private TableCell CreateTableCell(string text, bool isHeader, bool centerAlign)
     {
+        var runProperties = new RunProperties(
+            new FontSize() { Val = isHeader ? "18" : "16" });
+
+        if (isHeader)
+        {
+            runProperties.AppendChild(new Bold());
+        }
+
         var cell = new TableCell(
             new Paragraph(
                 new Run(new Text(text))
                 {
-                    RunProperties = new RunProperties(
-                        isHeader ? new Bold() : null,
-                        new FontSize() { Val = isHeader ? "18" : "16" })
+                    RunProperties = runProperties
                 }));
 
         cell.TableCellProperties = new TableCellProperties(
@@ -817,7 +823,7 @@ public sealed class SurveyReportService
 
     private static void AttachAnswerItems(
         IDbConnection connection,
-        IEnumerable<HistoryAnswer> answers)
+        IEnumerable<AnswerRecord> answers)
     {
         var answerList = answers.ToList();
         if (answerList.Count == 0)
@@ -826,7 +832,7 @@ public sealed class SurveyReportService
         }
 
         var answerIds = answerList.Select(a => a.IdAnswer).Distinct().ToArray();
-        var rows = connection.Query<HistoryAnswerItemLookupRow>(
+        var rows = connection.Query<AnswerItemLookupRow>(
             @"SELECT
                   id_answer AS AnswerId,
                   question_order AS QuestionOrder,
@@ -945,7 +951,14 @@ public sealed class SurveyReportService
         usedRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
         worksheet.Rows(1, 2).AdjustToContents();
-        for (int row = 3; row <= worksheet.LastRowUsed().RowNumber(); row++)
+
+        var lastRow = worksheet.LastRowUsed();
+        if (lastRow == null)
+        {
+            return;
+        }
+
+        for (int row = 3; row <= lastRow.RowNumber(); row++)
         {
             var cell = worksheet.Cell(row, 1);
             if (cell.Value.ToString() != "Нет данных")
@@ -962,7 +975,7 @@ public sealed class SurveyReportService
         public string QuestionText { get; init; } = string.Empty;
     }
 
-    private sealed class HistoryAnswerItemLookupRow
+    private sealed class AnswerItemLookupRow
     {
         public int AnswerId { get; init; }
         public int QuestionOrder { get; init; }

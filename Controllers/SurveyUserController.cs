@@ -67,7 +67,6 @@ public class SurveyUserController : Controller
     }
 
     [HttpGet("my-surveys")]
-    [ActionName("my_surveys")]
     public IActionResult MySurveys(int? page, string? searchTerm, string? date)
     {
         if (!_currentUserService.UserId.HasValue)
@@ -76,14 +75,6 @@ public class SurveyUserController : Controller
         }
 
         return RenderSurveyListPage(_currentUserService.UserId.Value, page, searchTerm, date);
-    }
-
-    [HttpGet("survey_list_user/{id}")]
-    [HttpGet("Survey/survey_list_user/{id}")]
-    [ActionName("survey_list_user")]
-    public IActionResult SurveyListUser(int id, int? page, string? searchTerm, string? date)
-    {
-        return RenderSurveyListPage(id, page, searchTerm, date);
     }
 
     private IActionResult RenderSurveyListPage(int id, int? page, string? searchTerm, string? date)
@@ -129,12 +120,9 @@ public class SurveyUserController : Controller
     }
 
     [HttpGet("surveys/{id:int}/organizations/{organizationId:int}/questions")]
-    [HttpGet("get_survey_questions/{id:int}/{organizationId:int}")]
-    [HttpGet("Survey/get_survey_questions/{id:int}/{organizationId:int}")]
-    [ActionName("get_survey_questions")]
     public IActionResult GetSurveyQuestions(int id, int organizationId)
     {
-        var accessResult = EnsureOrganizationAccess(organizationId);
+        var accessResult = EnsureSurveyAccess(id, organizationId);
         if (accessResult != null)
         {
             return accessResult;
@@ -142,5 +130,26 @@ public class SurveyUserController : Controller
 
         var questions = _surveyUserService.GetSurveyQuestions(id);
         return Json(new { questions });
+    }
+
+    private IActionResult? EnsureSurveyAccess(int surveyId, int organizationId)
+    {
+        var organizationAccessResult = EnsureOrganizationAccess(organizationId);
+        if (organizationAccessResult != null)
+        {
+            return organizationAccessResult;
+        }
+
+        if (_currentUserService.IsAdmin)
+        {
+            return null;
+        }
+
+        if (!_surveyUserService.IsSurveyAssignedToOrganization(surveyId, organizationId))
+        {
+            return Forbid();
+        }
+
+        return null;
     }
 }

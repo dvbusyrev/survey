@@ -2,23 +2,25 @@
 
 @{
     ViewData["Title"] = "Архив организаций";
+    ViewData["OrganizationSection"] = "archive";
     var organizations = Model ?? Array.Empty<MainProject.Models.Organization>();
 }
 
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
-<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+}
 
-<div class="content archive-page organization-page" id="default_content">
-    @{
-        ViewData["OrganizationSection"] = "archive";
-    }
+<div class="app-page organization-page archive-page" id="default_content">
     @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationSubnav.cshtml")
-
-    <div class="note">
-        <h2>Список архивных организаций</h2>
-        <p>Ниже представлена таблица с архивными организациями</p>
-    </div>
-
-    @await Html.PartialAsync("~/Views/Organization/Partials/_ArchiveOrganizationTable.cshtml", organizations)
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Архив организаций",
+            Description = "Ниже представлена таблица с архивными организациями."
+        })
+    <section class="app-page__section app-page__section--flush">
+        @await Html.PartialAsync("~/Views/Organization/Partials/_ArchiveOrganizationTable.cshtml", organizations)
+    </section>
 </div>

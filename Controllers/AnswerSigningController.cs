@@ -21,11 +21,9 @@ public class AnswerSigningController : Controller
     }
 
     [HttpGet("signatures/{id}/{idOrganization}")]
-    [HttpGet("get_signing_data/{id}/{idOrganization}")]
-    [HttpGet("Answer/get_signing_data/{id}/{idOrganization}")]
     public IActionResult GetSigningData(int id, int idOrganization)
     {
-        var accessResult = EnsureOrganizationAccess(idOrganization);
+        var accessResult = EnsureAnswerRecordAccess(id, idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -43,11 +41,9 @@ public class AnswerSigningController : Controller
     }
 
     [HttpPost("signatures/{id}/{idOrganization}")]
-    [HttpPost("csp/{id}/{idOrganization}")]
-    [HttpPost("Answer/csp/{id}/{idOrganization}")]
     public IActionResult CspAnswer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] JsonElement request)
     {
-        var accessResult = EnsureOrganizationAccess(idOrganization);
+        var accessResult = EnsureAnswerRecordAccess(id, idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -75,14 +71,14 @@ public class AnswerSigningController : Controller
         }
     }
 
-    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
+    private IActionResult? EnsureAnswerRecordAccess(int surveyId, int requestedOrganizationId)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessOrganization(requestedOrganizationId))
+        if (!_answerAccessService.CanAccessAnswerRecord(surveyId, requestedOrganizationId))
         {
             return Forbid();
         }

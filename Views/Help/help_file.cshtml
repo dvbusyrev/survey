@@ -1,4 +1,58 @@
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<div class="content" id="default_content">
-        @Html.Raw(ViewBag.HtmlContent)
+@model MainProject.Models.HelpDocumentViewModel
+
+@{
+    ViewData["Title"] = "Просмотр инструкции";
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
+}
+
+<div class="app-page help-document-page" id="default_content" data-page="help-document">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Просмотр инструкции",
+            Description = "Ниже отображается содержимое выбранной инструкции."
+        })
+
+    <section class="app-page__section">
+        <div class="help-document-page__content">
+            @if (Model?.Blocks == null || Model.Blocks.Count == 0)
+            {
+                <p>Содержимое инструкции не найдено.</p>
+            }
+            else
+            {
+                foreach (var block in Model.Blocks)
+                {
+                    switch (block)
+                    {
+                        case MainProject.Models.HelpParagraphBlock paragraph:
+                            <p>@paragraph.Text</p>
+                            break;
+                        case MainProject.Models.HelpTableBlock table:
+                            <table>
+                                <tbody>
+                                    @foreach (var row in table.Rows)
+                                    {
+                                        <tr>
+                                            @foreach (var cell in row)
+                                            {
+                                                <td>@cell</td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            break;
+                        case MainProject.Models.HelpImageBlock image:
+                            <img src="@image.DataUri" alt="@image.AltText" />
+                            break;
+                    }
+                }
+            }
+        </div>
+    </section>
 </div>

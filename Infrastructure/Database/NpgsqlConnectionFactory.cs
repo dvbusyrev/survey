@@ -19,7 +19,6 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
     {
         var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
-        DatabaseSchemaBootstrapper.EnsureInitialized(connection);
         ApplySessionAuditContext(connection);
         return connection;
     }

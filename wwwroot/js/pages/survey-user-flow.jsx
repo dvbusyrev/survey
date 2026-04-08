@@ -266,7 +266,7 @@ async function checkCSPAvailable() {
 
 
 async function getDataForSignature(id, organization_id) {
-    const response = await fetch(`/get_signing_data/${id}/${organization_id}`);
+    const response = await fetch(`/signatures/${id}/${organization_id}`);
     if (!response.ok) throw new Error('Ошибка получения данных');
     return await response.text();
 }
@@ -379,7 +379,7 @@ async function getCertificateInfo(cert) {
 
 
 async function sendSignatureToServer(id, organization_id, signature) {
-    const response = await fetch(`/csp/${id}/${organization_id}`, {
+    const response = await fetch(`/signatures/${id}/${organization_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signature })
@@ -870,7 +870,7 @@ window.CheckAnswersView = ({ data, userRole, onBack }) => {
 
 window.createPdfReport = async function(surveyId, organizationId) {
     try {
-        const response = await fetch(`/create_pdf_report/${surveyId}/${organizationId}`);
+        const response = await fetch(`/answers/${surveyId}/${organizationId}/pdf`);
         if (!response.ok) throw new Error('Ошибка создания PDF');
         
         const blob = await response.blob();
@@ -972,7 +972,7 @@ window.downloadSignedArchive = async function(surveyId, organizationId) {
         `;
         document.body.appendChild(loadingIndicator);
 
-        const response = await fetch(`/download_signed_archive/${surveyId}/${organizationId}`);
+        const response = await fetch(`/answers/${surveyId}/${organizationId}/signed-archive`);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);

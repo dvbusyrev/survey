@@ -173,3 +173,22 @@ window.renderStandaloneSurveyFill = function(initialData) {
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<SurveyFillPage initialData={initialData} />);
 };
+
+function getStandaloneBootstrapData() {
+    const bootstrapElement = document.getElementById('survey-fill-bootstrap');
+    if (!bootstrapElement?.content?.textContent) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(bootstrapElement.content.textContent.trim());
+    } catch (error) {
+        console.error('Не удалось прочитать bootstrap-данные страницы анкеты:', error);
+        return null;
+    }
+}
+
+const standaloneBootstrapData = getStandaloneBootstrapData();
+if (document.getElementById('root') && standaloneBootstrapData) {
+    window.renderStandaloneSurveyFill(standaloneBootstrapData);
+}

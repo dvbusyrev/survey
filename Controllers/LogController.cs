@@ -15,12 +15,12 @@ public class LogController : Controller
         _auditLogService = auditLogService;
     }
 
-    [ActionName("get_logs")]
+    [HttpGet("logs")]
     public IActionResult GetLogs()
     {
         try
         {
-            return View(_auditLogService.GetLogs());
+            return View("get_logs", _auditLogService.GetLogs());
         }
         catch (Exception ex)
         {
@@ -28,7 +28,7 @@ public class LogController : Controller
         }
     }
 
-    [ActionName("get_dump_logs")]
+    [HttpGet("logs/export")]
     public IActionResult GetDumpLogs()
     {
         IReadOnlyList<Log> logs;
@@ -44,17 +44,7 @@ public class LogController : Controller
 
         var logText = _auditLogService.GenerateLogText(logs);
         var fileName = $"logs_dump_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
-        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "dumps", fileName);
-        var directoryPath = Path.GetDirectoryName(filePath);
-
-        if (!string.IsNullOrEmpty(directoryPath))
-        {
-            Directory.CreateDirectory(directoryPath);
-        }
-
-        System.IO.File.WriteAllText(filePath, logText, Encoding.UTF8);
-
-        var fileBytes = System.IO.File.ReadAllBytes(filePath);
+        var fileBytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(logText);
         return File(fileBytes, "text/plain", fileName);
     }
 }

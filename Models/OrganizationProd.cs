@@ -12,10 +12,10 @@ public class OrganizationProd
 {
     [JsonProperty("organization_name")]
     [JsonPropertyName("organization_name")]
-    public string OrganizationName { get; set; } // Идентификатор организации (строка)
+    public string OrganizationName { get; set; } = string.Empty; // Идентификатор организации (строка)
 
     [JsonProperty("date_end")]
     [JsonPropertyName("date_end")]
-    public string DateEnd { get; set; } // Дата окончания (строка)
+    public string DateEnd { get; set; } = string.Empty; // Дата окончания (строка)
 }
 }

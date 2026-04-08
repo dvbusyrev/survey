@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS public.organization_survey (
     extended_until timestamp without time zone,
     CONSTRAINT organization_survey_pkey PRIMARY KEY (organization_id, id_survey),
     CONSTRAINT organization_survey_organization_id_fkey
-        FOREIGN KEY (organization_id) REFERENCES public.organization (organization_id) ON DELETE CASCADE
+        FOREIGN KEY (organization_id) REFERENCES public.organization (organization_id) ON DELETE CASCADE,
+    CONSTRAINT organization_survey_id_survey_fkey
+        FOREIGN KEY (id_survey) REFERENCES public.survey (id_survey) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS public.app_user (

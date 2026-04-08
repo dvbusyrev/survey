@@ -1,63 +1,42 @@
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<style>
-    .email-form { margin-top: 25px; }
-    .form-group { margin-bottom: 15px; }
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: 500;
-        color: #2c3e50;
-    }
-    .form-group input,
-    .form-group textarea {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-family: inherit;
-        font-size: 1em;
-    }
-    .form-group textarea {
-        min-height: 100px;
-        resize: vertical;
-    }
-    .btn-save {
-        background-color: #34a853;
-        margin: 20px 10px 0 0;
-    }
-    .btn-save:hover { background-color: #2d9248; }
-    .btn-load {
-        background-color: #4285f4;
-        margin: 20px 0 0 10px;
-    }
-    .btn-load:hover { background-color: #3367d6; }
-    .form-container { padding: 0 15px; }
-    .buttons-container { display: flex; justify-content: center; }
-</style>
+@{
+    ViewData["Title"] = "Настройки почты";
+}
 
-<div class="content" id="default_content">
-    <div class="note">
-        <h2>Изменение настроек почты</h2>
-    </div>
-    <div class="form-container">
-        <div class="form-group">
-            <label for="email-to">Кому:</label>
-            <input type="text" id="email-to" placeholder="Введите email получателя">
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
+}
+
+<div class="app-page app-page--narrow email-settings-page" id="default_content" data-page="mail-settings">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Изменение настроек почты",
+            Description = "Здесь можно сохранить и загрузить шаблон параметров для рассылки."
+        })
+
+    <section class="app-page__section">
+        <div class="email-settings-page__form">
+            <div class="form-group">
+                <label for="email-to">Кому:</label>
+                <input type="text" id="email-to" placeholder="Введите email получателя">
+            </div>
+            <div class="form-group">
+                <label for="email-subject">Тема:</label>
+                <input type="text" id="email-subject" placeholder="Введите тему письма">
+            </div>
+            <div class="form-group">
+                <label for="email-content">Содержание:</label>
+                <textarea id="email-content" placeholder="Введите текст письма"></textarea>
+            </div>
+            <div class="email-settings-page__actions">
+                <button class="btn" data-click-call="saveEmailSettings">Сохранить</button>
+                <button class="btn" data-click-call="loadEmailSettings">Загрузить данные</button>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="email-subject">Тема:</label>
-            <input type="text" id="email-subject" placeholder="Введите тему письма">
-        </div>
-        <div class="form-group">
-            <label for="email-content">Содержание:</label>
-            <textarea id="email-content" placeholder="Введите текст письма"></textarea>
-        </div>
-        <div class="buttons-container">
-            <button class="btn btn-save" onclick="saveEmailSettings()">Сохранить</button>
-            <button class="btn btn-load" onclick="loadEmailSettings()">Выгрузить данные</button>
-        </div>
-    </div>
+    </section>
 </div>
 
-<script>
-</script>
+@section Scripts {
+    <script src="~/js/pages/email-settings.js" asp-append-version="true"></script>
+}

@@ -21,13 +21,13 @@ public class AnswerWorkflowController : Controller
     }
 
     [HttpPost("answers/create")]
-    [HttpPost("api/insert_answer")]
-    [ActionName("insert_answer")]
-    public IActionResult InsertAnswer([FromBody] HistoryAnswer answerData)
+    public IActionResult InsertAnswer([FromBody] AnswerRecord answerData)
     {
         var isAjaxRequest =
             string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
-            || Request.Headers.Accept.Any(value => value.Contains("application/json", StringComparison.OrdinalIgnoreCase));
+            || Request.Headers.Accept.Any(value =>
+                !string.IsNullOrWhiteSpace(value)
+                && value.Contains("application/json", StringComparison.OrdinalIgnoreCase));
 
         if (answerData == null)
         {
@@ -36,7 +36,7 @@ public class AnswerWorkflowController : Controller
                 : BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureOrganizationAccess(answerData.OrganizationId);
+        var accessResult = EnsureAnswerSubmissionAccess(answerData.IdSurvey, answerData.OrganizationId);
         if (accessResult != null)
         {
             return accessResult;
@@ -80,8 +80,6 @@ public class AnswerWorkflowController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/{type?}")]
-    [HttpGet("Answer/answers/{idSurvey}/{idOrganization}/{type?}")]
-    [ActionName("answers")]
     public IActionResult Answers(int idSurvey, int idOrganization = 0, string type = "regular")
     {
         var includeAllOrganizationAnswers = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase)
@@ -89,7 +87,7 @@ public class AnswerWorkflowController : Controller
 
         if (!includeAllOrganizationAnswers)
         {
-            var accessResult = EnsureOrganizationAccess(idOrganization);
+            var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
             if (accessResult != null)
             {
                 return accessResult;
@@ -119,13 +117,9 @@ public class AnswerWorkflowController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/edit")]
-    [HttpPost("answers/{idSurvey}/{idOrganization}/edit")]
-    [HttpPost("update_answer/{idSurvey}/{idOrganization}")]
-    [HttpPost("Answer/update_answer/{idSurvey}/{idOrganization}")]
-    [ActionName("update_answer")]
     public IActionResult UpdateAnswer([FromRoute] int idSurvey, [FromRoute] int idOrganization)
     {
-        var accessResult = EnsureOrganizationAccess(idOrganization);
+        var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -149,17 +143,14 @@ public class AnswerWorkflowController : Controller
     }
 
     [HttpPost("answers/update")]
-    [HttpPost("update_answer_bd")]
-    [HttpPost("Answer/update_answer_bd")]
-    [ActionName("update_answer_bd")]
-    public IActionResult UpdateAnswerBd([FromBody] HistoryAnswer answerData)
+    public IActionResult UpdateAnswerRecord([FromBody] AnswerRecord answerData)
     {
         if (answerData == null)
         {
             return BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureOrganizationAccess(answerData.OrganizationId);
+        var accessResult = EnsureAnswerRecordAccess(answerData.IdSurvey, answerData.OrganizationId);
         if (accessResult != null)
         {
             return accessResult;
@@ -187,14 +178,29 @@ public class AnswerWorkflowController : Controller
         }
     }
 
-    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
+    private IActionResult? EnsureAnswerSubmissionAccess(int surveyId, int requestedOrganizationId)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessOrganization(requestedOrganizationId))
+        if (!_answerAccessService.CanSubmitAnswer(surveyId, requestedOrganizationId))
+        {
+            return Forbid();
+        }
+
+        return null;
+    }
+
+    private IActionResult? EnsureAnswerRecordAccess(int surveyId, int requestedOrganizationId)
+    {
+        if (!_answerAccessService.IsAuthenticated)
+        {
+            return Challenge();
+        }
+
+        if (!_answerAccessService.CanAccessAnswerRecord(surveyId, requestedOrganizationId))
         {
             return Forbid();
         }

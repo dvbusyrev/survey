@@ -8,6 +8,8 @@
 *.user
 *.userosscache
 *.sln.docstates
+.DS_Store
+wwwroot/dumps/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -274,6 +276,9 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+
+# Local runtime app data
+App_Data/
 
 # Cake - Uncomment if you are using it
 # tools/**

@@ -548,21 +548,6 @@ public sealed class SurveyAdminService
 
         try
         {
-            connection.Execute(
-                "DELETE FROM public.survey_question WHERE id_survey = @id",
-                new { id = surveyId },
-                transaction);
-
-            connection.Execute(
-                "DELETE FROM public.answer WHERE id_survey = @id",
-                new { id = surveyId },
-                transaction);
-
-            connection.Execute(
-                "DELETE FROM public.organization_survey WHERE id_survey = @id",
-                new { id = surveyId },
-                transaction);
-
             var deletedId = connection.ExecuteScalar<int?>(
                 "DELETE FROM public.survey WHERE id_survey = @id RETURNING id_survey",
                 new { id = surveyId },

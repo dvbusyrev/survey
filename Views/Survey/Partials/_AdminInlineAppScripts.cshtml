@@ -1,0 +1,9 @@
+@await Html.PartialAsync("~/Views/Shared/_ReactChromeScripts.cshtml")
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+@await Html.PartialAsync("~/Views/Shared/_AdminPageScripts.cshtml")
+@await Html.PartialAsync("~/Views/Shared/_AdminReportScripts.cshtml")
+<script src="~/js/pages/survey-email-tools.js" asp-append-version="true"></script>
+<script type="text/babel" src="~/js/pages/admin-inline-app-pages.jsx" asp-append-version="true"></script>
+<script src="~/js/pages/admin-survey-form-runtime.js" asp-append-version="true"></script>
+<script type="text/babel" src="~/js/pages/admin-inline-app-core.js" asp-append-version="true"></script>
+<script type="text/babel" src="~/js/pages/admin-inline-app-crud-and-answers.js" asp-append-version="true"></script>

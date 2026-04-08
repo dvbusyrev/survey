@@ -1,5 +1,6 @@
 ﻿@model MainProject.Services.Surveys.UserSurveyArchivePageViewModel
 @using System.Security.Claims
+@using System.Text.Json
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Архив анкет";
@@ -12,232 +13,32 @@
     var displayName = !string.IsNullOrWhiteSpace(nameOrganization) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOrganization}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
-    var searchTerm = Model.SearchTerm;
+    var archiveBootstrapJson = JsonSerializer.Serialize(new
+    {
+        initialSurveys = Model.ArchivedSurveys,
+        initialTab = "archived",
+        initialPage = Model.CurrentPage,
+        initialTotalPages = Model.TotalPages,
+        initialTotalCount = Model.TotalCount,
+        initialSearchTerm = Model.SearchTerm,
+        userId,
+        userRole,
+        userOrganizationId,
+        displayName,
+        userName = nameUser,
+        organizationName = nameOrganization
+    });
 }
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"]</title>
-
-  <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
-
-    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+@section PageStyles {
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body>
-    <div id="root"></div>
+}
 
-    <script src="/js/react.development.js"></script>
-    <script src="/js/react-dom.development.js"></script>
-    <script src="/js/babel.min.js"></script>
-    <script src="~/js/components/Header.js" asp-append-version="true"></script>
-    <script src="~/js/components/Navigation.js" asp-append-version="true"></script>
-    <script src="~/js/components/Footer.js" asp-append-version="true"></script>
+<div id="root"></div>
+<template id="user-archive-bootstrap">@archiveBootstrapJson</template>
+
+@section Scripts {
+    @await Html.PartialAsync("~/Views/Shared/_ReactChromeScripts.cshtml")
     <script type="text/babel" src="~/js/pages/survey-user-flow.jsx" asp-append-version="true"></script>
-
-    <script type="text/babel">
-        const CheckAnswersPage = window.CheckAnswersPage;
-        const UserSurveyModal = window.UserSurveyModal;
-
-        const SurveyCard = ({ survey, onClick }) => {
-            const formatDate = (dateString) => {
-                if (!dateString) return 'Не указано';
-                try {
-                    const date = new Date(dateString);
-                    return isNaN(date.getTime()) ? 'Не указано' : date.toLocaleDateString('ru-RU');
-                } catch {
-                    return 'Не указано';
-                }
-            };
-
-            if (!survey) return null;
-
-            return (
-                <div className="survey-card" onClick={() => onClick(survey)}>
-                    <h3>{survey.name_survey || 'Без названия'}</h3>
-                    <p>{survey.description || 'Нет описания'}</p>
-                    <p>Дата заполнения: {formatDate(survey.completion_date)}</p>
-                    <p>Статус: <span className="text-success">завершена</span></p>
-                    <div className="dates">
-                        {formatDate(survey.date_open)} - {formatDate(survey.date_close)}
-                    </div>
-                </div>
-            );
-        };
-
-        const ArchiveList = () => {
-            const initialData = {
-                surveys: @Html.Raw(Json.Serialize(Model.ArchivedSurveys)),
-                userId: @userId,
-                userRole: '@userRole',
-                userOrganizationId: @userOrganizationId,
-                searchTerm: '@searchTerm',
-                displayName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(displayName)),
-                userName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameUser)),
-                organizationName: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(nameOrganization))
-            };
-
-            const [searchTerm, setSearchTerm] = React.useState(initialData.searchTerm);
-            const [loading, setLoading] = React.useState(false);
-            const [error, setError] = React.useState(null);
-            const [surveys, setSurveys] = React.useState(initialData.surveys || []);
-            const [activeCount, setActiveCount] = React.useState(0);
-            const [currentSurvey, setCurrentSurvey] = React.useState(null);
-
-            React.useEffect(() => {
-                const loadActiveCount = async () => {
-                    try {
-                        const response = await fetch('/my-surveys?page=1&searchTerm=', {
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                        });
-
-                        if (!response.ok) {
-                            throw new Error('Ошибка загрузки количества активных анкет');
-                        }
-
-                        const data = await response.json();
-                        setActiveCount(data.totalCount || data.accessibleSurveys?.length || 0);
-                    } catch (err) {
-                        console.error('Ошибка загрузки количества активных анкет:', err);
-                    }
-                };
-
-                loadActiveCount();
-            }, []);
-
-            const loadData = async (search = '') => {
-                setLoading(true);
-                setError(null);
-                try {
-                    const response = await fetch(`/my-surveys/archive/${initialData.userId}?searchTerm=${search}`, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                    });
-                    
-                    if (!response.ok) throw new Error('Ошибка загрузки данных');
-                    
-                    const data = await response.json();
-                    setSurveys(data.accessibleSurveys || []);
-                    
-                } catch (err) {
-                    console.error('Ошибка:', err);
-                    setError(err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleSearch = (e) => {
-                e.preventDefault();
-                loadData(searchTerm);
-            };
-
-            const switchToActive = () => {
-                window.location.href = '/my-surveys';
-            };
-
-            const handleSurveyClick = (survey) => {
-                setCurrentSurvey(survey);
-            };
-
-            const handleCloseSurveyModal = () => {
-                setCurrentSurvey(null);
-                loadData(searchTerm);
-            };
-
-            if (initialData.userRole !== "user" && initialData.userRole !== "admin") {
-                return (
-                    <div className="access-denied">
-                        <h2>Доступ запрещён</h2>
-                        <p>У вас нет прав для просмотра этой страницы.</p>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="page-container">
-                    <Header
-                        userRole={initialData.userRole}
-                        displayName={initialData.displayName}
-                        userName={initialData.userName}
-                        organizationName={initialData.organizationName}
-                    />
-                    <div className="admin-container">
-                        <Navigation activeTab="archived_surveys_for_user" userRole={initialData.userRole} userId={initialData.userId} />
-                        <div id="content_admin">
-                            <div className="note">
-                                <h2>Архив анкет</h2>
-                                <p>Ниже вы можете ознакомиться с архивными анкетами</p>
-                            </div>
-
-                            <div className="menu-bar user-survey-tabs">
-                                <span className="menu-tab user-survey-tab" onClick={switchToActive}>
-                                    Активные анкеты
-                                    <span className="count-badge user-survey-count-badge">{activeCount}</span>
-                                </span>
-                                <span className="menu-tab user-survey-tab active-tab">
-                                    Архив анкет
-                                </span>
-                            </div>
-
-                            {error && <div className="error-message">{error}</div>}
-
-                            <form onSubmit={handleSearch}>
-                                <input
-                                    type="text"
-                                    className="search-box"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Поиск по названию анкеты..."
-                                />
-                                <button type="submit" className="search-button">Поиск</button>
-                            </form>
-
-                            {loading ? (
-                                <div className="loading">Загрузка...</div>
-                            ) : (
-                                <div className="survey-grid">
-                                    {surveys.length > 0 ? (
-                                        surveys.map((survey) => (
-                                            <SurveyCard
-                                                key={survey.id_survey}
-                                                survey={survey}
-                                                onClick={handleSurveyClick}
-                                            />
-                                        ))
-                                    ) : (
-                                        <div className="no-surveys">
-                                            <p>Нет архивных анкет</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <UserSurveyModal
-                        isOpen={Boolean(currentSurvey)}
-                        onClose={handleCloseSurveyModal}
-                        title="Ответы на анкету"
-                    >
-                        {currentSurvey && (
-                            <CheckAnswersPage
-                                survey={currentSurvey}
-                                organizationId={initialData.userOrganizationId}
-                                userRole={initialData.userRole}
-                                onBack={handleCloseSurveyModal}
-                            />
-                        )}
-                    </UserSurveyModal>
-                    <Footer />
-                </div>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<ArchiveList />);
-    </script>
-</body>
-</html>
+    <script type="text/babel" src="~/js/pages/survey-user-list.jsx" asp-append-version="true"></script>
+}

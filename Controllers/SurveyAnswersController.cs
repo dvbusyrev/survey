@@ -16,10 +16,7 @@ public class SurveyAnswersController : Controller
     }
 
     [Authorize(Roles = AppRoles.Admin)]
-    [HttpGet("view_answer/{idSurvey}/{idOrganization}/{type}")]
-    [HttpPost("view_answer/{idSurvey}/{idOrganization}/{type}")]
-    [HttpGet("Survey/view_answer/{idSurvey}/{idOrganization}/{type}")]
-    [HttpPost("Survey/view_answer/{idSurvey}/{idOrganization}/{type}")]
+    [HttpGet("surveys/{idSurvey:int}/organizations/{idOrganization:int}/answers/{type}/view")]
     public IActionResult ViewAnswer(int idSurvey, int idOrganization, string type)
     {
         try
@@ -39,7 +36,8 @@ public class SurveyAnswersController : Controller
         }
     }
 
-    [HttpGet("Survey/GetSurveyAnswers")]
+    [Authorize(Roles = AppRoles.Admin)]
+    [HttpGet("surveys/{id:int}/answers/data")]
     public IActionResult GetSurveyAnswers(int id)
     {
         try

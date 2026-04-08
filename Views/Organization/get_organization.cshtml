@@ -2,40 +2,46 @@
 
 @{
     ViewData["Title"] = "Список организаций";
+    ViewData["OrganizationSection"] = "list";
     var organizations = Model?.Organizations ?? Array.Empty<MainProject.Models.Organization>();
     var openAddOrganizationModal = Model?.OpenAddOrganizationModal ?? false;
 }
 
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+}
 
-<div class="content organization-page" id="default_content" data-page="organization-list">
-    @{
-        ViewData["OrganizationSection"] = "list";
-    }
+<div class="app-page organization-page" id="default_content" data-page="organization-list">
     @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationSubnav.cshtml")
-
-    <div class="note">
-        <h2>Список организаций</h2>
-        <p>Ниже представлена таблица с существующими организациями</p>
-    </div>
-
-@await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationToolbar.cshtml")
-@await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Список организаций",
+            Description = "Ниже представлена таблица с существующими организациями."
+        })
+    <section class="app-page__section">
+        @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationToolbar.cshtml")
+    </section>
+    <section class="app-page__section app-page__section--flush">
+        @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
+    </section>
 </div>
 
 @await Html.PartialAsync("~/Views/Organization/Partials/_AddOrganizationModal.cshtml")
 @await Html.PartialAsync("~/Views/Organization/Partials/_EditOrganizationModal.cshtml")
 
-<script src="~/js/pages/organization.js" asp-append-version="true"></script>
-<script>
-(function(){
-    if (@(openAddOrganizationModal.ToString().ToLowerInvariant())) {
-        setTimeout(function(){
-            if (typeof window.openAddOrganizationModal === 'function') {
-                window.openAddOrganizationModal();
-            }
-        }, 0);
-    }
-})();
-</script>
+@section Scripts {
+    <script src="~/js/pages/organization.js" asp-append-version="true"></script>
+    <script>
+    (function(){
+        if (@(openAddOrganizationModal.ToString().ToLowerInvariant())) {
+            setTimeout(function(){
+                if (typeof window.openAddOrganizationModal === 'function') {
+                    window.openAddOrganizationModal();
+                }
+            }, 0);
+        }
+    })();
+    </script>
+}

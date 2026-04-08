@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using MainProject.Models;
+using MainProject.Services.Surveys;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -22,23 +23,16 @@ namespace MainProject.Services.Answers;
 public sealed class AnswerExportService
 {
     private readonly AnswerDataService _answerDataService;
-    private readonly ILogger<AnswerExportService> _logger;
-    private readonly string _templatePath;
 
-    public AnswerExportService(
-        AnswerDataService answerDataService,
-        IWebHostEnvironment environment,
-        ILogger<AnswerExportService> logger)
+    public AnswerExportService(AnswerDataService answerDataService)
     {
         _answerDataService = answerDataService;
-        _logger = logger;
-        _templatePath = Path.Combine(environment.ContentRootPath, "wwwroot", "docx", "shablon_docx.docx");
     }
 
     public AnswerGeneratedFileResult? CreatePdfReport(int surveyId, int organizationId)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var answers = _answerDataService.GetHistoryAnswers(surveyId, organizationId).ToList();
+        var answers = _answerDataService.GetAnswerRecords(surveyId, organizationId).ToList();
         if (survey == null || answers.Count == 0)
         {
             return null;
@@ -56,7 +50,7 @@ public sealed class AnswerExportService
     public AnswerGeneratedFileResult? CreateSignedArchive(int surveyId, int organizationId)
     {
         var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var answers = _answerDataService.GetHistoryAnswers(surveyId, organizationId).ToList();
+        var answers = _answerDataService.GetAnswerRecords(surveyId, organizationId).ToList();
         if (survey == null || answers.Count == 0)
         {
             return null;
@@ -103,115 +97,42 @@ public sealed class AnswerExportService
         {
             return null;
         }
-
-        if (!File.Exists(_templatePath))
-        {
-            throw new FileNotFoundException("Шаблон DOCX не найден", _templatePath);
-        }
-
-        var criteriaList = questions.Select(question => question.Text).ToList();
-        var rows = _answerDataService.GetHistoryAnswers(surveyId, organizationId).ToList();
+        var rows = _answerDataService.GetAnswerRecords(surveyId, organizationId).ToList();
         if (rows.Count == 0)
         {
             return null;
         }
 
-        var organizations = new List<string>();
-        var ratings = new List<List<int>>();
-        var comments = new List<List<string>>();
-
-        foreach (var row in rows)
-        {
-            organizations.Add(row.OrganizationName ?? string.Empty);
-
-            if (row.Answers.Count == 0)
-            {
-                ratings.Add(Enumerable.Repeat(0, criteriaList.Count).ToList());
-                comments.Add(Enumerable.Repeat(string.Empty, criteriaList.Count).ToList());
-                continue;
-            }
-
-            ratings.Add(row.Answers.Select(item => item.Rating ?? 0).ToList());
-            comments.Add(row.Answers.Select(item => item.Comment ?? string.Empty).ToList());
-        }
-
-        var averages = new List<double>();
-        for (int col = 0; col < criteriaList.Count; col++)
-        {
-            double sum = 0;
-            int count = 0;
-            for (int row = 0; row < ratings.Count; row++)
-            {
-                if (ratings[row].Count > col)
-                {
-                    sum += ratings[row][col];
-                    count++;
-                }
-            }
-
-            averages.Add(count > 0 ? sum / count : 0);
-        }
-
         var now = DateTime.Now;
-        var monthYear = now.ToString("MMMM yyyy", new System.Globalization.CultureInfo("ru-RU"));
-        monthYear = char.ToUpper(monthYear[0]) + monthYear.Substring(1);
-
         var safeSurveyName = CleanFileName(survey.NameSurvey ?? "Анкета");
         var fileName = $"Отчет по анкете {safeSurveyName}.docx";
-        var tempPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_{fileName}");
+        var docxBytes = GenerateDocxContent(survey, rows, questions, now);
 
-        var data = new Dictionary<string, string>
+        var archiveOutput = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase);
+        if (archiveOutput)
         {
-            { "##NAME_SURVEY##", survey.NameSurvey ?? string.Empty },
-            { "##COUNT_CRITERIES##", criteriaList.Count.ToString() },
-            { "##MASS_CRITERIES_LIST##", string.Join(Environment.NewLine, criteriaList.Select((criterion, index) => $" - {criterion}; ({index + 1})")) },
-            { "##MASS_NAMES_CRITERIES_FOR_COMMENTS##", string.Join("     ", criteriaList) },
-            { "##MASS_CRITERIES_FOR_TABLE##", string.Join("     ", criteriaList) },
-            { "##DATE##", monthYear },
-            { "##MASS_OrganizationS##", string.Join("\n", organizations) },
-            { "##MASS_RATINGS##", string.Join("\n", ratings.Select(row => string.Join("     ", row))) },
-            { "##MASS_COMMENTS##", string.Join("\n", comments.Select(row => string.Join("     ", row))) },
-            { "##SREDNEE##", string.Join("     ", averages.Select(value => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))) }
-        };
-
-        GenerateDocxFromTemplate(_templatePath, tempPath, data);
-
-        try
-        {
-            var archiveOutput = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase);
-            if (archiveOutput)
+            using var zipStream = new MemoryStream();
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
             {
-                using var zipStream = new MemoryStream();
-                using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
-                {
-                    var entry = archive.CreateEntry(fileName, CompressionLevel.Optimal);
-                    using var entryStream = entry.Open();
-                    using var fileStream = File.OpenRead(tempPath);
-                    fileStream.CopyTo(entryStream);
-                }
-
-                return new AnswerGeneratedFileResult
-                {
-                    Content = zipStream.ToArray(),
-                    ContentType = "application/zip",
-                    FileName = $"Отчет по анкете {safeSurveyName}.zip"
-                };
+                var entry = archive.CreateEntry(fileName, CompressionLevel.Optimal);
+                using var entryStream = entry.Open();
+                entryStream.Write(docxBytes, 0, docxBytes.Length);
             }
 
             return new AnswerGeneratedFileResult
             {
-                Content = File.ReadAllBytes(tempPath),
-                ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                FileName = fileName
+                Content = zipStream.ToArray(),
+                ContentType = "application/zip",
+                FileName = $"Отчет по анкете {safeSurveyName}.zip"
             };
         }
-        finally
+
+        return new AnswerGeneratedFileResult
         {
-            if (File.Exists(tempPath))
-            {
-                File.Delete(tempPath);
-            }
-        }
+            Content = docxBytes,
+            ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            FileName = fileName
+        };
     }
 
     private static string CleanFileName(string fileName)
@@ -225,7 +146,7 @@ public sealed class AnswerExportService
         return string.Concat(fileName.Split(invalidChars));
     }
 
-    private static byte[] GeneratePdfContent(Survey survey, IReadOnlyList<HistoryAnswer> answers)
+    private static byte[] GeneratePdfContent(Survey survey, IReadOnlyList<AnswerRecord> answers)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         QuestPDF.Settings.License = LicenseType.Community;
@@ -309,221 +230,130 @@ public sealed class AnswerExportService
         return stream.ToArray();
     }
 
-    private static void GenerateDocxFromTemplate(string templatePath, string outputPath, IReadOnlyDictionary<string, string> data)
+    private static byte[] GenerateDocxContent(
+        Survey survey,
+        IReadOnlyList<AnswerRecord> answers,
+        IReadOnlyList<SurveyQuestionItem> questions,
+        DateTime generatedAt)
     {
-        File.Copy(templatePath, outputPath, true);
-        using var document = WordprocessingDocument.Open(outputPath, true);
-        var body = document.MainDocumentPart?.Document.Body;
-        if (body == null)
+        using var stream = new MemoryStream();
+        using (var document = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
         {
-            throw new InvalidOperationException("DOCX шаблон не содержит body");
-        }
+            var mainPart = document.AddMainDocumentPart();
+            mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
+            var body = mainPart.Document.AppendChild(new Body());
 
-        ReplacePlaceholdersInBody(body, data);
-        ReplacePlaceholdersInTable(body, data);
-        document.MainDocumentPart?.Document.Save();
-    }
+            body.Append(
+                CreateParagraph(
+                    $"Отчет по анкете \"{survey.NameSurvey}\"",
+                    bold: true,
+                    fontSize: "28",
+                    justification: JustificationValues.Center,
+                    afterSpacing: "200"),
+                CreateParagraph(
+                    $"Сформирован: {generatedAt:dd.MM.yyyy HH:mm}",
+                    fontSize: "20",
+                    justification: JustificationValues.Center,
+                    afterSpacing: "240"));
 
-    private static void ReplacePlaceholdersInBody(Body body, IReadOnlyDictionary<string, string> data)
-    {
-        foreach (var text in body.Descendants<Text>())
-        {
-            foreach (var key in data.Keys)
+            if (!string.IsNullOrWhiteSpace(survey.Description))
             {
-                if (!text.Text.Contains(key) || (key != "##NAME_SURVEY##" && key != "##COUNT_CRITERIES##" && key != "##MASS_CRITERIES_LIST##"))
-                {
-                    continue;
-                }
+                body.Append(CreateParagraph($"Описание: {survey.Description}", fontSize: "22", afterSpacing: "200"));
+            }
 
-                if (key == "##MASS_CRITERIES_LIST##")
+            if (questions.Count > 0)
+            {
+                body.Append(CreateParagraph("Критерии оценки:", bold: true, fontSize: "22", afterSpacing: "100"));
+                foreach (var question in questions.OrderBy(item => item.Id))
                 {
-                    var values = data[key].Split(new[] { "\n" }, StringSplitOptions.None);
-                    foreach (var value in values)
-                    {
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            text.Parent?.Append(new Run(new Text(value)));
-                            text.Parent?.Append(new Break());
-                        }
-                    }
-
-                    text.Text = string.Empty;
-                }
-                else
-                {
-                    text.Text = text.Text.Replace(key, data[key]);
+                    body.Append(CreateParagraph($"• {question.Text}", fontSize: "20", afterSpacing: "40"));
                 }
             }
+
+            body.Append(CreateParagraph("Ответы:", bold: true, fontSize: "22", afterSpacing: "120"));
+            body.Append(CreateAnswerTable(answers));
+
+            mainPart.Document.Save();
         }
+
+        return stream.ToArray();
     }
 
-    private static void ReplacePlaceholdersInTable(Body body, IReadOnlyDictionary<string, string> data)
+    private static Paragraph CreateParagraph(
+        string text,
+        bool bold = false,
+        string fontSize = "22",
+        JustificationValues? justification = null,
+        string afterSpacing = "120")
     {
-        var tables = body.Descendants<Table>();
-        foreach (var table in tables)
+        var runProperties = new RunProperties(new FontSize { Val = fontSize });
+        if (bold)
         {
-            foreach (var text in table.Descendants<Text>())
+            runProperties.Append(new Bold());
+        }
+
+        return new Paragraph(
+            new Run(runProperties, new Text(text) { Space = SpaceProcessingModeValues.Preserve }))
+        {
+            ParagraphProperties = new ParagraphProperties(
+                new Justification { Val = justification ?? JustificationValues.Left },
+                new SpacingBetweenLines { After = afterSpacing })
+        };
+    }
+
+    private static Table CreateAnswerTable(IReadOnlyList<AnswerRecord> answers)
+    {
+        var table = new Table(
+            new TableProperties(
+                new TableBorders(
+                    new TopBorder { Val = BorderValues.Single, Size = 4 },
+                    new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                    new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                    new RightBorder { Val = BorderValues.Single, Size = 4 },
+                    new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                    new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
+                new TableWidth { Width = "0", Type = TableWidthUnitValues.Auto },
+                new TableLayout { Type = TableLayoutValues.Autofit }));
+
+        table.Append(new TableRow(
+            CreateTableCell("Организация", isHeader: true),
+            CreateTableCell("Дата", isHeader: true),
+            CreateTableCell("Вопрос", isHeader: true),
+            CreateTableCell("Оценка", isHeader: true),
+            CreateTableCell("Комментарий", isHeader: true)));
+
+        foreach (var answer in answers)
+        {
+            var answerItems = answer.Answers.Count > 0
+                ? answer.Answers
+                : new List<AnswerPayloadItem> { new() { QuestionText = "Нет данных", Rating = null, Comment = string.Empty } };
+
+            foreach (var item in answerItems)
             {
-                foreach (var key in data.Keys)
-                {
-                    if (!text.Text.Contains(key))
-                    {
-                        continue;
-                    }
-
-                    if (key == "##MASS_CRITERIES_FOR_TABLE##")
-                    {
-                        var cell = text.Ancestors<TableCell>().FirstOrDefault();
-                        if (cell == null)
-                        {
-                            continue;
-                        }
-
-                        var values = data[key].Split(new[] { "     " }, StringSplitOptions.None);
-                        text.Text = values[0];
-
-                        for (var valueIndex = values.Length - 1; valueIndex >= 1; valueIndex--)
-                        {
-                            var newCell = new TableCell(
-                                new Paragraph(
-                                    new Run(
-                                        new Text(values[valueIndex]))));
-                            cell.InsertAfterSelf(newCell);
-                        }
-                    }
-
-                    if (key == "##DATE##")
-                    {
-                        var cell = text.Ancestors<TableCell>().FirstOrDefault();
-                        var row = cell?.Ancestors<TableRow>().FirstOrDefault();
-                        if (cell == null || row == null)
-                        {
-                            continue;
-                        }
-
-                        var criteria = data["##MASS_CRITERIES_FOR_TABLE##"].Split(new[] { "     " }, StringSplitOptions.None);
-                        var comments = data["##MASS_NAMES_CRITERIES_FOR_COMMENTS##"].Split(new[] { "     " }, StringSplitOptions.None);
-                        text.Text = data[key];
-                        cell.TableCellProperties = new TableCellProperties(
-                            new GridSpan() { Val = (criteria.Length + comments.Length) * 2 });
-
-                        foreach (var extraCell in row.Elements<TableCell>().Where(existingCell => existingCell != cell).ToList())
-                        {
-                            extraCell.Remove();
-                        }
-                    }
-
-                    if (key == "##SREDNEE##")
-                    {
-                        var cell = text.Ancestors<TableCell>().FirstOrDefault();
-                        var row = cell?.Ancestors<TableRow>().FirstOrDefault();
-                        if (cell == null || row == null)
-                        {
-                            continue;
-                        }
-
-                        var criteria = data["##MASS_CRITERIES_FOR_TABLE##"].Split(new[] { "     " }, StringSplitOptions.None);
-                        var values = data[key].Split(new[] { "     " }, StringSplitOptions.None);
-                        text.Text = values[0];
-
-                        for (var valueIndex = 1; valueIndex < criteria.Length + 1; valueIndex++)
-                        {
-                            var newCell = new TableCell(
-                                new Paragraph(
-                                    new Run(
-                                        new Text(valueIndex < values.Length ? values[valueIndex] : string.Empty))));
-                            row.Append(newCell);
-                        }
-
-                        for (var emptyIndex = 0; emptyIndex < criteria.Length - 1; emptyIndex++)
-                        {
-                            row.Append(new TableCell(
-                                new Paragraph(
-                                    new Run(
-                                        new Text(string.Empty)))));
-                        }
-
-                        var cells = row.Elements<TableCell>().ToList();
-                        if (cells.Count > 2)
-                        {
-                            cells[2].Remove();
-                        }
-                    }
-
-                    if (key == "##MASS_OrganizationS##")
-                    {
-                        var cell = text.Ancestors<TableCell>().FirstOrDefault();
-                        var row = cell?.Ancestors<TableRow>().FirstOrDefault();
-                        if (cell == null || row == null)
-                        {
-                            continue;
-                        }
-
-                        var organizations = data[key].Split(new[] { "\n" }, StringSplitOptions.None);
-                        var ratings = data["##MASS_RATINGS##"].Split(new[] { "\n" }, StringSplitOptions.None);
-                        var comments = data["##MASS_COMMENTS##"].Split(new[] { "\n" }, StringSplitOptions.None);
-
-                        text.Text = organizations[0];
-                        var baseCells = row.Elements<TableCell>().ToList();
-                        if (baseCells.Count > 1)
-                        {
-                            baseCells[0].Remove();
-                            baseCells[1].Remove();
-                        }
-
-                        foreach (var rating in ratings[0].Split(new[] { "     " }, StringSplitOptions.None))
-                        {
-                            row.Append(new TableCell(new Paragraph(new Run(new Text(rating)))));
-                        }
-
-                        foreach (var comment in comments[0].Split(new[] { "     " }, StringSplitOptions.None))
-                        {
-                            row.Append(new TableCell(new Paragraph(new Run(new Text(comment)))));
-                        }
-
-                        var currentRow = row;
-                        for (var organizationIndex = 1; organizationIndex < organizations.Length; organizationIndex++)
-                        {
-                            var newRow = new TableRow();
-                            newRow.Append(new TableCell(new Paragraph(new Run(new Text(organizations[organizationIndex])))));
-
-                            foreach (var rating in ratings[organizationIndex].Split(new[] { "     " }, StringSplitOptions.None))
-                            {
-                                newRow.Append(new TableCell(new Paragraph(new Run(new Text(rating)))));
-                            }
-
-                            foreach (var comment in comments[organizationIndex].Split(new[] { "     " }, StringSplitOptions.None))
-                            {
-                                newRow.Append(new TableCell(new Paragraph(new Run(new Text(comment)))));
-                            }
-
-                            currentRow.InsertAfterSelf(newRow);
-                            currentRow = newRow;
-                        }
-                    }
-
-                    if (key == "##MASS_NAMES_CRITERIES_FOR_COMMENTS##")
-                    {
-                        var cell = text.Ancestors<TableCell>().FirstOrDefault();
-                        if (cell == null)
-                        {
-                            continue;
-                        }
-
-                        var criteria = data[key].Split(new[] { "     " }, StringSplitOptions.None);
-                        text.Text = "Комментарии: " + criteria[0];
-
-                        for (var criteriaIndex = criteria.Length - 1; criteriaIndex >= 1; criteriaIndex--)
-                        {
-                            var newCell = new TableCell(
-                                new Paragraph(
-                                    new Run(
-                                        new Text(criteria[criteriaIndex]))));
-                            cell.InsertAfterSelf(newCell);
-                        }
-                    }
-                }
+                table.Append(new TableRow(
+                    CreateTableCell(string.IsNullOrWhiteSpace(answer.OrganizationName) ? "Не указано" : answer.OrganizationName),
+                    CreateTableCell(answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm") ?? "Не указана"),
+                    CreateTableCell(item.DisplayQuestion),
+                    CreateTableCell(item.Rating?.ToString() ?? "-"),
+                    CreateTableCell(string.IsNullOrWhiteSpace(item.Comment) ? "Нет комментария" : item.Comment)));
             }
         }
+
+        return table;
+    }
+
+    private static TableCell CreateTableCell(string text, bool isHeader = false)
+    {
+        var runProperties = new RunProperties(new FontSize { Val = "20" });
+        if (isHeader)
+        {
+            runProperties.Append(new Bold());
+        }
+
+        return new TableCell(
+            new TableCellProperties(
+                new TableCellWidth { Type = TableWidthUnitValues.Auto }),
+            new Paragraph(
+                new Run(runProperties, new Text(text ?? string.Empty) { Space = SpaceProcessingModeValues.Preserve })));
     }
 }

@@ -13,35 +13,36 @@ namespace MainProject.Services
     public class SurveyExpirationService : IHostedService, IDisposable
     {
         private readonly ILogger<SurveyExpirationService> _logger;
-        private Timer _timer;
+        private Timer? _timer;
         private readonly string _connectionString;
 
         public SurveyExpirationService(ILogger<SurveyExpirationService> logger, IConfiguration configuration)
         {
             _logger = logger;
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Фоновая служба обработки просрочки запущена");
-            
+
             _timer = new Timer(DoWork, null, TimeSpan.Zero, TimeSpan.FromDays(1));
-            
+
             return Task.CompletedTask;
         }
 
-        private void DoWork(object state)
+        private void DoWork(object? state)
         {
             _logger.LogInformation("Начата обработка просроченных данных");
-            
+
             try
             {
                 var today = DateTime.Now;
-                
+
                 // Обработка анкет
                 ProcessExpiredSurveys(today);
-                
+
                 // Обработка организаций
                 ProcessExpiredOrganizations(today);
             }
@@ -166,7 +167,6 @@ namespace MainProject.Services
                 {
                     try
                     {
-                        // Блокировка организации
                         var updateOrganizationQuery = @"UPDATE public.organization 
                                               SET block = true 
                                               WHERE organization_id = @IdOrganization";
@@ -182,18 +182,10 @@ namespace MainProject.Services
                             }
                         }
 
-                        // Очистка organization_id у пользователей
-                        var clearUserOrganizationQuery = @"UPDATE public.app_user 
-                                                 SET organization_id = NULL 
-                                                 WHERE organization_id = @IdOrganization";
-                        using (var command = new NpgsqlCommand(clearUserOrganizationQuery, connection, transaction))
-                        {
-                            command.Parameters.AddWithValue("@IdOrganization", organization.OrganizationId);
-                            command.ExecuteNonQuery();
-                        }
-
                         transaction.Commit();
-                        _logger.LogInformation("Организация {OrganizationId} заблокирована и очищена у пользователей", organization.OrganizationId);
+                        _logger.LogInformation(
+                            "Организация {OrganizationId} заблокирована из-за просрочки. Привязки пользователей к организации сохранены.",
+                            organization.OrganizationId);
                     }
                     catch (Exception ex)
                     {

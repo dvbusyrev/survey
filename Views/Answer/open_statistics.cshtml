@@ -1,44 +1,61 @@
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+@{
+    ViewData["Title"] = "Статистика ответов";
+}
 
-<div class="content answers-page__statistics">
-    <div class="note">
-        <h2 class="answers-page__statistics-note-title">Статистика ответов</h2>
-        <p>Аналитика по ответам пользователей</p>
-    </div>
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+}
 
-    <div class="answers-page__statistics-grid">
-        <div class="answers-page__statistics-card">
-            <h3 class="answers-page__statistics-title">Ответы по месяцам</h3>
-            <div class="answers-page__statistics-wrapper">
-                <canvas id="lineChart"></canvas>
-                <div class="answers-page__statistics-loading" id="lineLoading">Загрузка данных...</div>
+@section Head {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+}
+
+<div class="app-page answers-page__statistics" id="default_content" data-page="answers-statistics">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Статистика ответов",
+            Description = "Аналитика по ответам пользователей в разрезе периодов, типов анкет и организаций."
+        })
+
+    <section class="app-page__section">
+        <div class="answers-page__statistics-grid">
+            <div class="answers-page__statistics-card">
+                <h3 class="answers-page__statistics-title">Ответы по месяцам</h3>
+                <div class="answers-page__statistics-wrapper">
+                    <canvas id="lineChart"></canvas>
+                    <div class="answers-page__statistics-loading" id="lineLoading">Загрузка данных...</div>
+                </div>
+            </div>
+
+            <div class="answers-page__statistics-card">
+                <h3 class="answers-page__statistics-title">Ответы по годам</h3>
+                <div class="answers-page__statistics-wrapper">
+                    <canvas id="barChart"></canvas>
+                    <div class="answers-page__statistics-loading" id="barLoading">Загрузка данных...</div>
+                </div>
+            </div>
+
+            <div class="answers-page__statistics-card">
+                <h3 class="answers-page__statistics-title">Распределение по типам анкет</h3>
+                <div class="answers-page__statistics-wrapper">
+                    <canvas id="pieChart"></canvas>
+                    <div class="answers-page__statistics-loading" id="pieLoading">Загрузка данных...</div>
+                </div>
+            </div>
+
+            <div class="answers-page__statistics-card">
+                <h3 class="answers-page__statistics-title">Средние оценки</h3>
+                <div class="answers-page__statistics-wrapper">
+                    <canvas id="radarChart"></canvas>
+                    <div class="answers-page__statistics-loading" id="radarLoading">Загрузка данных...</div>
+                </div>
             </div>
         </div>
-
-        <div class="answers-page__statistics-card">
-            <h3 class="answers-page__statistics-title">Ответы по годам</h3>
-            <div class="answers-page__statistics-wrapper">
-                <canvas id="barChart"></canvas>
-                <div class="answers-page__statistics-loading" id="barLoading">Загрузка данных...</div>
-            </div>
-        </div>
-
-        <div class="answers-page__statistics-card">
-            <h3 class="answers-page__statistics-title">Распределение по типам анкет</h3>
-            <div class="answers-page__statistics-wrapper">
-                <canvas id="pieChart"></canvas>
-                <div class="answers-page__statistics-loading" id="pieLoading">Загрузка данных...</div>
-            </div>
-        </div>
-
-        <div class="answers-page__statistics-card">
-            <h3 class="answers-page__statistics-title">Средние оценки</h3>
-            <div class="answers-page__statistics-wrapper">
-                <canvas id="radarChart"></canvas>
-                <div class="answers-page__statistics-loading" id="radarLoading">Загрузка данных...</div>
-            </div>
-        </div>
-    </div>
+    </section>
 </div>
+
+@section Scripts {
+    <script src="~/js/pages/answer-statistics.js" asp-append-version="true"></script>
+}

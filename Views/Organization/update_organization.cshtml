@@ -3,17 +3,21 @@
     ViewData["Title"] = "Редактирование организации";
 }
 
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+}
 
 @Html.AntiForgeryToken()
 
-    <div class="content organization-form-page" id="default_content" data-page="organization-update">
-        <div class="note">
-            <h2>Редактирование организации</h2>
-            <p>В форме ниже вы можете изменить данные организации</p>
-        </div>
-
+<div class="app-page app-page--narrow organization-form-page" id="default_content" data-page="organization-update">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Редактирование организации",
+            Description = "В форме ниже вы можете изменить данные организации."
+        })
+    <section class="app-page__section app-page__stack">
         <div class="form-group">
             <label for="name">Наименование:</label>
             <input type="text" class="form-control" id="name" placeholder="Введите наименование" value="@Model?.OrganizationName" required />
@@ -23,20 +27,25 @@
             <input type="text" class="form-control" id="email" placeholder="Введите email" value="@Model?.Email" required />
         </div>
 
-<div class="form-group">
-    <label for="date_begin">Дата начала анкетирования:</label>
-    <input type="date" class="form-control" id="date_begin" name="date_begin" 
-           value="@(Model?.DateBegin?.ToString("yyyy-MM-dd"))" required />
-</div>
-<div class="form-group">
-    <label for="date_end">Дата окончания:</label>
-    <input type="date" class="form-control" id="date_end" name="date_end" 
-           value="@(Model?.DateEnd?.ToString("yyyy-MM-dd"))" required />
-</div>
-        
-        <div class="button-container organization-form__actions">
-           <button type="button" class="btn" onclick="updateOrganizationPage(@Model.OrganizationId)">Обновить организацию</button>
+        <div class="form-group">
+            <label for="date_begin">Дата начала анкетирования:</label>
+            <input type="date" class="form-control" id="date_begin" name="date_begin"
+                   value="@(Model?.DateBegin?.ToString("yyyy-MM-dd"))" required />
         </div>
-    </div>
+        <div class="form-group">
+            <label for="date_end">Дата окончания:</label>
+            <input type="date" class="form-control" id="date_end" name="date_end"
+                   value="@(Model?.DateEnd?.ToString("yyyy-MM-dd"))" required />
+        </div>
+        <div class="button-container organization-form__actions">
+            <button type="button"
+                    class="btn"
+                    data-click-call="updateOrganizationPage"
+                    data-click-args='[@(Model?.OrganizationId ?? 0)]'>Обновить организацию</button>
+        </div>
+    </section>
+</div>
 
-<script src="~/js/pages/organization.js" asp-append-version="true"></script>
+@section Scripts {
+    <script src="~/js/pages/organization.js" asp-append-version="true"></script>
+}

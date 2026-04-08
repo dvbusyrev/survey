@@ -9,6 +9,17 @@ namespace MainProject.Services.Admin;
 
 public sealed class AuditLogService
 {
+    private const string RedactedValue = "[REDACTED]";
+    private static readonly HashSet<string> SensitiveFieldNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "hash_password",
+        "password",
+        "csp",
+        "key_csp",
+        "signature",
+        "email"
+    };
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public AuditLogService(IDbConnectionFactory connectionFactory)
@@ -73,9 +84,38 @@ public sealed class AuditLogService
     {
         return new JObject
         {
-            ["record_pk"] = recordPk ?? new JObject(),
-            ["row_data"] = rowData ?? new JObject()
+            ["record_pk"] = SanitizeToken(recordPk) ?? new JObject(),
+            ["row_data"] = SanitizeToken(rowData) ?? new JObject()
         };
+    }
+
+    private static JToken? SanitizeToken(JToken? token)
+    {
+        if (token == null)
+        {
+            return null;
+        }
+
+        return token switch
+        {
+            JObject obj => SanitizeObject(obj),
+            JArray array => new JArray(array.Select(item => SanitizeToken(item) ?? JValue.CreateNull())),
+            _ => token.DeepClone()
+        };
+    }
+
+    private static JObject SanitizeObject(JObject source)
+    {
+        var sanitized = new JObject();
+
+        foreach (var property in source.Properties())
+        {
+            sanitized[property.Name] = SensitiveFieldNames.Contains(property.Name)
+                ? RedactedValue
+                : SanitizeToken(property.Value) ?? JValue.CreateNull();
+        }
+
+        return sanitized;
     }
 
     private static string BuildTargetName(string sourceTable, JObject? recordPk, JObject? rowData)

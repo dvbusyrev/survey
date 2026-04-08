@@ -80,7 +80,7 @@
                     if (el) el.value = '';
                 });
 
-                const roleEl = document.getElementById('role_bd');
+                const roleEl = document.getElementById('role');
                 if (roleEl) roleEl.value = 'user';
 
                 const orgEl = document.getElementById('organization');

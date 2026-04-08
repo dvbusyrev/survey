@@ -22,6 +22,20 @@ public sealed class SurveyUserService
             new { userId });
     }
 
+    public bool IsSurveyAssignedToOrganization(int surveyId, int organizationId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        return connection.ExecuteScalar<bool>(
+            @"SELECT EXISTS (
+                  SELECT 1
+                  FROM public.organization_survey
+                  WHERE id_survey = @surveyId
+                    AND organization_id = @organizationId
+              )",
+            new { surveyId, organizationId });
+    }
+
     public UserSurveyListPageViewModel? GetActiveSurveysPage(int userId, int currentPage, string? searchTerm)
     {
         using var connection = _connectionFactory.CreateConnection();

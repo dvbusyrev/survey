@@ -4,8 +4,7 @@ BEGIN;
 -- Login: admin
 -- Password: TempAdmin12345!
 --
--- The hash below is a legacy SHA-512 Base64 value because AuthController
--- supports legacy hashes and automatically rehashes them on the next login.
+-- The hash below uses the current ASP.NET Identity password hasher.
 -- Change the password immediately after the first login.
 
 INSERT INTO public.app_user (
@@ -22,7 +21,7 @@ VALUES (
     'admin',
     'Временный администратор',
     'admin',
-    'ztEGidTzYesYLtKhQY4so3/en72zKn4VeKzIe3ujbNLcLqmftEs1nLulipGHiwTE8RhjXNCjEd+PFpYLK/uk0Q==',
+    'AQAAAAIAAYagAAAAECcXCw02F04Jo/TTU8ZmOPQfnOk33wQ4KQ+ZARJ+Y3uVStS73oC/HxtKvpWJ1VQOcA==',
     'local-admin@example.invalid',
     NOW()
 )

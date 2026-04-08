@@ -140,7 +140,7 @@ public sealed class SurveyArchiveService
         };
     }
 
-    public IReadOnlyList<HistorySurvey> GetAdminArchiveSurveys()
+    public IReadOnlyList<ArchivedSurvey> GetAdminArchivedSurveys()
     {
         using var connection = _connectionFactory.CreateConnection();
 
@@ -155,8 +155,8 @@ public sealed class SurveyArchiveService
             WHERE s.date_close < NOW()
             ORDER BY id_survey DESC";
 
-        var surveys = connection.Query<HistorySurvey>(sql).ToList();
-        AttachArchiveQuestions(connection, surveys);
+        var surveys = connection.Query<ArchivedSurvey>(sql).ToList();
+        AttachArchivedSurveyQuestions(connection, surveys);
         return surveys;
     }
 
@@ -165,7 +165,7 @@ public sealed class SurveyArchiveService
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
-        var archiveSurvey = await connection.QueryFirstOrDefaultAsync<HistorySurvey>(
+        var archivedSurvey = await connection.QueryFirstOrDefaultAsync<ArchivedSurvey>(
             @"SELECT
                   id_survey,
                   date_open AS date_begin,
@@ -178,12 +178,12 @@ public sealed class SurveyArchiveService
             new { surveyId = request.SurveyId },
             transaction);
 
-        if (archiveSurvey == null)
+        if (archivedSurvey == null)
         {
             throw new InvalidOperationException("Архивная анкета не найдена.");
         }
 
-        archiveSurvey.Questions = connection.Query<SurveyQuestionItem>(
+        archivedSurvey.Questions = connection.Query<SurveyQuestionItem>(
             @"SELECT
                   question_order AS Id,
                   question_text AS Text
@@ -201,15 +201,15 @@ public sealed class SurveyArchiveService
               RETURNING id_survey;",
             new
             {
-                nameSurvey = archiveSurvey.NameSurvey,
-                description = archiveSurvey.Description ?? string.Empty,
+                nameSurvey = archivedSurvey.NameSurvey,
+                description = archivedSurvey.Description ?? string.Empty,
                 dateCreate = DateTime.Now,
-                dateOpen = archiveSurvey.DateBegin.Date,
-                dateClose = archiveSurvey.DateEnd.Date
+                dateOpen = archivedSurvey.DateBegin.Date,
+                dateClose = archivedSurvey.DateEnd.Date
             },
             transaction);
 
-        foreach (var question in archiveSurvey.Questions.OrderBy(q => q.Id))
+        foreach (var question in archivedSurvey.Questions.OrderBy(q => q.Id))
         {
             await connection.ExecuteAsync(
                 @"INSERT INTO public.survey_question (id_survey, question_order, question_text)
@@ -227,9 +227,9 @@ public sealed class SurveyArchiveService
         return newSurveyId;
     }
 
-    private static void AttachArchiveQuestions(
+    private static void AttachArchivedSurveyQuestions(
         IDbConnection connection,
-        IEnumerable<HistorySurvey> surveys)
+        IEnumerable<ArchivedSurvey> surveys)
     {
         var surveyList = surveys.ToList();
         if (surveyList.Count == 0)

@@ -23,6 +23,34 @@ public sealed class AnswerDataService
             new { userId });
     }
 
+    public bool IsSurveyAssignedToOrganization(int surveyId, int organizationId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        return connection.ExecuteScalar<bool>(
+            @"SELECT EXISTS (
+                  SELECT 1
+                  FROM public.organization_survey
+                  WHERE id_survey = @surveyId
+                    AND organization_id = @organizationId
+              )",
+            new { surveyId, organizationId });
+    }
+
+    public bool AnswerRecordExists(int surveyId, int organizationId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        return connection.ExecuteScalar<bool>(
+            @"SELECT EXISTS (
+                  SELECT 1
+                  FROM public.answer
+                  WHERE id_survey = @surveyId
+                    AND organization_id = @organizationId
+              )",
+            new { surveyId, organizationId });
+    }
+
     public Survey? GetSurveyInfo(int surveyId)
     {
         using var connection = _connectionFactory.CreateConnection();
@@ -51,11 +79,11 @@ public sealed class AnswerDataService
             new { surveyId }).ToList();
     }
 
-    public HistoryAnswer? GetHistoryAnswer(int surveyId, int organizationId)
+    public AnswerRecord? GetAnswerRecord(int surveyId, int organizationId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var historyAnswer = connection.QueryFirstOrDefault<HistoryAnswer>(
+        var answerRecord = connection.QueryFirstOrDefault<AnswerRecord>(
             @"SELECT
                   id_answer,
                   organization_id,
@@ -68,22 +96,22 @@ public sealed class AnswerDataService
                 AND organization_id = @organizationId",
             new { surveyId, organizationId });
 
-        if (historyAnswer == null)
+        if (answerRecord == null)
         {
             return null;
         }
 
-        AttachAnswerItems(connection, new[] { historyAnswer });
-        return historyAnswer;
+        AttachAnswerItems(connection, new[] { answerRecord });
+        return answerRecord;
     }
 
-    public IReadOnlyList<HistoryAnswer> GetHistoryAnswers(int surveyId, int? organizationId = null)
+    public IReadOnlyList<AnswerRecord> GetAnswerRecords(int surveyId, int? organizationId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         if (organizationId.HasValue)
         {
-            var answers = connection.Query<HistoryAnswer>(
+            var answers = connection.Query<AnswerRecord>(
                 @"SELECT
                       ha.id_answer,
                       ha.organization_id,
@@ -104,7 +132,7 @@ public sealed class AnswerDataService
             return answers;
         }
 
-        var allAnswers = connection.Query<HistoryAnswer>(
+        var allAnswers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
                   ha.organization_id,
@@ -124,12 +152,12 @@ public sealed class AnswerDataService
         return allAnswers;
     }
 
-    public int InsertHistoryAnswer(HistoryAnswer historyAnswerData)
+    public int InsertAnswerRecord(AnswerRecord answerRecord)
     {
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
-        var items = BuildNormalizedAnswerItems(connection, historyAnswerData.IdSurvey, historyAnswerData.Answers);
+        var items = BuildNormalizedAnswerItems(connection, answerRecord.IdSurvey, answerRecord.Answers);
 
         var idAnswer = connection.ExecuteScalar<int>(
             @"INSERT INTO public.answer (
@@ -147,19 +175,19 @@ public sealed class AnswerDataService
               RETURNING id_answer",
             new
             {
-                idOrganization = historyAnswerData.OrganizationId,
-                idSurvey = historyAnswerData.IdSurvey,
+                idOrganization = answerRecord.OrganizationId,
+                idSurvey = answerRecord.IdSurvey,
                 completionDate = DateTime.Now
             },
             transaction);
 
-        ReplaceHistoryAnswerItems(connection, transaction, idAnswer, items);
+        ReplaceAnswerItems(connection, transaction, idAnswer, items);
         transaction.Commit();
 
         return idAnswer;
     }
 
-    public bool UpdateHistoryAnswer(HistoryAnswer historyAnswerData)
+    public bool UpdateAnswerRecord(AnswerRecord answerRecord)
     {
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
@@ -171,8 +199,8 @@ public sealed class AnswerDataService
                 AND id_survey = @idSurvey",
             new
             {
-                idOrganization = historyAnswerData.OrganizationId,
-                idSurvey = historyAnswerData.IdSurvey
+                idOrganization = answerRecord.OrganizationId,
+                idSurvey = answerRecord.IdSurvey
             },
             transaction);
 
@@ -182,7 +210,7 @@ public sealed class AnswerDataService
             return false;
         }
 
-        var items = BuildNormalizedAnswerItems(connection, historyAnswerData.IdSurvey, historyAnswerData.Answers);
+        var items = BuildNormalizedAnswerItems(connection, answerRecord.IdSurvey, answerRecord.Answers);
 
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer
@@ -191,8 +219,8 @@ public sealed class AnswerDataService
                 AND id_survey = @idSurvey",
             new
             {
-                idOrganization = historyAnswerData.OrganizationId,
-                idSurvey = historyAnswerData.IdSurvey,
+                idOrganization = answerRecord.OrganizationId,
+                idSurvey = answerRecord.IdSurvey,
                 completionDate = DateTime.Now
             },
             transaction);
@@ -203,7 +231,7 @@ public sealed class AnswerDataService
             return false;
         }
 
-        ReplaceHistoryAnswerItems(connection, transaction, answerId.Value, items);
+        ReplaceAnswerItems(connection, transaction, answerId.Value, items);
         transaction.Commit();
 
         return true;
@@ -235,7 +263,7 @@ public sealed class AnswerDataService
             new { organizationId, surveyId });
     }
 
-    private static IReadOnlyList<HistoryAnswerItemRow> BuildNormalizedAnswerItems(
+    private static IReadOnlyList<AnswerItemRow> BuildNormalizedAnswerItems(
         global::Npgsql.NpgsqlConnection connection,
         int surveyId,
         IReadOnlyList<AnswerPayloadItem>? answers)
@@ -243,7 +271,7 @@ public sealed class AnswerDataService
         var parsedItems = answers ?? Array.Empty<AnswerPayloadItem>();
         if (parsedItems.Count == 0)
         {
-            return Array.Empty<HistoryAnswerItemRow>();
+            return Array.Empty<AnswerItemRow>();
         }
 
         var questionLookup = connection.Query<SurveyQuestionRow>(
@@ -254,7 +282,7 @@ public sealed class AnswerDataService
             new { surveyId })
             .ToDictionary(q => q.QuestionOrder, q => q.QuestionText);
 
-        var normalizedItems = new List<HistoryAnswerItemRow>();
+        var normalizedItems = new List<AnswerItemRow>();
         foreach (var item in parsedItems)
         {
             var questionOrder = ParseQuestionOrder(item.QuestionId, normalizedItems.Count + 1);
@@ -262,7 +290,7 @@ public sealed class AnswerDataService
                 ? item.DisplayQuestion.Trim()
                 : questionLookup.GetValueOrDefault(questionOrder, $"Вопрос {questionOrder}");
 
-            normalizedItems.Add(new HistoryAnswerItemRow
+            normalizedItems.Add(new AnswerItemRow
             {
                 QuestionOrder = questionOrder,
                 QuestionText = questionText,
@@ -278,7 +306,7 @@ public sealed class AnswerDataService
 
     private static void AttachAnswerItems(
         global::Npgsql.NpgsqlConnection connection,
-        IEnumerable<HistoryAnswer> answers)
+        IEnumerable<AnswerRecord> answers)
     {
         var answerList = answers.ToList();
         if (answerList.Count == 0)
@@ -287,7 +315,7 @@ public sealed class AnswerDataService
         }
 
         var answerIds = answerList.Select(a => a.IdAnswer).Distinct().ToArray();
-        var rows = connection.Query<HistoryAnswerItemLookupRow>(
+        var rows = connection.Query<AnswerItemLookupRow>(
             @"SELECT
                   id_answer AS AnswerId,
                   question_order AS QuestionOrder,
@@ -319,11 +347,11 @@ public sealed class AnswerDataService
         }
     }
 
-    private static void ReplaceHistoryAnswerItems(
+    private static void ReplaceAnswerItems(
         global::Npgsql.NpgsqlConnection connection,
         global::Npgsql.NpgsqlTransaction transaction,
         int answerId,
-        IReadOnlyList<HistoryAnswerItemRow> items)
+        IReadOnlyList<AnswerItemRow> items)
     {
         connection.Execute(
             "DELETE FROM public.answer_item WHERE id_answer = @answerId",
@@ -354,7 +382,7 @@ public sealed class AnswerDataService
             : fallbackOrder;
     }
 
-    private sealed class HistoryAnswerItemRow
+    private sealed class AnswerItemRow
     {
         public int QuestionOrder { get; init; }
         public string QuestionText { get; init; } = string.Empty;
@@ -362,7 +390,7 @@ public sealed class AnswerDataService
         public string? Comment { get; init; }
     }
 
-    private sealed class HistoryAnswerItemLookupRow
+    private sealed class AnswerItemLookupRow
     {
         public int AnswerId { get; init; }
         public int QuestionOrder { get; init; }

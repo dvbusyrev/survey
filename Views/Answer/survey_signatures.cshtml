@@ -3,56 +3,59 @@
     ViewData["Title"] = "Проверка подписей анкеты";
 }
 
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+}
 
-<div class="content answers-page__signatures" id="default_content">
-    <div class="note">
-        @if (!string.IsNullOrWhiteSpace(Model.SurveyName))
+<div class="app-page answers-page__signatures" id="default_content" data-page="survey-signatures">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
         {
-            <h2>Просмотр подписания анкеты @Model.SurveyName</h2>
-        <p>На данной странице вы можете посмотреть, какие организации прошли и (возможно) подписали анкету.</p>
-        }
-    </div>
+            Title = string.IsNullOrWhiteSpace(Model.SurveyName) ? "Подписи анкеты" : $"Подписи анкеты {Model.SurveyName}",
+            Description = "На этой странице вы можете посмотреть, какие организации прошли и подписали анкету."
+        })
 
-    <div class="table-responsive">
-        <table class="answers-page__signatures-table">
-            <thead>
-                <tr>
-                    <th>Организация</th>
-                    <th class="text-center">Статус прохождения</th>
-                    <th class="text-center">Статус подписи</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model.Items.Any())
-                {
-                    @foreach (var item in Model.Items)
+    <section class="app-page__section">
+        <div class="table-responsive">
+            <table class="answers-page__signatures-table">
+                <thead>
+                    <tr>
+                        <th>Организация</th>
+                        <th class="text-center">Статус прохождения</th>
+                        <th class="text-center">Статус подписи</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>@item.OrganizationName</td>
+                                <td class="text-center">
+                                    <span class="status-badge @(item.IsCompleted ? "completed" : "not-completed")">
+                                        @item.CompletionStatus
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="status-badge @(item.IsSigned ? "signed" : "not-signed")">
+                                        @item.SignatureStatus
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
                     {
                         <tr>
-                            <td>@item.OrganizationName</td>
-                            <td class="text-center">
-                                <span class="status-badge @(item.IsCompleted ? "completed" : "not-completed")">
-                                    @item.CompletionStatus
-                                </span>
-                            </td>
-                            <td class="text-center">
-                                <span class="status-badge @(item.IsSigned ? "signed" : "not-signed")">
-                                    @item.SignatureStatus
-                                </span>
+                            <td colspan="3" class="text-center">
+                                Нет данных о подписях организаций
                             </td>
                         </tr>
                     }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="3" class="text-center">
-                            Нет данных о подписях организаций
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>

@@ -17,9 +17,7 @@ public class AuthController : Controller
 
     [AllowAnonymous]
     [HttpGet("")]
-    [HttpGet("Auth")]
-    [HttpGet("display_auth")]
-    [ActionName("display_auth")]
+    [HttpGet("auth")]
     public IActionResult DisplayAuth()
     {
         if (User.Identity != null && User.Identity.IsAuthenticated)
@@ -41,16 +39,15 @@ public class AuthController : Controller
     }
 
     [AllowAnonymous]
-    [ActionName("logout_account")]
+    [HttpPost("auth/logout")]
     public async Task<IActionResult> LogoutAccount()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        return RedirectToAction("display_auth");
+        return Ok(new { success = true });
     }
 
     [AllowAnonymous]
-    [HttpPost]
-    [ActionName("login")]
+    [HttpPost("auth/login")]
     public async Task<IActionResult> Login([FromBody] string[] userData)
     {
         if (userData == null || userData.Length != 2)

@@ -2,16 +2,23 @@
     ViewData["Title"] = "Добавление организации";
 }
 
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
+}
 
-<div class="content organization-form-page" id="default_content" data-page="organization-add">
-    <div class="note">
-        <h2>Добавление новой организации</h2>
-        <p>В форме ниже вы можете задать данные для новой организации</p>
-    </div>
-
-    @await Html.PartialAsync("~/Views/Organization/Partials/_AddOrganizationForm.cshtml")
+<div class="app-page app-page--narrow organization-form-page" id="default_content" data-page="organization-add">
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Добавление новой организации",
+            Description = "В форме ниже вы можете задать данные для новой организации."
+        })
+    <section class="app-page__section">
+        @await Html.PartialAsync("~/Views/Organization/Partials/_AddOrganizationForm.cshtml")
+    </section>
 </div>
 
-<script src="~/js/pages/organization.js" asp-append-version="true"></script>
+@section Scripts {
+    <script src="~/js/pages/organization.js" asp-append-version="true"></script>
+}

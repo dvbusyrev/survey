@@ -3,6 +3,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Infrastructure.Security;
+using MainProject.Models;
 using System.IO;
 using System.Text;
 
@@ -11,7 +12,7 @@ public class HelpController : Controller
 {
     private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files");
 
-    [ActionName("help_file")]
+    [HttpGet("help/files/{type}")]
     public IActionResult HelpFile(string type)
     {
         var docxFilePath = ResolveHelpDocumentPath(type);
@@ -23,14 +24,8 @@ public class HelpController : Controller
 
         try
         {
-            // Считываем содержимое DOCX файла
-            string htmlContent = ConvertDocxToHtml(docxFilePath);
-
-            // Передаем HTML-содержимое в представление через ViewBag
-            ViewBag.HtmlContent = htmlContent;
-
-            // Возвращаем представление
-            return View();
+            var documentModel = BuildHelpDocument(docxFilePath);
+            return View("help_file", documentModel);
         }
         catch (Exception ex)
         {
@@ -73,73 +68,79 @@ public class HelpController : Controller
         return null;
     }
 
-    private string ConvertDocxToHtml(string docxFilePath)
+    private HelpDocumentViewModel BuildHelpDocument(string docxFilePath)
     {
-        StringBuilder htmlBuilder = new StringBuilder();
+        var documentModel = new HelpDocumentViewModel();
 
         // Открываем DOCX файл с помощью OpenXML
         using (WordprocessingDocument document = WordprocessingDocument.Open(docxFilePath, false))
         {
             // Получаем основной текст документа
-            Body body = document.MainDocumentPart.Document.Body;
+            var mainDocumentPart = document.MainDocumentPart;
+            if (mainDocumentPart?.Document?.Body == null)
+            {
+                return documentModel;
+            }
+
+            Body body = mainDocumentPart.Document.Body;
 
             // Обрабатываем каждый элемент в документе
             foreach (var element in body.Elements())
             {
                 if (element is Paragraph paragraph)
                 {
-                    // Добавляем текст параграфа в HTML
-                    htmlBuilder.Append($"<p>{GetTextFromParagraph(paragraph)}</p>");
+                    var paragraphText = GetTextFromParagraph(paragraph).Trim();
+                    if (!string.IsNullOrWhiteSpace(paragraphText))
+                    {
+                        documentModel.Blocks.Add(new HelpParagraphBlock(paragraphText));
+                    }
                 }
                 else if (element is Table table)
                 {
-                    // Обрабатываем таблицы (если нужно)
-                    htmlBuilder.Append("<table>");
-                    foreach (var row in table.Elements<TableRow>())
+                    var rows = table.Elements<TableRow>()
+                        .Select(row => (IReadOnlyList<string>)row.Elements<TableCell>()
+                            .Select(GetTextFromTableCell)
+                            .ToList())
+                        .Where(row => row.Count > 0)
+                        .ToList();
+
+                    if (rows.Count > 0)
                     {
-                        htmlBuilder.Append("<tr>");
-                        foreach (var cell in row.Elements<TableCell>())
-                        {
-                            htmlBuilder.Append($"<td>{GetTextFromTableCell(cell)}</td>");
-                        }
-                        htmlBuilder.Append("</tr>");
+                        documentModel.Blocks.Add(new HelpTableBlock(rows));
                     }
-                    htmlBuilder.Append("</table>");
                 }
             }
 
             // Обрабатываем изображения
-            foreach (var imagePart in document.MainDocumentPart.ImageParts)
+            foreach (var imagePart in mainDocumentPart.ImageParts)
             {
                 using (var imageStream = imagePart.GetStream())
                 {
                     // Читаем изображение в массив байтов
-                    byte[] imageBytes = new byte[imageStream.Length];
-                    imageStream.Read(imageBytes, 0, imageBytes.Length);
+                    byte[] imageBytes = new byte[checked((int)imageStream.Length)];
+                    imageStream.ReadExactly(imageBytes);
 
                     // Преобразуем массив байтов в строку Base64
                     string base64Image = Convert.ToBase64String(imageBytes);
 
-                    // Добавляем изображение в HTML
-                    htmlBuilder.Append($"<img src='data:image/png;base64,{base64Image}' />");
+                    documentModel.Blocks.Add(new HelpImageBlock(
+                        $"data:image/png;base64,{base64Image}",
+                        "Иллюстрация из инструкции"));
                 }
             }
         }
 
-        return htmlBuilder.ToString();
+        return documentModel;
     }
 
-    [ActionName("help_page")]
+    [HttpGet("help")]
     public IActionResult HelpPage()
-{
+    {
+        return View("help_page");
+    }
 
-
-    return View();
-}
-
-[Authorize(Roles = AppRoles.Admin)]
-[HttpPost]
-    [ActionName("upload_instruction")]
+    [Authorize(Roles = AppRoles.Admin)]
+    [HttpPost("help/upload")]
     public async Task<IActionResult> UploadInstruction(IFormFile file, string role)
     {
         if (file == null || file.Length == 0)
@@ -173,7 +174,6 @@ public class HelpController : Controller
 
         return Ok(new { message = "Файл успешно загружен.", fileName });
     }
-
 
     private string GetTextFromParagraph(Paragraph paragraph)
     {

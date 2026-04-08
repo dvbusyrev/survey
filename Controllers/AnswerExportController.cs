@@ -20,11 +20,9 @@ public class AnswerExportController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/pdf")]
-    [HttpGet("create_pdf_report/{idSurvey}/{idOrganization}")]
-    [HttpGet("Answer/create_pdf_report/{idSurvey}/{idOrganization}")]
     public IActionResult CreatePdfReport(int idSurvey, int idOrganization)
     {
-        var accessResult = EnsureOrganizationAccess(idOrganization);
+        var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -48,11 +46,9 @@ public class AnswerExportController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/signed-archive")]
-    [HttpGet("download_signed_archive/{idSurvey}/{idOrganization}")]
-    [HttpGet("Answer/download_signed_archive/{idSurvey}/{idOrganization}")]
     public IActionResult DownloadSignedArchive(int idSurvey, int idOrganization)
     {
-        var accessResult = EnsureOrganizationAccess(idOrganization);
+        var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -76,13 +72,9 @@ public class AnswerExportController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/report/{type?}")]
-    [HttpGet("create_answer_report/{idSurvey}/{idOrganization}/{type?}")]
-    [HttpGet("Answer/create_answer_report")]
-    [HttpGet("Answer/create_answer_report/{idSurvey}/{idOrganization}/{type?}")]
-    [ActionName("create_answer_report")]
     public IActionResult CreateAnswerReport(int idSurvey, int idOrganization, string type = "file")
     {
-        var accessResult = EnsureOrganizationAccess(idOrganization);
+        var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
         if (accessResult != null)
         {
             return accessResult;
@@ -106,22 +98,19 @@ public class AnswerExportController : Controller
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/archive")]
-    [HttpGet("create_answer_report_archive/{idSurvey}/{idOrganization}")]
-    [HttpGet("Answer/create_answer_report_archive/{idSurvey}/{idOrganization}")]
-    [ActionName("create_answer_report_archive")]
     public IActionResult CreateAnswerReportArchive(int idSurvey, int idOrganization)
     {
         return CreateAnswerReport(idSurvey, idOrganization, "archive");
     }
 
-    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
+    private IActionResult? EnsureAnswerRecordAccess(int surveyId, int requestedOrganizationId)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessOrganization(requestedOrganizationId))
+        if (!_answerAccessService.CanAccessAnswerRecord(surveyId, requestedOrganizationId))
         {
             return Forbid();
         }

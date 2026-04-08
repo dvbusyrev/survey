@@ -1,15 +1,27 @@
 ﻿@model List<MainProject.Models.User>
+@{
+    ViewData["Title"] = "Архив пользователей";
+}
 
-@await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
-<link rel="stylesheet" href="~/css/pages/users.css" asp-append-version="true" />
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/users.css" asp-append-version="true" />
+}
 
-<div class="content users-page users-page--archive" id="default_content" data-page="users-archive">
-    <p class="back-button users-page__back" onclick="handleTabClick('get_users')">← Вернуться к списку пользователей</p>
+<div class="app-page users-page users-page--archive" id="default_content" data-page="users-archive">
+    <button type="button"
+            class="back-button users-page__back"
+            data-tab-target="get_users"
+            data-fallback-url="/get_users">← Вернуться к списку пользователей</button>
 
-    <div class="note users-page__note">
-        <h2>Архив пользователей</h2>
-        <p>Ниже представлена таблица с архивными пользователями</p>
-    </div>
+    @await Html.PartialAsync(
+        "~/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Models.PageIntroModel
+        {
+            Title = "Архив пользователей",
+            Description = "Ниже представлена таблица с архивными пользователями."
+        })
 
-    @await Html.PartialAsync("Partials/_ArchiveUsersTable", Model)
+    <section class="app-page__section app-page__section--flush">
+        @await Html.PartialAsync("Partials/_ArchiveUsersTable", Model)
+    </section>
 </div>

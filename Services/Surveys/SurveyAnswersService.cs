@@ -29,7 +29,7 @@ public sealed class SurveyAnswersService
             return null;
         }
 
-        var answers = connection.Query<HistoryAnswer>(
+        var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
                   ha.id_survey,
@@ -90,7 +90,7 @@ public sealed class SurveyAnswersService
             };
         }
 
-        var answers = connection.Query<HistoryAnswer>(
+        var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
                   ha.organization_id,
@@ -118,7 +118,7 @@ public sealed class SurveyAnswersService
 
     private static void AttachAnswerItems(
         global::System.Data.IDbConnection connection,
-        IEnumerable<HistoryAnswer> answers)
+        IEnumerable<AnswerRecord> answers)
     {
         var answerList = answers.ToList();
         if (answerList.Count == 0)

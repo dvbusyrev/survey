@@ -398,23 +398,30 @@ const SurveyContent = ({
 
             
 window.renderSurveyUserList = function(initialData) {
+            const initialTab = initialData.initialTab === 'archived' ? 'archived' : 'active';
             const SurveyList = () => {
-            const [activeTab, setActiveTab] = React.useState('active');
+            const [activeTab, setActiveTab] = React.useState(initialTab);
             const [currentContent, setCurrentContent] = React.useState('surveys');
             const [currentView, setCurrentView] = React.useState('survey-list');
             const [currentSurvey, setCurrentSurvey] = React.useState(null);
-            const [searchTerm, setSearchTerm] = React.useState(initialData.initialSearchTerm);
+            const [searchTerm, setSearchTerm] = React.useState(initialData.initialSearchTerm || '');
             const [loading, setLoading] = React.useState(false);
             const [showLoader, setShowLoader] = React.useState(false);
             const firstDataRenderRef = React.useRef(true);
             const [error, setError] = React.useState(null);
             const [surveys, setSurveys] = React.useState(initialData.initialSurveys || []);
-            const [currentPage, setCurrentPage] = React.useState(initialData.initialPage);
-            const [totalPages, setTotalPages] = React.useState(initialData.initialTotalPages);
+            const [currentPage, setCurrentPage] = React.useState(initialData.initialPage || 1);
+            const [totalPages, setTotalPages] = React.useState(initialData.initialTotalPages || 1);
             const [activeCount, setActiveCount] = React.useState(
-                initialData.initialTotalCount || initialData.initialSurveys?.length || 0
+                initialTab === 'active'
+                    ? (initialData.initialTotalCount || initialData.initialSurveys?.length || 0)
+                    : 0
             );
-            const [archivedCount, setArchivedCount] = React.useState(0);
+            const [archivedCount, setArchivedCount] = React.useState(
+                initialTab === 'archived'
+                    ? (initialData.initialTotalCount || initialData.initialSurveys?.length || 0)
+                    : 0
+            );
             const [helpContent, setHelpContent] = React.useState('');
             const [dateFilter, setDateFilter] = React.useState('');
             const [filterSigned, setFilterSigned] = React.useState(false);
@@ -435,7 +442,7 @@ React.useEffect(() => {
     try {
         const endpoint = tab === 'active' 
             ? `/my-surveys?page=${page}&searchTerm=${search}&date=${date}`
-            : `/get_archived_surveys/${initialData.userId}?searchTerm=${search}&signedOnly=${signedOnly}&date=${date}`;
+            : `/my-surveys/archive/${initialData.userId}?searchTerm=${search}&signedOnly=${signedOnly}&date=${date}`;
         
         const response = await fetch(endpoint, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -467,7 +474,7 @@ React.useEffect(() => {
     React.useEffect(() => {
         const loadArchiveCount = async () => {
             try {
-                const response = await fetch(`/get_archived_surveys/${initialData.userId}?countOnly=true`);
+                const response = await fetch(`/my-surveys/archive/${initialData.userId}?countOnly=true`);
                 if (!response.ok) throw new Error('Ошибка загрузки количества архивных анкет');
                 const data = await response.json();
                 setArchivedCount(data.totalCount || 0);
@@ -481,7 +488,7 @@ React.useEffect(() => {
 
     const loadArchiveCount = async () => {
     try {
-        const response = await fetch(`/get_archived_surveys/${initialData.userId}?countOnly=true`);
+        const response = await fetch(`/my-surveys/archive/${initialData.userId}?countOnly=true`);
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
@@ -501,7 +508,7 @@ React.useEffect(() => {
                 setLoading(true);
                 setError(null);
                 try {
-                    const response = await fetch(`/help_file/csp`, {
+                    const response = await fetch(`/help/files/csp`, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' }
                     });
                     
@@ -531,7 +538,7 @@ React.useEffect(() => {
         }
 
         // Загрузка счетчика архивных анкет
-        const archiveResponse = await fetch(`/get_archived_surveys/${initialData.userId}?searchTerm=`, {
+        const archiveResponse = await fetch(`/my-surveys/archive/${initialData.userId}?searchTerm=`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         
@@ -544,34 +551,6 @@ React.useEffect(() => {
     }
 };
 
-
-            // Загрузка счетчиков анкет
-            // В методе loadCounts компонента SurveyList:
-// const loadCounts = async () => {
-//     try {
-//         // Загрузка счетчика активных анкет
-//         const activeResponse = await fetch(`/survey_list_user/${initialData.userId}?page=1&searchTerm=`, {
-//             headers: { 'X-Requested-With': 'XMLHttpRequest' }
-//         });
-        
-//         if (activeResponse.ok) {
-//             const activeData = await activeResponse.json();
-//             setActiveCount(activeData.totalCount || activeData.accessibleSurveys?.length || 0);
-//         }
-
-//         // Загрузка счетчика архивных анкет
-//         const archiveResponse = await fetch(`/get_archived_surveys/${initialData.userId}?searchTerm=`, {
-//             headers: { 'X-Requested-With': 'XMLHttpRequest' }
-//         });
-        
-//         if (archiveResponse.ok) {
-//             const archiveData = await archiveResponse.json();
-//             setArchivedCount(archiveData.totalCount || archiveData.accessibleSurveys?.length || 0);
-//         }
-//     } catch (err) {
-//         console.error('Ошибка загрузки счетчиков:', err);
-//     }
-// };
 
             const handleSurveyClick = (survey) => {
                 setCurrentSurvey(survey);
@@ -645,7 +624,13 @@ React.useEffect(() => {
             countsLoadedRef.current = true;
         }
 
-        if (firstDataRenderRef.current && currentContent === 'surveys' && activeTab === 'active' && currentPage === initialData.initialPage && searchTerm === initialData.initialSearchTerm && !filterSigned && !dateFilter) {
+        if (firstDataRenderRef.current
+            && currentContent === 'surveys'
+            && activeTab === initialTab
+            && currentPage === (initialData.initialPage || 1)
+            && searchTerm === (initialData.initialSearchTerm || '')
+            && !filterSigned
+            && !dateFilter) {
             firstDataRenderRef.current = false;
             return;
         }
@@ -786,3 +771,24 @@ return (
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<SurveyList />);
 };
+
+function getSurveyUserBootstrapData() {
+    const bootstrapElement = document.getElementById('survey-user-list-bootstrap')
+        || document.getElementById('user-archive-bootstrap');
+
+    if (!bootstrapElement?.content?.textContent) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(bootstrapElement.content.textContent.trim());
+    } catch (error) {
+        console.error('Не удалось прочитать bootstrap-данные user survey:', error);
+        return null;
+    }
+}
+
+const surveyUserBootstrapData = getSurveyUserBootstrapData();
+if (document.getElementById('root') && surveyUserBootstrapData) {
+    window.renderSurveyUserList(surveyUserBootstrapData);
+}

@@ -130,7 +130,11 @@ public sealed class OrganizationManagementService
                 organization_name = @name,
                 email = @email,
                 date_begin = @dateBegin,
-                date_end = @dateEnd
+                date_end = @dateEnd,
+                block = CASE
+                    WHEN @shouldRestoreAccess THEN false
+                    ELSE block
+                END
             WHERE organization_id = @id;
             """,
             new
@@ -139,7 +143,8 @@ public sealed class OrganizationManagementService
                 name = request.Name.Trim(),
                 email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
                 dateBegin,
-                dateEnd
+                dateEnd,
+                shouldRestoreAccess = !dateEnd.HasValue || dateEnd.Value.Date >= DateTime.Today
             });
 
         return new OperationResult

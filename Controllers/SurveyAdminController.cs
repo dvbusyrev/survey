@@ -17,27 +17,20 @@ public class SurveyAdminController : Controller
     }
 
     [HttpGet("surveys")]
-    [HttpGet("get_surveys")]
-    [HttpGet("Survey/get_surveys")]
-    [ActionName("get_surveys")]
     public IActionResult GetSurveys()
     {
         return View("~/Views/Survey/get_surveys.cshtml", _surveyAdminService.GetSurveys());
     }
 
     [HttpGet("surveys/create")]
-    [HttpGet("add_survey")]
-    [ActionName("add_survey")]
     public IActionResult AddSurvey()
     {
         return View("~/Views/Survey/add_survey.cshtml");
     }
 
     [HttpPost("surveys/create")]
-    [HttpPost("add_survey_bd")]
     [ValidateAntiForgeryToken]
-    [ActionName("add_survey_bd")]
-    public async Task<IActionResult> AddSurveyBd([FromBody] SurveyAddRequest? request)
+    public async Task<IActionResult> CreateSurvey([FromBody] SurveyAddRequest? request)
     {
         try
         {
@@ -75,7 +68,6 @@ public class SurveyAdminController : Controller
     }
 
     [HttpPost("surveys/{id:int}/update")]
-    [HttpPost("update_survey_bd/{id}")]
     [ValidateAntiForgeryToken]
     public IActionResult UpdateSurvey(int id, [FromBody] SurveyUpdateRequest? model)
     {
@@ -112,11 +104,8 @@ public class SurveyAdminController : Controller
     }
 
     [HttpPost("surveys/{id:int}/copy")]
-    [HttpPost("copy_survey_bd/{id}")]
-    [HttpPost("Survey/copy_survey_bd/{id}")]
     [ValidateAntiForgeryToken]
-    [ActionName("copy_survey_bd")]
-    public async Task<IActionResult> CopySurveyBd(int id, [FromBody] SurveyCopyRequest? request)
+    public async Task<IActionResult> CopySurveySubmission(int id, [FromBody] SurveyCopyRequest? request)
     {
         try
         {
@@ -159,9 +148,6 @@ public class SurveyAdminController : Controller
     }
 
     [HttpPost("surveys/{id:int}/delete")]
-    [HttpPost("Survey/delete_survey")]
-    [HttpPost("surveys/delete/{id:int}")]
-    [ActionName("delete_survey")]
     public IActionResult DeleteSurvey(int? id, [FromBody] DeleteSurveyRequest? request)
     {
         var surveyId = request?.SurveyId ?? id ?? 0;
@@ -198,9 +184,6 @@ public class SurveyAdminController : Controller
     }
 
     [HttpGet("surveys/{id:int}/edit")]
-    [HttpGet("update_survey/{id}")]
-    [HttpPost("update_survey/{id}")]
-    [ActionName("update_survey")]
     public IActionResult UpdateSurveyPage(int id)
     {
         try
@@ -221,9 +204,6 @@ public class SurveyAdminController : Controller
     }
 
     [HttpGet("surveys/{id:int}/copy")]
-    [HttpGet("copy_survey/{id}")]
-    [HttpPost("copy_survey/{id}")]
-    [ActionName("copy_survey")]
     public IActionResult CopySurvey(int id)
     {
         try
