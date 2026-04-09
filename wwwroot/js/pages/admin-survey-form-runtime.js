@@ -44,12 +44,7 @@
             return;
         }
 
-        if (window.showSiteModal) {
-            window.showSiteModal(modal);
-        } else {
-            modal.classList.add('active');
-        }
-
+        setModalVisible(modal, true);
         loadOrganizations();
     }
 
@@ -65,6 +60,54 @@
             modal.classList.remove('active');
             modal.style.display = 'none';
         }
+    }
+
+    function setModalVisible(target, isVisible) {
+        const modal = resolveModal(target);
+        if (!modal) {
+            return false;
+        }
+
+        if (isVisible) {
+            if (window.showSiteModal) {
+                window.showSiteModal(modal);
+            } else {
+                modal.classList.add('active');
+                modal.style.display = 'flex';
+            }
+            return true;
+        }
+
+        if (window.hideSiteModal) {
+            window.hideSiteModal(modal);
+        } else {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
+        return true;
+    }
+
+    function showTimedNotification(type, title, message) {
+        const notification = safeGetElement('notification');
+        if (!notification) {
+            window.siteNotify?.(message, type);
+            return;
+        }
+
+        const titleElement = document.getElementById('notificationTitle');
+        const messageElement = document.getElementById('notificationMessage');
+        if (titleElement) {
+            titleElement.textContent = title;
+            titleElement.className = `notification-title notification-${type}`;
+        }
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+
+        setModalVisible(notification, true);
+        window.setTimeout(function () {
+            setModalVisible(notification, false);
+        }, 3000);
     }
 
     function renderOrganizationsList() {
@@ -220,16 +263,19 @@
         const count = container.querySelectorAll('.criteriy').length + 1;
         const wrapper = document.createElement('div');
         wrapper.className = 'form-group';
-        wrapper.innerHTML = `
-            <label for="criteriy${count}">Критерий оценки ${count}:</label>
-            <input
-                type="text"
-                class="form-control criteriy"
-                id="criteriy${count}"
-                placeholder="Введите критерий оценки"
-                required
-            />
-        `;
+        const label = document.createElement('label');
+        label.setAttribute('for', `criteriy${count}`);
+        label.textContent = `Критерий оценки ${count}:`;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control criteriy';
+        input.id = `criteriy${count}`;
+        input.placeholder = 'Введите критерий оценки';
+        input.required = true;
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
 
         container.appendChild(wrapper);
     }
@@ -273,80 +319,15 @@
     }
 
     function showSuccess(title, message) {
-        const notification = safeGetElement('notification');
-        if (!notification) {
-            window.siteNotify?.(message, 'success');
-            return;
-        }
-
-        const titleElement = document.getElementById('notificationTitle');
-        const messageElement = document.getElementById('notificationMessage');
-        if (titleElement) {
-            titleElement.textContent = title;
-            titleElement.className = 'notification-title notification-success';
-        }
-        if (messageElement) {
-            messageElement.textContent = message;
-        }
-
-        if (window.showSiteModal) {
-            window.showSiteModal(notification);
-        } else {
-            notification.classList.add('active');
-        }
-
-        window.setTimeout(function () {
-            if (window.hideSiteModal) {
-                window.hideSiteModal(notification);
-            } else {
-                notification.classList.remove('active');
-            }
-        }, 3000);
+        showTimedNotification('success', title, message);
     }
 
     function showError(title, message) {
-        const notification = safeGetElement('notification');
-        if (!notification) {
-            window.siteNotify?.(message, 'error');
-            return;
-        }
-
-        const titleElement = document.getElementById('notificationTitle');
-        const messageElement = document.getElementById('notificationMessage');
-        if (titleElement) {
-            titleElement.textContent = title;
-            titleElement.className = 'notification-title notification-error';
-        }
-        if (messageElement) {
-            messageElement.textContent = message;
-        }
-
-        if (window.showSiteModal) {
-            window.showSiteModal(notification);
-        } else {
-            notification.classList.add('active');
-        }
-
-        window.setTimeout(function () {
-            if (window.hideSiteModal) {
-                window.hideSiteModal(notification);
-            } else {
-                notification.classList.remove('active');
-            }
-        }, 3000);
+        showTimedNotification('error', title, message);
     }
 
     function hideNotification() {
-        const notification = safeGetElement('notification');
-        if (!notification) {
-            return;
-        }
-
-        if (window.hideSiteModal) {
-            window.hideSiteModal(notification);
-        } else {
-            notification.classList.remove('active');
-        }
+        setModalVisible('notification', false);
     }
 
     function validateForm() {
@@ -398,11 +379,7 @@
 
         const loadingOverlay = safeGetElement('loadingOverlay');
         if (loadingOverlay) {
-            if (window.showSiteModal) {
-                window.showSiteModal(loadingOverlay);
-            } else {
-                loadingOverlay.style.display = 'flex';
-            }
+            setModalVisible(loadingOverlay, true);
         }
 
         fetch('/surveys/create', {
@@ -448,11 +425,7 @@
                     return;
                 }
 
-                if (window.hideSiteModal) {
-                    window.hideSiteModal(loadingOverlay);
-                } else {
-                    loadingOverlay.style.display = 'none';
-                }
+                setModalVisible(loadingOverlay, false);
             });
     }
 
@@ -524,14 +497,7 @@
             item.classList.toggle('selected', isSelected);
         });
 
-        if (window.showSiteModal) {
-            window.showSiteModal('organizationModal');
-        } else {
-            var modal = document.getElementById('organizationModal');
-            if (modal) {
-                modal.style.display = 'flex';
-            }
-        }
+        setModalVisible('organizationModal', true);
 
         window.surveyEditModalOpen = true;
     }

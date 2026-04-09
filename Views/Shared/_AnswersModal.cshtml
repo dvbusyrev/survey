@@ -9,3 +9,95 @@
     </div>
   </div>
 </div>
+
+<template id="answers-loading-template">
+  <div class="loading">Загрузка данных...</div>
+</template>
+
+<template id="answers-survey-description-template">
+  <p class="survey-description">Описание: {{description}}</p><br />
+</template>
+
+<template id="answers-organization-header-template">
+  <th>Организация</th>
+</template>
+
+<template id="answers-table-template">
+  <div class="survey-info">
+    {{description}}
+  </div>
+  <div class="answers-table-container">
+    <table class="answers-table">
+      <thead>
+        <tr class="table-tr">
+          {{organizationHeader}}
+          <th>Вопрос</th>
+          <th>Оценка</th>
+          <th>Комментарий</th>
+          <th>Дата</th>
+          <th>Подпись</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{rows}}
+      </tbody>
+    </table>
+  </div>
+</template>
+
+<template id="answers-organization-cell-template">
+  <td rowspan="{{rowSpan}}" class="organization-cell">{{organizationName}}</td>
+</template>
+
+<template id="answers-date-cell-template">
+  <td rowspan="{{rowSpan}}" class="date-cell">{{date}}</td>
+</template>
+
+<template id="answers-signature-cell-template">
+  <td rowspan="{{rowSpan}}" class="signature-cell">{{signatureMark}}</td>
+</template>
+
+<template id="answers-row-template">
+  <tr>
+    {{organizationCell}}
+    <td class="question-cell">{{question}}</td>
+    <td class="rating-cell">{{rating}}/5</td>
+    <td class="comment-cell">{{comment}}</td>
+    {{dateCell}}
+    {{signatureCell}}
+  </tr>
+</template>
+
+<template id="answers-empty-row-template">
+  <tr>
+    {{organizationCell}}
+    <td class="question-cell">Нет данных</td>
+    <td class="rating-cell">-</td>
+    <td class="comment-cell">-</td>
+    <td class="date-cell">{{date}}</td>
+    <td class="signature-cell">{{signatureMark}}</td>
+  </tr>
+</template>
+
+<template id="answers-signed-mark-template">
+  <span class="signed">✓</span>
+</template>
+
+<template id="answers-not-signed-mark-template">
+  <span class="not-signed">✗</span>
+</template>
+
+<template id="answers-error-template">
+  <div class="error-message">
+    <p>Ошибка загрузки данных:</p>
+    <br />
+    <p><strong>{{errorMessage}}</strong></p>
+    <br />
+    <button type="button"
+            data-click-call="showAnswersModal"
+            data-click-args="{{retryArgs}}"
+            class="retry-btn">
+      Повторить попытку
+    </button>
+  </div>
+</template>

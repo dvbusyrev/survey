@@ -8,11 +8,6 @@
 }
 
 <div class="app-page users-page users-page--archive" id="default_content" data-page="users-archive">
-    <button type="button"
-            class="back-button users-page__back"
-            data-tab-target="get_users"
-            data-fallback-url="/get_users">← Вернуться к списку пользователей</button>
-
     @await Html.PartialAsync(
         "~/Views/Shared/_PageIntro.cshtml",
         new MainProject.Models.PageIntroModel

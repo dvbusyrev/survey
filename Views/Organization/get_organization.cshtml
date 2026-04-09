@@ -20,9 +20,15 @@
             Title = "Список организаций",
             Description = "Ниже представлена таблица с существующими организациями."
         })
-    <section class="app-page__section">
-        @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationToolbar.cshtml")
-    </section>
+    <div class="organization-toolbar">
+        <button
+            type="button"
+            class="modal_btn modal_btn-primary"
+            data-click-call="openAddOrganizationModal"
+            data-fallback-url="/organizations/create">
+            Добавить организацию
+        </button>
+    </div>
     <section class="app-page__section app-page__section--flush">
         @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
     </section>

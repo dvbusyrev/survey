@@ -1,4 +1,29 @@
 (function () {
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    function createSvgEye(iconClass, paths, circle) {
+        const svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('class', iconClass);
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('aria-hidden', 'true');
+
+        paths.forEach(function (d) {
+            const path = document.createElementNS(SVG_NS, 'path');
+            path.setAttribute('d', d);
+            svg.appendChild(path);
+        });
+
+        if (circle) {
+            const circleEl = document.createElementNS(SVG_NS, 'circle');
+            circleEl.setAttribute('cx', String(circle.cx));
+            circleEl.setAttribute('cy', String(circle.cy));
+            circleEl.setAttribute('r', String(circle.r));
+            svg.appendChild(circleEl);
+        }
+
+        return svg;
+    }
+
     function setPasswordVisibility(input, btn, isVisible) {
         if (!input) return;
 
@@ -29,18 +54,13 @@
         btn.type = 'button';
         btn.className = 'password-eye-btn';
         btn.setAttribute('aria-label', 'Показать пароль');
-        btn.innerHTML = `
-            <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 3l18 18"></path>
-                <path d="M10.6 10.7a3 3 0 0 0 4 4"></path>
-                <path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8"></path>
-                <path d="M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3"></path>
-            </svg>
-        `;
+        btn.appendChild(createSvgEye('eye-open', ['M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z'], { cx: 12, cy: 12, r: 3 }));
+        btn.appendChild(createSvgEye('eye-closed', [
+            'M3 3l18 18',
+            'M10.6 10.7a3 3 0 0 0 4 4',
+            'M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8',
+            'M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3'
+        ]));
 
         btn.addEventListener('click', function () {
             const isVisible = input.dataset.passwordVisible === 'true';

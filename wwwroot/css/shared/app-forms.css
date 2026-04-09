@@ -46,8 +46,8 @@ select.form-control,
     linear-gradient(45deg, transparent 50%, #667eea 50%),
     linear-gradient(135deg, #667eea 50%, transparent 50%);
   background-position:
-    calc(100% - 18px) calc(50% - 3px),
-    calc(100% - 12px) calc(50% - 3px);
+          calc(100% - 18px) calc(50% - -1px),
+          calc(100% - 12px) calc(50% - -1px);
   background-size: 6px 6px, 6px 6px;
   background-repeat: no-repeat;
 }

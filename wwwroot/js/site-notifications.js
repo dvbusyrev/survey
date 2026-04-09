@@ -41,16 +41,38 @@
 
         confirmOverlay = document.createElement('div');
         confirmOverlay.className = 'site-confirm-overlay';
-        confirmOverlay.innerHTML = `
-            <div class="site-confirm" role="dialog" aria-modal="true" aria-labelledby="siteConfirmTitle">
-                <h3 id="siteConfirmTitle" class="site-confirm__title"></h3>
-                <p class="site-confirm__message"></p>
-                <div class="site-confirm__actions">
-                    <button type="button" class="site-confirm__button site-confirm__button--cancel">Отмена</button>
-                    <button type="button" class="site-confirm__button site-confirm__button--confirm">Подтвердить</button>
-                </div>
-            </div>
-        `;
+        const confirmDialog = document.createElement('div');
+        confirmDialog.className = 'site-confirm';
+        confirmDialog.setAttribute('role', 'dialog');
+        confirmDialog.setAttribute('aria-modal', 'true');
+        confirmDialog.setAttribute('aria-labelledby', 'siteConfirmTitle');
+
+        const title = document.createElement('h3');
+        title.id = 'siteConfirmTitle';
+        title.className = 'site-confirm__title';
+
+        const message = document.createElement('p');
+        message.className = 'site-confirm__message';
+
+        const actions = document.createElement('div');
+        actions.className = 'site-confirm__actions';
+
+        const cancelButtonNode = document.createElement('button');
+        cancelButtonNode.type = 'button';
+        cancelButtonNode.className = 'site-confirm__button site-confirm__button--cancel';
+        cancelButtonNode.textContent = 'Отмена';
+
+        const confirmButtonNode = document.createElement('button');
+        confirmButtonNode.type = 'button';
+        confirmButtonNode.className = 'site-confirm__button site-confirm__button--confirm';
+        confirmButtonNode.textContent = 'Подтвердить';
+
+        actions.appendChild(cancelButtonNode);
+        actions.appendChild(confirmButtonNode);
+        confirmDialog.appendChild(title);
+        confirmDialog.appendChild(message);
+        confirmDialog.appendChild(actions);
+        confirmOverlay.appendChild(confirmDialog);
 
         const cancelButton = confirmOverlay.querySelector('.site-confirm__button--cancel');
         const confirmButton = confirmOverlay.querySelector('.site-confirm__button--confirm');
@@ -116,13 +138,26 @@
             );
 
             toast.className = `site-toast site-toast--${toastType}`;
-            toast.innerHTML = `
-                <div class="site-toast__body">
-                    <h4 class="site-toast__title"></h4>
-                    <p class="site-toast__message"></p>
-                </div>
-                <button type="button" class="site-toast__close" aria-label="Закрыть">×</button>
-            `;
+            const toastBody = document.createElement('div');
+            toastBody.className = 'site-toast__body';
+
+            const toastTitle = document.createElement('h4');
+            toastTitle.className = 'site-toast__title';
+
+            const toastMessage = document.createElement('p');
+            toastMessage.className = 'site-toast__message';
+
+            toastBody.appendChild(toastTitle);
+            toastBody.appendChild(toastMessage);
+
+            const closeNode = document.createElement('button');
+            closeNode.type = 'button';
+            closeNode.className = 'site-toast__close';
+            closeNode.setAttribute('aria-label', 'Закрыть');
+            closeNode.textContent = '×';
+
+            toast.appendChild(toastBody);
+            toast.appendChild(closeNode);
 
             toast.querySelector('.site-toast__title').textContent = title;
             toast.querySelector('.site-toast__message').textContent = normalizeMessage(message);

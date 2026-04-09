@@ -38,5 +38,6 @@
 <template id="user-archive-bootstrap">@archiveBootstrapJson</template>
 
 @section Scripts {
+    @await Html.PartialAsync("~/Views/Shared/_NavigationTemplates.cshtml")
     <script src="~/js/dist/survey-user-app.js" asp-append-version="true"></script>
 }

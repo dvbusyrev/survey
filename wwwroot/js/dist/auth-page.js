@@ -7416,7 +7416,7 @@
           title: showPassword ? "Скрыть пароль" : "Показать пароль"
         },
         /* @__PURE__ */ import_react.default.createElement(EyeIcon, { visible: showPassword })
-      ))), /* @__PURE__ */ import_react.default.createElement("button", { type: "submit", className: "submit-button", disabled: isSubmitting }, isSubmitting ? "Вход..." : "Войти"))), /* @__PURE__ */ import_react.default.createElement(
+      ))), /* @__PURE__ */ import_react.default.createElement("button", { type: "submit", className: "submit-button", disabled: isSubmitting }, "Войти"))), /* @__PURE__ */ import_react.default.createElement(
         Modal,
         {
           isOpen: modal.isOpen,

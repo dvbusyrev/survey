@@ -1,65 +1,93 @@
 window.AdminArchives = (function () {
+  function getTemplateHtml(templateId) {
+    const template = document.getElementById(templateId);
+    if (!template || !template.content) {
+      return '';
+    }
+
+    return template.innerHTML;
+  }
+
+  function renderTemplate(templateId, data) {
+    const templateHtml = getTemplateHtml(templateId);
+    return templateHtml.replace(/\{\{\s*([\w]+)\s*\}\}/g, function (_, key) {
+      return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : '';
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function renderAnswers(data, isArchive, container, title) {
     title.textContent = `Ответы на архивную анкету: ${data.survey.name}`;
 
-    let html = `
-      <div class="survey-info">
-        ${data.survey.description ? `<p class="survey-description">Описание: ${data.survey.description}</p><br />` : ''}
-      </div>
-      <div class="answers-table-container">
-        <table class="answers-table">
-          <thead>
-            <tr class="table-tr">
-              ${isArchive ? '<th>Организация</th>' : ''}
-              <th>Вопрос</th>
-              <th>Оценка</th>
-              <th>Комментарий</th>
-              <th>Дата</th>
-              <th>Подпись</th>
-            </tr>
-          </thead>
-          <tbody>`;
+    const description = data.survey.description
+      ? renderTemplate('answers-survey-description-template', {
+        description: escapeHtml(data.survey.description)
+      })
+      : '';
+
+    const organizationHeader = isArchive
+      ? getTemplateHtml('answers-organization-header-template')
+      : '';
+
+    let rows = '';
 
     data.answers.forEach(answer => {
       const answerItems = Array.isArray(answer.answers) ? answer.answers : [];
       const rowSpan = answerItems.length > 0 ? answerItems.length : 1;
+      const signatureMark = answer.is_signed
+        ? getTemplateHtml('answers-signed-mark-template')
+        : getTemplateHtml('answers-not-signed-mark-template');
+      const organizationCell = isArchive
+        ? renderTemplate('answers-organization-cell-template', {
+          rowSpan: String(rowSpan),
+          organizationName: escapeHtml(answer.organization_name || 'Не указано')
+        })
+        : '';
 
       if (answerItems.length > 0) {
         answerItems.forEach((item, index) => {
-          html += `
-            <tr>
-              ${index === 0 && isArchive ? `<td rowspan="${rowSpan}" class="organization-cell">${answer.organization_name || 'Не указано'}</td>` : ''}
-              <td class="question-cell">${item.question_text || 'Не указан'}</td>
-              <td class="rating-cell">${item.rating || '0'}/5</td>
-              <td class="comment-cell">${item.comment || 'Нет комментария'}</td>
-              ${index === 0 ? `
-              <td rowspan="${rowSpan}" class="date-cell">${answer.date || 'Не указана'}</td>
-              <td rowspan="${rowSpan}" class="signature-cell">
-                ${answer.is_signed ? '<span class="signed">✓</span>' : '<span class="not-signed">✗</span>'}
-              </td>` : ''}
-            </tr>`;
+          rows += renderTemplate('answers-row-template', {
+            organizationCell: index === 0 ? organizationCell : '',
+            question: escapeHtml(item.question_text || 'Не указан'),
+            rating: escapeHtml(item.rating || '0'),
+            comment: escapeHtml(item.comment || 'Нет комментария'),
+            dateCell: index === 0 ? renderTemplate('answers-date-cell-template', {
+              rowSpan: String(rowSpan),
+              date: escapeHtml(answer.date || 'Не указана')
+            }) : '',
+            signatureCell: index === 0 ? renderTemplate('answers-signature-cell-template', {
+              rowSpan: String(rowSpan),
+              signatureMark: signatureMark
+            }) : ''
+          });
         });
       } else {
-        html += `
-          <tr>
-            ${isArchive ? `<td class="organization-cell">${answer.organization_name || 'Не указано'}</td>` : ''}
-            <td class="question-cell">Нет данных</td>
-            <td class="rating-cell">-</td>
-            <td class="comment-cell">-</td>
-            <td class="date-cell">${answer.date || 'Не указана'}</td>
-            <td class="signature-cell">
-              ${answer.is_signed ? '<span class="signed">✓</span>' : '<span class="not-signed">✗</span>'}
-            </td>
-          </tr>`;
+        rows += renderTemplate('answers-empty-row-template', {
+          organizationCell: isArchive
+            ? renderTemplate('answers-organization-cell-template', {
+              rowSpan: '1',
+              organizationName: escapeHtml(answer.organization_name || 'Не указано')
+            })
+            : '',
+          date: escapeHtml(answer.date || 'Не указана'),
+          signatureMark: signatureMark
+        });
       }
     });
 
-    html += `
-          </tbody>
-        </table>
-      </div>`;
-
-    container.innerHTML = html;
+    container.innerHTML = renderTemplate('answers-table-template', {
+      description: description,
+      organizationHeader: organizationHeader,
+      rows: rows
+    });
   }
 
   function closeModalById(id) {
@@ -91,7 +119,7 @@ window.AdminArchives = (function () {
     const isArchive = organizationId === null || typeof organizationId === 'undefined';
 
     try {
-      container.innerHTML = '<div class="loading">Загрузка данных...</div>';
+      container.innerHTML = getTemplateHtml('answers-loading-template');
       title.textContent = 'Загрузка...';
 
       if (window.showSiteModal) {
@@ -122,20 +150,10 @@ window.AdminArchives = (function () {
       renderAnswers(data, isArchive, container, title);
     } catch (error) {
       console.error('Ошибка:', error);
-      container.innerHTML = `
-        <div class="error-message">
-          <p>Ошибка загрузки данных:</p>
-          <br />
-          <p><strong>${error.message}</strong></p>
-          <br />
-          <button type="button"
-                  data-click-call="showAnswersModal"
-                  data-click-args='${JSON.stringify([surveyId, isArchive ? null : organizationId])}'
-                  class="retry-btn">
-            Повторить попытку
-          </button>
-        </div>
-      `;
+      container.innerHTML = renderTemplate('answers-error-template', {
+        errorMessage: escapeHtml(error.message),
+        retryArgs: escapeHtml(JSON.stringify([surveyId, isArchive ? null : organizationId]))
+      });
     }
   }
 

@@ -214,7 +214,7 @@
                         </div>
 
                         <button type="submit" className="submit-button" disabled={isSubmitting}>
-                            {isSubmitting ? 'Вход...' : 'Войти'}
+                           Войти
                         </button>
                     </form>
                 </div>

@@ -141,12 +141,47 @@ function getSafeElement(id) {
     return element;
 }
 
+function setModalVisibility(target, isVisible) {
+    const modal = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!modal) {
+        return false;
+    }
+
+    if (isVisible) {
+        if (window.showSiteModal) {
+            window.showSiteModal(modal);
+        } else {
+            modal.style.display = 'flex';
+        }
+        return true;
+    }
+
+    if (window.hideSiteModal) {
+        window.hideSiteModal(modal);
+    } else {
+        modal.style.display = 'none';
+    }
+    return true;
+}
+
+function setSingleOption(selectElement, text) {
+    if (!selectElement) {
+        return;
+    }
+
+    selectElement.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = text;
+    selectElement.appendChild(option);
+}
+
 // Функция загрузки организаций
 async function loadOrganizations2(selectedOrgId = null) {
     const orgSelect = getSafeElement('editOrganization');
     
     try {
-        orgSelect.innerHTML = '<option value="">Загрузка организаций...</option>';
+        setSingleOption(orgSelect, 'Загрузка организаций...');
         
         const response = await fetch('/organizations/data');
         if (!response.ok) throw new Error('Не удалось загрузить организации');
@@ -166,7 +201,7 @@ async function loadOrganizations2(selectedOrgId = null) {
 
     } catch (error) {
         console.error('Ошибка загрузки организаций:', error);
-        orgSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+        setSingleOption(orgSelect, 'Ошибка загрузки');
     }
 }
 
@@ -198,11 +233,7 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
         await loadOrganizations2(orgId);
 
         // Показываем модальное окно
-        if (window.showSiteModal) {
-            window.showSiteModal(modal);
-        } else {
-            modal.style.display = 'flex';
-        }
+        setModalVisibility(modal, true);
 
     } catch (error) {
         console.error('Ошибка при открытии формы:', error);
@@ -321,14 +352,7 @@ async function updateUser() {
 
 // Функция закрытия модального окна
 function closeModal2() {
-    const modal = document.getElementById('editUserModal');
-    if (modal) {
-        if (window.hideSiteModal) {
-            window.hideSiteModal(modal);
-        } else {
-            modal.style.display = 'none';
-        }
-    }
+    setModalVisibility('editUserModal', false);
 }
 
 function resetAddOrganizationForm() {
@@ -353,11 +377,7 @@ function openAddOrganizationModal() {
         return;
     }
 
-    if (window.showSiteModal) {
-        window.showSiteModal(modal);
-    } else {
-        modal.style.display = 'flex';
-    }
+    setModalVisibility(modal, true);
 }
 
 async function createOrganization() {
@@ -420,14 +440,7 @@ async function createOrganization() {
 // СКРИПТ ДЛЯ РЕДАКТИРОВАНИЯ ОРГАНИЗАЦИЙ
         
 function closeOrganizationModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        if (window.hideSiteModal) {
-            window.hideSiteModal(modal);
-        } else {
-            modal.style.display = 'none';
-        }
-    }
+    setModalVisibility(modalId, false);
 }
 
 // Функция открытия модального окна редактирования
@@ -437,11 +450,7 @@ function openEditOrganizationModal(id, name, email, dateBegin, dateEnd) {
     document.getElementById('organizationEmail').value = email || '';
     document.getElementById('organizationDateBegin').value = dateBegin || '';
     document.getElementById('organizationDateEnd').value = dateEnd || '';
-    if (window.showSiteModal) {
-        window.showSiteModal('editOrganizationModal');
-    } else {
-        document.getElementById('editOrganizationModal').style.display = 'flex';
-    }
+    setModalVisibility('editOrganizationModal', true);
 }
 
 function openEditOrganizationModalFromTrigger(trigger) {

@@ -171,6 +171,10 @@
   border-radius: 16px 16px 0 0;
 }
 
+.th-centered {
+  text-align: center;
+}
+
 :where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th {
   color: #4a5568;
   font-weight: 600;

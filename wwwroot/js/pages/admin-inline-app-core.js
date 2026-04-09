@@ -394,7 +394,7 @@
                                 <th className="table-th--start">Название анкеты</th>
                                 <th>Месяц</th>
                                 <th>Организация</th>
-                                <th className="table-th--end">Действия</th>
+                                <th className="table-th--end th-centered">Действия</th>
                             </tr>
                         </thead>
                         <tbody>

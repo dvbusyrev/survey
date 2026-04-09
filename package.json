@@ -2,8 +2,9 @@
   "name": "main-project-frontend",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-frontend.mjs",
+    "build": "npm run lint:no-innerhtml && node scripts/build-frontend.mjs",
     "build:frontend": "node scripts/build-frontend.mjs",
+    "lint:no-innerhtml": "node scripts/check-no-innerhtml.mjs",
     "watch:frontend": "node scripts/build-frontend.mjs --watch"
   },
   "devDependencies": {

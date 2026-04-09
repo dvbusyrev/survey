@@ -7308,27 +7308,7 @@
   init_react_globals();
   window.Navigation = ({ openTab, activeTab, userRole, userId }) => {
     const isAdmin = userRole === "admin";
-    const [openSubmenu, setOpenSubmenu] = import_react.default.useState(null);
-    const listSubmenuIcon = "fa-list-ul";
-    const addSubmenuIcon = "fa-plus";
-    const buildListAndAddSubmenu = (listId, listLabel, listClass, addId, addLabel, addClass) => [
-      { id: listId, label: listLabel, class: listClass, icon: listSubmenuIcon },
-      { id: addId, label: addLabel, class: addClass, icon: addSubmenuIcon }
-    ];
-    const getSubmenuPriority = (label) => {
-      if (label?.startsWith("Список")) return 0;
-      if (label?.startsWith("Добавить")) return 1;
-      return 2;
-    };
-    import_react.default.useEffect(() => {
-      const handlePointerDown = (event) => {
-        if (!event.target.closest(".admin-nav")) {
-          setOpenSubmenu(null);
-        }
-      };
-      document.addEventListener("pointerdown", handlePointerDown);
-      return () => document.removeEventListener("pointerdown", handlePointerDown);
-    }, []);
+    const hostRef = import_react.default.useRef(null);
     const isSurveySectionActive = isAdmin ? ["get_surveys", "add_survey", "list_answers_users", "archived_surveys"].includes(activeTab) : ["active", "archived", "answers_tab", "archived_surveys_for_user"].includes(activeTab);
     const isOrganizationSectionActive = ["get_organization", "add_organization", "archive_list_organizations"].includes(activeTab);
     const navigate = (tab) => {
@@ -7421,249 +7401,77 @@
         window.location.href = "/reports";
       }
     };
-    const adminNavItems = [
-      {
-        id: "open_statistics",
-        label: "Статистика",
-        class: "statistic",
-        icon: "fa-chart-line"
-      },
-      isAdmin ? {
-        id: "get_surveys",
-        label: "Анкеты",
-        class: "surveys",
-        icon: "fa-clipboard-list",
-        submenu: [
-          ...buildListAndAddSubmenu(
-            "get_surveys",
-            "Список анкет",
-            "survey-list",
-            "add_survey",
-            "Добавить анкету",
-            "survey-add"
-          ),
-          { id: "list_answers_users", label: "Ответы на анкеты", class: "survey-answers", icon: "fa-list-check" },
-          { id: "archived_surveys", label: "Архив анкет", class: "survey-archive", icon: "fa-archive-docs" }
-        ]
-      } : {
-        id: "active",
-        label: "Анкеты",
-        class: "surveys",
-        icon: "fa-clipboard-list"
-      },
-      {
-        id: "get_users",
-        label: "Пользователи",
-        class: "users",
-        icon: "fa-users",
-        submenu: buildListAndAddSubmenu(
-          "get_users",
-          "Список пользователей",
-          "user-list",
-          "add_user",
-          "Добавить пользователя",
-          "user-add"
-        )
-      },
-      {
-        id: "get_organization",
-        label: "Организации",
-        class: "organizations",
-        icon: "fa-building",
-        submenu: [
-          ...buildListAndAddSubmenu(
-            "get_organization",
-            "Список организаций",
-            "org-list",
-            "add_organization",
-            "Добавить организацию",
-            "org-add"
-          ),
-          { id: "archive_list_organizations", label: "Архив организаций", class: "org-archive", icon: "fa-archive-docs" }
-        ]
-      },
-      {
-        id: "reports",
-        label: "Отчёты",
-        class: "reports",
-        icon: "fa-file-alt",
-        submenu: [
-          { id: "monthly_summary_report", label: "Отчёт за месяц", class: "monthly-summary-report", icon: "fa-list-ul" },
-          { id: "quarterly_report_q1", label: "Отчёт за 1 квартал", class: "quarterly-report-q1", icon: "fa-list-ul" },
-          { id: "quarterly_report_q2", label: "Отчёт за 2 квартал", class: "quarterly-report-q2", icon: "fa-list-ul" },
-          { id: "quarterly_report_q3", label: "Отчёт за 3 квартал", class: "quarterly-report-q3", icon: "fa-list-ul" },
-          { id: "quarterly_report_q4", label: "Отчёт за 4 квартал", class: "quarterly-report-q4", icon: "fa-list-ul" }
-        ]
-      },
-      {
-        id: "email",
-        label: "Почта",
-        class: "email",
-        icon: "fa-envelope"
-      },
-      {
-        id: "get_logs",
-        label: "Прочее",
-        class: "other",
-        icon: "fa-ellipsis-h",
-        submenu: [
-          { id: "get_logs", label: "Посмотреть логи", class: "logs-view", icon: "fa-scroll" },
-          { id: "download_logs", label: "Выгрузить файл txt с логами", class: "logs-download", icon: "fa-download" }
-        ]
-      },
-      {
-        id: "help",
-        label: "Помощь",
-        class: "help",
-        icon: "fa-question-circle"
+    import_react.default.useEffect(() => {
+      const host = hostRef.current;
+      const templateId = isAdmin ? "nav-template-admin" : "nav-template-user";
+      const template = document.getElementById(templateId);
+      if (!host || !template?.content?.firstElementChild) {
+        return;
       }
-    ];
-    const userNavItems = [
-      {
-        id: "active",
-        label: "Анкеты",
-        class: "surveys",
-        icon: "fa-clipboard-list",
-        submenu: [
-          { id: "active", label: "Список анкет", class: "survey-list", icon: "fa-list-ul" },
-          { id: "archived_surveys_for_user", label: "Архив анкет", class: "survey-archive", icon: "fa-archive-docs" }
-        ]
-      },
-      {
-        id: "help",
-        label: "Помощь",
-        class: "help",
-        icon: "fa-question-circle"
-      }
-    ];
-    const navItems = isAdmin ? adminNavItems : userNavItems;
-    const orderedNavItems = navItems.map((item) => {
-      if (!item.submenu) {
-        return item;
-      }
-      return {
-        ...item,
-        submenu: [...item.submenu].sort((left, right) => {
-          return getSubmenuPriority(left.label) - getSubmenuPriority(right.label);
-        })
+      host.innerHTML = "";
+      const nav = template.content.firstElementChild.cloneNode(true);
+      host.appendChild(nav);
+      const closeSubmenus = () => {
+        nav.querySelectorAll(".nav-item.has-submenu.submenu-open").forEach((item) => {
+          item.classList.remove("submenu-open");
+        });
       };
-    });
-    return import_react.default.createElement(
-      "nav",
-      {
-        className: "admin-nav",
-        onMouseLeave: () => setOpenSubmenu(null)
-      },
-      import_react.default.createElement(
-        "ul",
-        { className: "nav-list" },
-        orderedNavItems.map((item) => {
-          const itemActive = item.class === "surveys" ? isSurveySectionActive : item.class === "organizations" ? isOrganizationSectionActive : item.id === activeTab;
-          return import_react.default.createElement(
-            "li",
-            {
-              key: item.id,
-              className: [
-                "nav-item",
-                item.class || "",
-                itemActive ? "active" : "",
-                item.submenu ? "has-submenu" : "",
-                openSubmenu === item.id ? "submenu-open" : ""
-              ].join(" ").trim(),
-              id: item.id,
-              onMouseEnter: () => item.submenu && setOpenSubmenu(item.id),
-              onMouseLeave: () => item.submenu && setOpenSubmenu(null)
-            },
-            import_react.default.createElement(
-              "a",
-              {
-                href: "#",
-                className: "nav-link",
-                onClick: (e) => {
-                  e.preventDefault();
-                  if (item.submenu) {
-                    setOpenSubmenu(openSubmenu === item.id ? null : item.id);
-                    return;
-                  }
-                  e.currentTarget.blur();
-                  navigate(item.id);
-                },
-                style: {
-                  fontWeight: itemActive ? "bold" : "normal",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }
-              },
-              item.icon && import_react.default.createElement("i", {
-                className: `fas ${item.icon}`,
-                style: {
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "16px",
-                  width: "20px",
-                  minWidth: "20px",
-                  height: "20px",
-                  flex: "0 0 20px"
-                }
-              }),
-              item.label
-            ),
-            item.submenu && import_react.default.createElement(
-              "ul",
-              { className: "submenu-list" },
-              item.submenu.map(
-                (subItem) => import_react.default.createElement(
-                  "li",
-                  {
-                    key: subItem.id,
-                    className: [
-                      "submenu-item",
-                      subItem.class || "",
-                      subItem.id === activeTab ? "active" : ""
-                    ].join(" ").trim()
-                  },
-                  import_react.default.createElement(
-                    "a",
-                    {
-                      href: "#",
-                      className: "submenu-link",
-                      onClick: (e) => {
-                        e.preventDefault();
-                        e.currentTarget.blur();
-                        setOpenSubmenu(null);
-                        navigate(subItem.id);
-                      },
-                      style: {
-                        fontWeight: subItem.id === activeTab ? "bold" : "normal",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px"
-                      }
-                    },
-                    subItem.icon && import_react.default.createElement("i", {
-                      className: `fas ${subItem.icon}`,
-                      style: {
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "14px",
-                        width: "20px",
-                        minWidth: "20px",
-                        height: "20px",
-                        flex: "0 0 20px"
-                      }
-                    }),
-                    subItem.label
-                  )
-                )
-              )
-            )
-          );
-        })
-      )
-    );
+      nav.querySelectorAll(".nav-item").forEach((item) => {
+        const tab = item.dataset.tab || "";
+        const navClass = item.dataset.navClass || "";
+        const isActive = navClass === "surveys" ? isSurveySectionActive : navClass === "organizations" ? isOrganizationSectionActive : tab === activeTab;
+        item.classList.toggle("active", isActive);
+      });
+      nav.querySelectorAll(".submenu-item").forEach((subItem) => {
+        subItem.classList.toggle("active", (subItem.dataset.tab || "") === activeTab);
+      });
+      nav.querySelectorAll(".nav-item.has-submenu").forEach((item) => {
+        const onEnter = () => item.classList.add("submenu-open");
+        const onLeave = () => item.classList.remove("submenu-open");
+        item.addEventListener("mouseenter", onEnter);
+        item.addEventListener("mouseleave", onLeave);
+      });
+      const navLeaveHandler = () => closeSubmenus();
+      nav.addEventListener("mouseleave", navLeaveHandler);
+      nav.querySelectorAll(".nav-link").forEach((link) => {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          const item = event.currentTarget.closest(".nav-item");
+          if (!item) {
+            return;
+          }
+          if (item.classList.contains("has-submenu")) {
+            const willOpen = !item.classList.contains("submenu-open");
+            closeSubmenus();
+            if (willOpen) {
+              item.classList.add("submenu-open");
+            }
+            return;
+          }
+          closeSubmenus();
+          navigate(item.dataset.tab || "");
+        });
+      });
+      nav.querySelectorAll(".submenu-link").forEach((link) => {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          closeSubmenus();
+          const item = event.currentTarget.closest(".submenu-item");
+          navigate(item?.dataset?.tab || "");
+        });
+      });
+      const onPointerDown = (event) => {
+        if (!event.target.closest(".admin-nav")) {
+          closeSubmenus();
+        }
+      };
+      document.addEventListener("pointerdown", onPointerDown);
+      return () => {
+        document.removeEventListener("pointerdown", onPointerDown);
+        nav.removeEventListener("mouseleave", navLeaveHandler);
+      };
+    }, [isAdmin, activeTab, isSurveySectionActive, isOrganizationSectionActive, openTab, userId, userRole]);
+    return import_react.default.createElement("div", { ref: hostRef });
   };
 
   // wwwroot/js/components/Footer.js
@@ -7690,7 +7498,11 @@
       months.add(month);
     });
     const currentValue = select.value;
-    select.innerHTML = '<option value="">За все месяцы</option>';
+    select.innerHTML = "";
+    const defaultMonthOption = document.createElement("option");
+    defaultMonthOption.value = "";
+    defaultMonthOption.textContent = "За все месяцы";
+    select.appendChild(defaultMonthOption);
     Array.from(months).sort().forEach((month) => {
       const option = document.createElement("option");
       option.value = month;
@@ -7712,7 +7524,11 @@
       years.add(year);
     });
     const currentValue = select.value;
-    select.innerHTML = '<option value="">По всем годам</option>';
+    select.innerHTML = "";
+    const defaultYearOption = document.createElement("option");
+    defaultYearOption.value = "";
+    defaultYearOption.textContent = "По всем годам";
+    select.appendChild(defaultYearOption);
     Array.from(years).sort().forEach((year) => {
       const option = document.createElement("option");
       option.value = year;
@@ -7894,31 +7710,64 @@
     return new Promise((resolve) => {
       const modal = document.createElement("div");
       modal.className = "csp-modal";
-      const certItems = certificates.map((cert) => `
-            <div class="cert-item" data-index="${cert.index}">
-                <div class="cert-subject">${cert.subject}</div>
-                <div class="cert-details">
-                    <div><strong>Издатель:</strong> ${cert.issuer}</div>
-                    <div><strong>Действителен:</strong> ${new Date(cert.validFrom).toLocaleDateString()} - ${new Date(cert.validTo).toLocaleDateString()}</div>
-                    <div><strong>Отпечаток:</strong> ${cert.thumbprint}</div>
-                </div>
-            </div>
-        `).join("");
-      modal.innerHTML = `
-            <div class="csp-modal-content">
-                <h3>Выберите сертификат для подписи</h3>
-                <div class="csp-modal-body">
-                    <div class="cert-list-container">
-                        <div class="cert-list">
-                            ${certItems}
-                        </div>
-                    </div>
-                </div>
-                <div class="csp-modal-footer">
-                    <button class="csp-btn csp-btn-secondary" id="cert-cancel">Отмена</button>
-                </div>
-            </div>
-        `;
+      const content = document.createElement("div");
+      content.className = "csp-modal-content";
+      const title = document.createElement("h3");
+      title.textContent = "Выберите сертификат для подписи";
+      content.appendChild(title);
+      const body = document.createElement("div");
+      body.className = "csp-modal-body";
+      const listContainer = document.createElement("div");
+      listContainer.className = "cert-list-container";
+      const certList = document.createElement("div");
+      certList.className = "cert-list";
+      certificates.forEach((cert) => {
+        const certItem = document.createElement("div");
+        certItem.className = "cert-item";
+        certItem.dataset.index = String(cert.index);
+        const subject = document.createElement("div");
+        subject.className = "cert-subject";
+        subject.textContent = cert.subject;
+        const details = document.createElement("div");
+        details.className = "cert-details";
+        const issuerRow = document.createElement("div");
+        const issuerLabel = document.createElement("strong");
+        issuerLabel.textContent = "Издатель:";
+        issuerRow.appendChild(issuerLabel);
+        issuerRow.appendChild(document.createTextNode(` ${cert.issuer}`));
+        const validityRow = document.createElement("div");
+        const validityLabel = document.createElement("strong");
+        validityLabel.textContent = "Действителен:";
+        validityRow.appendChild(validityLabel);
+        validityRow.appendChild(
+          document.createTextNode(
+            ` ${new Date(cert.validFrom).toLocaleDateString()} - ${new Date(cert.validTo).toLocaleDateString()}`
+          )
+        );
+        const thumbprintRow = document.createElement("div");
+        const thumbprintLabel = document.createElement("strong");
+        thumbprintLabel.textContent = "Отпечаток:";
+        thumbprintRow.appendChild(thumbprintLabel);
+        thumbprintRow.appendChild(document.createTextNode(` ${cert.thumbprint}`));
+        details.appendChild(issuerRow);
+        details.appendChild(validityRow);
+        details.appendChild(thumbprintRow);
+        certItem.appendChild(subject);
+        certItem.appendChild(details);
+        certList.appendChild(certItem);
+      });
+      listContainer.appendChild(certList);
+      body.appendChild(listContainer);
+      content.appendChild(body);
+      const footer = document.createElement("div");
+      footer.className = "csp-modal-footer";
+      const cancelButton = document.createElement("button");
+      cancelButton.className = "csp-btn csp-btn-secondary";
+      cancelButton.id = "cert-cancel";
+      cancelButton.textContent = "Отмена";
+      footer.appendChild(cancelButton);
+      content.appendChild(footer);
+      modal.appendChild(content);
       modal.querySelectorAll(".cert-item").forEach((item) => {
         item.addEventListener("click", () => {
           const index = parseInt(item.getAttribute("data-index"));
@@ -7974,22 +7823,47 @@
   function showCSPInstallInstructions() {
     const modal = document.createElement("div");
     modal.className = "csp-modal";
-    modal.innerHTML = `
-        <div class="csp-modal-content">
-            <h3>Требуется установка КриптоПРО</h3>
-            <div class="csp-modal-body">
-                <p>Для подписи документов необходимо:</p>
-                <ol>
-                    <li>Установить <a href="https://www.cryptopro.ru/products/cades/plugin" target="_blank">КриптоПРО ЭЦП Browser plug-in</a></li>
-                    <li>Установить <a href="https://www.cryptopro.ru/products/csp" target="_blank">КриптоПРО CSP</a> (версия 4.0+)</li>
-                    <li>Обновить страницу после установки</li>
-                </ol>
-            </div>
-            <div class="csp-modal-footer">
-                <button class="csp-modal-close">Закрыть</button>
-            </div>
-        </div>
-    `;
+    const content = document.createElement("div");
+    content.className = "csp-modal-content";
+    const title = document.createElement("h3");
+    title.textContent = "Требуется установка КриптоПРО";
+    const body = document.createElement("div");
+    body.className = "csp-modal-body";
+    const intro = document.createElement("p");
+    intro.textContent = "Для подписи документов необходимо:";
+    const steps = document.createElement("ol");
+    const step1 = document.createElement("li");
+    const link1 = document.createElement("a");
+    link1.href = "https://www.cryptopro.ru/products/cades/plugin";
+    link1.target = "_blank";
+    link1.textContent = "КриптоПРО ЭЦП Browser plug-in";
+    step1.appendChild(document.createTextNode("Установить "));
+    step1.appendChild(link1);
+    const step2 = document.createElement("li");
+    const link2 = document.createElement("a");
+    link2.href = "https://www.cryptopro.ru/products/csp";
+    link2.target = "_blank";
+    link2.textContent = "КриптоПРО CSP";
+    step2.appendChild(document.createTextNode("Установить "));
+    step2.appendChild(link2);
+    step2.appendChild(document.createTextNode(" (версия 4.0+)"));
+    const step3 = document.createElement("li");
+    step3.textContent = "Обновить страницу после установки";
+    steps.appendChild(step1);
+    steps.appendChild(step2);
+    steps.appendChild(step3);
+    body.appendChild(intro);
+    body.appendChild(steps);
+    const footer = document.createElement("div");
+    footer.className = "csp-modal-footer";
+    const closeButton = document.createElement("button");
+    closeButton.className = "csp-modal-close";
+    closeButton.textContent = "Закрыть";
+    footer.appendChild(closeButton);
+    content.appendChild(title);
+    content.appendChild(body);
+    content.appendChild(footer);
+    modal.appendChild(content);
     modal.querySelector(".csp-modal-close").addEventListener("click", () => {
       document.body.removeChild(modal);
     });
@@ -8000,10 +7874,14 @@
     document.getElementById("block_btn_csp").style.display = "block";
     const notification = document.createElement("div");
     notification.className = "csp-notification success";
-    notification.innerHTML = `
-        <span class="csp-notification-icon">✓</span>
-        <span class="csp-notification-text">Документ успешно подписан</span>
-    `;
+    const icon = document.createElement("span");
+    icon.className = "csp-notification-icon";
+    icon.textContent = "✓";
+    const text = document.createElement("span");
+    text.className = "csp-notification-text";
+    text.textContent = "Документ успешно подписан";
+    notification.appendChild(icon);
+    notification.appendChild(text);
     document.body.appendChild(notification);
     setTimeout(() => {
       notification.classList.add("fade-out");
@@ -8013,10 +7891,14 @@
   function showError(message) {
     const notification = document.createElement("div");
     notification.className = "csp-notification error";
-    notification.innerHTML = `
-        <span class="csp-notification-icon">!</span>
-        <span class="csp-notification-text">${message}</span>
-    `;
+    const icon = document.createElement("span");
+    icon.className = "csp-notification-icon";
+    icon.textContent = "!";
+    const text = document.createElement("span");
+    text.className = "csp-notification-text";
+    text.textContent = message;
+    notification.appendChild(icon);
+    notification.appendChild(text);
     document.body.appendChild(notification);
     setTimeout(() => {
       notification.classList.add("fade-out");
@@ -8261,12 +8143,15 @@
     try {
       const loadingIndicator = document.createElement("div");
       loadingIndicator.className = "loading-overlay";
-      loadingIndicator.innerHTML = `
-            <div class="loading-content">
-                <div class="loading-spinner"></div>
-                <p>Подготовка архива...</p>
-            </div>
-        `;
+      const loadingContent = document.createElement("div");
+      loadingContent.className = "loading-content";
+      const spinner = document.createElement("div");
+      spinner.className = "loading-spinner";
+      const label = document.createElement("p");
+      label.textContent = "Подготовка архива...";
+      loadingContent.appendChild(spinner);
+      loadingContent.appendChild(label);
+      loadingIndicator.appendChild(loadingContent);
       document.body.appendChild(loadingIndicator);
       const response = await fetch(`/answers/${surveyId}/${organizationId}/signed-archive`);
       if (!response.ok) {

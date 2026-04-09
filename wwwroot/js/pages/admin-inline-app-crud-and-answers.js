@@ -113,10 +113,23 @@ function surveyEditToggleOrganizationSelection(element) {
                 var container = document.getElementById('cont_criteries');
                 if (!container) return;
                 
-                var count = container.querySelectorAll('.criteriy').length + 1;
                 var div = document.createElement('div');
                 div.className = 'form-group cont_criteries';
-                div.innerHTML = '<label>Критерий оценки</label><input type="text" class="form-control criteriy" required /><div class="error-message"></div>';
+
+                var label = document.createElement('label');
+                label.textContent = 'Критерий оценки';
+
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control criteriy';
+                input.required = true;
+
+                var error = document.createElement('div');
+                error.className = 'error-message';
+
+                div.appendChild(label);
+                div.appendChild(input);
+                div.appendChild(error);
                 container.appendChild(div);
             }
 
