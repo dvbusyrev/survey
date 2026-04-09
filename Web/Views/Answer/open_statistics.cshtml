@@ -1,0 +1,124 @@
+@using System.Security.Claims
+@using MainProject.Infrastructure.Security
+@{
+    ViewData["Title"] = "Статистика ответов";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
+    var organizationName = User.FindFirst("organization_name")?.Value ?? string.Empty;
+    var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+    var displayName = !string.IsNullOrWhiteSpace(organizationName) && !string.IsNullOrWhiteSpace(userName)
+        ? $"{organizationName}: {userName}"
+        : (!string.IsNullOrWhiteSpace(userName) ? userName : AppRoles.GetDisplayName(userRole));
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+}
+
+@section Head {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+}
+
+<div id="chrome-context"
+     data-user-role="@userRole"
+     data-user-id="@userId"
+     data-display-name="@displayName"
+     data-user-name="@userName"
+     data-organization-name="@organizationName"
+     hidden></div>
+
+<div class="page-container">
+    <div id="chrome-header"></div>
+    <div class="admin-container">
+        <div id="chrome-navigation"></div>
+        <div id="content_admin">
+            <div class="app-page answers-page__statistics" id="default_content" data-page="answers-statistics">
+                @await Html.PartialAsync(
+                    "~/Web/Views/Shared/_PageIntro.cshtml",
+                    new MainProject.Web.ViewModels.PageIntroModel
+                    {
+                        Title = "Статистика ответов",
+                        Description = "Аналитика по ответам пользователей в разрезе периодов, типов анкет и организаций."
+                    })
+
+                <section class="app-page__section">
+                    <div class="answers-page__statistics-grid">
+                        <div class="answers-page__statistics-card">
+                            <h3 class="answers-page__statistics-title">Ответы по месяцам</h3>
+                            <div class="answers-page__statistics-wrapper">
+                                <canvas id="lineChart"></canvas>
+                                <div class="answers-page__statistics-loading" id="lineLoading">Загрузка данных...</div>
+                            </div>
+                        </div>
+
+                        <div class="answers-page__statistics-card">
+                            <h3 class="answers-page__statistics-title">Ответы по годам</h3>
+                            <div class="answers-page__statistics-wrapper">
+                                <canvas id="barChart"></canvas>
+                                <div class="answers-page__statistics-loading" id="barLoading">Загрузка данных...</div>
+                            </div>
+                        </div>
+
+                        <div class="answers-page__statistics-card">
+                            <h3 class="answers-page__statistics-title">Распределение по типам анкет</h3>
+                            <div class="answers-page__statistics-wrapper">
+                                <canvas id="pieChart"></canvas>
+                                <div class="answers-page__statistics-loading" id="pieLoading">Загрузка данных...</div>
+                            </div>
+                        </div>
+
+                        <div class="answers-page__statistics-card">
+                            <h3 class="answers-page__statistics-title">Средние оценки</h3>
+                            <div class="answers-page__statistics-wrapper">
+                                <canvas id="radarChart"></canvas>
+                                <div class="answers-page__statistics-loading" id="radarLoading">Загрузка данных...</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+    <div id="chrome-footer"></div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const contextNode = document.getElementById('chrome-context');
+            if (!contextNode) {
+                return;
+            }
+
+            const userRole = contextNode.dataset.userRole || '';
+            const userId = Number(contextNode.dataset.userId || 0);
+            const displayName = contextNode.dataset.displayName || '';
+            const userName = contextNode.dataset.userName || '';
+            const organizationName = contextNode.dataset.organizationName || '';
+
+            if (typeof window.mountHeader === 'function') {
+                window.mountHeader(document.getElementById('chrome-header'), {
+                    userRole,
+                    userId,
+                    displayName,
+                    userName,
+                    organizationName
+                });
+            }
+
+            if (typeof window.mountNavigation === 'function') {
+                window.mountNavigation(document.getElementById('chrome-navigation'), {
+                    activeTab: 'open_statistics',
+                    userRole,
+                    userId
+                });
+            }
+
+            if (typeof window.mountFooter === 'function') {
+                window.mountFooter(document.getElementById('chrome-footer'));
+            }
+        })();
+    </script>
+    <script src="~/js/features/answers/answer-statistics-page.js" asp-append-version="true"></script>
+}

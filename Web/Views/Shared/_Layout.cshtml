@@ -1,0 +1,146 @@
+@using System.Security.Claims
+@using MainProject.Infrastructure.Security
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
+    <title>@(ViewData["Title"] ?? "Анкетирование")</title>
+    @await Html.PartialAsync("~/Web/Views/Shared/_BaseStyles.cshtml")
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    @RenderSection("PageStyles", required: false)
+    @RenderSection("Head", required: false)
+</head>
+<body class="@(ViewData["BodyClass"] as string ?? string.Empty)">
+    @{
+        var isAuthenticated = User?.Identity?.IsAuthenticated == true;
+        var layoutUserRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+        var layoutUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var layoutUserId = int.TryParse(layoutUserIdClaim, out var parsedLayoutUserId) ? parsedLayoutUserId : 0;
+        var layoutOrganizationName = User.FindFirst("organization_name")?.Value ?? string.Empty;
+        var layoutUserName = User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+        var layoutDisplayName = !string.IsNullOrWhiteSpace(layoutOrganizationName) && !string.IsNullOrWhiteSpace(layoutUserName)
+            ? $"{layoutOrganizationName}: {layoutUserName}"
+            : (!string.IsNullOrWhiteSpace(layoutUserName) ? layoutUserName : AppRoles.GetDisplayName(layoutUserRole));
+    }
+    <div id="global-antiforgery-token" hidden aria-hidden="true">
+        @Html.AntiForgeryToken()
+    </div>
+    @if (isAuthenticated)
+    {
+        <div id="layout-chrome-context"
+             data-user-role="@layoutUserRole"
+             data-user-id="@layoutUserId"
+             data-display-name="@layoutDisplayName"
+             data-user-name="@layoutUserName"
+             data-organization-name="@layoutOrganizationName"
+             hidden></div>
+        @await Html.PartialAsync("~/Web/Views/Shared/_NavigationTemplates.cshtml")
+        @await Html.PartialAsync("~/Web/Views/Shared/_AppChromeScripts.cshtml")
+    }
+    @RenderBody()
+    <script src="~/js/core/antiforgery.js" asp-append-version="true"></script>
+    @if (isAuthenticated)
+    {
+        <script>
+            (function () {
+                if (document.getElementById('chrome-header')) {
+                    return;
+                }
+
+                const contentNode = document.getElementById('default_content');
+                if (!contentNode || typeof window.mountHeader !== 'function' || typeof window.mountNavigation !== 'function' || typeof window.mountFooter !== 'function') {
+                    return;
+                }
+
+                const getActiveTab = function () {
+                    const path = window.location.pathname.toLowerCase();
+                    const pageAlias = (contentNode.dataset.page || '').toLowerCase();
+                    const routeMap = [
+                        ['/statistics', 'open_statistics'],
+                        ['/surveys/archive', 'archived_surveys'],
+                        ['/surveys', 'get_surveys'],
+                        ['/users/archive', 'archived_users'],
+                        ['/users', 'get_users'],
+                        ['/organizations/archive', 'archive_list_organizations'],
+                        ['/organizations', 'get_organization'],
+                        ['/reports', 'reports'],
+                        ['/mail-settings', 'email'],
+                        ['/logs', 'get_logs'],
+                        ['/help', 'help']
+                    ];
+
+                    for (const pair of routeMap) {
+                        if (path.startsWith(pair[0])) {
+                            return pair[1];
+                        }
+                    }
+
+                    const pageMap = {
+                        'users-list': 'get_users',
+                        'users-archive': 'archived_users',
+                        'surveys-list': 'get_surveys',
+                        'surveys-archive': 'archived_surveys',
+                        'organization-list': 'get_organization',
+                        'reports': 'reports',
+                        'mail-settings': 'email',
+                        'help-page': 'help'
+                    };
+
+                    return pageMap[pageAlias] || 'get_surveys';
+                };
+
+                const contextNode = document.getElementById('layout-chrome-context');
+                const userRole = (contextNode && contextNode.dataset.userRole) || '';
+                const userId = Number((contextNode && contextNode.dataset.userId) || 0);
+                const displayName = (contextNode && contextNode.dataset.displayName) || '';
+                const userName = (contextNode && contextNode.dataset.userName) || '';
+                const organizationName = (contextNode && contextNode.dataset.organizationName) || '';
+
+                const existingContentHost = document.getElementById('content_admin');
+                const insertParent = existingContentHost ? existingContentHost.parentNode : contentNode.parentNode;
+                const insertBeforeNode = existingContentHost || contentNode;
+                if (!insertParent) {
+                    return;
+                }
+
+                const pageContainer = document.createElement('div');
+                pageContainer.className = 'page-container';
+
+                const headerHost = document.createElement('div');
+                headerHost.id = 'chrome-header';
+                pageContainer.appendChild(headerHost);
+
+                const adminContainer = document.createElement('div');
+                adminContainer.className = 'admin-container';
+
+                const navHost = document.createElement('div');
+                navHost.id = 'chrome-navigation';
+                adminContainer.appendChild(navHost);
+
+                insertParent.insertBefore(pageContainer, insertBeforeNode);
+
+                let contentHost = existingContentHost;
+                if (!contentHost) {
+                    contentHost = document.createElement('div');
+                    contentHost.id = 'content_admin';
+                    contentHost.appendChild(contentNode);
+                }
+                adminContainer.appendChild(contentHost);
+
+                pageContainer.appendChild(adminContainer);
+
+                const footerHost = document.createElement('div');
+                footerHost.id = 'chrome-footer';
+                pageContainer.appendChild(footerHost);
+
+                window.mountHeader(headerHost, { userRole, userId, displayName, userName, organizationName });
+                window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole, userId });
+                window.mountFooter(footerHost);
+            })();
+        </script>
+    }
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,124 @@
+.organization-page,
+.organization-form-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.organization-page .note,
+.organization-form-page .note,
+#default_content .note {
+  box-sizing: border-box;
+}
+
+.organization-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.organization-subnav {
+  margin-bottom: 18px;
+}
+
+.organization-subnav__tab {
+  text-decoration: none;
+}
+
+.organization-subnav__tab:focus {
+  outline: none;
+}
+
+.organization-table__th--start {
+  border-radius: 16px 0 0 0;
+}
+
+.organization-table__th--end {
+  border-radius: 0 16px 0 0;
+}
+
+.organization-table__empty-surveys {
+  color: var(--danger);
+}
+
+.organization-form {
+  max-width: 760px;
+}
+
+.organization-form__row {
+  display: flex;
+  gap: 15px;
+}
+
+.organization-form__actions {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.organization-form__message {
+  display: none;
+  margin-top: 20px;
+}
+
+.organization-date-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.organization-date-field {
+  min-width: 0;
+}
+
+.organization-date-field label {
+  display: block;
+  margin: 0 0 8px;
+  color: #4a5568;
+  font-weight: 500;
+  text-align: left;
+}
+
+.organization-date-field .form-control {
+  width: 100%;
+}
+
+.organization-modal .modal-content,
+#editOrganizationModal .modal-content {
+  max-width: 640px;
+}
+
+.organization-table {
+  width: 100%;
+}
+
+.organization-table th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.organization-table td:not(:last-child) {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+  vertical-align: top;
+}
+
+.organization-modal .form-group,
+#editOrganizationModal .form-group {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .organization-form__row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .organization-toolbar > * {
+    width: 100%;
+  }
+}

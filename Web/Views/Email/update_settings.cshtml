@@ -1,0 +1,42 @@
+@{
+    ViewData["Title"] = "Настройки почты";
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
+}
+
+<div class="app-page app-page--narrow email-settings-page" id="default_content" data-page="mail-settings">
+    @await Html.PartialAsync(
+        "~/Web/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Web.ViewModels.PageIntroModel
+        {
+            Title = "Изменение настроек почты",
+            Description = "Здесь можно сохранить и загрузить шаблон параметров для рассылки."
+        })
+
+    <section class="app-page__section">
+        <div class="email-settings-page__form">
+            <div class="form-group">
+                <label for="email-to">Кому:</label>
+                <input type="text" id="email-to" placeholder="Введите email получателя">
+            </div>
+            <div class="form-group">
+                <label for="email-subject">Тема:</label>
+                <input type="text" id="email-subject" placeholder="Введите тему письма">
+            </div>
+            <div class="form-group">
+                <label for="email-content">Содержание:</label>
+                <textarea id="email-content" placeholder="Введите текст письма"></textarea>
+            </div>
+            <div class="email-settings-page__actions">
+                <button type="button" class="btn" data-click-call="saveEmailSettings">Сохранить</button>
+                <button type="button" class="btn" data-click-call="loadEmailSettings">Загрузить данные</button>
+            </div>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/features/email/email-settings-page.js" asp-append-version="true"></script>
+}

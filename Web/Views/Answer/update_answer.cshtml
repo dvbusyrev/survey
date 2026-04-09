@@ -1,0 +1,79 @@
+﻿@model MainProject.Web.ViewModels.UpdateAnswerPageViewModel
+
+@{
+    ViewData["Title"] = "Редактирование ответов";
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+}
+
+@Html.AntiForgeryToken()
+
+<div class="app-page app-page--narrow answers-page__update"
+     id="default_content"
+     data-page="answers-update"
+     data-answer-page="update"
+     data-survey-id="@Model.SurveyId"
+     data-organization-id="@Model.OrganizationId">
+    @await Html.PartialAsync(
+        "~/Web/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Web.ViewModels.PageIntroModel
+        {
+            Title = "Редактирование анкеты",
+            Description = "На этой странице вы можете обновить оценки и комментарии по сохранённой анкете."
+        })
+
+    <section class="app-page__section">
+        <div class="answers-page__update-card">
+            @if (Model.Answers.Count > 0)
+            {
+                foreach (var answer in Model.Answers)
+                {
+                    var questionId = answer.QuestionId;
+                    var questionText = answer.DisplayQuestion;
+                    var rating = answer.Rating;
+                    var comment = answer.Comment;
+
+                    <div class="question-container" id="quest_@questionId" data-question-id="@questionId">
+                        <h3>@questionText</h3>
+                        <div class="rating-buttons">
+                            @for (var score = 1; score <= 5; score++)
+                            {
+                                var isActive = rating == score;
+                                <button type="button"
+                                        class="btn_crit @(isActive ? "active" : string.Empty)"
+                                        data-answer-rating="@score"
+                                        aria-pressed="@(isActive.ToString().ToLower())">
+                                    @score
+                                </button>
+                            }
+                        </div>
+                        <br />
+                        <div class="comment-container @(rating == 5 ? "is-hidden" : string.Empty)">
+                            <textarea class="answers-page__update-comment" placeholder="Ваш комментарий..." rows="3">@comment</textarea>
+                        </div>
+                        <br />
+                    </div>
+                }
+                <div class="submit-container">
+                    <button type="button" id="saveUpdatedAnswers" class="answers-page__action-button">Сохранить изменения</button>
+                </div>
+            }
+            else
+            {
+                <p class="answers-page__empty">Нет ответов для отображения.</p>
+            }
+        </div>
+    </section>
+</div>
+
+<div id="error-message" class="answers-page__update-error">
+    <span class="answers-page__update-error-icon">!</span>
+    <span id="error-text" class="answers-page__update-error-text">@ViewBag.ErrorMessage</span>
+    <button type="button" id="close-error" class="answers-page__update-error-close">×</button>
+</div>
+
+@section Scripts {
+    <script src="~/js/features/answers/answer-update-page.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,53 @@
+@{
+    ViewData["Title"] = "Формирование отчётов";
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
+}
+
+<div class="app-page app-page--narrow reports-page" id="default_content" data-page="reports">
+    @await Html.PartialAsync(
+        "~/Web/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Web.ViewModels.PageIntroModel
+        {
+            Title = "Формирование отчётов",
+            Description = "Здесь можно сформировать сводный отчёт за месяц или квартальные отчёты по доступным годам."
+        })
+
+    <section class="app-page__section app-page__stack reports-page__content">
+        <p class="reports-page__summary">Система поддерживает сводный отчёт за месяц по всем анкетам и квартальные отчёты по годам.</p>
+
+        <div class="reports-page__quarter-row">
+            <span>Формирование сводного отчёта за месяц по всем анкетам:</span>
+            <button type="button" class="reports-page__link" data-click-call="createMonthlySummaryReport">сформировать</button>
+        </div>
+
+        <div class="reports-page__quarter-list">
+            @for (var quarter = 1; quarter <= 4; quarter++)
+            {
+                <div class="reports-page__quarter-row">
+                    <button type="button"
+                            class="reports-page__link"
+                            data-click-call="createQuarterlyReport"
+                            data-click-args='[@quarter]'>
+                        @quarter квартал
+                    </button>
+                    <select class="quarter-year-select reports-page__quarter-select"
+                            data-focus-call="populateYears"
+                            data-focus-args='[@quarter]'
+                            data-focus-pass-element="true"
+                            data-change-call="onYearChange"
+                            data-change-args='[@quarter]'
+                            data-change-pass-element="true">
+                        <option disabled selected>Выберите год</option>
+                    </select>
+                </div>
+            }
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("~/Web/Views/Shared/_AdminReportScripts.cshtml")
+}

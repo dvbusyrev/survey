@@ -1,0 +1,52 @@
+﻿@model IEnumerable<MainProject.Domain.Entities.Organization>
+
+<table class="organization-table" data-role="main-table">
+    <thead>
+        <tr class='table_tr'>
+            <th class="organization-table__th--start">Название организации</th>
+            <th>Дата начала</th>
+            <th>Дата окончания</th>
+            <th>Email</th>
+            <th class="organization-table__th--end th-centered">Действия</th>
+        </tr>
+    </thead>
+    <tbody id="organizationTableBody">
+        @if (Model == null || !Model.Any())
+        {
+            <tr>
+                <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var organization in Model)
+            {
+                <tr>
+                    <td>@organization.OrganizationName</td>
+                    <td>@(organization.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(organization.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@organization.Email</td>
+                    <td class="action-icons">
+                        <div class="icon-container"
+                             data-organization-id="@organization.OrganizationId"
+                             data-organization-name="@(organization.OrganizationName ?? string.Empty)"
+                             data-organization-email="@(organization.Email ?? string.Empty)"
+                             data-organization-date-begin="@(organization.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                             data-organization-date-end="@(organization.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                             data-click-call="openEditOrganizationModalFromTrigger"
+                             data-click-pass-element="true">
+                            <span><i class="fas fa-pen-to-square"></i></span>
+                            <span class="icon-tooltip">Редактировать</span>
+                        </div>
+                        <div class="icon-container"
+                             data-click-call="deleteOrganization"
+                             data-click-args='[@organization.OrganizationId]'>
+                            <span><i class="fas fa-trash"></i></span>
+                            <span class="icon-tooltip">Удалить</span>
+                        </div>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

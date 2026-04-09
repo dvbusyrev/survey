@@ -1,0 +1,32 @@
+﻿@model IEnumerable<MainProject.Domain.Entities.Organization>
+
+<table class="organization-table organization-table--archive" data-role="main-table">
+    <thead>
+        <tr class='table_tr'>
+            <th class="organization-table__th--start">Название организации</th>
+            <th>Дата начала</th>
+            <th>Дата окончания</th>
+            <th class="organization-table__th--end">Email</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model == null || !Model.Any())
+        {
+            <tr>
+                <td colspan="4" class="table-empty-cell">Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var organization in Model)
+            {
+                <tr>
+                    <td>@organization.OrganizationName</td>
+                    <td>@(organization.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(organization.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@organization.Email</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

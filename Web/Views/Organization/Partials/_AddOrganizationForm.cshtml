@@ -1,0 +1,31 @@
+<form id="organizationForm" class="organization-form">
+    @Html.AntiForgeryToken()
+
+    <div class="form-group">
+        <label for="Name">Название организации</label>
+        <input type="text" class="form-control" id="Name" required>
+    </div>
+
+    <div class="form-group">
+        <label for="organization_email">Email организации</label>
+        <input type="text" class="form-control" id="organization_email" required>
+    </div>
+
+    <div class="organization-form__row">
+        <div class="form-group">
+            <label for="DateBegin">Дата начала</label>
+            <input type="date" class="form-control" id="DateBegin" required>
+        </div>
+
+        <div class="form-group">
+            <label for="DateEnd">Дата окончания</label>
+            <input type="date" class="form-control" id="DateEnd" required>
+        </div>
+    </div>
+
+    <div class="button-container organization-form__actions">
+        <button type="button" class="btn btn-primary" data-click-call="createOrganization">Добавить</button>
+    </div>
+
+    <div id="message" class="organization-form__message"></div>
+</form>

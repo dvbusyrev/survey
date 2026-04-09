@@ -1,0 +1,18 @@
+@model MainProject.Web.ViewModels.ErrorViewModel
+@{
+    ViewData["Title"] = "Ошибка";
+    var message = string.IsNullOrWhiteSpace(Model?.Message)
+        ? "Произошла ошибка при обработке запроса."
+        : Model.Message;
+}
+
+<div class="app-page app-page--narrow">
+    <section class="app-page__section">
+        <h1 class="app-page__title">Ошибка</h1>
+        <p>@message</p>
+        @if (Model?.ShowRequestId == true)
+        {
+            <p class="text-muted">Request ID: <code>@Model.RequestId</code></p>
+        }
+    </section>
+</div>

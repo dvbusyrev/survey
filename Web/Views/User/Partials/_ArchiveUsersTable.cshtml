@@ -1,0 +1,37 @@
+﻿@model List<MainProject.Domain.Entities.User>
+@using MainProject.Infrastructure.Security
+
+<table class="users-table users-table--archive" data-role="main-table">
+    <thead>
+        <tr class="table_tr">
+            <th class="table-th--start">ФИО пользователя</th>
+            <th>Имя пользователя</th>
+            <th>Организация</th>
+            <th>Роль</th>
+            <th>Дата начала</th>
+            <th class="table-th--end">Дата окончания</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model == null || !Model.Any())
+        {
+            <tr>
+                <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var user in Model)
+            {
+                <tr>
+                    <td>@(string.IsNullOrWhiteSpace(user.FullName) ? "Не указано" : user.FullName)</td>
+                    <td>@user.NameUser</td>
+                    <td>@(string.IsNullOrWhiteSpace(user.OrganizationName) ? "Не указано" : user.OrganizationName)</td>
+                    <td>@AppRoles.GetDisplayName(user.NameRole)</td>
+                    <td>@(user.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td>@(user.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

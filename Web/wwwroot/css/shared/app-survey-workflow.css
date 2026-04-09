@@ -1,0 +1,55 @@
+.survey-table {
+  width: 100%;
+  margin-top: 20px;
+  border-collapse: collapse;
+}
+
+.survey-table th,
+.survey-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+.survey-table th {
+  background-color: #f8f9fa;
+}
+
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  padding: 2rem;
+  text-align: center;
+}
+
+.error-message {
+  padding: 8px;
+  color: #dc3545;
+  text-align: center;
+}
+
+.success-message {
+  padding: 20px;
+  color: #28a745;
+  text-align: center;
+}
+
+.icon {
+  width: 20px;
+  margin-right: 8px;
+  text-align: center;
+}
+
+.modal-description {
+  margin: 0 0 25px;
+  color: #555;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .survey-table {
+    min-width: 680px;
+  }
+}

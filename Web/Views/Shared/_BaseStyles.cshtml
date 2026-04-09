@@ -1,0 +1,30 @@
+@{
+    const string baseStylesKey = "__base_styles_rendered";
+    var isAlreadyRendered = ViewContext.HttpContext.Items.ContainsKey(baseStylesKey);
+
+    if (!isAlreadyRendered)
+    {
+        ViewContext.HttpContext.Items[baseStylesKey] = true;
+    }
+}
+
+@if (!isAlreadyRendered)
+{
+    <link rel="stylesheet" href="~/css/shared/app-reset.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/app-foundation.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-page-shell.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-ui-utilities.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-forms.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-widgets.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-survey-workflow.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-shell.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-modals.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/site-notifications.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-page-primitives.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-content-tables.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-footer-rating.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/extracted-inline-styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
+    <script src="~/js/core/notifications.js" asp-append-version="true"></script>
+    <script src="~/js/core/dom-actions.js" asp-append-version="true"></script>
+}

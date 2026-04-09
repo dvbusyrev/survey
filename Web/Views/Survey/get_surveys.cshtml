@@ -1,0 +1,135 @@
+﻿@model List<MainProject.Domain.Entities.Survey>
+@using System.Security.Claims
+@using MainProject.Infrastructure.Security
+@{
+    ViewData["Title"] = "Анкеты";
+    var surveys = Model ?? new List<MainProject.Domain.Entities.Survey>();
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
+    var organizationName = User.FindFirst("organization_name")?.Value ?? string.Empty;
+    var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+    var displayName = !string.IsNullOrWhiteSpace(organizationName) && !string.IsNullOrWhiteSpace(userName)
+        ? $"{organizationName}: {userName}"
+        : (!string.IsNullOrWhiteSpace(userName) ? userName : AppRoles.GetDisplayName(userRole));
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/survey-admin-pages.css" asp-append-version="true" />
+}
+
+<div id="chrome-context"
+     data-user-role="@userRole"
+     data-user-id="@userId"
+     data-display-name="@displayName"
+     data-user-name="@userName"
+     data-organization-name="@organizationName"
+     hidden></div>
+
+<div class="page-container">
+<div id="chrome-header"></div>
+<div class="admin-container">
+    <div id="chrome-navigation"></div>
+    <div id="content_admin">
+        <div class="app-page" id="default_content" data-page="surveys-list">
+            @await Html.PartialAsync(
+                "~/Web/Views/Shared/_PageIntro.cshtml",
+                new MainProject.Web.ViewModels.PageIntroModel
+                {
+                    Title = "Анкеты",
+                    Description = "Список активных анкет и действия по управлению."
+                })
+
+            <section class="app-page__section">
+                <a class="btn modal_btn modal_btn-primary" href="/surveys/create">Добавить анкету</a>
+            </section>
+
+            <section class="app-page__section app-page__section--flush">
+                <table class="surveys-table" data-role="main-table">
+                    <thead>
+                        <tr class="table_tr">
+                            <th>Название</th>
+                            <th>Описание</th>
+                            <th>Организации</th>
+                            <th>Дата открытия</th>
+                            <th>Дата закрытия</th>
+                            <th class="table-th--end">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (surveys.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="6" class="table-empty-cell">Анкеты не найдены.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var survey in surveys)
+                            {
+                                <tr>
+                                    <td>@survey.NameSurvey</td>
+                                    <td>@(string.IsNullOrWhiteSpace(survey.Description) ? "—" : survey.Description)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(survey.OrganizationName) ? "—" : survey.OrganizationName)</td>
+                                    <td>@survey.DateOpen.ToString("yyyy-MM-dd")</td>
+                                    <td>@survey.DateClose.ToString("yyyy-MM-dd")</td>
+                                    <td class="action-icons">
+                                        <a class="table-action-link" href="/surveys/@survey.IdSurvey/edit">Смотреть</a>
+                                        <a class="table-action-link" href="/surveys/@survey.IdSurvey/copy">Копировать</a>
+                                        <form method="post" action="/surveys/@survey.IdSurvey/delete" class="action-icons__form">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="table-action-link table-action-link--button">Удалить</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+</div>
+<div id="chrome-footer"></div>
+</div>
+
+@section Scripts {
+    @await Html.PartialAsync("~/Web/Views/Shared/_NavigationTemplates.cshtml")
+    @await Html.PartialAsync("~/Web/Views/Shared/_AppChromeScripts.cshtml")
+    <script>
+        (function () {
+            const contextNode = document.getElementById('chrome-context');
+            if (!contextNode) {
+                return;
+            }
+
+            const userRole = contextNode.dataset.userRole || '';
+            const userId = Number(contextNode.dataset.userId || 0);
+            const displayName = contextNode.dataset.displayName || '';
+            const userName = contextNode.dataset.userName || '';
+            const organizationName = contextNode.dataset.organizationName || '';
+
+            if (typeof window.mountHeader === 'function') {
+                window.mountHeader(document.getElementById('chrome-header'), {
+                    userRole,
+                    userId,
+                    displayName,
+                    userName,
+                    organizationName
+                });
+            }
+
+            if (typeof window.mountNavigation === 'function') {
+                window.mountNavigation(document.getElementById('chrome-navigation'), {
+                    activeTab: 'get_surveys',
+                    userRole,
+                    userId
+                });
+            }
+
+            if (typeof window.mountFooter === 'function') {
+                window.mountFooter(document.getElementById('chrome-footer'));
+            }
+        })();
+    </script>
+}

@@ -1,0 +1,24 @@
+@{
+    var activeSection = (ViewData["OrganizationSection"] as string ?? "list").ToLowerInvariant();
+    var listActive = activeSection == "list";
+    var archiveActive = activeSection == "archive";
+}
+
+<div class="menu-bar organization-subnav" role="tablist" aria-label="Разделы организаций">
+    <a
+        href="/organizations"
+        class="menu-tab organization-subnav__tab @(listActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(listActive ? "true" : "false")"
+        data-tab-target="get_organization">
+        Организации
+    </a>
+    <a
+        href="/organizations/archive"
+        class="menu-tab organization-subnav__tab @(archiveActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(archiveActive ? "true" : "false")"
+        data-tab-target="archive_list_organizations">
+        Архив
+    </a>
+</div>

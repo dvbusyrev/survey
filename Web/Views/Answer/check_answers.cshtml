@@ -1,0 +1,94 @@
+﻿@model MainProject.Web.ViewModels.CheckAnswersPageViewModel
+
+@{
+    ViewData["Title"] = "Проверка ответов";
+    var survey = Model.Survey;
+    var answers = Model.Answers;
+    var idOrganization = Model.IdOrganization;
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+}
+
+<div class="app-page app-page--narrow answers-page__check" id="default_content" data-page="answers-check">
+    @await Html.PartialAsync(
+        "~/Web/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Web.ViewModels.PageIntroModel
+        {
+            Title = "Проверка ответов",
+            Description = "На этой странице вы можете ознакомиться с сохранёнными ответами и выгрузить итоговые документы."
+        })
+    @if (string.IsNullOrWhiteSpace(survey?.NameSurvey))
+    {
+        <section class="app-page__section">
+            <div class="answers-page__error">
+                <h2>Ошибка</h2>
+                <p>Информация об анкете не найдена</p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="app-page__section app-page__stack">
+            <h3>@survey.NameSurvey</h3>
+
+            @if (!string.IsNullOrEmpty(survey.Description))
+            {
+                <p>@survey.Description</p>
+            }
+        </section>
+
+        <section class="app-page__section">
+            <div class="table-container">
+                @if (answers == null || !answers.Any())
+                {
+                    <p>Ответы не найдены</p>
+                }
+                else
+                {
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Вопрос</th>
+                                <th>Оценка</th>
+                                <th>Комментарий</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var answer in answers)
+                            {
+                                <tr>
+                                    <td>@answer.DisplayQuestion</td>
+                                    <td>@answer.DisplayRating</td>
+                                    <td>@answer.Comment</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+
+        <section class="app-page__section">
+            <div class="answers-page__actions">
+                <button type="button" class="answers-page__action-button"
+                        data-click-call="CSP"
+                        data-click-args='[@survey.IdSurvey, @idOrganization]'>Подписать</button>
+                <button type="button" class="answers-page__action-button"
+                        data-click-call="createAnswerReport"
+                        data-click-args='[@survey.IdSurvey, @idOrganization, "file"]'>Скачать файл с анкетой</button>
+            </div>
+
+            <div class="answers-page__download-actions is-hidden" data-role="csp-download-actions">
+                <button type="button" class="answers-page__action-button"
+                        data-click-call="createAnswerReport"
+                        data-click-args='[@survey.IdSurvey, @idOrganization, "archive"]'>Скачать файл с анкетой и подписью</button>
+            </div>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/features/answers/check-answers-page.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,20 @@
+﻿@model List<MainProject.Domain.Entities.User>
+@{
+    ViewData["Title"] = "Архив пользователей";
+    ViewData["UserSection"] = "archive";
+}
+
+<div class="app-page users-page users-page--archive" id="default_content" data-page="users-archive">
+    @await Html.PartialAsync("~/Web/Views/User/Partials/_UserSubnav.cshtml")
+    @await Html.PartialAsync(
+        "~/Web/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Web.ViewModels.PageIntroModel
+        {
+            Title = "Архив пользователей",
+            Description = "Ниже представлена таблица с архивными пользователями."
+        })
+
+    <section class="app-page__section app-page__section--flush">
+        @await Html.PartialAsync("Partials/_ArchiveUsersTable", Model)
+    </section>
+</div>
