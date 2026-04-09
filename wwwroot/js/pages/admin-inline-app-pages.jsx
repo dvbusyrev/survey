@@ -174,14 +174,14 @@
                                     }}
                                 >
                                     <div style={{ flex: 1 }}>
-                                        <label>ОМСУ:</label>
+                                        <label>Организация:</label>
                                         <select
                                             value={extension.organizationId}
                                             onChange={(event) => handleChange(index, 'organizationId', event.target.value)}
                                             style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
                                             required
                                         >
-                                            <option value="">-- Выберите ОМСУ --</option>
+                                            <option value="">-- Выберите организацию --</option>
                                             {organizations.map((organization) => {
                                                 const alreadySelected = isOrganizationSelected(organization.organizationId, index);
                                                 return (
@@ -508,7 +508,7 @@
                             },
                             title: {
                                 display: true,
-                                text: 'Средний балл по ОМСУ по годам'
+                                text: 'Средний балл организаций по годам'
                             }
                         },
                         scales: {
@@ -560,7 +560,7 @@
                     </div>
 
                     <div className="chart-container">
-                        <h3 className="chart-title">Средний балл по ОМСУ по годам</h3>
+                        <h3 className="chart-title">Средний балл организаций по годам</h3>
                         <div className="chart-wrapper">
                             <canvas ref={radarChartRef}></canvas>
                         </div>

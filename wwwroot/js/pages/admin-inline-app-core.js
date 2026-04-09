@@ -379,7 +379,7 @@
                             }}
                             className="filter-select"
                         >
-                            <option value="">Все ОМСУ</option>
+                            <option value="">Все организации</option>
                             {organizationOptions.map((organization, index) => (
                                 <option key={index} value={organization}>
                                     {organization}
@@ -393,7 +393,7 @@
                             <tr className="table_tr">
                                 <th className="table-th--start">Название анкеты</th>
                                 <th>Месяц</th>
-                                <th>ОМСУ</th>
+                                <th>Организация</th>
                                 <th className="table-th--end">Действия</th>
                             </tr>
                         </thead>

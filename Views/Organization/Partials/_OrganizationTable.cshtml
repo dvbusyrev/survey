@@ -6,7 +6,6 @@
             <th class="organization-table__th--start">Название организации</th>
             <th>Дата начала</th>
             <th>Дата окончания</th>
-            <th>Доступные анкеты</th>
             <th>Email</th>
             <th class="organization-table__th--end">Действия</th>
         </tr>
@@ -26,14 +25,6 @@
                     <td>@organization.OrganizationName</td>
                     <td>@(organization.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
                     <td>@(organization.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
-                    @if (organization.SurveyNames == "Не указано")
-                    {
-                        <td class="organization-table__empty-surveys">@organization.SurveyNames</td>
-                    }
-                    else
-                    {
-                        <td>@organization.SurveyNames</td>
-                    }
                     <td>@organization.Email</td>
                     <td class="action-icons">
                         <div class="icon-container"
