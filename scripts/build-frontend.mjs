@@ -22,12 +22,8 @@ const buildOptions = {
     'survey-user-app': 'frontend/entries/survey-user-app.js'
   },
   format: 'iife',
-  inject: [
-    path.join(rootDir, 'frontend/shims/react-globals.js')
-  ],
   loader: {
-    '.js': 'jsx',
-    '.jsx': 'jsx'
+    '.js': 'js'
   },
   logLevel: 'info',
   outdir,

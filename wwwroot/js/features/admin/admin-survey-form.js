@@ -31,6 +31,10 @@
         return element ? element.value.trim() : '';
     }
 
+    function getElementByRole(role) {
+        return document.querySelector(`[data-role="${role}"]`);
+    }
+
     function normalizeOrganization(rawOrganization) {
         return {
             id: Number(rawOrganization.organization_id ?? rawOrganization.id ?? 0),
@@ -206,8 +210,8 @@
     }
 
     function updateSelectedOrganizationDisplay() {
-        const container = safeGetElement('selectedOrganizationContainer');
-        const list = safeGetElement('selectedOrganizationList');
+        const container = getElementByRole('selected-organizations-container');
+        const list = getElementByRole('selected-organizations-list');
 
         if (!container || !list) {
             return;
@@ -255,7 +259,7 @@
     }
 
     function addRowCriteriy() {
-        const container = safeGetElement('cont_criteries');
+        const container = getElementByRole('criteria-list');
         if (!container) {
             return;
         }
@@ -303,15 +307,18 @@
             input.readOnly = true;
         });
 
-        safeGetElement('two_step')?.classList.add('confirmed-criteria');
-        if (safeGetElement('add_survey_btn')) {
-            safeGetElement('add_survey_btn').style.display = 'inline-block';
+        getElementByRole('criteria-step')?.classList.add('confirmed-criteria');
+        const submitButton = getElementByRole('survey-submit');
+        if (submitButton) {
+            submitButton.style.display = 'inline-block';
         }
-        if (safeGetElement('add_crit')) {
-            safeGetElement('add_crit').style.display = 'none';
+        const addCriteriaButton = getElementByRole('criteria-add');
+        if (addCriteriaButton) {
+            addCriteriaButton.style.display = 'none';
         }
-        if (safeGetElement('conf_btn')) {
-            safeGetElement('conf_btn').style.display = 'none';
+        const confirmCriteriaButton = getElementByRole('criteria-confirm');
+        if (confirmCriteriaButton) {
+            confirmCriteriaButton.style.display = 'none';
         }
 
         criteriaConfirmed = true;

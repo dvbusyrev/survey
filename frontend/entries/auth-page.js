@@ -1,1 +1,1 @@
-import '../../wwwroot/js/pages/auth-page.jsx';
+import '../../wwwroot/js/features/auth/auth-page.js';

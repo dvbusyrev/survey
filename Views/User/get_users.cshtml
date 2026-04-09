@@ -21,7 +21,7 @@
             Description = "Ниже представлена таблица с существующими пользователями."
         })
 
-    
+    <section class="app-page__section">
         <div class="users-page-toolbar app-page__toolbar">
             <button type="button" class="modal_btn modal_btn-primary" data-click-call="openAddUserModal">Добавить пользователя</button>
             <button type="button"
@@ -32,9 +32,11 @@
                 Посмотреть архив ->
             </button>
         </div>
+    </section>
 
+    <section class="app-page__section app-page__section--flush">
         <div class="table-responsive">
-            <table id="data_table" class="users-table">
+            <table class="users-table" data-role="main-table">
                 <thead>
                     <tr class='table_tr'>
                         <th class="table-th--start">ФИО</th>
@@ -91,123 +93,124 @@
                 </tbody>
             </table>
         </div>
+    </section>
 
 
-<!-- Модальное окно добавления -->
-<div id="addUserModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 class="h2_modal">Добавление пользователя</h2>
-        </div>
-        <span class="modal-close" data-modal-close="addUserModal"><i class="fas fa-xmark"></i></span>
-        <div class="modal-body">
-            <div id="message"></div>
-            <div class="form-group">
-                <label>ФИО:</label>
-                <input type="text" id="fullName" class="form-control" required>
+    <!-- Модальное окно добавления -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="h2_modal">Добавление пользователя</h2>
+                <button type="button" class="modal-close" data-modal-close="addUserModal"><i class="fas fa-xmark"></i></button>
             </div>
-            <div class="form-group">
-                <label>Логин:</label>
-                <input type="text" id="username" class="form-control" required>
+            <div class="modal-body">
+                <div id="message"></div>
+                <div class="form-group">
+                    <label>ФИО:</label>
+                    <input type="text" id="fullName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Логин:</label>
+                    <input type="text" id="username" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <input type="text" id="password" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" required>
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="email_input" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Организация:</label>
+                    <select id="organization" class="form-control" required>
+                        <option value="">Выберите организацию</option>
+                        @foreach (var org in organizations)
+                        {
+                            <option value="@org.Id">@org.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Роль:</label>
+                    <select id="role" class="form-control">
+                        <option value="user">Пользователь</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                @Html.AntiForgeryToken()
             </div>
-            <div class="form-group">
-                <label>Пароль:</label>
-                <input type="text" id="password" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" required>
+            <div class="modal-footer">
+                <button type="button" data-click-call="submitFormAdd" class="modal_btn modal_btn-primary">Сохранить</button>
+                <button type="button" data-modal-close="addUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
             </div>
-            <div class="form-group">
-                <label>Email:</label>
-                <input type="email" id="email_input" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>Организация:</label>
-                <select id="organization" class="form-control" required>
-                    <option value="">Выберите организацию</option>
-                    @foreach (var org in organizations)
-                    {
-                        <option value="@org.Id">@org.Name</option>
-                    }
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Роль:</label>
-                <select id="role" class="form-control">
-                    <option value="user">Пользователь</option>
-                    <option value="admin">Администратор</option>
-                </select>
-            </div>
-            @Html.AntiForgeryToken()
-        </div>
-        <div class="modal-footer">
-            <button type="button" data-click-call="submitFormAdd" class="modal_btn modal_btn-primary">Сохранить</button>
-            <button type="button" data-modal-close="addUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
         </div>
     </div>
-</div>
 
- <!-- Модальное окно редактирования -->
-<div id="editUserModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 class="h2_modal">Редактирование пользователя</h2>
-        </div>
-        <span class="modal-close" data-modal-close="editUserModal"><i class="fas fa-xmark"></i></span>
-        <div class="modal-body">
-            <input type="hidden" id="editUserId">
-            <div class="form-group">
-                <label>ФИО:</label>
-                <input type="text" id="editFullName" class="form-control" required>
+    <!-- Модальное окно редактирования -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="h2_modal">Редактирование пользователя</h2>
+                <button type="button" class="modal-close" data-modal-close="editUserModal"><i class="fas fa-xmark"></i></button>
             </div>
-            <div class="form-group">
-                <label>Логин:</label>
-                <input type="text" id="editUsername" class="form-control" required>
+            <div class="modal-body">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label>ФИО:</label>
+                    <input type="text" id="editFullName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Логин:</label>
+                    <input type="text" id="editUsername" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Новый пароль:</label>
+                    <input type="text" id="editPassword" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" placeholder="Оставьте пустым, чтобы не менять">
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="editEmail" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Организация:</label>
+                    <select id="editOrganization" class="form-control" required>
+                        @foreach (var org in organizations)
+                        {
+                            <option value="@org.Id">@org.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Роль:</label>
+                    <select id="editRole" class="form-control">
+                        <option value="user">Пользователь</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Дата начала:</label>
+                    <input type="date" id="editDateBegin" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Дата окончания:</label>
+                    <input type="date" id="editDateEnd" class="form-control">
+                </div>
+                @Html.AntiForgeryToken()
             </div>
-            <div class="form-group">
-                <label>Новый пароль:</label>
-                <input type="text" id="editPassword" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" placeholder="Оставьте пустым, чтобы не менять">
+            <div class="modal-footer">
+                <button type="button" data-click-call="updateUser" class="modal_btn modal_btn-primary">Сохранить</button>
+                <button type="button" data-modal-close="editUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
             </div>
-            <div class="form-group">
-                <label>Email:</label>
-                <input type="email" id="editEmail" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>Организация:</label>
-                <select id="editOrganization" class="form-control" required>
-                    @foreach (var org in organizations)
-                    {
-                        <option value="@org.Id">@org.Name</option>
-                    }
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Роль:</label>
-                <select id="editRole" class="form-control">
-                    <option value="user">Пользователь</option>
-                    <option value="admin">Администратор</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Дата начала:</label>
-                <input type="date" id="editDateBegin" class="form-control">
-            </div>
-            <div class="form-group">
-                <label>Дата окончания:</label>
-                <input type="date" id="editDateEnd" class="form-control">
-            </div>
-            @Html.AntiForgeryToken()
-        </div>
-        <div class="modal-footer">
-            <button data-click-call="updateUser" class="modal_btn modal_btn-primary">Сохранить</button>
-            <button data-modal-close="editUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
         </div>
     </div>
-</div>
 
     <!-- Модальное окно удаления -->
     <div id="deleteUserModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Удаление пользователя</h2>
-                <span class="modal-close" data-modal-close="deleteUserModal"><i class="fas fa-xmark"></i></span>
+                <h2 class="h2_modal">Удаление пользователя</h2>
+                <button type="button" class="modal-close" data-modal-close="deleteUserModal"><i class="fas fa-xmark"></i></button>
             </div>
             <div class="modal-body">
                 <p>Вы действительно хотите удалить пользователя <span id="deleteUserName"></span>?</p>
@@ -215,8 +218,8 @@
                 @Html.AntiForgeryToken()
             </div>
             <div class="modal-footer">
-                <button data-click-call="deleteUserFromModal" class="modal_btn modal_btn-danger">Удалить</button>
-                <button data-modal-close="deleteUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
+                <button type="button" data-click-call="deleteUserFromModal" class="modal_btn modal_btn-danger">Удалить</button>
+                <button type="button" data-modal-close="deleteUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
             </div>
         </div>
     </div>

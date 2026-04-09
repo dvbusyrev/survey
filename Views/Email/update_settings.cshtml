@@ -30,13 +30,13 @@
                 <textarea id="email-content" placeholder="Введите текст письма"></textarea>
             </div>
             <div class="email-settings-page__actions">
-                <button class="btn" data-click-call="saveEmailSettings">Сохранить</button>
-                <button class="btn" data-click-call="loadEmailSettings">Загрузить данные</button>
+                <button type="button" class="btn" data-click-call="saveEmailSettings">Сохранить</button>
+                <button type="button" class="btn" data-click-call="loadEmailSettings">Загрузить данные</button>
             </div>
         </div>
     </section>
 </div>
 
 @section Scripts {
-    <script src="~/js/pages/email-settings.js" asp-append-version="true"></script>
+    <script src="~/js/features/email/email-settings-page.js" asp-append-version="true"></script>
 }

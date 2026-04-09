@@ -3,6 +3,10 @@ function surveyEditGetOrganizationItems() {
     return organizationList ? organizationList.querySelectorAll('.organization-item') : [];
 }
 
+function surveyEditGetElementByRole(role) {
+    return document.querySelector(`[data-role="${role}"]`);
+}
+
 function surveyEditCreateIconButton(iconClass, label) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -42,8 +46,8 @@ function surveyEditToggleOrganizationSelection(element) {
             }
 
  function surveyEditUpdateSelectedOrganizationDisplay() {
-    var container = document.getElementById('selectedOrganizationContainer');
-    var list = document.getElementById('selectedOrganizationList');
+    var container = surveyEditGetElementByRole('selected-organizations-container');
+    var list = surveyEditGetElementByRole('selected-organizations-list');
     var idsInput = document.getElementById('selectedOrganizationIds');
 
     // Находим все выбранные элементы
@@ -110,11 +114,11 @@ function surveyEditToggleOrganizationSelection(element) {
             }
 
             function surveyEditAddCriteria() {
-                var container = document.getElementById('cont_criteries');
+                var container = surveyEditGetElementByRole('criteria-list');
                 if (!container) return;
                 
                 var div = document.createElement('div');
-                div.className = 'form-group cont_criteries';
+                div.className = 'form-group survey-editor-page__criteria-item';
 
                 var label = document.createElement('label');
                 label.textContent = 'Критерий оценки';
@@ -164,17 +168,29 @@ function surveyEditToggleOrganizationSelection(element) {
                     return;
                 }
                 
-                var container = document.getElementById('two_step');
+                var container = surveyEditGetElementByRole('criteria-step');
                 var criteriyInputs = container.querySelectorAll('.criteriy');
                 for (var i = 0; i < criteriyInputs.length; i++) {
                     criteriyInputs[i].readOnly = true;
                 }
                 
                 container.classList.add('confirmed');
-                document.getElementById('add_survey_btn').style.display = 'inline-block';
-                document.getElementById('send_email').style.display = 'inline-block';
-                document.getElementById('add_crit').style.display = 'none';
-                document.getElementById('conf_btn').style.display = 'none';
+                const submitButton = surveyEditGetElementByRole('survey-submit');
+                const sendEmailButton = surveyEditGetElementByRole('send-email');
+                const addCriteriaButton = surveyEditGetElementByRole('criteria-add');
+                const confirmCriteriaButton = surveyEditGetElementByRole('criteria-confirm');
+                if (submitButton) {
+                    submitButton.style.display = 'inline-block';
+                }
+                if (sendEmailButton) {
+                    sendEmailButton.style.display = 'inline-block';
+                }
+                if (addCriteriaButton) {
+                    addCriteriaButton.style.display = 'none';
+                }
+                if (confirmCriteriaButton) {
+                    confirmCriteriaButton.style.display = 'none';
+                }
                 alert('Критерии подтверждены. Теперь вы можете обновить анкету.');
             }
 

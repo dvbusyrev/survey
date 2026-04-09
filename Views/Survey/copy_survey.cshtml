@@ -51,17 +51,8 @@
     </section>
 </div>
 
-<div id="notification" class="notification-overlay">
-    <div class="notification-content">
-        <div id="notificationMessage" class="notification-message"></div>
-        <button class="notification-close" data-click-call="hideNotification">Закрыть</button>
-    </div>
-</div>
-
-<div id="loadingOverlay">
-    <div class="spinner"></div>
-    <div style="color: white; margin-top: 15px;">Идет копирование анкеты...</div>
-</div>
+@await Html.PartialAsync("~/Views/Shared/_OperationNotification.cshtml")
+@await Html.PartialAsync("~/Views/Shared/_OperationLoadingOverlay.cshtml", "Идет копирование анкеты...")
 
 @section Scripts {
     @await Html.PartialAsync("~/Views/Survey/Partials/_AdminWorkflowScripts.cshtml")

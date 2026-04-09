@@ -1,0 +1,94 @@
+<template id="nav-template-admin">
+  <nav class="admin-nav">
+    <ul class="nav-list">
+      <li class="nav-item statistic" data-tab="open_statistics" data-nav-class="statistic">
+        <a href="#" class="nav-link"><i class="fas fa-chart-line"></i>Статистика</a>
+      </li>
+      <li class="nav-item surveys has-submenu" data-tab="get_surveys" data-nav-class="surveys">
+        <a href="#" class="nav-link"><i class="fas fa-clipboard-list"></i>Анкеты</a>
+        <ul class="submenu-list">
+          <li class="submenu-item survey-list" data-tab="get_surveys"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Список анкет</a></li>
+          <li class="submenu-item survey-add" data-tab="add_survey"><a href="#" class="submenu-link"><i class="fas fa-plus"></i>Добавить анкету</a></li>
+          <li class="submenu-item survey-answers" data-tab="list_answers_users"><a href="#" class="submenu-link"><i class="fas fa-list-check"></i>Ответы на анкеты</a></li>
+          <li class="submenu-item survey-archive" data-tab="archived_surveys"><a href="#" class="submenu-link"><i class="fas fa-archive-docs"></i>Архив анкет</a></li>
+        </ul>
+      </li>
+      <li class="nav-item users has-submenu" data-tab="get_users" data-nav-class="users">
+        <a href="#" class="nav-link"><i class="fas fa-users"></i>Пользователи</a>
+        <ul class="submenu-list">
+          <li class="submenu-item user-list" data-tab="get_users"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Список пользователей</a></li>
+          <li class="submenu-item user-add" data-tab="add_user"><a href="#" class="submenu-link"><i class="fas fa-plus"></i>Добавить пользователя</a></li>
+          <li class="submenu-item user-archive" data-tab="archived_users"><a href="#" class="submenu-link"><i class="fas fa-archive-docs"></i>Архив пользователей</a></li>
+        </ul>
+      </li>
+      <li class="nav-item organizations has-submenu" data-tab="get_organization" data-nav-class="organizations">
+        <a href="#" class="nav-link"><i class="fas fa-building"></i>Организации</a>
+        <ul class="submenu-list">
+          <li class="submenu-item org-list" data-tab="get_organization"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Список организаций</a></li>
+          <li class="submenu-item org-add" data-tab="add_organization"><a href="#" class="submenu-link"><i class="fas fa-plus"></i>Добавить организацию</a></li>
+          <li class="submenu-item org-archive" data-tab="archive_list_organizations"><a href="#" class="submenu-link"><i class="fas fa-archive-docs"></i>Архив организаций</a></li>
+        </ul>
+      </li>
+      <li class="nav-item reports has-submenu" data-tab="reports" data-nav-class="reports">
+        <a href="#" class="nav-link"><i class="fas fa-file-alt"></i>Отчёты</a>
+        <ul class="submenu-list">
+          <li class="submenu-item monthly-summary-report" data-tab="monthly_summary_report"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Отчёт за месяц</a></li>
+          <li class="submenu-item quarterly-report-q1" data-tab="quarterly_report_q1"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Отчёт за 1 квартал</a></li>
+          <li class="submenu-item quarterly-report-q2" data-tab="quarterly_report_q2"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Отчёт за 2 квартал</a></li>
+          <li class="submenu-item quarterly-report-q3" data-tab="quarterly_report_q3"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Отчёт за 3 квартал</a></li>
+          <li class="submenu-item quarterly-report-q4" data-tab="quarterly_report_q4"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Отчёт за 4 квартал</a></li>
+        </ul>
+      </li>
+      <li class="nav-item email" data-tab="email" data-nav-class="email">
+        <a href="#" class="nav-link"><i class="fas fa-envelope"></i>Почта</a>
+      </li>
+      <li class="nav-item other has-submenu" data-tab="get_logs" data-nav-class="other">
+        <a href="#" class="nav-link"><i class="fas fa-ellipsis-h"></i>Прочее</a>
+        <ul class="submenu-list">
+          <li class="submenu-item logs-view" data-tab="get_logs"><a href="#" class="submenu-link"><i class="fas fa-scroll"></i>Посмотреть логи</a></li>
+          <li class="submenu-item logs-download" data-tab="download_logs"><a href="#" class="submenu-link"><i class="fas fa-download"></i>Выгрузить файл txt с логами</a></li>
+        </ul>
+      </li>
+      <li class="nav-item help" data-tab="help" data-nav-class="help">
+        <a href="#" class="nav-link"><i class="fas fa-question-circle"></i>Помощь</a>
+      </li>
+    </ul>
+  </nav>
+</template>
+
+<template id="nav-template-user">
+  <nav class="admin-nav">
+    <ul class="nav-list">
+      <li class="nav-item surveys has-submenu" data-tab="active" data-nav-class="surveys">
+        <a href="#" class="nav-link"><i class="fas fa-clipboard-list"></i>Анкеты</a>
+        <ul class="submenu-list">
+          <li class="submenu-item survey-list" data-tab="active"><a href="#" class="submenu-link"><i class="fas fa-list-ul"></i>Список анкет</a></li>
+          <li class="submenu-item survey-archive" data-tab="archived_surveys_for_user"><a href="#" class="submenu-link"><i class="fas fa-archive-docs"></i>Архив анкет</a></li>
+        </ul>
+      </li>
+      <li class="nav-item help" data-tab="help" data-nav-class="help">
+        <a href="#" class="nav-link"><i class="fas fa-question-circle"></i>Помощь</a>
+      </li>
+    </ul>
+  </nav>
+</template>
+
+<template id="header-template">
+  <header class="app-header">
+    <img src="/images/favicon.svg" alt="Логотип" draggable="false" />
+    <h1 class="header-title">Анкетирование</h1>
+    <div class="header-right">
+      <div class="header-user-info">
+        <p class="header-mode-label"></p>
+        <p id="role"></p>
+      </div>
+      <button class="logout-button" type="button">Выйти</button>
+    </div>
+  </header>
+</template>
+
+<template id="footer-template">
+  <footer>
+    <p>2026 Анкетирование. Все права защищены.</p>
+  </footer>
+</template>

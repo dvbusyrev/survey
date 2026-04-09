@@ -34,6 +34,57 @@
 
 <div id="root"></div>
 <template id="survey-fill-bootstrap">@surveyFillBootstrapJson</template>
+<template id="survey-fill-page-template">
+    <div class="page-container">
+        <div data-component="header"></div>
+        <div class="admin-container">
+            <div data-component="navigation"></div>
+            <div id="content_admin">
+                <div class="survey-fill-container">
+                    <div class="note">
+                        <h2>Заполнение анкеты</h2>
+                        <p>Пожалуйста, оцените каждый вопрос по шкале от 1 до 5</p>
+                    </div>
+                    <div class="error-message u-hidden" data-role="error">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span data-role="error-text"></span>
+                    </div>
+                    <div data-role="questions"></div>
+                    <div class="submit-container">
+                        <button type="button" class="submit-button" data-role="submit">
+                            <span data-role="submit-label">Отправить ответы</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div data-component="footer"></div>
+    </div>
+</template>
+<template id="survey-fill-question-template">
+    <div class="question-container">
+        <h3 data-role="question-title"></h3>
+        <div class="rating-buttons" data-role="ratings"></div>
+        <div class="comment-container u-hidden" data-role="comment-block">
+            <label class="comment-label">Ваш комментарий</label>
+            <textarea placeholder="Напишите комментарий"></textarea>
+        </div>
+    </div>
+</template>
+<template id="survey-fill-success-template">
+    <div class="success-message">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        <h2>Анкета успешно заполнена!</h2>
+        <p>Вы будете перенаправлены на страницу благодарности...</p>
+    </div>
+</template>
 
 @section Scripts {
     <script src="~/js/dist/survey-fill-app.js" asp-append-version="true"></script>

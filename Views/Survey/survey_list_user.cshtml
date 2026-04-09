@@ -57,6 +57,7 @@ else
     @if (isAuthenticated)
     {
         @await Html.PartialAsync("~/Views/Shared/_NavigationTemplates.cshtml")
+        @await Html.PartialAsync("~/Views/Shared/_SurveyUserTemplates.cshtml")
         <script src="~/js/dist/survey-user-app.js" asp-append-version="true"></script>
     }
 }

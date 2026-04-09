@@ -135,7 +135,7 @@
   margin: 0;
 }
 
-:where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) {
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) {
   width: 100%;
   min-width: 100%;
   margin-top: 0;
@@ -149,7 +149,7 @@
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
-:where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
   padding: 0.68rem;
   color: #4a5568;
   font-size: 0.44rem;
@@ -162,7 +162,7 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
-:where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th:last-child, td:last-child) {
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th:last-child, td:last-child) {
   overflow: visible;
 }
 
@@ -175,7 +175,7 @@
   text-align: center;
 }
 
-:where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th {
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th {
   color: #4a5568;
   font-weight: 600;
   text-transform: uppercase;
@@ -185,15 +185,15 @@
   border-bottom: 2px solid #764ba2;
 }
 
-:where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:hover {
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:hover {
   background-color: rgba(240, 248, 255, 0.8);
 }
 
-:where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:nth-child(even) {
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:nth-child(even) {
   background-color: rgba(248, 249, 250, 0.7);
 }
 
-:where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:last-child td {
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:last-child td {
   border-bottom: none;
 }
 
@@ -348,11 +348,11 @@
     overflow-x: auto;
   }
 
-  :where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) {
+  :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) {
     min-width: 680px;
   }
 
-  :where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
+  :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
     white-space: nowrap;
   }
 

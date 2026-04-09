@@ -72,16 +72,16 @@
 
         <section class="app-page__section">
             <div class="answers-page__actions">
-                <button class="answers-page__action-button"
+                <button type="button" class="answers-page__action-button"
                         data-click-call="CSP"
                         data-click-args='[@survey.IdSurvey, @idOrganization]'>Подписать</button>
-                <button class="answers-page__action-button"
+                <button type="button" class="answers-page__action-button"
                         data-click-call="createAnswerReport"
                         data-click-args='[@survey.IdSurvey, @idOrganization, "file"]'>Скачать файл с анкетой</button>
             </div>
 
-            <div id="block_btn_csp" class="answers-page__download-actions is-hidden">
-                <button class="answers-page__action-button"
+            <div class="answers-page__download-actions is-hidden" data-role="csp-download-actions">
+                <button type="button" class="answers-page__action-button"
                         data-click-call="createAnswerReport"
                         data-click-args='[@survey.IdSurvey, @idOrganization, "archive"]'>Скачать файл с анкетой и подписью</button>
             </div>
@@ -90,5 +90,5 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/pages/check-answers.js" asp-append-version="true"></script>
+    <script src="~/js/features/answers/check-answers-page.js" asp-append-version="true"></script>
 }

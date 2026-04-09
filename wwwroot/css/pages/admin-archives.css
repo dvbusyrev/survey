@@ -10,30 +10,30 @@
     padding: 20px;
 }
 
-.archive-page #data_table tr,
-.answers-page #data_table tbody tr,
+.archive-page [data-role="main-table"] tr,
+.answers-page [data-role="main-table"] tbody tr,
 .user-archive-page .grid .card {
     cursor: pointer;
 }
 
-.archive-page #data_table td:last-child,
-.archive-page #data_table th:last-child {
+.archive-page [data-role="main-table"] td:last-child,
+.archive-page [data-role="main-table"] th:last-child {
     width: 170px;
     overflow: visible;
 }
 
-.archive-page #data_table td,
-.archive-page #data_table th {
+.archive-page [data-role="main-table"] td,
+.archive-page [data-role="main-table"] th {
     text-align: center;
     vertical-align: middle;
 }
 
-.archive-page #data_table tr:hover,
-.answers-page #data_table tbody tr:hover {
+.archive-page [data-role="main-table"] tr:hover,
+.answers-page [data-role="main-table"] tbody tr:hover {
     background-color: #f5f5f5;
 }
 
-.archive-page #data_table td:not(:last-child) {
+.archive-page [data-role="main-table"] td:not(:last-child) {
     white-space: normal;
     word-break: normal;
     overflow-wrap: anywhere;
@@ -42,7 +42,7 @@
     vertical-align: middle;
 }
 
-.archive-page #data_table th {
+.archive-page [data-role="main-table"] th {
     white-space: normal;
     overflow-wrap: anywhere;
     line-height: 1.2;

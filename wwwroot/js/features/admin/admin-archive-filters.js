@@ -1,3 +1,7 @@
+function getMainTableBody() {
+    return document.querySelector('[data-role="main-table"] tbody');
+}
+
 function fillSelectOptions(selectElement, valuesSet, defaultText) {
     const currentValue = selectElement.value;
     selectElement.innerHTML = '';
@@ -24,7 +28,7 @@ function fillSelectOptions(selectElement, valuesSet, defaultText) {
 
 function populateOrganizationOptions() {
     const select = document.getElementById('filterOrganization');
-    const tbody = document.querySelector('#data_table tbody');
+    const tbody = getMainTableBody();
     if (!select || !tbody) {
         return;
     }
@@ -46,7 +50,7 @@ function populateOrganizationOptions() {
 
 function populateSurveyOptions() {
     const select = document.getElementById('filterSurvey');
-    const tbody = document.querySelector('#data_table tbody');
+    const tbody = getMainTableBody();
     if (!select || !tbody) {
         return;
     }
@@ -69,7 +73,7 @@ function populateSurveyOptions() {
 function filterTable() {
     const orgSelect = document.getElementById('filterOrganization');
     const surveySelect = document.getElementById('filterSurvey');
-    const tbody = document.querySelector('#data_table tbody');
+    const tbody = getMainTableBody();
     const noneResultRow = document.getElementById('none_result');
 
     if (!orgSelect || !surveySelect || !tbody) {
@@ -107,7 +111,7 @@ function filterTable() {
 
 function loadSurveyOptions() {
     const select = document.getElementById('filterSurvey');
-    const tbody = document.querySelector('#data_table tbody');
+    const tbody = getMainTableBody();
     if (!select || !tbody) {
         return;
     }
@@ -124,7 +128,7 @@ function loadSurveyOptions() {
 
 function applySurveyFilter() {
     const select = document.getElementById('filterSurvey');
-    const tbody = document.querySelector('#data_table tbody');
+    const tbody = getMainTableBody();
     const noneResultRow = document.getElementById('none_result');
     if (!select || !tbody) {
         return;

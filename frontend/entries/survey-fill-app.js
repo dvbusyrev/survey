@@ -1,4 +1,4 @@
-import '../../wwwroot/js/components/Header.js';
-import '../../wwwroot/js/components/Navigation.js';
-import '../../wwwroot/js/components/Footer.js';
-import '../../wwwroot/js/pages/survey-fill-standalone.jsx';
+import '../../wwwroot/js/ui/app-header.js';
+import '../../wwwroot/js/ui/app-navigation.js';
+import '../../wwwroot/js/ui/app-footer.js';
+import '../../wwwroot/js/features/survey/survey-fill-standalone.js';

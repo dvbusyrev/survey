@@ -1,5 +1,5 @@
-import '../../wwwroot/js/components/Header.js';
-import '../../wwwroot/js/components/Navigation.js';
-import '../../wwwroot/js/components/Footer.js';
-import '../../wwwroot/js/pages/survey-user-flow.jsx';
-import '../../wwwroot/js/pages/survey-user-list.jsx';
+import '../../wwwroot/js/ui/app-header.js';
+import '../../wwwroot/js/ui/app-navigation.js';
+import '../../wwwroot/js/ui/app-footer.js';
+import '../../wwwroot/js/features/survey/user-survey-flow.js';
+import '../../wwwroot/js/features/survey/user-survey-list.js';

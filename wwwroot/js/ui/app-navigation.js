@@ -1,6 +1,5 @@
-﻿window.Navigation = ({ openTab, activeTab, userRole, userId }) => {
+﻿function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
     const isAdmin = userRole === 'admin';
-    const hostRef = React.useRef(null);
 
     const isSurveySectionActive = isAdmin
         ? ['get_surveys', 'add_survey', 'list_answers_users', 'archived_surveys'].includes(activeTab)
@@ -8,8 +7,6 @@
     const isOrganizationSectionActive = ['get_organization', 'add_organization', 'archive_list_organizations'].includes(activeTab);
 
     const navigate = (tab) => {
-        setOpenSubmenu(null);
-
         if (tab === 'add_user') {
             const tryOpenAddUserModal = () => {
                 if (typeof window.openAddUserModal === 'function' && document.getElementById('addUserModal')) {
@@ -116,92 +113,92 @@
         }
     };
 
-    React.useEffect(() => {
-        const host = hostRef.current;
-        const templateId = isAdmin ? 'nav-template-admin' : 'nav-template-user';
-        const template = document.getElementById(templateId);
-        if (!host || !template?.content?.firstElementChild) {
-            return;
-        }
+    const templateId = isAdmin ? 'nav-template-admin' : 'nav-template-user';
+    const template = document.getElementById(templateId);
+    if (!host || !template?.content?.firstElementChild) {
+        return null;
+    }
 
-        host.innerHTML = '';
-        const nav = template.content.firstElementChild.cloneNode(true);
-        host.appendChild(nav);
+    host.innerHTML = '';
+    const nav = template.content.firstElementChild.cloneNode(true);
+    host.appendChild(nav);
 
-        const closeSubmenus = () => {
-            nav.querySelectorAll('.nav-item.has-submenu.submenu-open').forEach((item) => {
-                item.classList.remove('submenu-open');
-            });
-        };
-
-        nav.querySelectorAll('.nav-item').forEach((item) => {
-            const tab = item.dataset.tab || '';
-            const navClass = item.dataset.navClass || '';
-            const isActive = navClass === 'surveys'
-                ? isSurveySectionActive
-                : navClass === 'organizations'
-                    ? isOrganizationSectionActive
-                    : tab === activeTab;
-            item.classList.toggle('active', isActive);
+    const closeSubmenus = () => {
+        nav.querySelectorAll('.nav-item.has-submenu.submenu-open').forEach((item) => {
+            item.classList.remove('submenu-open');
         });
+    };
 
-        nav.querySelectorAll('.submenu-item').forEach((subItem) => {
-            subItem.classList.toggle('active', (subItem.dataset.tab || '') === activeTab);
-        });
+    nav.querySelectorAll('.nav-item').forEach((item) => {
+        const tab = item.dataset.tab || '';
+        const navClass = item.dataset.navClass || '';
+        const isActive = navClass === 'surveys'
+            ? isSurveySectionActive
+            : navClass === 'organizations'
+                ? isOrganizationSectionActive
+                : tab === activeTab;
+        item.classList.toggle('active', isActive);
+    });
 
-        nav.querySelectorAll('.nav-item.has-submenu').forEach((item) => {
-            const onEnter = () => item.classList.add('submenu-open');
-            const onLeave = () => item.classList.remove('submenu-open');
-            item.addEventListener('mouseenter', onEnter);
-            item.addEventListener('mouseleave', onLeave);
-        });
+    nav.querySelectorAll('.submenu-item').forEach((subItem) => {
+        subItem.classList.toggle('active', (subItem.dataset.tab || '') === activeTab);
+    });
 
-        const navLeaveHandler = () => closeSubmenus();
-        nav.addEventListener('mouseleave', navLeaveHandler);
+    nav.querySelectorAll('.nav-item.has-submenu').forEach((item) => {
+        const onEnter = () => item.classList.add('submenu-open');
+        const onLeave = () => item.classList.remove('submenu-open');
+        item.addEventListener('mouseenter', onEnter);
+        item.addEventListener('mouseleave', onLeave);
+    });
 
-        nav.querySelectorAll('.nav-link').forEach((link) => {
-            link.addEventListener('click', (event) => {
-                event.preventDefault();
-                const item = event.currentTarget.closest('.nav-item');
-                if (!item) {
-                    return;
-                }
+    const navLeaveHandler = () => closeSubmenus();
+    nav.addEventListener('mouseleave', navLeaveHandler);
 
-                if (item.classList.contains('has-submenu')) {
-                    const willOpen = !item.classList.contains('submenu-open');
-                    closeSubmenus();
-                    if (willOpen) {
-                        item.classList.add('submenu-open');
-                    }
-                    return;
-                }
-
-                closeSubmenus();
-                navigate(item.dataset.tab || '');
-            });
-        });
-
-        nav.querySelectorAll('.submenu-link').forEach((link) => {
-            link.addEventListener('click', (event) => {
-                event.preventDefault();
-                closeSubmenus();
-                const item = event.currentTarget.closest('.submenu-item');
-                navigate(item?.dataset?.tab || '');
-            });
-        });
-
-        const onPointerDown = (event) => {
-            if (!event.target.closest('.admin-nav')) {
-                closeSubmenus();
+    nav.querySelectorAll('.nav-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const item = event.currentTarget.closest('.nav-item');
+            if (!item) {
+                return;
             }
-        };
-        document.addEventListener('pointerdown', onPointerDown);
 
-        return () => {
-            document.removeEventListener('pointerdown', onPointerDown);
-            nav.removeEventListener('mouseleave', navLeaveHandler);
-        };
-    }, [isAdmin, activeTab, isSurveySectionActive, isOrganizationSectionActive, openTab, userId, userRole]);
+            if (item.classList.contains('has-submenu')) {
+                const willOpen = !item.classList.contains('submenu-open');
+                closeSubmenus();
+                if (willOpen) {
+                    item.classList.add('submenu-open');
+                }
+                return;
+            }
 
-    return React.createElement('div', { ref: hostRef });
+            closeSubmenus();
+            navigate(item.dataset.tab || '');
+        });
+    });
+
+    nav.querySelectorAll('.submenu-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeSubmenus();
+            const item = event.currentTarget.closest('.submenu-item');
+            navigate(item?.dataset?.tab || '');
+        });
+    });
+
+    const onPointerDown = (event) => {
+        if (!event.target.closest('.admin-nav')) {
+            closeSubmenus();
+        }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+
+    return () => {
+        document.removeEventListener('pointerdown', onPointerDown);
+        nav.removeEventListener('mouseleave', navLeaveHandler);
+        host.innerHTML = '';
+    };
+}
+
+window.mountNavigation = function mountNavigation(host, props) {
+    return renderNavigation(host, props || {});
 };

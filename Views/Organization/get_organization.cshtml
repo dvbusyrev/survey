@@ -20,15 +20,17 @@
             Title = "Список организаций",
             Description = "Ниже представлена таблица с существующими организациями."
         })
-    <div class="organization-toolbar">
-        <button
-            type="button"
-            class="modal_btn modal_btn-primary"
-            data-click-call="openAddOrganizationModal"
-            data-fallback-url="/organizations/create">
-            Добавить организацию
-        </button>
-    </div>
+    <section class="app-page__section">
+        <div class="organization-toolbar app-page__toolbar">
+            <button
+                type="button"
+                class="modal_btn modal_btn-primary"
+                data-click-call="openAddOrganizationModal"
+                data-fallback-url="/organizations/create">
+                Добавить организацию
+            </button>
+        </div>
+    </section>
     <section class="app-page__section app-page__section--flush">
         @await Html.PartialAsync("~/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
     </section>
@@ -38,7 +40,7 @@
 @await Html.PartialAsync("~/Views/Organization/Partials/_EditOrganizationModal.cshtml")
 
 @section Scripts {
-    <script src="~/js/pages/organization.js" asp-append-version="true"></script>
+    <script src="~/js/features/organization/organization-page.js" asp-append-version="true"></script>
     <script>
     (function(){
         if (@(openAddOrganizationModal.ToString().ToLowerInvariant())) {
