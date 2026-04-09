@@ -12,7 +12,7 @@ body {
   background-attachment: fixed;
 }
 
-header {
+.app-header {
   --header-side-slot: clamp(220px, 28vw, 420px);
   position: relative;
   z-index: 10;
@@ -35,7 +35,7 @@ header {
   margin-bottom: var(--page-gap);
 }
 
-header img {
+.app-header img {
   justify-self: start;
   width: 105px;
   height: calc(var(--header-height) - 8px);
@@ -44,7 +44,7 @@ header img {
   object-fit: contain;
 }
 
-header h1 {
+.app-header h1 {
   justify-self: center;
   min-width: 0;
   width: auto;

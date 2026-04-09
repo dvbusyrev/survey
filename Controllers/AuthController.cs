@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MainProject.Infrastructure.Security;
 using MainProject.Services;
 using System.Security.Claims;
@@ -48,6 +49,7 @@ public class AuthController : Controller
 
     [AllowAnonymous]
     [HttpPost("auth/login")]
+    [EnableRateLimiting("login-attempts")]
     public async Task<IActionResult> Login([FromBody] string[] userData)
     {
         if (userData == null || userData.Length != 2)

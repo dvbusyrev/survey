@@ -20,4 +20,16 @@
     <PackageReference Include="questpdf" Version="2023.12.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="tests/**/*.cs" />
+    <EmbeddedResource Remove="tests/**/*" />
+    <None Remove="tests/**/*" />
+    <Content Remove="tests/**/*" />
+  </ItemGroup>
+
+  <Target Name="BuildFrontendAssets" BeforeTargets="Build;Publish" Condition="Exists('$(MSBuildProjectDirectory)/package.json') and Exists('$(MSBuildProjectDirectory)/node_modules')">
+    <Message Text="Building frontend assets with npm..." Importance="high" />
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
 </Project>

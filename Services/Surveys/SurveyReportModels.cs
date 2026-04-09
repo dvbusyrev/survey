@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace MainProject.Services.Surveys;
 
@@ -12,37 +11,30 @@ public sealed class GeneratedFileResult
 
 public sealed class SurveyQuestions
 {
-    [JsonProperty("questions")]
     [JsonPropertyName("questions")]
     public SurveyQuestion[]? Questions { get; set; }
 
-    [JsonProperty("survey_id")]
     [JsonPropertyName("survey_id")]
     public int SurveyId { get; set; }
 }
 
 public sealed class SurveyQuestion
 {
-    [JsonProperty("text")]
     [JsonPropertyName("text")]
     public string? Text { get; set; }
 
-    [JsonProperty("question_id")]
     [JsonPropertyName("question_id")]
     public int QuestionId { get; set; }
 }
 
 public sealed class AnswerData
 {
-    [JsonProperty("rating")]
     [JsonPropertyName("rating")]
     public int? Rating { get; set; }
 
-    [JsonProperty("comment")]
     [JsonPropertyName("comment")]
     public string? Comment { get; set; }
 
-    [JsonProperty("question_id")]
     [JsonPropertyName("question_id")]
     public string? QuestionId { get; set; }
 }

@@ -56,8 +56,6 @@ else
 @section Scripts {
     @if (isAuthenticated)
     {
-        @await Html.PartialAsync("~/Views/Shared/_ReactChromeScripts.cshtml")
-        <script type="text/babel" src="~/js/pages/survey-user-flow.jsx" asp-append-version="true"></script>
-        <script type="text/babel" src="~/js/pages/survey-user-list.jsx" asp-append-version="true"></script>
+        <script src="~/js/dist/survey-user-app.js" asp-append-version="true"></script>
     }
 }

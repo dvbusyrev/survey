@@ -34,6 +34,24 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.form-group select,
+select.form-control,
+.organization-dropdown,
+.filter-select,
+.reports-page__quarter-select,
+.help-page__select {
+  appearance: none;
+  padding-right: 2.75rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #667eea 50%),
+    linear-gradient(135deg, #667eea 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
 .form-group input[type="text"]::placeholder,
 .form-group input[type="date"]::placeholder,
 .form-group input[type="email"]::placeholder,
@@ -299,6 +317,68 @@ a.btn:focus,
   margin: 0;
   text-align: left;
   cursor: pointer;
+}
+
+.password-eye-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.password-eye-wrap input[type="password"],
+.password-eye-wrap input[type="text"],
+.password-eye-wrap input[data-password-field="true"] {
+  padding-right: 44px !important;
+}
+
+.password-eye-wrap input.is-password-masked,
+input[data-password-field="true"].is-password-masked {
+  -webkit-text-security: disc;
+}
+
+.password-eye-btn {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.75;
+  transform: translateY(-50%);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.password-eye-btn:hover {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.password-eye-btn:focus {
+  outline: none;
+}
+
+.password-eye-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: #6b7280;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.password-eye-btn.is-visible .eye-open {
+  display: none;
+}
+
+.password-eye-btn:not(.is-visible) .eye-closed {
+  display: none;
 }
 
 @media (max-width: 900px) {

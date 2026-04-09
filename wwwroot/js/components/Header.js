@@ -14,7 +14,7 @@
         ? (normalizedUserName || 'Администратор')
         : (normalizedUserName || rawDisplayName);
 
-    return React.createElement('header', null,
+    return React.createElement('header', { className: 'app-header' },
         React.createElement('img', { src: '/images/favicon.svg', alt: 'Логотип', draggable: false }),
         React.createElement('h1', { className: 'header-title'}, 'Анкетирование'),
         React.createElement('div', { className: 'header-right' },

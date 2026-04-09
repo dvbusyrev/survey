@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Restore test project
+        run: dotnet restore tests/MainProject.Tests/MainProject.Tests.csproj
+
+      - name: Build test project
+        run: dotnet build tests/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test tests/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-build --no-restore

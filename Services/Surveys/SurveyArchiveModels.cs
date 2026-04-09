@@ -1,5 +1,5 @@
-﻿using Newtonsoft.Json;
-using MainProject.Models;
+﻿using MainProject.Models;
+using System.Text.Json.Serialization;
 
 namespace MainProject.Services.Surveys;
 
@@ -18,6 +18,6 @@ public sealed class UserSurveyArchivePageViewModel
 
 public sealed class ArchiveSurveyCopyRequest
 {
-    [JsonProperty("survey_id")]
+    [JsonPropertyName("survey_id")]
     public int SurveyId { get; set; }
 }

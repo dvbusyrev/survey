@@ -1,5 +1,5 @@
-﻿using Newtonsoft.Json;
-using MainProject.Models;
+﻿using MainProject.Models;
+using System.Text.Json.Serialization;
 
 namespace MainProject.Services.Surveys;
 
@@ -23,16 +23,16 @@ public sealed class SurveyAnswerEntryViewModel
 
 public sealed class SurveyAnswerDetailViewModel
 {
-    [JsonProperty("question_text")]
+    [JsonPropertyName("question_text")]
     public string? QuestionText { get; set; }
 
-    [JsonProperty("text")]
+    [JsonPropertyName("text")]
     public string? Text { get; set; }
 
-    [JsonProperty("rating")]
+    [JsonPropertyName("rating")]
     public string? Rating { get; set; }
 
-    [JsonProperty("comment")]
+    [JsonPropertyName("comment")]
     public string? Comment { get; set; }
 
     public string DisplayQuestion => QuestionText ?? Text ?? string.Empty;

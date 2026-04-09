@@ -18,6 +18,11 @@
   align-items: center;
 }
 
+.help-page__select {
+  min-width: min(320px, 100%);
+  max-width: 100%;
+}
+
 .help-document-page__content {
   display: grid;
   gap: 20px;

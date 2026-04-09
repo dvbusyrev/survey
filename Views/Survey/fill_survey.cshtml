@@ -36,6 +36,5 @@
 <template id="survey-fill-bootstrap">@surveyFillBootstrapJson</template>
 
 @section Scripts {
-    @await Html.PartialAsync("~/Views/Shared/_ReactChromeScripts.cshtml")
-    <script type="text/babel" src="~/js/pages/survey-fill-standalone.jsx" asp-append-version="true"></script>
+    <script src="~/js/dist/survey-fill-app.js" asp-append-version="true"></script>
 }

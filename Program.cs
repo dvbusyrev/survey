@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using MainProject.Infrastructure.Database;
 using MainProject.Services.Email;
@@ -9,6 +10,7 @@ using MainProject.Services.Admin;
 using MainProject.Services.Answers;
 using MainProject.Services.Surveys;
 using System.Text.Json;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +28,42 @@ builder.Services.AddControllersWithViews(options =>
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "RequestVerificationToken";
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString();
+        }
+
+        const string message = "Слишком много попыток входа. Попробуйте снова через минуту.";
+        context.HttpContext.Response.ContentType = IsApiRequest(context.HttpContext.Request)
+            ? "application/json; charset=utf-8"
+            : "text/plain; charset=utf-8";
+
+        if (context.HttpContext.Response.ContentType.StartsWith("application/json", StringComparison.Ordinal))
+        {
+            await context.HttpContext.Response.WriteAsync(
+                JsonSerializer.Serialize(new { error = message }),
+                cancellationToken);
+            return;
+        }
+
+        await context.HttpContext.Response.WriteAsync(message, cancellationToken);
+    };
+    options.AddPolicy("login-attempts", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: GetLoginRateLimitPartitionKey(httpContext),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -103,14 +141,6 @@ builder.Services.AddResponseCompression(options =>
     });
 });
 
-// Настройки сессии
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30); // время ожидания сессии
-    options.Cookie.HttpOnly = true; // защита от доступа к куки через JavaScript (ЛУЧШЕ ОСТАВИТЬ "true")
-    options.Cookie.IsEssential = true; // обязательно для работы сессий (СНОВА "true")
-});
-
 var app = builder.Build();
 
 // НАСТРОЙКА HTTP ПЕРЕАДРЕСАЦИИ
@@ -132,7 +162,7 @@ app.UseHttpsRedirection();
 app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
-app.UseSession();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseStatusCodePages(async statusCodeContext =>
@@ -194,4 +224,22 @@ static bool IsApiRequest(HttpRequest request)
     }
 
     return false;
+}
+
+static string GetLoginRateLimitPartitionKey(HttpContext context)
+{
+    if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedForHeader))
+    {
+        var forwardedFor = forwardedForHeader
+            .ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(forwardedFor))
+        {
+            return forwardedFor;
+        }
+    }
+
+    return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 }

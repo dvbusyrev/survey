@@ -51,6 +51,7 @@ artifacts/
 
 # VS Code
 .vscode/
+node_modules/
 
 *_i.c
 *_p.c

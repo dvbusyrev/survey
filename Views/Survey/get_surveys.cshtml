@@ -1,15 +1,14 @@
 ﻿@model List<MainProject.Models.Survey>
-@using Microsoft.AspNetCore.Http
 @using System.Security.Claims
 @using System.Text.Json
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Анкеты";
-    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? Context.Session.GetString("name_role") ?? "";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : (Context.Session.GetInt32("id_user") ?? 0);
-    var nameOrganization = User.FindFirst("organization_name")?.Value ?? Context.Session.GetString("organization_name") ?? "";
-    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? Context.Session.GetString("name_user") ?? "";
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
+    var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
+    var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
     var displayName = !string.IsNullOrWhiteSpace(nameOrganization) && !string.IsNullOrWhiteSpace(nameUser)
         ? $"{nameOrganization}: {nameUser}"
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));

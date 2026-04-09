@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS public.organization (
     date_begin date,
     date_end date,
     block boolean NOT NULL DEFAULT false,
-    email text
+    email text,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer
 );
 
 CREATE TABLE IF NOT EXISTS public.survey (
@@ -20,13 +22,17 @@ CREATE TABLE IF NOT EXISTS public.survey (
     description text,
     date_create timestamp without time zone NOT NULL DEFAULT NOW(),
     date_open timestamp without time zone NOT NULL,
-    date_close timestamp without time zone NOT NULL
+    date_close timestamp without time zone NOT NULL,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer
 );
 
 CREATE TABLE IF NOT EXISTS public.organization_survey (
     organization_id integer NOT NULL,
     id_survey integer NOT NULL,
     extended_until timestamp without time zone,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer,
     CONSTRAINT organization_survey_pkey PRIMARY KEY (organization_id, id_survey),
     CONSTRAINT organization_survey_organization_id_fkey
         FOREIGN KEY (organization_id) REFERENCES public.organization (organization_id) ON DELETE CASCADE,
@@ -45,6 +51,8 @@ CREATE TABLE IF NOT EXISTS public.app_user (
     key_csp text,
     date_begin timestamp without time zone DEFAULT NOW(),
     date_end timestamp without time zone,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer,
     CONSTRAINT app_user_name_user_key UNIQUE (name_user),
     CONSTRAINT chk_app_user_name_role CHECK (name_role IN ('admin', 'user')),
     CONSTRAINT app_user_organization_id_fkey
@@ -58,6 +66,8 @@ CREATE TABLE IF NOT EXISTS public.answer (
     csp text,
     completion_date timestamp without time zone,
     create_date_survey timestamp without time zone,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer,
     CONSTRAINT answer_organization_id_fkey
         FOREIGN KEY (organization_id) REFERENCES public.organization (organization_id) ON DELETE RESTRICT,
     CONSTRAINT answer_organization_survey_key UNIQUE (organization_id, id_survey),
@@ -71,6 +81,8 @@ CREATE TABLE IF NOT EXISTS public.survey_question (
     question_order integer NOT NULL,
     question_text text NOT NULL,
     created_at timestamp without time zone NOT NULL DEFAULT NOW(),
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer,
     CONSTRAINT survey_question_id_survey_fkey
         FOREIGN KEY (id_survey) REFERENCES public.survey (id_survey) ON DELETE CASCADE,
     CONSTRAINT survey_question_id_survey_question_order_key
@@ -84,6 +96,8 @@ CREATE TABLE IF NOT EXISTS public.answer_item (
     question_text text NOT NULL,
     rating integer,
     comment text,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer,
     CONSTRAINT answer_item_id_answer_fkey
         FOREIGN KEY (id_answer) REFERENCES public.answer (id_answer) ON DELETE CASCADE,
     CONSTRAINT answer_item_id_answer_question_order_key
@@ -98,7 +112,9 @@ CREATE TABLE IF NOT EXISTS public.app_user_l (
     changed_at timestamp without time zone NOT NULL DEFAULT NOW(),
     changed_by_user_id integer,
     record_pk jsonb NOT NULL,
-    row_data jsonb NOT NULL
+    row_data jsonb NOT NULL,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer
 );
 
 CREATE TABLE IF NOT EXISTS public.organization_l (
@@ -107,7 +123,9 @@ CREATE TABLE IF NOT EXISTS public.organization_l (
     changed_at timestamp without time zone NOT NULL DEFAULT NOW(),
     changed_by_user_id integer,
     record_pk jsonb NOT NULL,
-    row_data jsonb NOT NULL
+    row_data jsonb NOT NULL,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer
 );
 
 CREATE TABLE IF NOT EXISTS public.survey_l (
@@ -116,7 +134,9 @@ CREATE TABLE IF NOT EXISTS public.survey_l (
     changed_at timestamp without time zone NOT NULL DEFAULT NOW(),
     changed_by_user_id integer,
     record_pk jsonb NOT NULL,
-    row_data jsonb NOT NULL
+    row_data jsonb NOT NULL,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer
 );
 
 CREATE TABLE IF NOT EXISTS public.answer_l (
@@ -125,7 +145,9 @@ CREATE TABLE IF NOT EXISTS public.answer_l (
     changed_at timestamp without time zone NOT NULL DEFAULT NOW(),
     changed_by_user_id integer,
     record_pk jsonb NOT NULL,
-    row_data jsonb NOT NULL
+    row_data jsonb NOT NULL,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer
 );
 
 CREATE TABLE IF NOT EXISTS public.organization_survey_l (
@@ -134,7 +156,9 @@ CREATE TABLE IF NOT EXISTS public.organization_survey_l (
     changed_at timestamp without time zone NOT NULL DEFAULT NOW(),
     changed_by_user_id integer,
     record_pk jsonb NOT NULL,
-    row_data jsonb NOT NULL
+    row_data jsonb NOT NULL,
+    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
+    user_update integer
 );
 
 CREATE OR REPLACE FUNCTION public.audit_current_user_id()
@@ -156,6 +180,8 @@ EXCEPTION
         RETURN NULL;
 END;
 $$;
+
+\ir update_metadata_support.sql
 
 CREATE OR REPLACE FUNCTION public.write_crud_audit()
 RETURNS trigger
