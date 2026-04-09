@@ -8577,11 +8577,47 @@
       "Вперед"
     ))));
   };
+  function normalizeSurveyUserPathname(pathname) {
+    if (!pathname) {
+      return "/";
+    }
+    return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  }
+  function buildSurveyUserHistoryEntry(tab) {
+    switch (tab) {
+      case "active":
+        return { tab: "active", content: "surveys", url: "/my-surveys" };
+      case "archived":
+      case "archived_surveys_for_user":
+        return { tab: "archived", content: "surveys", url: "/my-surveys/archive" };
+      case "help":
+        return { tab: "help", content: "help", url: "/help" };
+      default:
+        return null;
+    }
+  }
+  function getSurveyUserHistoryEntryFromLocation(pathname) {
+    const normalizedPath = normalizeSurveyUserPathname(pathname);
+    if (normalizedPath === "/my-surveys") {
+      return buildSurveyUserHistoryEntry("active");
+    }
+    if (normalizedPath === "/my-surveys/archive") {
+      return buildSurveyUserHistoryEntry("archived");
+    }
+    if (normalizedPath === "/help") {
+      return buildSurveyUserHistoryEntry("help");
+    }
+    return null;
+  }
   window.renderSurveyUserList = function(initialData) {
     const initialTab = initialData.initialTab === "archived" ? "archived" : "active";
     const SurveyList = () => {
-      const [activeTab, setActiveTab] = import_react.default.useState(initialTab);
-      const [currentContent, setCurrentContent] = import_react.default.useState("surveys");
+      const initialHistoryEntry = import_react.default.useMemo(
+        () => getSurveyUserHistoryEntryFromLocation(window.location.pathname) || buildSurveyUserHistoryEntry(initialTab) || buildSurveyUserHistoryEntry("active"),
+        []
+      );
+      const [activeTab, setActiveTab] = import_react.default.useState(initialHistoryEntry?.tab || initialTab);
+      const [currentContent, setCurrentContent] = import_react.default.useState(initialHistoryEntry?.content || "surveys");
       const [currentView, setCurrentView] = import_react.default.useState("survey-list");
       const [currentSurvey, setCurrentSurvey] = import_react.default.useState(null);
       const [searchTerm, setSearchTerm] = import_react.default.useState(initialData.initialSearchTerm || "");
@@ -8602,6 +8638,21 @@
       const [dateFilter, setDateFilter] = import_react.default.useState("");
       const [filterSigned, setFilterSigned] = import_react.default.useState(false);
       const countsLoadedRef = import_react.default.useRef(false);
+      const syncBrowserHistory = (historyEntry, mode = "push") => {
+        if (!historyEntry) {
+          return;
+        }
+        const nextState = { tab: historyEntry.tab };
+        const currentPath = normalizeSurveyUserPathname(window.location.pathname);
+        if (mode === "replace") {
+          window.history.replaceState(nextState, "", historyEntry.url);
+          return;
+        }
+        if (currentPath === historyEntry.url && window.history.state?.tab === nextState.tab) {
+          return;
+        }
+        window.history.pushState(nextState, "", historyEntry.url);
+      };
       import_react.default.useEffect(() => {
         if (loading) {
           const timer = setTimeout(() => setShowLoader(true), 180);
@@ -8715,25 +8766,53 @@
         loadSurveyData(activeTab, currentPage, searchTerm, filterSigned, dateFilter);
         loadCounts();
       };
-      const handleTabChange = (tab) => {
+      const handleTabChange = (tab, options = {}) => {
+        const historyMode = options.historyMode ?? "push";
+        const force = options.force === true;
+        const historyEntry = buildSurveyUserHistoryEntry(tab);
         if (tab === "help") {
-          if (currentContent === "help") return;
+          if (!force && currentContent === "help") return;
           setActiveTab("help");
           setCurrentContent("help");
           setCurrentView("survey-list");
+          if (historyMode !== "none") {
+            syncBrowserHistory(historyEntry, historyMode);
+          }
           return;
         }
-        if (currentContent === "surveys" && activeTab === tab && currentView === "survey-list") {
+        if (!force && currentContent === "surveys" && activeTab === tab && currentView === "survey-list") {
           return;
         }
         setCurrentContent("surveys");
         if (tab !== "get_surveys") {
-          setActiveTab(tab);
+          const normalizedTab = tab === "archived_surveys_for_user" ? "archived" : tab;
+          setActiveTab(normalizedTab);
           setCurrentPage(1);
           setCurrentView("survey-list");
-          loadSurveyData(tab, 1, searchTerm, filterSigned, dateFilter);
+          if (historyMode !== "none") {
+            syncBrowserHistory(historyEntry, historyMode);
+          }
+          loadSurveyData(normalizedTab, 1, searchTerm, filterSigned, dateFilter);
         }
       };
+      import_react.default.useEffect(() => {
+        syncBrowserHistory(initialHistoryEntry, "replace");
+        const handlePopState = () => {
+          const nextHistoryEntry = window.history.state?.tab ? buildSurveyUserHistoryEntry(window.history.state.tab) : getSurveyUserHistoryEntryFromLocation(window.location.pathname);
+          if (!nextHistoryEntry) {
+            return;
+          }
+          setCurrentSurvey(null);
+          setCurrentView("survey-list");
+          setCurrentContent(nextHistoryEntry.content);
+          setActiveTab(nextHistoryEntry.tab);
+          if (nextHistoryEntry.tab !== "help") {
+            setCurrentPage(1);
+          }
+        };
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
+      }, []);
       import_react.default.useEffect(() => {
         if (activeTab === "active" && currentView === "survey-list") {
           const updateTimeLeft = () => {

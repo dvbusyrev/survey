@@ -8123,6 +8123,130 @@
   (() => {
     const { Header, Footer, Navigation } = window;
     const ADMIN_MENU_TABS = ["get_surveys", "list_answers_users", "archived_surveys"];
+    function normalizePathname(pathname) {
+      if (!pathname) {
+        return "/";
+      }
+      return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+    }
+    function buildAdminHistoryEntry(tab, id = null, modalData = null) {
+      const surveyId = id ?? modalData?.id_survey ?? null;
+      const userId = id ?? modalData?.id_user ?? null;
+      const organizationId = id ?? modalData?.organization_id ?? null;
+      switch (tab) {
+        case "get_surveys":
+          return { tab, id: null, url: "/surveys" };
+        case "list_answers_users":
+          return { tab, id: null, url: "/surveys/answers" };
+        case "archived_surveys":
+          return { tab, id: null, url: "/surveys/archive" };
+        case "get_survey_signatures":
+          return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/signatures` } : null;
+        case "add_survey":
+          return { tab, id: null, url: "/surveys/create" };
+        case "copy_survey":
+          return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/copy` } : null;
+        case "update_survey":
+          return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/edit` } : null;
+        case "open_statistics":
+          return { tab, id: null, url: "/statistics" };
+        case "get_users":
+          return { tab, id: null, url: "/users" };
+        case "add_user":
+          return { tab, id: null, url: "/users/create" };
+        case "update_user":
+          return userId ? { tab, id: userId, url: `/users/${userId}/edit` } : null;
+        case "archive_list_users":
+          return { tab, id: null, url: "/users/archive" };
+        case "get_organization":
+          return { tab, id: null, url: "/organizations" };
+        case "add_organization":
+          return { tab, id: null, url: "/organizations/create" };
+        case "update_organization":
+          return organizationId ? { tab, id: organizationId, url: `/organizations/${organizationId}/edit` } : null;
+        case "archive_list_organizations":
+          return { tab, id: null, url: "/organizations/archive" };
+        case "reports":
+          return { tab, id: null, url: "/reports" };
+        case "get_logs":
+          return { tab, id: null, url: "/logs" };
+        case "email":
+          return { tab, id: null, url: "/mail-settings" };
+        case "help":
+          return { tab, id: null, url: "/help" };
+        default:
+          return null;
+      }
+    }
+    function getAdminHistoryEntryFromLocation(pathname) {
+      const normalizedPath = normalizePathname(pathname);
+      if (normalizedPath === "/surveys") {
+        return buildAdminHistoryEntry("get_surveys");
+      }
+      if (normalizedPath === "/surveys/answers") {
+        return buildAdminHistoryEntry("list_answers_users");
+      }
+      if (normalizedPath === "/surveys/archive") {
+        return buildAdminHistoryEntry("archived_surveys");
+      }
+      if (normalizedPath === "/surveys/create") {
+        return buildAdminHistoryEntry("add_survey");
+      }
+      if (normalizedPath === "/statistics") {
+        return buildAdminHistoryEntry("open_statistics");
+      }
+      if (normalizedPath === "/users") {
+        return buildAdminHistoryEntry("get_users");
+      }
+      if (normalizedPath === "/users/create") {
+        return buildAdminHistoryEntry("add_user");
+      }
+      if (normalizedPath === "/users/archive") {
+        return buildAdminHistoryEntry("archive_list_users");
+      }
+      if (normalizedPath === "/organizations") {
+        return buildAdminHistoryEntry("get_organization");
+      }
+      if (normalizedPath === "/organizations/create") {
+        return buildAdminHistoryEntry("add_organization");
+      }
+      if (normalizedPath === "/organizations/archive") {
+        return buildAdminHistoryEntry("archive_list_organizations");
+      }
+      if (normalizedPath === "/reports") {
+        return buildAdminHistoryEntry("reports");
+      }
+      if (normalizedPath === "/logs") {
+        return buildAdminHistoryEntry("get_logs");
+      }
+      if (normalizedPath === "/mail-settings") {
+        return buildAdminHistoryEntry("email");
+      }
+      if (normalizedPath === "/help") {
+        return buildAdminHistoryEntry("help");
+      }
+      let match = normalizedPath.match(/^\/surveys\/(\d+)\/signatures$/);
+      if (match) {
+        return buildAdminHistoryEntry("get_survey_signatures", Number(match[1]));
+      }
+      match = normalizedPath.match(/^\/surveys\/(\d+)\/edit$/);
+      if (match) {
+        return buildAdminHistoryEntry("update_survey", Number(match[1]));
+      }
+      match = normalizedPath.match(/^\/surveys\/(\d+)\/copy$/);
+      if (match) {
+        return buildAdminHistoryEntry("copy_survey", Number(match[1]));
+      }
+      match = normalizedPath.match(/^\/users\/(\d+)\/edit$/);
+      if (match) {
+        return buildAdminHistoryEntry("update_user", Number(match[1]));
+      }
+      match = normalizedPath.match(/^\/organizations\/(\d+)\/edit$/);
+      if (match) {
+        return buildAdminHistoryEntry("update_organization", Number(match[1]));
+      }
+      return null;
+    }
     function createClosedModalState() {
       return {
         isOpen: false,
@@ -8168,8 +8292,12 @@
     }
     function App() {
       const initialData = window.__adminBootstrap || {};
+      const initialHistoryEntry = import_react.default.useMemo(
+        () => getAdminHistoryEntryFromLocation(window.location.pathname) || buildAdminHistoryEntry("get_surveys"),
+        []
+      );
       const recordsPerPage = 10;
-      const [activeTab, setActiveTab] = import_react.default.useState("get_surveys");
+      const [activeTab, setActiveTab] = import_react.default.useState(initialHistoryEntry?.tab || "get_surveys");
       const [content, setContent] = import_react.default.useState(null);
       const [loading, setLoading] = import_react.default.useState(false);
       const [showLoader, setShowLoader] = import_react.default.useState(false);
@@ -8182,11 +8310,27 @@
       const userRole = initialData.userRole || "";
       const hasAccess = Boolean(userRole);
       const openTabRef = import_react.default.useRef(null);
-      const previousTabRef = import_react.default.useRef(userRole === "admin" ? "get_surveys" : "survey_list_user");
-      const currentHistoryTabRef = import_react.default.useRef(previousTabRef.current);
       const availablePages = window.AdminInlineAppPages || {};
       const ExtensionModal = availablePages.ExtensionModal;
       const StatisticsPage = availablePages.StatisticsPage;
+      const syncBrowserHistory = (historyEntry, mode = "push") => {
+        if (!historyEntry) {
+          return;
+        }
+        const nextState = {
+          tab: historyEntry.tab,
+          id: historyEntry.id ?? null
+        };
+        const currentUrl = normalizePathname(window.location.pathname);
+        if (mode === "replace") {
+          window.history.replaceState(nextState, "", historyEntry.url);
+          return;
+        }
+        if (currentUrl === historyEntry.url && window.history.state?.tab === nextState.tab && (window.history.state?.id ?? null) === nextState.id) {
+          return;
+        }
+        window.history.pushState(nextState, "", historyEntry.url);
+      };
       const closeModal = () => {
         setModal(createClosedModalState());
       };
@@ -8333,20 +8477,19 @@
         }
         return result;
       };
-      const rememberHistoryTab = (targetTab) => {
-        if (!targetTab || targetTab === activeTab) {
+      const openTab = async (tab, id = null, options = {}) => {
+        const historyMode = options.historyMode ?? "push";
+        const force = options.force === true;
+        const historyEntry = buildAdminHistoryEntry(tab, id, modal.data);
+        const resolvedId = historyEntry?.id ?? id ?? null;
+        if (!force && activeTab === tab && resolvedId === (window.history.state?.id ?? null)) {
           return;
         }
-        previousTabRef.current = activeTab;
-        currentHistoryTabRef.current = targetTab;
-      };
-      const openTab = async (tab, id = null) => {
-        if (!id && tab !== "get_surveys" && activeTab === tab) {
-          return;
-        }
-        rememberHistoryTab(tab);
-        setActiveTab(tab);
         if (tab === "get_surveys") {
+          setActiveTab(tab);
+          if (historyMode !== "none") {
+            syncBrowserHistory(historyEntry, historyMode);
+          }
           return;
         }
         setLoading(true);
@@ -8357,24 +8500,48 @@
                 throw new Error("Модуль статистики не загружен.");
               }
               setContent(renderContentWrapper(/* @__PURE__ */ import_react.default.createElement(StatisticsPage, null)));
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "list_answers_users":
               await fetchHtmlPage("/surveys/answers");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "archived_surveys":
               await fetchHtmlPage("/surveys/archive");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "get_survey_signatures":
               if (!id) {
                 throw new Error("ID анкеты не указан.");
               }
               await fetchHtmlPage(`/surveys/${id}/signatures`);
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "add_survey":
               await fetchHtmlPage("/surveys/create");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "get_logs":
               await fetchHtmlPage("/logs");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "download_logs": {
               const response = await fetch("/logs/export");
@@ -8396,15 +8563,37 @@
             }
             case "get_users":
               await fetchHtmlPage("/users");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "get_organization":
               await fetchHtmlPage("/organizations");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "copy_survey":
-              await fetchHtmlPage(`/surveys/${modal.data?.id_survey}/copy`);
+              if (!resolvedId) {
+                throw new Error("ID анкеты не указан.");
+              }
+              await fetchHtmlPage(`/surveys/${resolvedId}/copy`);
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "update_survey":
-              await fetchHtmlPage(`/surveys/${modal.data?.id_survey}/edit`);
+              if (!resolvedId) {
+                throw new Error("ID анкеты не указан.");
+              }
+              await fetchHtmlPage(`/surveys/${resolvedId}/edit`);
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "delete_survey": {
               const result = await deleteSurvey(modal.data?.id_survey);
@@ -8416,13 +8605,27 @@
                 data: null
               });
               setActiveTab("get_surveys");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("get_surveys"), "replace");
+              }
               return;
             }
             case "add_user":
               await fetchHtmlPage("/users/create");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "update_user":
-              await fetchHtmlPage(`/users/${modal.data?.id_user}/edit`);
+              if (!resolvedId) {
+                throw new Error("ID пользователя не указан.");
+              }
+              await fetchHtmlPage(`/users/${resolvedId}/edit`);
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "delete_user":
               await fetchHtmlPage(`/users/${modal.data?.id_user}/delete`, {
@@ -8431,18 +8634,41 @@
                   RequestVerificationToken: getRequestVerificationToken()
                 }
               });
+              setActiveTab("get_users");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("get_users"), "replace");
+              }
               return;
             case "archive_list_organizations":
               await fetchHtmlPage("/organizations/archive");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "archive_list_users":
               await fetchHtmlPage("/users/archive");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "add_organization":
               await fetchHtmlPage("/organizations/create");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "update_organization":
-              await fetchHtmlPage(`/organizations/${modal.data?.organization_id}/edit`);
+              if (!resolvedId) {
+                throw new Error("ID организации не указан.");
+              }
+              await fetchHtmlPage(`/organizations/${resolvedId}/edit`);
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "delete_organization":
               await fetchHtmlPage(`/organizations/${modal.data?.organization_id}/delete`, {
@@ -8451,36 +8677,72 @@
                   RequestVerificationToken: getRequestVerificationToken()
                 }
               });
+              setActiveTab("get_organization");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("get_organization"), "replace");
+              }
               return;
             case "help":
               window.open("/help_files/admin_survey_guide.docx", "_blank");
               await fetchHtmlPage("/help");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "monthly_summary_report":
               createMonthlySummaryReport();
               await fetchHtmlPage("/reports");
+              setActiveTab("reports");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("reports"), historyMode);
+              }
               return;
             case "quarterly_report_q1":
               createQuarterlyReport(1);
               await fetchHtmlPage("/reports");
+              setActiveTab("reports");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("reports"), historyMode);
+              }
               return;
             case "quarterly_report_q2":
               createQuarterlyReport(2);
               await fetchHtmlPage("/reports");
+              setActiveTab("reports");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("reports"), historyMode);
+              }
               return;
             case "quarterly_report_q3":
               createQuarterlyReport(3);
               await fetchHtmlPage("/reports");
+              setActiveTab("reports");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("reports"), historyMode);
+              }
               return;
             case "quarterly_report_q4":
               createQuarterlyReport(4);
               await fetchHtmlPage("/reports");
+              setActiveTab("reports");
+              if (historyMode !== "none") {
+                syncBrowserHistory(buildAdminHistoryEntry("reports"), historyMode);
+              }
               return;
             case "reports":
               await fetchHtmlPage("/reports");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             case "email":
               await fetchHtmlPage("/mail-settings");
+              setActiveTab(tab);
+              if (historyMode !== "none") {
+                syncBrowserHistory(historyEntry, historyMode);
+              }
               return;
             default:
               console.warn(`Вкладка ${tab} не обработана.`);
@@ -8578,18 +8840,30 @@
           if (!openTabRef.current) {
             return;
           }
-          const previousTab = previousTabRef.current;
-          const currentTab = currentHistoryTabRef.current;
-          if (previousTab) {
-            openTabRef.current(previousTab);
-            previousTabRef.current = currentTab;
-            currentHistoryTabRef.current = previousTab;
+          const nextHistoryEntry = window.history.state?.tab ? buildAdminHistoryEntry(window.history.state.tab, window.history.state.id) : getAdminHistoryEntryFromLocation(window.location.pathname);
+          if (nextHistoryEntry) {
+            openTabRef.current(nextHistoryEntry.tab, nextHistoryEntry.id, {
+              historyMode: "none",
+              force: true
+            });
           }
         };
-        window.history.replaceState({}, "", window.location.href);
+        syncBrowserHistory(initialHistoryEntry, "replace");
         window.addEventListener("popstate", handlePopState);
         return () => window.removeEventListener("popstate", handlePopState);
       }, []);
+      import_react.default.useEffect(() => {
+        if (!initialHistoryEntry || initialHistoryEntry.tab === "get_surveys") {
+          return;
+        }
+        const timer = window.setTimeout(() => {
+          openTabRef.current?.(initialHistoryEntry.tab, initialHistoryEntry.id, {
+            historyMode: "replace",
+            force: true
+          });
+        }, 0);
+        return () => window.clearTimeout(timer);
+      }, [initialHistoryEntry]);
       import_react.default.useEffect(() => {
         const timer = window.setTimeout(() => {
           if (window.initPasswordToggles) {

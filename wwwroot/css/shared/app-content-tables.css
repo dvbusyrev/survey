@@ -150,9 +150,9 @@
 }
 
 :where(#data_table, .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
-  padding: clamp(0.72rem, 0.68rem + 0.18vw, 0.95rem);
+  padding: 0.68rem;
   color: #4a5568;
-  font-size: clamp(0.92rem, 0.88rem + 0.08vw, 1rem);
+  font-size: 0.44rem;
   line-height: 1.4;
   text-align: left;
   vertical-align: middle;
