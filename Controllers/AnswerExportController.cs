@@ -1,17 +1,17 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Answers;
+using MainProject.Application.Contracts;
 
 [Authorize]
 public class AnswerExportController : Controller
 {
-    private readonly AnswerAccessService _answerAccessService;
-    private readonly AnswerExportService _answerExportService;
+    private readonly IAnswerAccessService _answerAccessService;
+    private readonly IAnswerExportService _answerExportService;
     private readonly ILogger<AnswerExportController> _logger;
 
     public AnswerExportController(
-        AnswerAccessService answerAccessService,
-        AnswerExportService answerExportService,
+        IAnswerAccessService answerAccessService,
+        IAnswerExportService answerExportService,
         ILogger<AnswerExportController> logger)
     {
         _answerAccessService = answerAccessService;

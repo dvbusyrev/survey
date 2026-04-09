@@ -1,16 +1,15 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Admin;
+using MainProject.Application.Contracts;
+using MainProject.Application.DTO;
 using Npgsql;
 using System.Text.Json;
 
-namespace MainProject.Controllers;
-
 public class SurveyExtensionController : Controller
 {
-    private readonly SurveyExtensionService _surveyExtensionService;
+    private readonly ISurveyExtensionService _surveyExtensionService;
     private readonly ILogger<SurveyExtensionController> _logger;
 
-    public SurveyExtensionController(SurveyExtensionService surveyExtensionService, ILogger<SurveyExtensionController> logger)
+    public SurveyExtensionController(ISurveyExtensionService surveyExtensionService, ILogger<SurveyExtensionController> logger)
     {
         _surveyExtensionService = surveyExtensionService;
         _logger = logger;
@@ -19,7 +18,7 @@ public class SurveyExtensionController : Controller
     [HttpPost]
     [Route("survey-extensions")]
     [Route("survey_extensions")]
-    public IActionResult SaveSurveyExtensions([FromBody] SurveyExtensionRequest request)
+    public IActionResult SaveSurveyExtensions([FromBody] SurveyExtensionRequest? request)
     {
         _logger.LogInformation("Получен запрос на продление анкеты: {Request}", JsonSerializer.Serialize(request));
 

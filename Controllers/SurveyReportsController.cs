@@ -1,15 +1,15 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Surveys;
+using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
 
 [Authorize]
 public class SurveyReportsController : Controller
 {
-    private readonly SurveyReportService _surveyReportService;
+    private readonly ISurveyReportService _surveyReportService;
     private readonly ILogger<SurveyReportsController> _logger;
 
-    public SurveyReportsController(SurveyReportService surveyReportService, ILogger<SurveyReportsController> logger)
+    public SurveyReportsController(ISurveyReportService surveyReportService, ILogger<SurveyReportsController> logger)
     {
         _surveyReportService = surveyReportService;
         _logger = logger;
@@ -19,7 +19,7 @@ public class SurveyReportsController : Controller
     [HttpGet("reports")]
     public IActionResult ViewReports()
     {
-        return View("~/Views/Survey/view_reports.cshtml");
+        return View("~/Web/Views/Survey/view_reports.cshtml");
     }
 
     [Authorize(Roles = AppRoles.Admin)]

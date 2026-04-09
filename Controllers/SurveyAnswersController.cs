@@ -1,15 +1,15 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Surveys;
+using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
 
 [Authorize]
 public class SurveyAnswersController : Controller
 {
-    private readonly SurveyAnswersService _surveyAnswersService;
+    private readonly ISurveyAnswersService _surveyAnswersService;
     private readonly ILogger<SurveyAnswersController> _logger;
 
-    public SurveyAnswersController(SurveyAnswersService surveyAnswersService, ILogger<SurveyAnswersController> logger)
+    public SurveyAnswersController(ISurveyAnswersService surveyAnswersService, ILogger<SurveyAnswersController> logger)
     {
         _surveyAnswersService = surveyAnswersService;
         _logger = logger;
@@ -27,7 +27,7 @@ public class SurveyAnswersController : Controller
                 return NotFound("Анкета не найдена");
             }
 
-            return View("~/Views/Answer/view_answer.cshtml", model);
+            return View("~/Web/Views/Answer/view_answer.cshtml", model);
         }
         catch (Exception ex)
         {

@@ -1,16 +1,17 @@
 ﻿using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MainProject.Application.Contracts;
+using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Security;
-using MainProject.Models;
-using MainProject.Services.Admin;
+using MainProject.Web.ViewModels;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class LogController : Controller
 {
-    private readonly AuditLogService _auditLogService;
+    private readonly IAuditLogService _auditLogService;
 
-    public LogController(AuditLogService auditLogService)
+    public LogController(IAuditLogService auditLogService)
     {
         _auditLogService = auditLogService;
     }

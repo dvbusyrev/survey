@@ -1,16 +1,17 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Surveys;
+using MainProject.Application.Contracts;
+using MainProject.Application.DTO;
 using MainProject.Infrastructure.Security;
 using Npgsql;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class SurveyAdminController : Controller
 {
-    private readonly SurveyAdminService _surveyAdminService;
+    private readonly ISurveyAdminService _surveyAdminService;
     private readonly ILogger<SurveyAdminController> _logger;
 
-    public SurveyAdminController(SurveyAdminService surveyAdminService, ILogger<SurveyAdminController> logger)
+    public SurveyAdminController(ISurveyAdminService surveyAdminService, ILogger<SurveyAdminController> logger)
     {
         _surveyAdminService = surveyAdminService;
         _logger = logger;
@@ -19,13 +20,13 @@ public class SurveyAdminController : Controller
     [HttpGet("surveys")]
     public IActionResult GetSurveys()
     {
-        return View("~/Views/Survey/get_surveys.cshtml", _surveyAdminService.GetSurveys());
+        return View("~/Web/Views/Survey/get_surveys.cshtml", _surveyAdminService.GetSurveys());
     }
 
     [HttpGet("surveys/create")]
     public IActionResult AddSurvey()
     {
-        return View("~/Views/Survey/add_survey.cshtml");
+        return View("~/Web/Views/Survey/add_survey.cshtml");
     }
 
     [HttpPost("surveys/create")]
@@ -194,7 +195,7 @@ public class SurveyAdminController : Controller
                 return NotFound("Анкета не найдена");
             }
 
-            return View("~/Views/Survey/update_survey.cshtml", pageModel);
+            return View("~/Web/Views/Survey/update_survey.cshtml", pageModel);
         }
         catch (Exception ex)
         {
@@ -214,7 +215,7 @@ public class SurveyAdminController : Controller
                 return NotFound("Анкета не найдена");
             }
 
-            return View("~/Views/Survey/copy_survey.cshtml", survey);
+            return View("~/Web/Views/Survey/copy_survey.cshtml", survey);
         }
         catch (Exception ex)
         {

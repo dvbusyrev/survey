@@ -1,19 +1,19 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Surveys;
+using MainProject.Application.Contracts;
+using MainProject.Application.DTO;
 using MainProject.Infrastructure.Security;
-using MainProject.Services;
 
 [Authorize]
 public class SurveyArchiveController : Controller
 {
-    private readonly SurveyArchiveService _surveyArchiveService;
-    private readonly CurrentUserService _currentUserService;
+    private readonly ISurveyArchiveService _surveyArchiveService;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SurveyArchiveController> _logger;
 
     public SurveyArchiveController(
-        SurveyArchiveService surveyArchiveService,
-        CurrentUserService currentUserService,
+        ISurveyArchiveService surveyArchiveService,
+        ICurrentUserService currentUserService,
         ILogger<SurveyArchiveController> logger)
     {
         _surveyArchiveService = surveyArchiveService;
@@ -51,7 +51,7 @@ public class SurveyArchiveController : Controller
     public IActionResult ArchivedSurveys()
     {
             return View(
-                "~/Views/Survey/archived_surveys.cshtml",
+                "~/Web/Views/Survey/archived_surveys.cshtml",
                 _surveyArchiveService.GetAdminArchivedSurveys());
     }
 
@@ -83,7 +83,7 @@ public class SurveyArchiveController : Controller
             return NotFound(new { error = "Пользователь не найден" });
         }
 
-        return View("~/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
+        return View("~/Web/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
     }
 
     [HttpGet("my-surveys/archive/{id:int}")]
@@ -139,7 +139,7 @@ public class SurveyArchiveController : Controller
                 });
             }
 
-            return View("~/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
+            return View("~/Web/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
         }
         catch (Exception ex)
         {

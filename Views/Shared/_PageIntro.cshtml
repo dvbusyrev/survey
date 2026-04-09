@@ -1,9 +1,0 @@
-@model MainProject.Models.PageIntroModel
-
-<header class="app-page__intro">
-    <h1 class="app-page__title">@Model.Title</h1>
-    @if (!string.IsNullOrWhiteSpace(Model.Description))
-    {
-        <p class="app-page__description">@Model.Description</p>
-    }
-</header>

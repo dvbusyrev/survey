@@ -6,10 +6,10 @@ const currentFile = fileURLToPath(import.meta.url);
 const rootDir = path.resolve(path.dirname(currentFile), '..');
 
 const rootsToScan = [
-  path.join(rootDir, 'frontend'),
-  path.join(rootDir, 'wwwroot/js/features'),
-  path.join(rootDir, 'wwwroot/js/ui'),
-  path.join(rootDir, 'wwwroot/js/core')
+  path.join(rootDir, 'Web/wwwroot/js/entries'),
+  path.join(rootDir, 'Web/wwwroot/js/features'),
+  path.join(rootDir, 'Web/wwwroot/js/ui'),
+  path.join(rootDir, 'Web/wwwroot/js/core')
 ];
 
 const allowedExtensions = new Set(['.js']);

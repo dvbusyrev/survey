@@ -1,12 +1,13 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MainProject.Models;
-using MainProject.Services.Admin;
+using MainProject.Application.Contracts;
+using MainProject.Application.DTO;
+using MainProject.Web.ViewModels;
 
 public class UserController : Controller
 {
-    private readonly UserManagementService _userManagementService;
+    private readonly IUserManagementService _userManagementService;
 
-    public UserController(UserManagementService userManagementService)
+    public UserController(IUserManagementService userManagementService)
     {
         _userManagementService = userManagementService;
     }

@@ -1,18 +1,17 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Surveys;
-using MainProject.Services;
+using MainProject.Application.Contracts;
 
 [Authorize]
 public class SurveyUserController : Controller
 {
-    private readonly SurveyUserService _surveyUserService;
-    private readonly CurrentUserService _currentUserService;
+    private readonly ISurveyUserService _surveyUserService;
+    private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SurveyUserController> _logger;
 
     public SurveyUserController(
-        SurveyUserService surveyUserService,
-        CurrentUserService currentUserService,
+        ISurveyUserService surveyUserService,
+        ICurrentUserService currentUserService,
         ILogger<SurveyUserController> logger)
     {
         _surveyUserService = surveyUserService;
@@ -105,7 +104,7 @@ public class SurveyUserController : Controller
                 });
             }
 
-            return View("~/Views/Survey/survey_list_user.cshtml", pageModel);
+            return View("~/Web/Views/Survey/survey_list_user.cshtml", pageModel);
         }
         catch (Exception ex)
         {

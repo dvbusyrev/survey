@@ -3,16 +3,21 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
-using MainProject.Infrastructure.Database;
-using MainProject.Services.Email;
-using MainProject.Services;
-using MainProject.Services.Admin;
-using MainProject.Services.Answers;
-using MainProject.Services.Surveys;
+using MainProject.Application.Contracts;
+using MainProject.Infrastructure.Persistence;
+using MainProject.Infrastructure.External.Email;
+using MainProject.Application.UseCases;
+using MainProject.Application.UseCases.Admin;
+using MainProject.Application.UseCases.Answers;
+using MainProject.Application.UseCases.Surveys;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    WebRootPath = "Web/wwwroot"
+});
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
@@ -24,6 +29,13 @@ builder.Logging.AddDebug();
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+})
+.AddRazorOptions(options =>
+{
+    options.ViewLocationFormats.Clear();
+    options.ViewLocationFormats.Add("/Web/Views/{1}/{0}.cshtml");
+    options.ViewLocationFormats.Add("/Web/Views/Shared/{0}.cshtml");
+    options.ViewLocationFormats.Add("/Web/Views/{0}.cshtml");
 });
 builder.Services.AddAntiforgery(options =>
 {
@@ -109,23 +121,23 @@ builder.Services.AddHostedService<SurveyExpirationService>(); // Регистр�
 builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<CurrentUserService>();
-builder.Services.AddScoped<AuditLogService>();
-builder.Services.AddScoped<UserManagementService>();
-builder.Services.AddScoped<OrganizationManagementService>();
-builder.Services.AddScoped<SurveyExtensionService>();
-builder.Services.AddScoped<SurveyAdminService>();
-builder.Services.AddScoped<SurveyUserService>();
-builder.Services.AddScoped<SurveyArchiveService>();
-builder.Services.AddScoped<SurveyAnswersService>();
-builder.Services.AddScoped<SurveyReportService>();
-builder.Services.AddScoped<AnswerAdminService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IOrganizationManagementService, OrganizationManagementService>();
+builder.Services.AddScoped<ISurveyExtensionService, SurveyExtensionService>();
+builder.Services.AddScoped<ISurveyAdminService, SurveyAdminService>();
+builder.Services.AddScoped<ISurveyUserService, SurveyUserService>();
+builder.Services.AddScoped<ISurveyArchiveService, SurveyArchiveService>();
+builder.Services.AddScoped<ISurveyAnswersService, SurveyAnswersService>();
+builder.Services.AddScoped<ISurveyReportService, SurveyReportService>();
+builder.Services.AddScoped<IAnswerAdminService, AnswerAdminService>();
 builder.Services.AddScoped<AnswerDataService>();
-builder.Services.AddScoped<AnswerAccessService>();
-builder.Services.AddScoped<AnswerWorkflowService>();
-builder.Services.AddScoped<AnswerSigningService>();
-builder.Services.AddScoped<AnswerExportService>();
+builder.Services.AddScoped<IAnswerAccessService, AnswerAccessService>();
+builder.Services.AddScoped<IAnswerWorkflowService, AnswerWorkflowService>();
+builder.Services.AddScoped<IAnswerSigningService, AnswerSigningService>();
+builder.Services.AddScoped<IAnswerExportService, AnswerExportService>();
 builder.Services.AddScoped<EmailSettingsStore>();
 builder.Services.AddScoped<SmtpEmailSender>();
 builder.Services.Configure<SmtpEmailOptions>(builder.Configuration.GetSection(SmtpEmailOptions.SectionName));

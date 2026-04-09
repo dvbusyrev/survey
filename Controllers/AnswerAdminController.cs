@@ -1,15 +1,15 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Answers;
+using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class AnswerAdminController : Controller
 {
-    private readonly AnswerAdminService _answerAdminService;
+    private readonly IAnswerAdminService _answerAdminService;
     private readonly ILogger<AnswerAdminController> _logger;
 
-    public AnswerAdminController(AnswerAdminService answerAdminService, ILogger<AnswerAdminController> logger)
+    public AnswerAdminController(IAnswerAdminService answerAdminService, ILogger<AnswerAdminController> logger)
     {
         _answerAdminService = answerAdminService;
         _logger = logger;
@@ -20,7 +20,7 @@ public class AnswerAdminController : Controller
     {
         try
         {
-            return View("~/Views/Answer/get_list_answers.cshtml", _answerAdminService.GetAnswersPage());
+            return View("~/Web/Views/Answer/get_list_answers.cshtml", _answerAdminService.GetAnswersPage());
         }
         catch (Exception ex)
         {
@@ -39,7 +39,7 @@ public class AnswerAdminController : Controller
 
         try
         {
-            return View("~/Views/Answer/survey_signatures.cshtml", _answerAdminService.GetSignaturePage(id));
+            return View("~/Web/Views/Answer/survey_signatures.cshtml", _answerAdminService.GetSignaturePage(id));
         }
         catch (Exception ex)
         {
@@ -51,7 +51,7 @@ public class AnswerAdminController : Controller
     [HttpGet("statistics")]
     public IActionResult OpenStatistics()
     {
-        return View("~/Views/Answer/open_statistics.cshtml");
+        return View("~/Web/Views/Answer/open_statistics.cshtml");
     }
 
     [HttpGet("statistics/data")]

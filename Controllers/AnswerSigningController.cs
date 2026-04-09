@@ -1,18 +1,18 @@
 ﻿using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Answers;
+using MainProject.Application.Contracts;
 
 [Authorize]
 public class AnswerSigningController : Controller
 {
-    private readonly AnswerAccessService _answerAccessService;
-    private readonly AnswerSigningService _answerSigningService;
+    private readonly IAnswerAccessService _answerAccessService;
+    private readonly IAnswerSigningService _answerSigningService;
     private readonly ILogger<AnswerSigningController> _logger;
 
     public AnswerSigningController(
-        AnswerAccessService answerAccessService,
-        AnswerSigningService answerSigningService,
+        IAnswerAccessService answerAccessService,
+        IAnswerSigningService answerSigningService,
         ILogger<AnswerSigningController> logger)
     {
         _answerAccessService = answerAccessService;

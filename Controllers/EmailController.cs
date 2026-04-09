@@ -1,14 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.Security;
-using MainProject.Models;
-using MainProject.Services.Email;
 using Microsoft.AspNetCore.Mvc;
-
-namespace MainProject.Controllers
+[Authorize(Roles = AppRoles.Admin)]
+public class EmailController : Controller
 {
-    [Authorize(Roles = AppRoles.Admin)]
-    public class EmailController : Controller
-    {
         private readonly EmailSettingsStore _settingsStore;
         private readonly SmtpEmailSender _emailSender;
 
@@ -26,7 +22,7 @@ namespace MainProject.Controllers
         }
 
         [HttpPost("mail/settings")]
-        public async Task<IActionResult> SaveEmailSettings([FromBody] EmailTemplateSettings settings, CancellationToken cancellationToken)
+        public async Task<IActionResult> SaveEmailSettings([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
         {
             if (settings == null)
             {
@@ -72,5 +68,4 @@ namespace MainProject.Controllers
         {
             return View("update_settings");
         }
-    }
 }

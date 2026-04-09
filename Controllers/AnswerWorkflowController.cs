@@ -1,18 +1,20 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Services.Answers;
-using MainProject.Models;
+using MainProject.Application.Contracts;
+using MainProject.Application.DTO;
+using MainProject.Domain.Entities;
+using MainProject.Web.ViewModels;
 
 [Authorize]
 public class AnswerWorkflowController : Controller
 {
-    private readonly AnswerAccessService _answerAccessService;
-    private readonly AnswerWorkflowService _answerWorkflowService;
+    private readonly IAnswerAccessService _answerAccessService;
+    private readonly IAnswerWorkflowService _answerWorkflowService;
     private readonly ILogger<AnswerWorkflowController> _logger;
 
     public AnswerWorkflowController(
-        AnswerAccessService answerAccessService,
-        AnswerWorkflowService answerWorkflowService,
+        IAnswerAccessService answerAccessService,
+        IAnswerWorkflowService answerWorkflowService,
         ILogger<AnswerWorkflowController> logger)
     {
         _answerAccessService = answerAccessService;
@@ -68,7 +70,7 @@ public class AnswerWorkflowController : Controller
                 });
             }
 
-            return View("~/Views/Answer/check_answers.cshtml", result.Model);
+            return View("~/Web/Views/Answer/check_answers.cshtml", result.Model);
         }
         catch (Exception ex)
         {
@@ -133,7 +135,7 @@ public class AnswerWorkflowController : Controller
                 return NotFound("Ответы не найдены");
             }
 
-            return View("~/Views/Answer/update_answer.cshtml", model);
+            return View("~/Web/Views/Answer/update_answer.cshtml", model);
         }
         catch (Exception ex)
         {
@@ -169,7 +171,7 @@ public class AnswerWorkflowController : Controller
                 return BadRequest(result.Error ?? "Некорректные данные ответа.");
             }
 
-            return View("~/Views/Answer/check_answers.cshtml", result.Model);
+            return View("~/Web/Views/Answer/check_answers.cshtml", result.Model);
         }
         catch (Exception ex)
         {

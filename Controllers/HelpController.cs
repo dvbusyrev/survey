@@ -3,14 +3,14 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Infrastructure.Security;
-using MainProject.Models;
+using MainProject.Web.ViewModels;
 using System.IO;
 using System.Text;
 
 [Authorize]
 public class HelpController : Controller
 {
-    private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files");
+    private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
 
     [HttpGet("help/files/{type}")]
     public IActionResult HelpFile(string type)
@@ -35,7 +35,7 @@ public class HelpController : Controller
 
     private string? ResolveHelpDocumentPath(string type)
     {
-        var helpDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "help_files");
+        var helpDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
         var aliases = type?.Trim().ToLowerInvariant() switch
         {
             "admin-guide" or "admin_guide" => new[]
