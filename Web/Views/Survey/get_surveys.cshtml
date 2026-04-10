@@ -3,6 +3,7 @@
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Анкеты";
+    ViewData["SurveySection"] = "list";
     var surveys = Model ?? new List<MainProject.Domain.Entities.Survey>();
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -32,6 +33,7 @@
     <div id="chrome-navigation"></div>
     <div id="content_admin">
         <div class="app-page" id="default_content" data-page="surveys-list">
+            @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveySubnav.cshtml")
             @await Html.PartialAsync(
                 "~/Web/Views/Shared/_PageIntro.cshtml",
                 new MainProject.Web.ViewModels.PageIntroModel
@@ -48,12 +50,12 @@
                 <table class="surveys-table" data-role="main-table">
                     <thead>
                         <tr class="table_tr">
-                            <th>Название</th>
+                            <th class="table-th--start">Название</th>
                             <th>Описание</th>
                             <th>Организации</th>
-                            <th>Дата открытия</th>
-                            <th>Дата закрытия</th>
-                            <th class="table-th--end">Действия</th>
+                            <th class="table-col--date">Дата открытия</th>
+                            <th class="table-col--date">Дата закрытия</th>
+                            <th class="table-th--end table-col--actions">Действия</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -71,15 +73,55 @@
                                     <td>@survey.NameSurvey</td>
                                     <td>@(string.IsNullOrWhiteSpace(survey.Description) ? "—" : survey.Description)</td>
                                     <td>@(string.IsNullOrWhiteSpace(survey.OrganizationName) ? "—" : survey.OrganizationName)</td>
-                                    <td>@survey.DateOpen.ToString("yyyy-MM-dd")</td>
-                                    <td>@survey.DateClose.ToString("yyyy-MM-dd")</td>
-                                    <td class="action-icons">
-                                        <a class="table-action-link" href="/surveys/@survey.IdSurvey/edit">Смотреть</a>
-                                        <a class="table-action-link" href="/surveys/@survey.IdSurvey/copy">Копировать</a>
-                                        <form method="post" action="/surveys/@survey.IdSurvey/delete" class="action-icons__form">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit" class="table-action-link table-action-link--button">Удалить</button>
-                                        </form>
+                                    <td class="table-col--date">@survey.DateOpen.ToString("yyyy-MM-dd")</td>
+                                    <td class="table-col--date">@survey.DateClose.ToString("yyyy-MM-dd")</td>
+                                    <td class="action-icons table-col--actions">
+                                        <button type="button"
+                                                class="icon-container"
+                                                data-click-call="createMonthlyReport"
+                                                data-click-args='[@survey.IdSurvey]'
+                                                aria-label="Сформировать отчёт">
+                                            <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
+                                            <span class="icon-tooltip">Сформировать отчёт</span>
+                                        </button>
+                                        <a class="icon-container"
+                                           href="/surveys/@survey.IdSurvey/signatures"
+                                           aria-label="Проверить подпись">
+                                            <span aria-hidden="true"><i class="fas fa-check"></i></span>
+                                            <span class="icon-tooltip">Проверить подпись</span>
+                                        </a>
+                                        <button type="button"
+                                                class="icon-container"
+                                                data-survey-id="@survey.IdSurvey"
+                                                data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                                data-click-call="openSurveyExtensionModalFromTrigger"
+                                                data-click-pass-element="true"
+                                                aria-label="Продлить доступ">
+                                            <span aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
+                                            <span class="icon-tooltip">Продлить доступ</span>
+                                        </button>
+                                        <a class="icon-container"
+                                           href="/surveys/@survey.IdSurvey/copy"
+                                           aria-label="Копировать">
+                                            <span aria-hidden="true"><i class="fas fa-clipboard-copy"></i></span>
+                                            <span class="icon-tooltip">Копировать</span>
+                                        </a>
+                                        <a class="icon-container"
+                                           href="/surveys/@survey.IdSurvey/edit"
+                                           aria-label="Редактировать">
+                                            <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
+                                            <span class="icon-tooltip">Редактировать</span>
+                                        </a>
+                                        <button type="button"
+                                                class="icon-container"
+                                                data-survey-id="@survey.IdSurvey"
+                                                data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                                data-click-call="deleteSurveyFromTrigger"
+                                                data-click-pass-element="true"
+                                                aria-label="Удалить">
+                                            <span aria-hidden="true"><i class="fas fa-trash"></i></span>
+                                            <span class="icon-tooltip">Удалить</span>
+                                        </button>
                                     </td>
                                 </tr>
                             }
@@ -96,6 +138,10 @@
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_NavigationTemplates.cshtml")
     @await Html.PartialAsync("~/Web/Views/Shared/_AppChromeScripts.cshtml")
+    @await Html.PartialAsync("~/Web/Views/Shared/_AdminInlineTemplates.cshtml")
+    @await Html.PartialAsync("~/Web/Views/Shared/_AdminReportScripts.cshtml")
+    <script src="~/js/features/admin/admin-inline-pages.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>
     <script>
         (function () {
             const contextNode = document.getElementById('chrome-context');

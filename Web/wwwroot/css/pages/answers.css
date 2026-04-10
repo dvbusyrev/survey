@@ -3,10 +3,6 @@
   margin-bottom: 16px;
 }
 
-.answers-page__row {
-  cursor: pointer;
-}
-
 .answers-page__signed-icon {
   color: var(--success-dark);
 }
@@ -21,14 +17,6 @@
 
 .answers-page__sort-icon--hidden {
   display: none;
-}
-
-.answers-page__th--start {
-  border-radius: 16px 0 0 0;
-}
-
-.answers-page__th--end {
-  border-radius: 0 16px 0 0;
 }
 
 .answers-page__check,
@@ -110,28 +98,6 @@
 
 .answers-page__empty {
   color: #666;
-}
-
-.answers-page__signatures-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-}
-
-.answers-page__signatures-table th,
-.answers-page__signatures-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid #e3e6ec;
-}
-
-.answers-page__signatures-table th {
-  text-align: left;
-  background: #f4f7fb;
-}
-
-.answers-page__signatures-table td.text-center,
-.answers-page__signatures-table th.text-center {
-  text-align: center;
 }
 
 .status-badge {

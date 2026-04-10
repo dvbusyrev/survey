@@ -34,9 +34,9 @@
                     <th>Организация</th>
                     <th>Роль</th>
                     <th>Почта</th>
-                    <th>Дата начала</th>
-                    <th>Дата конца</th>
-                    <th class="table-th--end">Действия</th>
+                    <th class="table-col--date">Дата начала</th>
+                    <th class="table-col--date">Дата конца</th>
+                    <th class="table-th--end table-col--actions">Действия</th>
                 </tr>
             </thead>
             <tbody>
@@ -53,9 +53,9 @@
                             <td>@user.OrganizationName</td>
                             <td>@AppRoles.GetDisplayName(user.NameRole)</td>
                             <td>@user.Email</td>
-                            <td>@user.DateBegin?.ToString("dd.MM.yyyy")</td>
-                            <td>@user.DateEnd?.ToString("dd.MM.yyyy")</td>
-                            <td class="action-icons">
+                            <td class="table-col--date">@user.DateBegin?.ToString("dd.MM.yyyy")</td>
+                            <td class="table-col--date">@user.DateEnd?.ToString("dd.MM.yyyy")</td>
+                            <td class="action-icons table-col--actions">
                                 <div class="icon-container"
                                      data-user-id="@user.IdUser"
                                      data-user-full-name="@(user.FullName ?? string.Empty)"

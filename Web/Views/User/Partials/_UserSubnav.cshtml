@@ -4,10 +4,10 @@
     var archiveActive = activeSection == "archive";
 }
 
-<div class="menu-bar users-subnav" role="tablist" aria-label="Разделы пользователей">
+<div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы пользователей">
     <a
         href="/users"
-        class="menu-tab users-subnav__tab @(listActive ? "active-tab" : "")"
+        class="menu-tab @(listActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(listActive ? "true" : "false")"
         data-tab-target="get_users">
@@ -15,7 +15,7 @@
     </a>
     <a
         href="/users/archive"
-        class="menu-tab users-subnav__tab @(archiveActive ? "active-tab" : "")"
+        class="menu-tab @(archiveActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(archiveActive ? "true" : "false")"
         data-tab-target="archived_users">

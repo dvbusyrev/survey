@@ -209,21 +209,35 @@ body {
 .nav-link i,
 .submenu-link i {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 1.25rem;
+  min-width: 1.25rem;
   color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
   transition: transform 0.2s;
 }
 
 .admin-nav .fa-chart-line::before,
 .admin-nav .fa-clipboard-list::before,
 .admin-nav .fa-list-check::before,
+.admin-nav .fa-archive-docs::before,
 .admin-nav .fa-box-archive::before,
+.admin-nav .fa-plus::before,
 .admin-nav .fa-users::before,
 .admin-nav .fa-list::before,
 .admin-nav .fa-building::before,
 .admin-nav .fa-list-ul::before,
 .admin-nav .fa-file-alt::before,
+.admin-nav .fa-question-circle::before,
+.admin-nav .fa-ellipsis-h::before,
 .admin-nav .fa-envelope::before,
 .admin-nav .fa-scroll::before,
+.admin-nav .fa-download::before,
 .admin-nav .fa-file-download::before {
   background: none;
   -webkit-mask-image: none;
@@ -233,14 +247,19 @@ body {
 .admin-nav .fa-chart-line::before { content: "📈"; }
 .admin-nav .fa-clipboard-list::before { content: "📋"; }
 .admin-nav .fa-list-check::before { content: "☑"; }
+.admin-nav .fa-archive-docs::before,
 .admin-nav .fa-box-archive::before { content: "🗃"; }
+.admin-nav .fa-plus::before { content: "+"; }
 .admin-nav .fa-users::before { content: "👥"; }
 .admin-nav .fa-list::before { content: "≣"; }
 .admin-nav .fa-building::before { content: "🏢"; }
 .admin-nav .fa-list-ul::before { content: "☰"; }
 .admin-nav .fa-file-alt::before { content: "📄"; }
+.admin-nav .fa-question-circle::before { content: "?"; }
+.admin-nav .fa-ellipsis-h::before { content: "⋯"; }
 .admin-nav .fa-envelope::before { content: "✉"; }
 .admin-nav .fa-scroll::before { content: "📜"; }
+.admin-nav .fa-download::before,
 .admin-nav .fa-file-download::before { content: "⤓"; }
 
 .nav-item:hover i {
@@ -293,7 +312,7 @@ nav ul li a,
 .nav-link,
 .submenu-link {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   padding: 0.9rem 1rem;
   color: #4a5568;

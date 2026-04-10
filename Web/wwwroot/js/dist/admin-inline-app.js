@@ -117,6 +117,9 @@
       }
       const routes = {
         get_surveys: "/surveys",
+        add_survey: "/surveys/create",
+        list_answers_users: "/surveys/answers",
+        archived_surveys: "/surveys/archive",
         open_statistics: "/statistics",
         get_users: "/users",
         get_organization: "/organizations",

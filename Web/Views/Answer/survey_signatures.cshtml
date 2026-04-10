@@ -18,12 +18,12 @@
 
     <section class="app-page__section">
         <div class="table-responsive">
-            <table class="answers-page__signatures-table">
+            <table class="answers-page__signatures-table" data-role="main-table">
                 <thead>
                     <tr>
-                        <th>Организация</th>
+                        <th class="table-th--start">Организация</th>
                         <th class="text-center">Статус прохождения</th>
-                        <th class="text-center">Статус подписи</th>
+                        <th class="text-center table-th--end">Статус подписи</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -49,7 +49,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="3" class="text-center">
+                            <td colspan="3" class="table-empty-cell text-center">
                                 Нет данных о подписях организаций
                             </td>
                         </tr>

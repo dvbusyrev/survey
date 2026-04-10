@@ -1,6 +1,7 @@
 ﻿@model List<MainProject.Domain.Entities.ArchivedSurvey>
 @{
     ViewData["Title"] = "Архив анкет";
+    ViewData["SurveySection"] = "archive";
 }
 
 @section PageStyles {
@@ -8,6 +9,7 @@
 }
 
 <div class="app-page archive-page" id="default_content" data-page="surveys-archive">
+    @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveySubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
@@ -32,10 +34,10 @@
                 <tr class='table_tr'>
                     <th class="table-th--start">Название анкеты</th>
                     <th>Описание</th>
-                    <th>Дата начала</th>
-                    <th>Дата окончания</th>
+                    <th class="table-col--date">Дата начала</th>
+                    <th class="table-col--date">Дата окончания</th>
                     <th>Вопросы</th>
-                    <th class="table-th--end">Действия</th>
+                    <th class="table-th--end table-col--actions">Действия</th>
                 </tr>
             </thead>
             <tbody>
@@ -44,12 +46,12 @@
                     <tr class="active">
                         <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.NameSurvey</td>
                         <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.Description</td>
-                        <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.DateBegin.ToString("yyyy-MM-dd")</td>
-                        <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.DateEnd.ToString("yyyy-MM-dd")</td>
+                        <td class="table-col--date" data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.DateBegin.ToString("yyyy-MM-dd")</td>
+                        <td class="table-col--date" data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>@survey.DateEnd.ToString("yyyy-MM-dd")</td>
                         <td data-click-call="showAnswersModal" data-click-args='[@survey.IdSurvey]'>
                             @string.Join(", ", survey.Questions.Select(question => question.Text))
                         </td>
-                        <td class="action-icons">
+                        <td class="action-icons table-col--actions">
                             <div class="icon-container"
                                  data-click-call="createMonthlyReport"
                                  data-click-args='[@survey.IdSurvey]'

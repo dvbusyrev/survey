@@ -67,6 +67,7 @@
   padding: 0.875rem 1rem;
   color: var(--text-secondary);
   font-weight: 500;
+  text-decoration: none;
   background-color: rgba(255, 255, 255, 0.7);
   border: 1px solid transparent;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -77,6 +78,7 @@
 
 .menu-tab:hover {
   color: var(--text-main);
+  text-decoration: none;
   background-color: rgba(243, 244, 246, 0.8);
 }
 
@@ -152,7 +154,7 @@
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
   padding: 0.68rem;
   color: #4a5568;
-  font-size: 0.44rem;
+  font-size: 0.95rem;
   line-height: 1.4;
   text-align: left;
   vertical-align: middle;
@@ -163,6 +165,18 @@
 }
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th:last-child, td:last-child) {
+  overflow: visible;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th.table-col--date, td.table-col--date) {
+  min-width: 132px;
+  white-space: nowrap;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th.table-col--actions, td.table-col--actions) {
+  width: 1%;
+  min-width: max-content;
+  white-space: nowrap;
   overflow: visible;
 }
 
@@ -187,6 +201,10 @@
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:hover {
   background-color: rgba(240, 248, 255, 0.8);
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(tbody tr[data-click-call], tbody td[data-click-call]) {
+  cursor: pointer;
 }
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:nth-child(even) {
@@ -241,7 +259,10 @@
   justify-content: center;
   width: 34px;
   height: 34px;
+  padding: 0;
   color: #6b7280;
+  text-decoration: none;
+  appearance: none;
   background-color: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 8px;
@@ -249,6 +270,11 @@
   cursor: pointer;
   overflow: visible;
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.icon-container:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.45);
+  outline-offset: 2px;
 }
 
 .icon-container > span:first-child,

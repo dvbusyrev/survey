@@ -59,6 +59,8 @@
                     const pageAlias = (contentNode.dataset.page || '').toLowerCase();
                     const routeMap = [
                         ['/statistics', 'open_statistics'],
+                        ['/surveys/answers', 'list_answers_users'],
+                        ['/surveys/create', 'add_survey'],
                         ['/surveys/archive', 'archived_surveys'],
                         ['/surveys', 'get_surveys'],
                         ['/users/archive', 'archived_users'],
@@ -80,6 +82,8 @@
                     const pageMap = {
                         'users-list': 'get_users',
                         'users-archive': 'archived_users',
+                        'answers-list': 'list_answers_users',
+                        'survey-add': 'add_survey',
                         'surveys-list': 'get_surveys',
                         'surveys-archive': 'archived_surveys',
                         'organization-list': 'get_organization',

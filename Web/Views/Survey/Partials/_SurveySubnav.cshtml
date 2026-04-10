@@ -1,0 +1,33 @@
+@{
+    var activeSection = (ViewData["SurveySection"] as string ?? "list").ToLowerInvariant();
+    var listActive = activeSection == "list";
+    var answersActive = activeSection == "answers";
+    var archiveActive = activeSection == "archive";
+}
+
+<div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы анкет">
+    <a
+        href="/surveys"
+        class="menu-tab @(listActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(listActive ? "true" : "false")"
+        data-tab-target="get_surveys">
+        Список анкет
+    </a>
+    <a
+        href="/surveys/answers"
+        class="menu-tab @(answersActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(answersActive ? "true" : "false")"
+        data-tab-target="list_answers_users">
+        Ответы на анкеты
+    </a>
+    <a
+        href="/surveys/archive"
+        class="menu-tab @(archiveActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(archiveActive ? "true" : "false")"
+        data-tab-target="archived_surveys">
+        Архив анкет
+    </a>
+</div>
