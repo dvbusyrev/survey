@@ -20,7 +20,7 @@ public sealed class AnswerDataService
         using var connection = _connectionFactory.CreateConnection();
 
         return connection.ExecuteScalar<int?>(
-            "SELECT organization_id FROM public.app_user WHERE id_user = @userId",
+            "SELECT id_organization FROM public.app_user WHERE id_user = @userId",
             new { userId });
     }
 
@@ -31,9 +31,11 @@ public sealed class AnswerDataService
         return connection.ExecuteScalar<bool>(
             @"SELECT EXISTS (
                   SELECT 1
-                  FROM public.organization_survey
-                  WHERE id_survey = @surveyId
-                    AND organization_id = @organizationId
+                  FROM public.organization_survey os
+                  WHERE os.id_survey = @surveyId
+                    AND os.id_organization = @organizationId
+                    AND os.date_begin <= CURRENT_DATE
+                    AND os.date_end >= CURRENT_DATE
               )",
             new { surveyId, organizationId });
     }
@@ -47,7 +49,7 @@ public sealed class AnswerDataService
                   SELECT 1
                   FROM public.answer
                   WHERE id_survey = @surveyId
-                    AND organization_id = @organizationId
+                    AND id_organization = @organizationId
               )",
             new { surveyId, organizationId });
     }
@@ -87,14 +89,13 @@ public sealed class AnswerDataService
         var answerRecord = connection.QueryFirstOrDefault<AnswerRecord>(
             @"SELECT
                   id_answer,
-                  organization_id,
+                  id_organization AS OrganizationId,
                   id_survey,
                   completion_date,
-                  create_date_survey,
                   csp
               FROM public.answer
               WHERE id_survey = @surveyId
-                AND organization_id = @organizationId",
+                AND id_organization = @organizationId",
             new { surveyId, organizationId });
 
         if (answerRecord == null)
@@ -115,17 +116,16 @@ public sealed class AnswerDataService
             var answers = connection.Query<AnswerRecord>(
                 @"SELECT
                       ha.id_answer,
-                      ha.organization_id,
+                      ha.id_organization AS OrganizationId,
                       ha.id_survey,
                       ha.csp,
                       ha.completion_date,
-                      ha.create_date_survey,
-                      o.organization_name
+                      COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
                   FROM public.answer ha
                   LEFT JOIN public.organization o
-                      ON o.organization_id = ha.organization_id
+                      ON o.id_organization = ha.id_organization
                   WHERE ha.id_survey = @surveyId
-                    AND ha.organization_id = @organizationId
+                    AND ha.id_organization = @organizationId
                   ORDER BY ha.completion_date DESC",
                 new { surveyId, organizationId }).ToList();
 
@@ -136,15 +136,14 @@ public sealed class AnswerDataService
         var allAnswers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
-                  ha.organization_id,
+                  ha.id_organization AS OrganizationId,
                   ha.id_survey,
                   ha.csp,
                   ha.completion_date,
-                  ha.create_date_survey,
-                  o.organization_name
+                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
               FROM public.answer ha
               LEFT JOIN public.organization o
-                  ON o.organization_id = ha.organization_id
+                  ON o.id_organization = ha.id_organization
               WHERE ha.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
@@ -162,16 +161,14 @@ public sealed class AnswerDataService
 
         var idAnswer = connection.ExecuteScalar<int>(
             @"INSERT INTO public.answer (
-                  organization_id,
+                  id_organization,
                   id_survey,
-                  completion_date,
-                  create_date_survey
+                  completion_date
               )
               VALUES (
                   @idOrganization,
                   @idSurvey,
-                  @completionDate,
-                  (SELECT date_create FROM public.survey WHERE id_survey = @idSurvey)
+                  @completionDate
               )
               RETURNING id_answer",
             new
@@ -196,7 +193,7 @@ public sealed class AnswerDataService
         var answerId = connection.ExecuteScalar<int?>(
             @"SELECT id_answer
               FROM public.answer
-              WHERE organization_id = @idOrganization
+              WHERE id_organization = @idOrganization
                 AND id_survey = @idSurvey",
             new
             {
@@ -216,7 +213,7 @@ public sealed class AnswerDataService
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer
               SET completion_date = @completionDate
-              WHERE organization_id = @idOrganization
+              WHERE id_organization = @idOrganization
                 AND id_survey = @idSurvey",
             new
             {
@@ -245,23 +242,11 @@ public sealed class AnswerDataService
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer
               SET csp = @signature
-              WHERE organization_id = @organizationId
+              WHERE id_organization = @organizationId
                 AND id_survey = @surveyId",
             new { signature, organizationId, surveyId });
 
         return rowsAffected > 0;
-    }
-
-    public void ClearSurveyExtension(int organizationId, int surveyId)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        connection.Execute(
-            @"UPDATE public.organization_survey
-              SET extended_until = NULL
-              WHERE organization_id = @organizationId
-                AND id_survey = @surveyId",
-            new { organizationId, surveyId });
     }
 
     private static IReadOnlyList<AnswerItemRow> BuildNormalizedAnswerItems(

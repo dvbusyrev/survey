@@ -1,4 +1,13 @@
 (function () {
+    if (window.__answerStatisticsPageInitialized) {
+        if (typeof window.initAnswerStatisticsPage === 'function') {
+            window.initAnswerStatisticsPage();
+        }
+        return;
+    }
+
+    window.__answerStatisticsPageInitialized = true;
+
     const charts = {
         line: null,
         bar: null,
@@ -212,6 +221,12 @@
     }
 
     async function init() {
+        if (!ids.every(function (id) {
+            return document.getElementById(id + 'Chart');
+        }) || typeof window.Chart === 'undefined') {
+            return;
+        }
+
         try {
             const response = await fetch('/statistics/data', {
                 headers: {
@@ -233,6 +248,10 @@
         }
     }
 
+    window.initAnswerStatisticsPage = init;
+    window.destroyAnswerStatisticsPage = destroyCharts;
     window.addEventListener('beforeunload', destroyCharts);
-    init();
+    if (hasAllCanvases) {
+        init();
+    }
 })();

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.ViewModels;
 
 [Authorize]
 public class SurveyReportsController : Controller
@@ -19,7 +20,12 @@ public class SurveyReportsController : Controller
     [HttpGet("reports")]
     public IActionResult ViewReports()
     {
-        return View("~/Web/Views/Survey/view_reports.cshtml");
+        var model = new ReportsPageViewModel
+        {
+            AvailableYears = _surveyReportService.GetAvailableReportYears()
+        };
+
+        return View("~/Web/Views/Survey/view_reports.cshtml", model);
     }
 
     [Authorize(Roles = AppRoles.Admin)]
@@ -40,12 +46,16 @@ public class SurveyReportsController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("reports/monthly")]
-    public IActionResult CreateMonthlySummaryReport()
+    public IActionResult CreateMonthlySummaryReport(int month, int year)
     {
         try
         {
-            var result = _surveyReportService.CreateAllMonthlyReport();
+            var result = _surveyReportService.CreateAllMonthlyReport(month, year);
             return File(result.Content, result.ContentType, result.FileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -63,6 +73,10 @@ public class SurveyReportsController : Controller
         {
             var result = _surveyReportService.CreateQuarterlyReport(quarter, year);
             return File(result.Content, result.ContentType, result.FileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {

@@ -85,7 +85,7 @@ public class AnswerExportController : Controller
             var result = _answerExportService.CreateSurveyReport(idSurvey, idOrganization, type);
             if (result == null)
             {
-                return NotFound("Не удалось сформировать отчет");
+                return NotFound("Не удалось создать отчет");
             }
 
             return File(result.Content, result.ContentType, result.FileName);

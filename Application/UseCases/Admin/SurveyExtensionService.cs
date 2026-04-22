@@ -29,6 +29,16 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
             };
         }
 
+        if (request.Extensions.Count > 1)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = "Можно продлить анкету только для одной организации за раз",
+                Error = "Можно продлить анкету только для одной организации за раз"
+            };
+        }
+
         var validationErrors = ValidateRequest(request);
         if (validationErrors.Count > 0)
         {
@@ -46,24 +56,44 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
 
         try
         {
-            foreach (var extension in request.Extensions)
-            {
-                var endDate = DateTime.Parse(extension.ExtendedUntil);
+            var extension = request.Extensions[0];
+            var endDate = DateTime.Parse(extension.ExtendedUntil).Date;
 
-                connection.Execute(
-                    """
-                    INSERT INTO public.organization_survey (organization_id, id_survey, extended_until)
-                    VALUES (@organizationId, @surveyId, @endDate)
-                    ON CONFLICT (organization_id, id_survey) DO UPDATE
-                    SET extended_until = EXCLUDED.extended_until;
-                    """,
-                    new
-                    {
-                        surveyId = request.SurveyId,
-                        organizationId = extension.OrganizationId,
-                        endDate
-                    },
-                    transaction);
+            var affectedAssignments = connection.Execute(
+                """
+                INSERT INTO public.organization_survey (
+                    id_organization,
+                    id_survey,
+                    date_end
+                )
+                SELECT
+                    @organizationId,
+                    s.id_survey,
+                    @endDate::date
+                FROM public.survey s
+                WHERE s.id_survey = @surveyId
+                ON CONFLICT (id_organization, id_survey) DO UPDATE
+                SET
+                    date_end = EXCLUDED.date_end;
+                """,
+                new
+                {
+                    surveyId = request.SurveyId,
+                    organizationId = extension.OrganizationId,
+                    endDate
+                },
+                transaction);
+
+            if (affectedAssignments == 0)
+            {
+                transaction.Rollback();
+
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = "Анкета не найдена",
+                    Error = "Анкета не найдена"
+                };
             }
 
             transaction.Commit();
@@ -71,7 +101,7 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
             return new OperationResult
             {
                 Success = true,
-                Message = "Доступ к анкете успешно продлён",
+                Message = "Доступ к анкете для организации успешно продлён",
                 EntityId = request.SurveyId
             };
         }
@@ -111,6 +141,11 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
             errors.Add("Неверный ID анкеты");
         }
 
+        if (request.Extensions.Count > 1)
+        {
+            errors.Add("Можно продлить анкету только для одной организации за раз");
+        }
+
         foreach (var extension in request.Extensions)
         {
             if (extension.OrganizationId <= 0)
@@ -120,7 +155,7 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
 
             if (!DateTime.TryParse(extension.ExtendedUntil, out var endDate) || endDate <= DateTime.Today)
             {
-                errors.Add($"Неверная дата окончания: {extension.ExtendedUntil}");
+                errors.Add($"Неверная дата конца: {extension.ExtendedUntil}");
             }
         }
 

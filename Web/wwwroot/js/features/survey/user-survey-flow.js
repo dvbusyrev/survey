@@ -1,127 +1,3 @@
-// stage10: user survey flow extracted from survey_list_user.cshtml
-
-window.populateMonthOptions = function() {
-  const select = document.getElementById('filterOrganization');
-
-  const cards = document.querySelectorAll('.survey-card');
-  const months = new Set();
-
-  cards.forEach(card => {
-    const dateElement = card.querySelector('.dates');
-    const dateText = dateElement.textContent.trim();
-    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    const month = match[2];
-    months.add(month);
-  });
-
-
-  const currentValue = select.value;
-  select.innerHTML = '';
-  const defaultMonthOption = document.createElement('option');
-  defaultMonthOption.value = '';
-  defaultMonthOption.textContent = 'За все месяцы';
-  select.appendChild(defaultMonthOption);
-  Array.from(months).sort().forEach(month => {
-    const option = document.createElement('option');
-    option.value = month;
-    option.textContent = getMonthName(month);
-    select.appendChild(option);
-  });
-  select.value = currentValue;
-};
-
-window.populateYearOptions = function() {
-  const select = document.getElementById('filterSurvey');
-
-  const cards = document.querySelectorAll('.survey-card');
-  const years = new Set();
-
-  cards.forEach(card => {
-    const dateElement = card.querySelector('.dates');
-    const dateText = dateElement.textContent.trim();
-    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    const year = match[3];
-    years.add(year);
-  });
-
-  const currentValue = select.value;
-  select.innerHTML = '';
-  const defaultYearOption = document.createElement('option');
-  defaultYearOption.value = '';
-  defaultYearOption.textContent = 'По всем годам';
-  select.appendChild(defaultYearOption);
-  Array.from(years).sort().forEach(year => {
-    const option = document.createElement('option');
-    option.value = year;
-    option.textContent = year;
-    select.appendChild(option);
-  });
-  select.value = currentValue;
-
-};
-
-window.filterByDate = function() {
-  const monthSelect = document.getElementById('filterOrganization');
-  const yearSelect = document.getElementById('filterSurvey');
-
-  const month = monthSelect.value;
-  const year = yearSelect.value;
-
-  const cards = document.querySelectorAll('.survey-card');
-  let visibleCount = 0;
-
-  cards.forEach(card => {
-    const dateElement = card.querySelector('.dates');
-    if (!dateElement) {
-      card.style.display = 'none';
-      return;
-    }
-    const dateText = dateElement.textContent.trim();
-    const match = dateText.match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    if (!match) {
-      card.style.display = 'none';
-      return;
-    }
-    const rowDay = match[1];
-    const rowMonth = match[2];
-    const rowYear = match[3];
-
-    const matchMonth = !month || rowMonth === month;
-    const matchYear = !year || rowYear === year;
-
-    if (matchMonth && matchYear) {
-      card.style.display = '';
-      visibleCount++;
-    } else {
-      card.style.display = 'none';
-    }
-  });
-
-  const noSurveysElement = document.querySelector('.no-surveys');
-  if (noSurveysElement) {
-    noSurveysElement.style.display = visibleCount === 0 ? '' : 'none';
-  }
-
-};
-
-function getMonthName(monthNum) {
-  const months = {
-    '01': 'Январь', '02': 'Февраль', '03': 'Март', '04': 'Апрель',
-    '05': 'Май', '06': 'Июнь', '07': 'Июль', '08': 'Август',
-    '09': 'Сентябрь', '10': 'Октябрь', '11': 'Ноябрь', '12': 'Декабрь'
-  };
-  return months[monthNum] || monthNum;
-}
-
-// Автоматический вызов при загрузке страницы (если нужно)
-window.addEventListener('load', function() {
-  window.populateMonthOptions();
-  window.populateYearOptions();
-  window.filterByDate();
-});
-
-
-
 const CADESCOM_CONTAINER_STORE = 100;
 const CAPICOM_STORE_OPEN_READ_ONLY = 0;
 const CADESCOM_CADES_BES = 1;
@@ -173,7 +49,7 @@ async function ensureCadesPluginLoaded() {
     return cadesPluginLoadPromise;
 }
 
-async function CSP(id, organization_id) {
+async function CSP(id, organizationId) {
     try {
         await ensureCadesPluginLoaded();
 
@@ -183,11 +59,11 @@ async function CSP(id, organization_id) {
             return;
         }
 
-        const dataToSign = await getDataForSignature(id, organization_id);
+        const dataToSign = await getDataForSignature(id, organizationId);
         
         const signature = await createDigitalSignature(dataToSign);
         
-        await sendSignatureToServer(id, organization_id, signature);
+        await sendSignatureToServer(id, organizationId, signature);
         
         updateUISuccess();
     } catch (error) {
@@ -251,8 +127,8 @@ async function checkCSPAvailable() {
 }
 
 
-async function getDataForSignature(id, organization_id) {
-    const response = await fetch(`/signatures/${id}/${organization_id}`);
+async function getDataForSignature(id, organizationId) {
+    const response = await fetch(`/signatures/${id}/${organizationId}`);
     if (!response.ok) throw new Error('Ошибка получения данных');
     return await response.text();
 }
@@ -406,8 +282,8 @@ async function getCertificateInfo(cert) {
 }
 
 
-async function sendSignatureToServer(id, organization_id, signature) {
-    const response = await fetch(`/signatures/${id}/${organization_id}`, {
+async function sendSignatureToServer(id, organizationId, signature) {
+    const response = await fetch(`/signatures/${id}/${organizationId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ signature })
@@ -599,295 +475,253 @@ function showError(message) {
     }, 5000);
 }
 
-function normalizeSurveyQuestion(question, index) {
-    return {
-        ...question,
-        id: question?.id ?? question?.Id ?? index + 1,
-        text: question?.text ?? question?.Text ?? `Вопрос ${index + 1}`
-    };
+function createHtmlFragment(html) {
+    const range = document.createRange();
+    range.selectNode(document.body);
+    return range.createContextualFragment(html);
 }
 
-window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organizationId, userRole, onBack }) {
+function renderHostError(host, message) {
+    const errorNode = document.createElement('div');
+    errorNode.className = 'error-message';
+    errorNode.textContent = message;
+    host.replaceChildren(errorNode);
+}
+
+async function fetchModalContentHtml(url, fallbackMessage) {
+    const response = await fetch(url, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(fallbackMessage);
+    }
+
+    return response.text();
+}
+
+window.fetchSurveyFillContentHtml = function fetchSurveyFillContentHtml(surveyId, organizationId) {
+    return fetchModalContentHtml(
+        `/surveys/${surveyId}/organizations/${organizationId}/fill-content`,
+        'Не удалось загрузить анкету'
+    );
+};
+
+window.fetchSurveyAnswersContentHtml = function fetchSurveyAnswersContentHtml(surveyId, organizationId) {
+    return fetchModalContentHtml(
+        `/answers/${surveyId}/${organizationId}/content`,
+        'Не удалось загрузить ответы по анкете'
+    );
+};
+
+window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organizationId, userRole, onBack, onSubmitted, initialHtml }) {
     if (!host) {
         return null;
     }
 
     let destroyed = false;
-    let checkAnswersCleanup = null;
-    let showResultsTimer = null;
-    const state = {
-        questions: [],
-        loading: true,
-        error: null,
-        answers: {},
-        submissionState: {
-            isSubmitted: false,
-            showResults: false,
-            resultsData: null
-        }
+    const answers = {};
+    let loading = false;
+    let error = null;
+    let refs = {
+        page: null,
+        errorBlock: null,
+        errorText: null,
+        submitButton: null,
+        submitLabel: null,
+        cancelButton: null
     };
 
-    const setError = (value) => {
-        state.error = value;
-    };
+    function getQuestionNodes() {
+        return Array.from(host.querySelectorAll('[data-role="survey-question"]'));
+    }
 
-    const rerender = () => {
-        if (destroyed) {
+    function renderError() {
+        if (!refs.errorBlock || !refs.errorText) {
             return;
         }
 
-        if (typeof checkAnswersCleanup === 'function') {
-            checkAnswersCleanup();
-            checkAnswersCleanup = null;
-        }
-
-        host.innerHTML = '';
-
-        if (state.loading) {
-            const loadingNode = document.createElement('div');
-            loadingNode.className = 'loading';
-            loadingNode.textContent = 'Загрузка анкеты...';
-            host.appendChild(loadingNode);
+        if (error) {
+            refs.errorText.textContent = error;
+            refs.errorBlock.classList.remove('u-hidden');
             return;
         }
 
-        if (state.error) {
-            const errorNode = document.createElement('div');
-            errorNode.className = 'error-message';
-            errorNode.textContent = state.error;
-            host.appendChild(errorNode);
+        refs.errorText.textContent = '';
+        refs.errorBlock.classList.add('u-hidden');
+    }
+
+    function renderSubmitState() {
+        if (!refs.submitButton || !refs.submitLabel) {
             return;
         }
 
-        if (state.submissionState.isSubmitted && !state.submissionState.showResults) {
-            const successTemplate = document.getElementById('survey-user-fill-success-template');
-            if (successTemplate?.content?.firstElementChild) {
-                host.appendChild(successTemplate.content.firstElementChild.cloneNode(true));
-            }
+        refs.submitButton.disabled = loading;
+        refs.submitButton.querySelector('.loading-spinner')?.remove();
+
+        if (loading) {
+            const spinner = document.createElement('span');
+            spinner.className = 'loading-spinner';
+            refs.submitButton.insertBefore(spinner, refs.submitLabel);
+            refs.submitLabel.textContent = 'Отправка...';
             return;
         }
 
-        if (state.submissionState.showResults && state.submissionState.resultsData) {
-            const checkContainer = document.createElement('div');
-            host.appendChild(checkContainer);
-            if (typeof window.mountCheckAnswersView === 'function') {
-                checkAnswersCleanup = window.mountCheckAnswersView(checkContainer, {
-                    data: state.submissionState.resultsData,
-                    userRole,
-                    onBack
-                });
-            }
-            return;
-        }
+        refs.submitLabel.textContent = 'Отправить ответы';
+    }
 
-        const fillTemplate = document.getElementById('survey-user-fill-template');
-        const questionTemplate = document.getElementById('survey-user-fill-question-template');
-        if (!fillTemplate?.content?.firstElementChild || !questionTemplate?.content?.firstElementChild) {
-            return;
-        }
+    function updateQuestionState(questionId, questionElement) {
+        const answer = answers[questionId] || {};
 
-        const fillNode = fillTemplate.content.firstElementChild.cloneNode(true);
-        const titleNode = fillNode.querySelector('[data-role="survey-title"]');
-        const descriptionNode = fillNode.querySelector('[data-role="survey-description"]');
-        const errorNode = fillNode.querySelector('[data-role="fill-error"]');
-        const questionsHost = fillNode.querySelector('[data-role="questions-host"]');
-        const submitButton = fillNode.querySelector('[data-role="submit-btn"]');
-        const cancelButton = fillNode.querySelector('[data-role="cancel-btn"]');
-
-        if (titleNode) {
-            titleNode.textContent = survey.name_survey || '';
-        }
-        if (descriptionNode) {
-            descriptionNode.textContent = survey.description || 'Анкета без описания';
-        }
-        if (errorNode) {
-            errorNode.style.display = state.error ? '' : 'none';
-            errorNode.textContent = state.error || '';
-        }
-
-        state.questions.forEach((question) => {
-            const questionNode = questionTemplate.content.firstElementChild.cloneNode(true);
-            const questionTextNode = questionNode.querySelector('[data-role="question-text"]');
-            const ratingsHost = questionNode.querySelector('[data-role="rating-buttons"]');
-            const commentWrap = questionNode.querySelector('[data-role="comment-wrap"]');
-            const textarea = questionNode.querySelector('textarea');
-            const answer = state.answers[question.id] || {};
-
-            if (questionTextNode) {
-                questionTextNode.textContent = question.text;
-            }
-
-            for (let rating = 1; rating <= 5; rating += 1) {
-                const ratingButton = document.createElement('button');
-                ratingButton.type = 'button';
-                ratingButton.className = `btn_crit ${answer.rating === rating ? 'active' : ''}`;
-                ratingButton.textContent = String(rating);
-                ratingButton.addEventListener('click', () => {
-                    setError(null);
-                    state.answers = {
-                        ...state.answers,
-                        [question.id]: {
-                            rating,
-                            comment: rating < 5 ? state.answers[question.id]?.comment || '' : ''
-                        }
-                    };
-                    rerender();
-                });
-                ratingsHost?.appendChild(ratingButton);
-            }
-
-            const showComment = answer.rating > 0 && answer.rating < 5;
-            if (commentWrap) {
-                commentWrap.style.display = showComment ? '' : 'none';
-            }
-            if (textarea) {
-                textarea.value = answer.comment || '';
-                textarea.addEventListener('input', (event) => {
-                    setError(null);
-                    state.answers = {
-                        ...state.answers,
-                        [question.id]: {
-                            ...state.answers[question.id],
-                            comment: event.target.value
-                        }
-                    };
-                });
-            }
-
-            questionsHost?.appendChild(questionNode);
+        questionElement.querySelectorAll('[data-role="rating-button"]').forEach((button) => {
+            const rating = Number(button.dataset.rating || 0);
+            button.classList.toggle('active', answer.rating === rating);
         });
 
-        submitButton?.addEventListener('click', async () => {
-            try {
-                setError(null);
-                const answersArray = Object.entries(state.answers).map(([questionId, answer]) => ({
+        const commentBlock = questionElement.querySelector('[data-role="comment-block"]');
+        const commentInput = questionElement.querySelector('[data-role="comment-input"]');
+        const showComment = answer.rating > 0 && answer.rating < 5;
+
+        if (commentBlock) {
+            commentBlock.classList.toggle('u-hidden', !showComment);
+        }
+
+        if (commentInput) {
+            commentInput.value = answer.comment || '';
+        }
+    }
+
+    function bindQuestion(questionElement) {
+        const questionId = questionElement.dataset.questionId || '';
+        if (!questionId) {
+            return;
+        }
+
+        questionElement.querySelectorAll('[data-role="rating-button"]').forEach((button) => {
+            button.addEventListener('click', () => {
+                error = null;
+                const rating = Number(button.dataset.rating || 0);
+                answers[questionId] = {
+                    ...answers[questionId],
+                    rating,
+                    comment: rating < 5 ? answers[questionId]?.comment || '' : ''
+                };
+                renderError();
+                updateQuestionState(questionId, questionElement);
+            });
+        });
+
+        const commentInput = questionElement.querySelector('[data-role="comment-input"]');
+        commentInput?.addEventListener('input', (event) => {
+            error = null;
+            answers[questionId] = {
+                ...answers[questionId],
+                comment: event.target.value
+            };
+            renderError();
+        });
+
+        updateQuestionState(questionId, questionElement);
+    }
+
+    async function submitAnswers() {
+        try {
+            loading = true;
+            error = null;
+            renderError();
+            renderSubmitState();
+
+            const payloadAnswers = Object.entries(answers).map(([questionId, answer]) => {
+                const questionNode = getQuestionNodes().find((node) => node.dataset.questionId === questionId);
+                const questionText = questionNode?.querySelector('[data-role="question-title"]')?.textContent?.trim() || '';
+
+                return {
                     question_id: questionId,
-                    question_text: state.questions.find((q) => String(q.id) === String(questionId))?.text || '',
+                    question_text: questionText,
                     rating: answer.rating,
                     comment: answer.comment || ''
-                }));
-
-                const response = await fetch('/answers/create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({
-                        organization_id: organizationId,
-                        id_survey: survey.id_survey,
-                        answers: answersArray
-                    })
-                });
-
-                if (!response.ok) {
-                    let errorMessage = 'Ошибка при отправке ответов';
-                    try {
-                        const errorData = await response.json();
-                        errorMessage = errorData?.error || errorData?.message || errorMessage;
-                    } catch {
-                        const errorText = await response.text();
-                        if (errorText) {
-                            errorMessage = errorText;
-                        }
-                    }
-                    throw new Error(errorMessage);
-                }
-
-                await response.json().catch(() => null);
-                state.submissionState = {
-                    isSubmitted: true,
-                    showResults: false,
-                    resultsData: {
-                        Survey: survey,
-                        Answers: answersArray,
-                        IdOrganization: organizationId
-                    }
                 };
-                rerender();
-                showResultsTimer = window.setTimeout(() => {
-                    state.submissionState = { ...state.submissionState, showResults: true };
-                    rerender();
-                }, 2000);
-            } catch (err) {
-                setError(err.message);
-                rerender();
-            }
-        });
-        cancelButton?.addEventListener('click', () => onBack?.());
+            });
 
-        host.appendChild(fillNode);
-    };
+            const response = await fetch('/answers/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    id_survey: survey.id_survey,
+                    id_organization: organizationId,
+                    answers: payloadAnswers
+                })
+            });
 
-    const loadQuestions = async () => {
-        try {
-            const response = await fetch(`/surveys/${survey.id_survey}/organizations/${survey.organization_id}/questions`);
             if (!response.ok) {
-                throw new Error('Не удалось загрузить вопросы анкеты');
+                const errorData = await response.json().catch(() => null);
+                throw new Error(errorData?.error || 'Ошибка при отправке ответов');
             }
-            const data = await response.json();
-            state.questions = (data.questions || []).map((question, index) => normalizeSurveyQuestion(question, index));
+
+            await response.json().catch(() => null);
+            onSubmitted?.({
+                survey,
+                answers: payloadAnswers,
+                organizationId
+            });
         } catch (err) {
-            setError(err.message);
+            error = err?.message || 'Не удалось отправить ответы';
+            renderError();
         } finally {
-            state.loading = false;
-            rerender();
+            loading = false;
+            renderSubmitState();
+        }
+    }
+
+    function bindPage() {
+        refs = {
+            page: host.querySelector('[data-role="survey-fill-page"]'),
+            errorBlock: host.querySelector('[data-role="error"]'),
+            errorText: host.querySelector('[data-role="error-text"]'),
+            submitButton: host.querySelector('[data-role="submit"]'),
+            submitLabel: host.querySelector('[data-role="submit-label"]'),
+            cancelButton: host.querySelector('[data-role="cancel-btn"]')
+        };
+
+        refs.submitButton?.addEventListener('click', submitAnswers);
+        refs.cancelButton?.addEventListener('click', () => onBack?.());
+        getQuestionNodes().forEach(bindQuestion);
+        renderError();
+        renderSubmitState();
+    }
+
+    const loadFillContent = async () => {
+        try {
+            const html = typeof initialHtml === 'string'
+                ? initialHtml
+                : await window.fetchSurveyFillContentHtml(survey.id_survey, organizationId);
+            if (destroyed) {
+                return;
+            }
+
+            host.replaceChildren(createHtmlFragment(html));
+            bindPage();
+        } catch (err) {
+            if (destroyed) {
+                return;
+            }
+
+            renderHostError(host, err?.message || 'Не удалось загрузить анкету');
         }
     };
 
-    rerender();
-    loadQuestions();
+    loadFillContent();
 
     return () => {
         destroyed = true;
-        if (showResultsTimer) {
-            window.clearTimeout(showResultsTimer);
-        }
-        if (typeof checkAnswersCleanup === 'function') {
-            checkAnswersCleanup();
-        }
-        host.innerHTML = '';
+        host.replaceChildren();
     };
 };
-
-// Компонент для отображения результатов
-window.mountCheckAnswersView = function mountCheckAnswersView(host, { data }) {
-    const template = document.getElementById('survey-user-checkanswers-template');
-    if (!host || !template?.content?.firstElementChild) {
-        return null;
-    }
-
-    host.innerHTML = '';
-    const viewNode = template.content.firstElementChild.cloneNode(true);
-    const tbody = viewNode.querySelector('[data-role="answers-body"]');
-    const signBtn = viewNode.querySelector('[data-role="sign-btn"]');
-    const pdfBtn = viewNode.querySelector('[data-role="pdf-btn"]');
-    const archiveBtn = viewNode.querySelector('[data-role="archive-btn"]');
-
-    (data?.Answers || []).forEach((answer) => {
-        const row = document.createElement('tr');
-        const questionCell = document.createElement('td');
-        questionCell.textContent = answer.question_text || '';
-        const ratingCell = document.createElement('td');
-        ratingCell.textContent = String(answer.rating ?? '');
-        const commentCell = document.createElement('td');
-        commentCell.textContent = answer.comment || '';
-        row.appendChild(questionCell);
-        row.appendChild(ratingCell);
-        row.appendChild(commentCell);
-        tbody?.appendChild(row);
-    });
-
-    signBtn?.addEventListener('click', () => CSP(data?.Survey?.id_survey, data?.IdOrganization));
-    pdfBtn?.addEventListener('click', () => createPdfReport(data?.Survey?.id_survey, data?.IdOrganization));
-    archiveBtn?.addEventListener('click', () => downloadSignedArchive(data?.Survey?.id_survey, data?.IdOrganization));
-
-    host.appendChild(viewNode);
-    return () => {
-        host.innerHTML = '';
-    };
-};
-
 
 window.createPdfReport = async function(surveyId, organizationId) {
     try {
@@ -1032,180 +866,42 @@ window.downloadSignedArchive = async function(surveyId, organizationId) {
 }
 
 
-window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, organizationId, userRole, onBack }) {
+window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, organizationId, userRole, onBack, initialHtml }) {
     if (!host) {
         return null;
     }
 
     let destroyed = false;
-    const data = {
-        loading: true,
-        error: null,
-        surveyName: survey.name_survey || '',
-        answers: [],
-        csp: survey.csp || null
-    };
+    function bindPage() {
+        const pdfButton = host.querySelector('[data-role="pdf-btn"]');
+        pdfButton?.addEventListener('click', () => createPdfReport(survey.id_survey, organizationId));
+    }
 
-    const render = () => {
-        if (destroyed) {
-            return;
-        }
-
-        host.innerHTML = '';
-        if (data.loading) {
-            const loadingNode = document.createElement('div');
-            loadingNode.className = 'loading-container';
-            const p = document.createElement('p');
-            p.textContent = 'Загрузка данных анкеты...';
-            loadingNode.appendChild(p);
-            host.appendChild(loadingNode);
-            return;
-        }
-
-        if (data.error) {
-            const errorNode = document.createElement('div');
-            errorNode.className = 'error-container';
-            const p = document.createElement('p');
-            p.textContent = data.error;
-            errorNode.appendChild(p);
-            host.appendChild(errorNode);
-            return;
-        }
-
-        const template = document.getElementById('survey-user-checkanswers-page-template');
-        if (!template?.content?.firstElementChild) {
-            return;
-        }
-
-        const root = template.content.firstElementChild.cloneNode(true);
-        const surveyName = root.querySelector('[data-role="survey-name"]');
-        const signatureInfo = root.querySelector('[data-role="signature-info"]');
-        const signatureStatus = root.querySelector('[data-role="signature-status"]');
-        const emptyMessage = root.querySelector('[data-role="empty-message"]');
-        const answersContent = root.querySelector('[data-role="answers-content"]');
-        const pdfBtn = root.querySelector('[data-role="pdf-btn"]');
-
-        if (surveyName) {
-            surveyName.textContent = data.surveyName || '';
-        }
-        if (signatureInfo && signatureStatus) {
-            signatureInfo.style.display = data.csp ? '' : 'none';
-            signatureStatus.textContent = data.csp ? 'подписано' : 'не подписано';
-            signatureStatus.classList.toggle('signed', Boolean(data.csp));
-            signatureStatus.classList.toggle('not-signed', !data.csp);
-        }
-
-        if ((data.answers || []).length === 0) {
-            if (emptyMessage) {
-                emptyMessage.style.display = '';
-            }
-            if (answersContent) {
-                answersContent.style.display = 'none';
-            }
-        } else {
-            if (emptyMessage) {
-                emptyMessage.style.display = 'none';
-            }
-            (data.answers || []).forEach((group) => {
-                const block = document.createElement('div');
-                block.className = 'answer-block';
-                const date = document.createElement('div');
-                date.className = 'answer-date';
-                const calendar = document.createElement('span');
-                calendar.className = 'calendar-icon';
-                calendar.textContent = '📅';
-                date.appendChild(calendar);
-                date.appendChild(document.createTextNode(` ${group.date || 'Дата не указана'}`));
-
-                const table = document.createElement('table');
-                table.className = 'answers-table';
-                const thead = document.createElement('thead');
-                const headerRow = document.createElement('tr');
-                const thQuestion = document.createElement('th');
-                thQuestion.textContent = 'Вопрос';
-                const thRating = document.createElement('th');
-                thRating.textContent = 'Оценка';
-                const thComment = document.createElement('th');
-                thComment.textContent = 'Комментарий';
-                headerRow.appendChild(thQuestion);
-                headerRow.appendChild(thRating);
-                headerRow.appendChild(thComment);
-                thead.appendChild(headerRow);
-                const tbody = document.createElement('tbody');
-                (group.answers || []).forEach((answer) => {
-                    const row = document.createElement('tr');
-                    const q = document.createElement('td');
-                    q.setAttribute('data-label', 'Вопрос');
-                    q.textContent = answer.question_text || '';
-                    const r = document.createElement('td');
-                    r.setAttribute('data-label', 'Оценка');
-                    r.className = 'rating-cell';
-                    const badge = document.createElement('span');
-                    badge.className = 'rating-badge';
-                    badge.textContent = String(answer.rating ?? '');
-                    r.appendChild(badge);
-                    const c = document.createElement('td');
-                    c.setAttribute('data-label', 'Комментарий');
-                    c.textContent = answer.comment || '';
-                    row.appendChild(q);
-                    row.appendChild(r);
-                    row.appendChild(c);
-                    tbody.appendChild(row);
-                });
-                table.appendChild(thead);
-                table.appendChild(tbody);
-                block.appendChild(date);
-                block.appendChild(table);
-                answersContent?.appendChild(block);
-            });
-        }
-
-        pdfBtn?.addEventListener('click', () => createPdfReport(survey.id_survey, organizationId));
-        host.appendChild(root);
-    };
-
-    const fetchSurveyAnswers = async () => {
+    const loadAnswersContent = async () => {
         try {
-            data.loading = true;
-            data.error = null;
-            render();
-
-            const response = await fetch(`/answers/${survey.id_survey}/${organizationId}/${userRole}`);
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => null);
-                const errorMsg = errorData?.error || `Ошибка ${response.status}`;
-                throw new Error(errorMsg);
+            const html = typeof initialHtml === 'string'
+                ? initialHtml
+                : await window.fetchSurveyAnswersContentHtml(survey.id_survey, organizationId);
+            if (destroyed) {
+                return;
             }
 
-            const result = await response.json();
-
-            if (!result?.success) {
-                throw new Error(result?.error || 'Неверный формат ответа');
-            }
-
-            data.loading = false;
-            data.error = null;
-            data.surveyName = result.survey?.name || survey.name_survey || '';
-            data.answers = result.answers || [];
-            data.csp = result.survey?.csp || null;
-            render();
+            host.replaceChildren(createHtmlFragment(html));
+            bindPage();
         } catch (error) {
             console.error('Ошибка:', error);
-            data.loading = false;
-            data.error = error.message;
-            data.surveyName = survey.name_survey || '';
-            data.answers = [];
-            data.csp = null;
-            render();
+            if (destroyed) {
+                return;
+            }
+
+            renderHostError(host, error?.message || 'Не удалось загрузить ответы по анкете');
         }
     };
 
-    render();
-    fetchSurveyAnswers();
+    loadAnswersContent();
 
     return () => {
         destroyed = true;
-        host.innerHTML = '';
+        host.replaceChildren();
     };
 };

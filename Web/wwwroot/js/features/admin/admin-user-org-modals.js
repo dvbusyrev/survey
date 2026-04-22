@@ -1,15 +1,40 @@
-function navigateAdminTab(tabName, fallbackUrl) {
+function navigateAdminTab(tabName, fallbackUrl, options = {}) {
+    const resolvedOptions = options && typeof options === 'object' ? options : {};
+
+    if (typeof window.refreshAdminUi === 'function') {
+        window.refreshAdminUi({
+            tabName,
+            fallbackUrl,
+            options: resolvedOptions
+        });
+        return;
+    }
+
+    if (typeof window.refreshAdminTab === 'function') {
+        window.refreshAdminTab(tabName, null, resolvedOptions);
+        return;
+    }
+
     if (typeof window.handleTabClick === 'function') {
-        window.handleTabClick(tabName);
+        window.handleTabClick(tabName, {
+            force: true,
+            scrollMode: 'restore',
+            ...resolvedOptions
+        });
         return;
     }
 
     if (typeof handleTabClick === 'function') {
-        handleTabClick(tabName);
+        handleTabClick(tabName, {
+            force: true,
+            scrollMode: 'restore',
+            ...resolvedOptions
+        });
         return;
     }
 
     if (fallbackUrl) {
+        window.AppScrollState?.saveCurrentPosition?.();
         window.location.assign(fallbackUrl);
     }
 }
@@ -29,13 +54,21 @@ function submitFormAdd() {
         return;
     }
 
-            if (!document.getElementById('organization').value){
+            if (!document.getElementById('userOrganization').value){
         alert("Выберите организацию пользователя!");
         return;
     }
 
-                if (!document.getElementById('role').value){
+                if (!document.getElementById('userRole').value){
         alert("Выберите роль пользователя!");
+        return;
+    }
+
+    const dateBegin = document.getElementById('dateBegin')?.value || '';
+    const dateEnd = document.getElementById('dateEnd')?.value || '';
+
+    if (dateBegin && dateEnd && new Date(dateEnd) < new Date(dateBegin)) {
+        alert("Дата конца не может быть раньше даты начала.");
         return;
     }
 
@@ -44,8 +77,10 @@ function submitFormAdd() {
         password: document.getElementById('password')?.value || '',
         fullName: document.getElementById('fullName')?.value || '',
         email: document.getElementById('email_input')?.value || '', // Используем value, а не innerHTML
-        organizationId: document.getElementById('organization')?.value || '0',
-        role: document.getElementById('role')?.value || 'user'
+        organizationId: document.getElementById('userOrganization')?.value || '0',
+        role: document.getElementById('userRole')?.value || 'user',
+        dateBegin,
+        dateEnd
     };
 
     fetch('/users/create', {
@@ -60,7 +95,20 @@ function submitFormAdd() {
     .then(data => {
         messageElement.textContent = data.message;
         messageElement.className = data.success ? 'success-message' : 'error-message';
-        if (data.success) {alert("Пользователь успешно добавлен!"); navigateAdminTab("get_users", "/get_users");}
+        if (data.success) {
+            setModalVisibility('addUserModal', false);
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                window.handleAdminMutationSuccess({
+                    message: data.message || 'Пользователь успешно добавлен.',
+                    tabName: 'get_users',
+                    fallbackUrl: '/users'
+                });
+                return;
+            }
+
+            window.siteNotify?.(data.message || 'Пользователь успешно добавлен.', 'success');
+            navigateAdminTab("get_users", "/users");
+        }
     })
     .catch(error => {
         console.error("Ошибка:", error);
@@ -86,16 +134,26 @@ async function deleteUser(id, fullName) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => {
+    .then(async response => {
+        const responseText = await response.text();
         if (!response.ok) {
-            throw new Error('Ошибка при удалении');
+            throw new Error(responseText || 'Ошибка при удалении');
         }
-        return response.text();
+        return responseText;
     })
     .then(result => {
-        alert(result); // Показываем ответ сервера
         closeModal('deleteUserModal');
-        navigateAdminTab("get_users", "/get_users");
+        if (typeof window.handleAdminMutationSuccess === 'function') {
+            window.handleAdminMutationSuccess({
+                message: result,
+                tabName: 'get_users',
+                fallbackUrl: '/users'
+            });
+            return;
+        }
+
+        alert(result); // Показываем ответ сервера
+        navigateAdminTab("get_users", "/users");
     })
     .catch(error => {
         console.error("Ошибка:", error);
@@ -178,7 +236,7 @@ function setSingleOption(selectElement, text) {
 
 // Функция загрузки организаций
 async function loadOrganizations2(selectedOrgId = null) {
-    const orgSelect = getSafeElement('editOrganization');
+    const orgSelect = getSafeElement('editUserOrganization');
     
     try {
         setSingleOption(orgSelect, 'Загрузка организаций...');
@@ -213,7 +271,7 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
         const fullNameEl = getSafeElement('editFullName');
         const usernameEl = getSafeElement('editUsername');
         const emailEl = getSafeElement('editEmail');
-        const roleEl = getSafeElement('editRole');
+        const roleEl = getSafeElement('editUserRole');
         const dateBeginEl = getSafeElement('editDateBegin');
         const dateEndEl = getSafeElement('editDateEnd');
         const passwordEl = getSafeElement('editPassword');
@@ -270,13 +328,13 @@ async function updateUser() {
         return;
     }
 
-            if (!document.getElementById('editOrganization').value)
+            if (!document.getElementById('editUserOrganization').value)
     {
         alert("Выберите организацию пользователя!");
         return;
     }
 
-            if (!document.getElementById('editRole').value)
+            if (!document.getElementById('editUserRole').value)
     {
         alert("Выберите роль пользователя!");
         return;
@@ -285,9 +343,14 @@ async function updateUser() {
     try {
         // Получаем элементы
         const modal = getSafeElement('editUserModal');
-        const messageContainer = document.createElement('div');
-        messageContainer.className = 'message';
-        modal.querySelector('.modal-body').appendChild(messageContainer);
+        let messageContainer = modal.querySelector('.message');
+        if (!messageContainer) {
+            messageContainer = document.createElement('div');
+            messageContainer.className = 'message';
+            modal.querySelector('.modal-body').appendChild(messageContainer);
+        }
+        messageContainer.textContent = '';
+        messageContainer.style.color = '';
 
         // Получаем значения
         const elements = {
@@ -296,8 +359,8 @@ async function updateUser() {
             username: getSafeElement('editUsername'),
             email: getSafeElement('editEmail'),
             password: getSafeElement('editPassword'),
-            organization: getSafeElement('editOrganization'),
-            role: getSafeElement('editRole'),
+            organization: getSafeElement('editUserOrganization'),
+            role: getSafeElement('editUserRole'),
             dateBegin: getSafeElement('editDateBegin'),
             dateEnd: getSafeElement('editDateEnd')
         };
@@ -305,6 +368,10 @@ async function updateUser() {
         // Валидация
         if (!elements.username.value || !elements.organization.value) {
             throw new Error('Заполните все обязательные поля');
+        }
+
+        if (elements.dateBegin.value && elements.dateEnd.value && new Date(elements.dateEnd.value) < new Date(elements.dateBegin.value)) {
+            throw new Error('Дата конца не может быть раньше даты начала.');
         }
 
         // Формируем данные
@@ -335,8 +402,18 @@ async function updateUser() {
             throw new Error(result.message || 'Ошибка сервера');
         }
 
-        alert("Пользователь успешно обновлён!");
-        navigateAdminTab("get_users", "/get_users");
+        setModalVisibility(modal, false);
+        if (typeof window.handleAdminMutationSuccess === 'function') {
+            await window.handleAdminMutationSuccess({
+                message: result.message || 'Пользователь успешно обновлён.',
+                tabName: 'get_users',
+                fallbackUrl: '/users'
+            });
+            return;
+        }
+
+        window.siteNotify?.('Пользователь успешно обновлён.', 'success');
+        navigateAdminTab("get_users", "/users");
 
     } catch (error) {
         console.error('Ошибка обновления:', error);
@@ -396,6 +473,7 @@ async function createOrganization() {
         // 1. Собираем данные из формы
         const formData = {
             Name: form.Name.value,
+            ShortName: (document.getElementById('ShortName')?.value || '').trim(),
             Email: form.organization_email.value,
             DateBegin: form.DateBegin.value,
             DateEnd: form.DateEnd.value
@@ -423,6 +501,15 @@ async function createOrganization() {
             : 'Ошибка: ' + (result.error || 'Неизвестная ошибка');
         if (result.success) {
             closeOrganizationModal('addOrganizationModal');
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: result.message || 'Организация успешно создана!',
+                    tabName: 'get_organization',
+                    fallbackUrl: '/organizations'
+                });
+                return;
+            }
+
             navigateAdminTab("get_organization", "/organizations");
             alert("Организация успешно создана!");
         }
@@ -444,9 +531,10 @@ function closeOrganizationModal(modalId) {
 }
 
 // Функция открытия модального окна редактирования
-function openEditOrganizationModal(id, name, email, dateBegin, dateEnd) {
+function openEditOrganizationModal(id, name, shortName, email, dateBegin, dateEnd) {
     document.getElementById('editOrganizationId').value = id;
     document.getElementById('organizationName').value = name || '';
+    document.getElementById('organizationShortName').value = shortName || '';
     document.getElementById('organizationEmail').value = email || '';
     document.getElementById('organizationDateBegin').value = dateBegin || '';
     document.getElementById('organizationDateEnd').value = dateEnd || '';
@@ -464,6 +552,7 @@ function openEditOrganizationModalFromTrigger(trigger) {
     openEditOrganizationModal(
         organizationId,
         trigger?.dataset?.organizationName || '',
+        trigger?.dataset?.organizationShortName || '',
         trigger?.dataset?.organizationEmail || '',
         trigger?.dataset?.organizationDateBegin || '',
         trigger?.dataset?.organizationDateEnd || '');
@@ -483,6 +572,7 @@ async function updateOrganization() {
         // 1. Получаем значения из формы
         const id = document.getElementById('editOrganizationId').value;
         const name = document.getElementById('organizationName').value.trim();
+        const shortName = document.getElementById('organizationShortName').value.trim();
         const email = document.getElementById('organizationEmail').value.trim();
         const dateBegin = document.getElementById('organizationDateBegin').value;
         const dateEnd = document.getElementById('organizationDateEnd').value;
@@ -490,6 +580,7 @@ async function updateOrganization() {
         // 2. Подготовка данных в формате, ожидаемом сервером
         const organizationData = {
             Name: name,
+            ShortName: shortName,
             Email: email || "",
             DateBegin: dateBegin || "",
             DateEnd: dateEnd || ""
@@ -526,8 +617,17 @@ async function updateOrganization() {
         }
 
         // 6. Успешное завершение
-        await response.text();
+        const successMessage = await response.text();
         closeOrganizationModal('editOrganizationModal');
+        if (typeof window.handleAdminMutationSuccess === 'function') {
+            await window.handleAdminMutationSuccess({
+                message: successMessage || 'Организация успешно отредактирована!',
+                tabName: 'get_organization',
+                fallbackUrl: '/organizations'
+            });
+            return;
+        }
+
         alert("Организация успешно отредактирована!");
         navigateAdminTab("get_organization", "/organizations");
 

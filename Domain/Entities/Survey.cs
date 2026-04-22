@@ -1,4 +1,5 @@
 ﻿using MainProject.Application.DTO;
+using MainProject.Infrastructure.Serialization;
 using System.Text.Json.Serialization;
 
 namespace MainProject.Domain.Entities
@@ -14,19 +15,10 @@ namespace MainProject.Domain.Entities
         public string? Description { get; set; }
         public List<SurveyQuestionItem> Questions { get; set; } = new();
 
-        [JsonPropertyName("date_create")]
-        public DateTime DateCreate { get; set; }
-
-        [JsonPropertyName("date_open")]
-        public DateTime DateOpen { get; set; }
-
-        [JsonPropertyName("date_close")]
-        public DateTime DateClose { get; set; }
-
         [JsonPropertyName("organization_name")]
         public string? OrganizationName { get; set; }
 
-        [JsonPropertyName("organization_id")]
+        [JsonPropertyName("id_organization")]
         public int OrganizationId { get; set; }
 
         public string? Csp { get; set; }
@@ -35,9 +27,11 @@ namespace MainProject.Domain.Entities
         public DateTime CompletionDate { get; set; }
 
         [JsonPropertyName("date_begin")]
+        [JsonConverter(typeof(DateOnlyDateTimeJsonConverter))]
         public DateTime DateBegin { get; set; }
 
         [JsonPropertyName("date_end")]
+        [JsonConverter(typeof(DateOnlyDateTimeJsonConverter))]
         public DateTime DateEnd { get; set; }
 
         [JsonPropertyName("id_answer")]

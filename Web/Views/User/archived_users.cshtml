@@ -1,7 +1,9 @@
-﻿@model List<MainProject.Domain.Entities.User>
+﻿@model MainProject.Web.ViewModels.UserListPageViewModel
 @{
     ViewData["Title"] = "Архив пользователей";
     ViewData["UserSection"] = "archive";
+    var users = Model?.Users ?? Array.Empty<MainProject.Domain.Entities.User>();
+    var organizations = Model?.Organizations ?? Array.Empty<MainProject.Application.DTO.SelectionOption>();
 }
 
 <div class="app-page users-page users-page--archive" id="default_content" data-page="users-archive">
@@ -10,11 +12,23 @@
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            Title = "Архив пользователей",
+            // Title = "Архив пользователей",
             Description = "Ниже представлена таблица с архивными пользователями."
         })
 
     <section class="app-page__section app-page__section--flush">
-        @await Html.PartialAsync("Partials/_ArchiveUsersTable", Model)
+        @await Html.PartialAsync(
+            "~/Web/Views/User/Partials/_UserTable.cshtml",
+            new MainProject.Web.ViewModels.UserTableViewModel
+            {
+                Users = users,
+                ShowActions = true
+            })
     </section>
 </div>
+
+@await Html.PartialAsync("~/Web/Views/User/Partials/_UserManagementModals.cshtml", organizations)
+
+@section Scripts {
+    @await Html.PartialAsync("~/Web/Views/Shared/_AdminPageScripts.cshtml")
+}

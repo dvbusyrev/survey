@@ -1,6 +1,6 @@
 footer {
   width: 100%;
-  padding: 16px max(16px, env(safe-area-inset-left)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-right));
+  padding: 8px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
   color: white;
   text-align: center;
   background:

@@ -7,10 +7,12 @@ namespace MainProject.Application.Contracts;
 public interface IOrganizationManagementService
 {
     OrganizationListPageViewModel GetActiveOrganizationsPage(bool openAddOrganizationModal = false);
+    OrganizationSurveyAssignmentsPageViewModel GetOrganizationSurveyAssignmentsPage();
     IReadOnlyList<Organization> GetArchivedOrganizations();
     IReadOnlyList<OrganizationDataResponse> GetOrganizationOptions();
     Organization? GetOrganizationById(int id);
     OperationResult CreateOrganization(OrganizationSaveRequest request);
     OperationResult UpdateOrganization(int id, OrganizationSaveRequest request);
     OperationResult ArchiveOrganization(int id);
+    OrganizationSurveyEndDateUpdateResult UpdateOrganizationSurveyEndDates(OrganizationSurveyEndDateUpdateRequest request);
 }

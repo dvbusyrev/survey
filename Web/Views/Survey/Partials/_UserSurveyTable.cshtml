@@ -1,0 +1,72 @@
+@model MainProject.Web.ViewModels.UserSurveyTableViewModel
+
+@{
+    var surveys = Model?.Surveys ?? Array.Empty<MainProject.Domain.Entities.Survey>();
+    var isArchive = Model?.IsArchive ?? false;
+
+    string FormatDate(DateTime date)
+    {
+        return date == default ? "Не указано" : date.ToString("dd.MM.yyyy");
+    }
+}
+
+<table class="surveys-table" data-role="main-table">
+    <thead>
+        <tr class="table_tr">
+            <th class="table-th--start">Название</th>
+            <th>Период</th>
+            <th>Статус</th>
+            <th>Подпись</th>
+            <th class="table-th--end table-col--actions"></th>
+        </tr>
+    </thead>
+    <tbody data-role="survey-table-body">
+        @if (surveys.Count == 0)
+        {
+            <tr data-role="user-survey-empty-row">
+                <td colspan="5" class="table-empty-cell">Анкеты не найдены.</td>
+            </tr>
+        }
+        else
+        {
+            @foreach (var survey in surveys)
+            {
+                var filterDate = isArchive
+                    ? (survey.CompletionDate != default ? survey.CompletionDate : survey.DateEnd)
+                    : survey.DateBegin;
+                var filterMonth = filterDate == default ? string.Empty : filterDate.ToString("MM");
+                var filterYear = filterDate == default ? string.Empty : filterDate.ToString("yyyy");
+                var signatureText = isArchive
+                    ? (!string.IsNullOrWhiteSpace(survey.Csp) ? "Подписана" : "Не подписана")
+                    : "Не подписана";
+                var statusText = isArchive
+                    ? $"Заполнена: {FormatDate(survey.CompletionDate)}"
+                    : "Не заполнена";
+                var rowClass = isArchive ? "client-surveys-table__row" : "client-surveys-table__row client-surveys-table__row--pending";
+
+                <tr class="@rowClass"
+                    data-role="user-survey-row"
+                    data-survey-id="@survey.IdSurvey"
+                    data-filter-month="@filterMonth"
+                    data-filter-year="@filterYear">
+                    <td>@(string.IsNullOrWhiteSpace(survey.NameSurvey) ? "Без названия" : survey.NameSurvey)</td>
+                    <td>@FormatDate(survey.DateBegin) - @FormatDate(survey.DateEnd)</td>
+                    <td class="@(isArchive ? string.Empty : "client-surveys-table__status--pending")">@statusText</td>
+                    <td class="@(string.Equals(signatureText, "Подписана", StringComparison.Ordinal) ? "client-surveys-table__signature--signed" : "client-surveys-table__signature--unsigned")">
+                        @signatureText
+                    </td>
+                    <td class="action-icons table-col--actions">
+                        <button type="button"
+                                class="icon-container"
+                                data-role="action"
+                                data-survey-id="@survey.IdSurvey"
+                                aria-label="Просмотр">
+                            <span aria-hidden="true"><i class="fas fa-eye"></i></span>
+                            <span class="icon-tooltip">Просмотр</span>
+                        </button>
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

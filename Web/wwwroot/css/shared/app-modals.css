@@ -50,6 +50,13 @@
   border-bottom: 1px solid #eee;
 }
 
+.archive-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .modal-title {
   margin: 0 0 1.5rem;
   color: #667eea;

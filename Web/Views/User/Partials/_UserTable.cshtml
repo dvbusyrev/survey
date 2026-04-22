@@ -1,0 +1,83 @@
+@model MainProject.Web.ViewModels.UserTableViewModel
+@using MainProject.Infrastructure.Security
+
+@{
+    var users = Model?.Users ?? Array.Empty<MainProject.Domain.Entities.User>();
+    var showActions = Model?.ShowActions ?? false;
+}
+
+<table class="users-table" data-role="main-table">
+    <thead>
+        <tr class="table_tr">
+            <th class="table-th--start">ФИО</th>
+            <th>Организация</th>
+            <th>Роль</th>
+            <th class="table-col--date">Дата начала</th>
+            <th class="table-col--date">Дата конца</th>
+            <th class="table-th--end table-col--actions"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (!users.Any())
+        {
+            <tr>
+                <td colspan="6" class="table-empty-cell">Результаты не найдены!</td>
+            </tr>
+        }
+        else
+        {
+            @foreach (var user in users)
+            {
+                <tr
+                    @if (showActions)
+                    {
+                        <text>
+                        data-dblclick-call="openEditUserModalFromTrigger"
+                        data-dblclick-pass-element="true"
+                        data-user-id="@user.IdUser"
+                        data-user-full-name="@(user.FullName ?? string.Empty)"
+                        data-user-name="@(user.NameUser ?? string.Empty)"
+                        data-user-email="@(user.Email ?? string.Empty)"
+                        data-user-organization-id="@user.OrganizationId"
+                        data-user-role="@AppRoles.Normalize(user.NameRole)"
+                        data-user-date-begin="@(user.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                        data-user-date-end="@(user.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                        </text>
+                    }>
+                    <td>@(string.IsNullOrWhiteSpace(user.FullName) ? "Не указано" : user.FullName)</td>
+                    <td>@(string.IsNullOrWhiteSpace(user.OrganizationName) ? "Не указано" : user.OrganizationName)</td>
+                    <td>@AppRoles.GetDisplayName(user.NameRole)</td>
+                    <td class="table-col--date">@(user.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td class="table-col--date">@(user.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
+                    <td class="action-icons table-col--actions">
+                        @if (showActions)
+                        {
+                            <div class="icon-container"
+                                 data-user-id="@user.IdUser"
+                                 data-user-full-name="@(user.FullName ?? string.Empty)"
+                                 data-user-name="@(user.NameUser ?? string.Empty)"
+                                 data-user-email="@(user.Email ?? string.Empty)"
+                                 data-user-organization-id="@user.OrganizationId"
+                                 data-user-role="@AppRoles.Normalize(user.NameRole)"
+                                 data-user-date-begin="@(user.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                 data-user-date-end="@(user.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                 data-click-call="openEditUserModalFromTrigger"
+                                 data-click-pass-element="true">
+                                <span><i class="fas fa-pen-to-square"></i></span>
+                                <span class="icon-tooltip">Посмотреть / обновить</span>
+                            </div>
+                            <div class="icon-container"
+                                 data-user-id="@user.IdUser"
+                                 data-user-full-name="@(user.FullName ?? string.Empty)"
+                                 data-click-call="deleteUserFromTrigger"
+                                 data-click-pass-element="true">
+                                <span><i class="fas fa-trash"></i></span>
+                                <span class="icon-tooltip">Удалить</span>
+                            </div>
+                        }
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

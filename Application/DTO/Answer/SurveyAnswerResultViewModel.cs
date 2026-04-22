@@ -6,7 +6,7 @@ public sealed class SurveyAnswerResultViewModel
 {
     public int Id { get; init; }
 
-    [JsonPropertyName("organization_id")]
+    [JsonPropertyName("id_organization")]
     public int OrganizationId { get; init; }
 
     [JsonPropertyName("organization_name")]

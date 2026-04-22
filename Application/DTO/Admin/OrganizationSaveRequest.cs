@@ -7,6 +7,9 @@ public sealed class OrganizationSaveRequest
     [JsonPropertyName("Name")]
     public string Name { get; init; } = string.Empty;
 
+    [JsonPropertyName("ShortName")]
+    public string? ShortName { get; init; }
+
     [JsonPropertyName("Email")]
     public string? Email { get; init; }
 

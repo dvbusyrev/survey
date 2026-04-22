@@ -70,6 +70,176 @@
   margin-bottom: 12px;
 }
 
+.organization-surveys-page__toolbar-section {
+  display: grid;
+  gap: 16px;
+}
+
+.organization-surveys-page__toolbar {
+  margin-bottom: 0;
+  justify-content: space-between;
+}
+
+.organization-surveys-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.organization-surveys-page__select-all-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.organization-surveys-page__date-field {
+  display: grid;
+  gap: 8px;
+  min-width: min(240px, 100%);
+}
+
+.organization-surveys-page__date-field label {
+  margin: 0;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.organization-surveys-page__message {
+  margin: 0;
+  min-height: 1.5rem;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.organization-surveys-page__message--visible {
+  opacity: 1;
+}
+
+.organization-surveys-page__message--success {
+  color: var(--success-dark);
+}
+
+.organization-surveys-page__message--error {
+  color: var(--danger);
+}
+
+.organization-surveys-page__empty-state {
+  text-align: center;
+}
+
+.organization-surveys-page__empty-text,
+.organization-surveys-page__group-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.organization-surveys-page__group {
+  display: grid;
+  gap: 16px;
+}
+
+.organization-surveys-page__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.organization-surveys-page__organization-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.organization-surveys-page__select-all-toggle input[type="checkbox"],
+.organization-surveys-page__organization-toggle input[type="checkbox"],
+.organization-surveys-page__survey-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.organization-surveys-page__select-all-label {
+  color: var(--text-main);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.organization-surveys-page__organization-name {
+  color: var(--text-main);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.organization-surveys-page__survey-list {
+  display: grid;
+  gap: 10px;
+  padding-left: clamp(8px, 1vw, 16px);
+}
+
+.organization-surveys-page__survey-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.82);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+}
+
+.organization-surveys-page__survey-row:hover {
+  border-color: var(--primary-light);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.08);
+}
+
+.organization-surveys-page__survey-row--expired {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(254, 242, 242, 0.72);
+}
+
+.organization-surveys-page__survey-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.organization-surveys-page__survey-name {
+  color: var(--text-main);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.organization-surveys-page__survey-meta {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  min-width: 200px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.organization-surveys-page__survey-date {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.organization-surveys-page__survey-row--expired .organization-surveys-page__survey-date,
+.organization-surveys-page__survey-row--expired .organization-surveys-page__survey-remaining {
+  color: var(--danger);
+}
+
 @media (max-width: 720px) {
   .organization-form__row {
     flex-direction: column;
@@ -78,5 +248,22 @@
 
   .organization-toolbar > * {
     width: 100%;
+  }
+
+  .organization-surveys-page__actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .organization-surveys-page__group-header,
+  .organization-surveys-page__survey-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .organization-surveys-page__survey-meta {
+    justify-items: start;
+    min-width: 0;
+    text-align: left;
   }
 }

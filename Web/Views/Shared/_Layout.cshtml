@@ -65,6 +65,7 @@
                         ['/surveys', 'get_surveys'],
                         ['/users/archive', 'archived_users'],
                         ['/users', 'get_users'],
+                        ['/organizations/surveys', 'organization_surveys'],
                         ['/organizations/archive', 'archive_list_organizations'],
                         ['/organizations', 'get_organization'],
                         ['/reports', 'reports'],
@@ -87,6 +88,7 @@
                         'surveys-list': 'get_surveys',
                         'surveys-archive': 'archived_surveys',
                         'organization-list': 'get_organization',
+                        'organization-surveys': 'organization_surveys',
                         'reports': 'reports',
                         'mail-settings': 'email',
                         'help-page': 'help'
@@ -144,6 +146,11 @@
                 window.mountFooter(footerHost);
             })();
         </script>
+    }
+    @if (isAuthenticated && layoutUserRole == AppRoles.Admin)
+    {
+        @await Html.PartialAsync("~/Web/Views/Shared/_AdminInlineTemplates.cshtml")
+        <script src="~/js/dist/admin-inline-app.js" asp-append-version="true"></script>
     }
     @RenderSection("Scripts", required: false)
 </body>

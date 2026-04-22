@@ -175,6 +175,16 @@ function copyArchivedSurvey(surveyId) {
             return response.json();
         })
         .then(() => {
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                return window.handleAdminMutationSuccess({
+                    message: 'Анкета успешно добавлена!',
+                    tabName: typeof window.resolveCurrentAdminTab === 'function'
+                        ? window.resolveCurrentAdminTab()
+                        : 'archived_surveys',
+                    fallbackUrl: '/surveys/archive'
+                });
+            }
+
             alert('Анкета успешно добавлена!');
             window.location.reload();
         })

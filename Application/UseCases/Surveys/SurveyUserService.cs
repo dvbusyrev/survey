@@ -21,7 +21,7 @@ public sealed class SurveyUserService : ISurveyUserService
         using var connection = _connectionFactory.CreateConnection();
 
         return connection.ExecuteScalar<int?>(
-            "SELECT organization_id FROM public.app_user WHERE id_user = @userId",
+            "SELECT id_organization FROM public.app_user WHERE id_user = @userId",
             new { userId });
     }
 
@@ -32,9 +32,11 @@ public sealed class SurveyUserService : ISurveyUserService
         return connection.ExecuteScalar<bool>(
             @"SELECT EXISTS (
                   SELECT 1
-                  FROM public.organization_survey
-                  WHERE id_survey = @surveyId
-                    AND organization_id = @organizationId
+                  FROM public.organization_survey os
+                  WHERE os.id_survey = @surveyId
+                    AND os.id_organization = @organizationId
+                    AND os.date_begin <= CURRENT_DATE
+                    AND os.date_end >= CURRENT_DATE
               )",
             new { surveyId, organizationId });
     }
@@ -44,7 +46,7 @@ public sealed class SurveyUserService : ISurveyUserService
         using var connection = _connectionFactory.CreateConnection();
 
         var userOrganizationId = connection.ExecuteScalar<int?>(
-            "SELECT organization_id FROM public.app_user WHERE id_user = @userId",
+            "SELECT id_organization FROM public.app_user WHERE id_user = @userId",
             new { userId });
 
         if (!userOrganizationId.HasValue)
@@ -68,17 +70,18 @@ public sealed class SurveyUserService : ISurveyUserService
                     s.id_survey,
                     s.name_survey,
                     s.description,
-                    s.date_open::timestamp AS date_open,
-                    GREATEST(COALESCE(os.extended_until, s.date_close), s.date_close)::timestamp AS date_close
+                    os.date_begin,
+                    os.date_end
                 FROM public.survey s
                 INNER JOIN public.organization_survey os
                     ON os.id_survey = s.id_survey
-                WHERE os.organization_id = @userOrganizationId
-                  AND GREATEST(COALESCE(os.extended_until, s.date_close), s.date_close) > NOW()
+                WHERE os.id_organization = @userOrganizationId
+                  AND os.date_begin <= CURRENT_DATE
+                  AND os.date_end >= CURRENT_DATE
                   AND NOT EXISTS (
                       SELECT 1
                       FROM public.answer a
-                      WHERE a.organization_id = @userOrganizationId
+                      WHERE a.id_organization = @userOrganizationId
                         AND a.id_survey = s.id_survey
                   )
             ) AS accessible
@@ -93,8 +96,8 @@ public sealed class SurveyUserService : ISurveyUserService
                     id_survey,
                     name_survey,
                     description,
-                    date_open,
-                    date_close
+                    date_begin,
+                    date_end
                {baseSql}
                ORDER BY id_survey DESC
                OFFSET @offset
@@ -119,6 +122,20 @@ public sealed class SurveyUserService : ISurveyUserService
             TotalCount = totalCount,
             SearchTerm = normalizedSearchTerm
         };
+    }
+
+    public Survey? GetSurveyInfo(int surveyId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        return connection.QueryFirstOrDefault<Survey>(
+            @"SELECT
+                  id_survey,
+                  name_survey,
+                  description
+              FROM public.survey
+              WHERE id_survey = @surveyId",
+            new { surveyId });
     }
 
     public IReadOnlyList<SurveyQuestionItem> GetSurveyQuestions(int surveyId)

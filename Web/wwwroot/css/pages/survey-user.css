@@ -1278,3 +1278,457 @@
         width: 100%;
     }
 }
+
+/* Client pages aligned with the admin page shell */
+.user-surveys-page__tabs .menu-tab {
+    border: none;
+}
+
+.user-surveys-page__count-badge {
+    animation: none;
+}
+
+.user-surveys-page__filters {
+    margin-bottom: 0;
+}
+
+.user-surveys-page__search {
+    flex: 1 1 320px;
+    min-width: min(100%, 260px);
+    margin-top: 0;
+}
+
+.user-surveys-page__filters .filter-select {
+    flex: 0 1 220px;
+    min-width: min(100%, 180px);
+}
+
+.user-surveys-page__search-button {
+    flex: 0 0 auto;
+}
+
+.user-surveys-page__signed-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    min-height: 44px;
+    padding: 0.75rem 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.user-surveys-page__signed-filter input {
+    margin: 0;
+}
+
+.user-surveys-page__error-message {
+    padding: 0;
+    text-align: left;
+}
+
+.user-surveys-page__loading .loading {
+    padding: 0;
+}
+
+.user-surveys-page .table-responsive,
+.user-survey-workflow .table-responsive {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.user-surveys-table__primary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.user-surveys-table__name {
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.user-surveys-table__description {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.user-surveys-table__description.is-empty {
+    font-style: italic;
+}
+
+.user-surveys-table__period {
+    color: var(--text-main);
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.user-surveys-table__status {
+    min-width: 0;
+}
+
+.user-surveys-table__status-badge,
+.user-surveys-table__signature-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border-radius: 999px;
+}
+
+.user-surveys-table__status-badge--active {
+    color: #155e75;
+    background: rgba(34, 211, 238, 0.14);
+}
+
+.user-surveys-table__status-badge--archived {
+    color: #166534;
+    background: rgba(34, 197, 94, 0.14);
+}
+
+.user-surveys-table__status-note {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.user-surveys-table__signature-badge--signed {
+    color: #166534;
+    background: rgba(34, 197, 94, 0.14);
+}
+
+.user-surveys-table__signature-badge--unsigned {
+    color: #991b1b;
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.user-surveys-table__signature-placeholder {
+    color: var(--text-light);
+}
+
+.user-surveys-table__action {
+    min-width: 120px;
+}
+
+.user-surveys-table__row:hover .user-surveys-table__name {
+    color: var(--primary-dark);
+}
+
+.user-surveys-page__pagination-wrap {
+    padding-top: 16px;
+    padding-bottom: 16px;
+}
+
+.user-surveys-page__pagination {
+    margin-top: 0;
+    justify-content: center;
+}
+
+.user-survey-modal__content {
+    width: min(1180px, calc(100vw - 48px));
+    max-width: calc(100vw - 48px);
+    max-height: calc(100dvh - 48px);
+    overflow: hidden;
+}
+
+.user-survey-modal__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+    overflow-y: auto;
+}
+
+.user-survey-modal__body .app-page {
+    width: 100%;
+    max-width: none;
+    padding: 24px;
+}
+
+.user-survey-workflow__questions {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.user-survey-question {
+    padding: 1.25rem;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.user-survey-question__title {
+    margin: 0 0 1rem;
+    color: var(--text-main);
+    font-size: 1.05rem;
+    line-height: 1.45;
+}
+
+.user-survey-question__ratings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.btn_crit {
+    width: 44px;
+    height: 44px;
+    color: var(--primary-dark);
+    font-weight: 700;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    border-radius: 12px;
+    box-shadow: none;
+}
+
+.btn_crit:hover {
+    color: white;
+    background: linear-gradient(145deg, #8a6dff 0%, #5a4acd 100%);
+    box-shadow: 0 6px 12px rgba(79, 70, 229, 0.22);
+    transform: translateY(-1px);
+}
+
+.btn_crit.active {
+    color: white;
+    background: linear-gradient(145deg, #8a6dff 0%, #5a4acd 100%);
+    box-shadow: 0 6px 14px rgba(79, 70, 229, 0.24);
+}
+
+.user-survey-question__comment {
+    margin-top: 1rem;
+}
+
+.user-survey-workflow__actions {
+    justify-content: flex-end;
+}
+
+.user-survey-workflow__success {
+    padding: 0;
+}
+
+.user-survey-workflow__signature-section,
+.user-survey-workflow__empty-section {
+    text-align: center;
+}
+
+.user-survey-workflow__signature-status {
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+.user-survey-workflow__signature-status .signed {
+    color: #166534;
+}
+
+.user-survey-workflow__signature-status .not-signed {
+    color: #991b1b;
+}
+
+.answer-block + .answer-block {
+    margin-top: 16px;
+}
+
+.answer-block {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.answer-date {
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.calendar-icon {
+    margin-right: 6px;
+}
+
+.rating-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    min-height: 32px;
+    padding: 0.25rem 0.6rem;
+    color: var(--primary-dark);
+    font-weight: 700;
+    background: rgba(99, 102, 241, 0.12);
+    border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+    .user-surveys-page__filters > * {
+        width: 100%;
+    }
+
+    .user-surveys-table__action {
+        min-width: 100%;
+    }
+
+    .user-survey-modal__content {
+        width: calc(100vw - 24px);
+        max-width: calc(100vw - 24px);
+        max-height: calc(100dvh - 24px);
+    }
+
+    .user-survey-modal__body .app-page {
+        padding: 12px;
+    }
+
+    .user-survey-workflow__actions {
+        justify-content: stretch;
+    }
+
+    .user-survey-workflow__actions > * {
+        width: 100%;
+    }
+}
+
+.survey-user-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.survey-user-cell strong {
+    color: var(--text-main);
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.survey-user-cell-note {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.survey-user-question-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.survey-user-question-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.survey-user-signature-status {
+    color: var(--text-main);
+    font-weight: 600;
+    text-align: center;
+}
+
+.survey-user-signature-status .signed {
+    color: #166534;
+}
+
+.survey-user-signature-status .not-signed {
+    color: #991b1b;
+}
+
+.survey-user-answer-date {
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.app-page[data-page="user-surveys"],
+#default_content[data-page="user-surveys"] {
+    font-size: inherit;
+}
+
+#default_content[data-page="user-surveys"] .client-surveys-page__content {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(16px, 2vw, 24px);
+}
+
+#default_content[data-page="user-surveys"] .menu-tab {
+    font: inherit;
+}
+
+#default_content[data-page="user-surveys"] .menu-bar.app-page__subnav {
+    margin-bottom: 0;
+    overflow: visible;
+    padding-top: 12px;
+}
+
+#default_content[data-page="user-surveys"] .count-badge {
+    font-size: 0.75rem;
+}
+
+#default_content[data-page="user-surveys"] .menu-tab {
+    position: relative;
+    flex: 0 0 auto;
+    width: fit-content;
+    max-width: max-content;
+    padding-right: 2.2rem;
+    overflow: visible;
+}
+
+#default_content[data-page="user-surveys"] .menu-tab .count-badge {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.35rem;
+    display: inline-flex;
+    margin-left: 0;
+    z-index: 3;
+    animation: none;
+}
+
+#default_content[data-page="user-surveys"] .menu-tab.active-tab,
+#default_content[data-page="user-surveys"] .menu-tab.active {
+    z-index: 2;
+    color: var(--primary-dark);
+    font-weight: 600;
+    background-color: #fff;
+    border-color: var(--border);
+    border-bottom-color: #fff;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+}
+
+#default_content[data-page="user-surveys"] .menu-tab:not(.active-tab):not(.active) {
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.7);
+}
+
+.client-surveys-page__content > script[data-role="survey-user-items"] {
+    display: none;
+}
+
+.client-surveys-table__row--pending {
+    background-color: rgba(239, 68, 68, 0.08) !important;
+}
+
+.client-surveys-table__row--pending:hover {
+    background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+.client-surveys-table__row--pending td {
+    color: #7f1d1d;
+}
+
+.client-surveys-table__status--pending,
+.client-surveys-table__signature--unsigned {
+    color: #991b1b;
+    font-weight: 600;
+}
+
+.client-surveys-table__signature--signed {
+    color: #166534;
+    font-weight: 600;
+}

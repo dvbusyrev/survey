@@ -1,0 +1,121 @@
+@model MainProject.Web.ViewModels.SurveyTableViewModel
+
+@{
+    var surveys = Model?.Surveys ?? Array.Empty<MainProject.Web.ViewModels.SurveyTableRowViewModel>();
+    var isArchive = Model?.IsArchive ?? false;
+}
+
+<table class="surveys-table" data-role="main-table">
+    <thead>
+        <tr class="table_tr">
+            <th class="table-th--start">Название</th>
+            <th class="table-col--date">Дата начала</th>
+            <th class="table-col--date">Дата конца</th>
+            <th class="table-th--end table-col--actions"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (surveys.Count == 0)
+        {
+            <tr>
+                <td colspan="4" class="table-empty-cell">Анкеты не найдены.</td>
+            </tr>
+        }
+        else
+        {
+            @foreach (var survey in surveys)
+            {
+                <tr class="@(isArchive ? "active" : null)"
+                    data-dblclick-call="openEditSurveyModalFromTrigger"
+                    data-dblclick-pass-element="true"
+                    data-survey-id="@survey.IdSurvey"
+                    data-survey-name="@(survey.NameSurvey ?? string.Empty)">
+                    <td>
+                        @survey.NameSurvey
+                    </td>
+                    <td class="table-col--date">
+                        @survey.DateBegin.ToString("dd.MM.yyyy")
+                    </td>
+                    <td class="table-col--date">
+                        @survey.DateEnd.ToString("dd.MM.yyyy")
+                    </td>
+                    <td class="action-icons table-col--actions">
+                        <button type="button"
+                                class="icon-container"
+                                data-click-call="createMonthlyReport"
+                                data-click-args='[@survey.IdSurvey]'
+                                aria-label="Создать отчёт">
+                            <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
+                            <span class="icon-tooltip">Создать отчёт</span>
+                        </button>
+                        <a class="icon-container"
+                           href="/surveys/@survey.IdSurvey/signatures"
+                           aria-label="Проверить подпись">
+                            <span aria-hidden="true"><i class="fas fa-check"></i></span>
+                            <span class="icon-tooltip">Проверить подпись</span>
+                        </a>
+                        <button type="button"
+                                class="icon-container"
+                                data-survey-id="@survey.IdSurvey"
+                                data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                data-click-call="openSurveyExtensionModalFromTrigger"
+                                data-click-pass-element="true"
+                                aria-label="Продлить доступ">
+                            <span aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
+                            <span class="icon-tooltip">Продлить доступ</span>
+                        </button>
+                        @if (isArchive)
+                        {
+                            <button type="button"
+                                    class="icon-container"
+                                    data-click-call="copyArchivedSurvey"
+                                    data-click-args='[@survey.IdSurvey]'
+                                    aria-label="Копировать">
+                                <span aria-hidden="true"><i class="fas fa-clipboard-copy"></i></span>
+                                <span class="icon-tooltip">Копировать</span>
+                            </button>
+                            <a class="icon-container"
+                               href="/surveys/archive/@survey.IdSurvey/edit"
+                               aria-label="Посмотреть / обновить">
+                                <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
+                                <span class="icon-tooltip">Посмотреть / обновить</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a class="icon-container"
+                               href="/surveys/@survey.IdSurvey/copy"
+                               aria-label="Копировать">
+                                <span aria-hidden="true"><i class="fas fa-clipboard-copy"></i></span>
+                                <span class="icon-tooltip">Копировать</span>
+                            </a>
+                            <a class="icon-container"
+                               href="/surveys/@survey.IdSurvey/edit"
+                               aria-label="Посмотреть / обновить">
+                                <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
+                                <span class="icon-tooltip">Посмотреть / обновить</span>
+                            </a>
+                        }
+                        <button type="button"
+                                class="icon-container"
+                                data-survey-id="@survey.IdSurvey"
+                                data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                data-click-call="deleteSurveyFromTrigger"
+                                data-click-pass-element="true"
+                                aria-label="Удалить">
+                            <span aria-hidden="true"><i class="fas fa-trash"></i></span>
+                            <span class="icon-tooltip">Удалить</span>
+                        </button>
+                    </td>
+                </tr>
+            }
+
+            @if (isArchive)
+            {
+                <tr id="none_result" class="is-hidden">
+                    <td colspan="4" class="table-empty-cell">Результаты не найдены!</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>

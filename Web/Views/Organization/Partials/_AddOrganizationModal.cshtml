@@ -7,28 +7,34 @@
         <div class="modal-body">
             <form id="organizationForm">
                 @Html.AntiForgeryToken()
+                <section class="app-page__section app-page__stack">
+                    <div id="message" class="organization-form__message"></div>
 
-                <div id="message" class="organization-form__message"></div>
+                    <div class="form-group">
+                        <label for="Name">Название организации</label>
+                        <input type="text" class="form-control" id="Name" required>
+                    </div>
 
-                <div class="form-group">
-                    <label for="Name">Название организации:</label>
-                    <input type="text" class="form-control" id="Name" required>
-                </div>
+                    <div class="form-group">
+                        <label for="ShortName">Краткое название</label>
+                        <input type="text" class="form-control" id="ShortName">
+                    </div>
 
-                <div class="form-group">
-                    <label for="organization_email">Email:</label>
-                    <input type="email" class="form-control" id="organization_email" required>
-                </div>
+                    <div class="form-group">
+                        <label for="organization_email">Email</label>
+                        <input type="email" class="form-control" id="organization_email" required>
+                    </div>
 
-                <div class="form-group">
-                    <label for="DateBegin">Дата начала:</label>
-                    <input type="date" class="form-control" id="DateBegin" required>
-                </div>
+                    <div class="form-group">
+                        <label for="DateBegin">Дата начала</label>
+                        <input type="date" class="form-control" id="DateBegin" required>
+                    </div>
 
-                <div class="form-group">
-                    <label for="DateEnd">Дата окончания:</label>
-                    <input type="date" class="form-control" id="DateEnd" required>
-                </div>
+                    <div class="form-group">
+                        <label for="DateEnd">Дата конца</label>
+                        <input type="date" class="form-control" id="DateEnd">
+                    </div>
+                </section>
             </form>
         </div>
         <div class="modal-footer">

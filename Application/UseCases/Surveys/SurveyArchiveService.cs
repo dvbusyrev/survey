@@ -29,7 +29,7 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         using var connection = _connectionFactory.CreateConnection();
 
         var userOrganizationId = connection.ExecuteScalar<int?>(
-            "SELECT organization_id FROM public.app_user WHERE id_user = @userId",
+            "SELECT id_organization FROM public.app_user WHERE id_user = @userId",
             new { userId });
 
         if (!userOrganizationId.HasValue)
@@ -90,18 +90,20 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
                     s.id_survey,
                     s.name_survey,
                     s.description,
-                    s.date_open,
-                    GREATEST(COALESCE(os.extended_until, s.date_close), s.date_close) AS date_close,
+                    COALESCE(os.date_begin, ss.date_begin) AS date_begin,
+                    COALESCE(os.date_end, ss.date_end) AS date_end,
                     a.completion_date,
                     a.csp,
-                    a.organization_id
+                    a.id_organization AS OrganizationId
                 FROM public.survey s
                 INNER JOIN public.answer a
                     ON s.id_survey = a.id_survey
                 LEFT JOIN public.organization_survey os
-                    ON os.organization_id = a.organization_id
+                    ON os.id_organization = a.id_organization
                    AND os.id_survey = a.id_survey
-                WHERE a.organization_id = @userOrganizationId
+                LEFT JOIN public.survey_schedule ss
+                    ON ss.id_survey = s.id_survey
+                WHERE a.id_organization = @userOrganizationId
             ) AS archived";
 
         var totalCount = connection.ExecuteScalar<int>(
@@ -113,11 +115,11 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
                     archived.id_survey,
                     archived.name_survey,
                     archived.description,
-                    archived.date_open,
-                    archived.date_close,
+                    archived.date_begin,
+                    archived.date_end,
                     archived.completion_date,
                     archived.csp,
-                    archived.organization_id
+                    archived.OrganizationId
                {archivedSql}
                {whereClause}
                ORDER BY archived.completion_date DESC
@@ -150,17 +152,46 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         const string sql = @"
             SELECT
                 s.id_survey,
-                s.date_open AS date_begin,
-                s.date_close AS date_end,
+                ss.date_begin AS date_begin,
+                ss.date_end AS date_end,
                 s.name_survey,
+                COALESCE(
+                    (
+                        SELECT string_agg(
+                            COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name),
+                            ', '
+                            ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)
+                        )
+                        FROM public.organization_survey os
+                        INNER JOIN public.organization o
+                            ON o.id_organization = os.id_organization
+                        WHERE os.id_survey = s.id_survey
+                    ),
+                    'Не указано'
+                ) AS organization_name,
                 s.description
             FROM public.survey s
-            WHERE s.date_close < NOW()
+            LEFT JOIN public.survey_schedule ss
+                ON ss.id_survey = s.id_survey
+            WHERE EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey os
+                    WHERE os.id_survey = s.id_survey
+                )
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.answer a
+                    WHERE a.id_survey = s.id_survey
+                )
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey os
+                    WHERE os.id_survey = s.id_survey
+                      AND os.date_end >= CURRENT_DATE
+                )
             ORDER BY id_survey DESC";
 
-        var surveys = connection.Query<ArchivedSurvey>(sql).ToList();
-        AttachArchivedSurveyQuestions(connection, surveys);
-        return surveys;
+        return connection.Query<ArchivedSurvey>(sql).ToList();
     }
 
     public async Task<int> CopyArchiveSurveyAsync(ArchiveSurveyCopyRequest request)
@@ -170,14 +201,31 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
 
         var archivedSurvey = await connection.QueryFirstOrDefaultAsync<ArchivedSurvey>(
             @"SELECT
-                  id_survey,
-                  date_open AS date_begin,
-                  date_close AS date_end,
-                  name_survey,
-                  description
-              FROM public.survey
-              WHERE id_survey = @surveyId
-                AND date_close < NOW()",
+                  s.id_survey,
+                  ss.date_begin AS date_begin,
+                  ss.date_end AS date_end,
+                  s.name_survey,
+                  s.description
+              FROM public.survey s
+              LEFT JOIN public.survey_schedule ss
+                ON ss.id_survey = s.id_survey
+              WHERE s.id_survey = @surveyId
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey os
+                    WHERE os.id_survey = s.id_survey
+                )
+                AND EXISTS (
+                    SELECT 1
+                    FROM public.answer a
+                    WHERE a.id_survey = s.id_survey
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey os
+                    WHERE os.id_survey = s.id_survey
+                      AND os.date_end >= CURRENT_DATE
+                )",
             new { surveyId = request.SurveyId },
             transaction);
 
@@ -198,17 +246,14 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
 
         var newSurveyId = await connection.ExecuteScalarAsync<int>(
             @"INSERT INTO public.survey
-                (name_survey, description, date_create, date_open, date_close)
+                (name_survey, description)
               VALUES
-                (@nameSurvey, @description, @dateCreate, @dateOpen, @dateClose)
+                (@nameSurvey, @description)
               RETURNING id_survey;",
             new
             {
                 nameSurvey = archivedSurvey.NameSurvey,
-                description = archivedSurvey.Description ?? string.Empty,
-                dateCreate = DateTime.Now,
-                dateOpen = archivedSurvey.DateBegin.Date,
-                dateClose = archivedSurvey.DateEnd.Date
+                description = archivedSurvey.Description ?? string.Empty
             },
             transaction);
 
@@ -228,51 +273,5 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
 
         transaction.Commit();
         return newSurveyId;
-    }
-
-    private static void AttachArchivedSurveyQuestions(
-        IDbConnection connection,
-        IEnumerable<ArchivedSurvey> surveys)
-    {
-        var surveyList = surveys.ToList();
-        if (surveyList.Count == 0)
-        {
-            return;
-        }
-
-        var surveyIds = surveyList.Select(s => s.IdSurvey).Distinct().ToArray();
-        var rows = connection.Query<ArchiveQuestionLookupRow>(
-            @"SELECT
-                  id_survey AS SurveyId,
-                  question_order AS QuestionOrder,
-                  question_text AS QuestionText
-              FROM public.survey_question
-              WHERE id_survey = ANY(@surveyIds)
-              ORDER BY id_survey, question_order",
-            new { surveyIds });
-
-        var questionLookup = rows
-            .GroupBy(row => row.SurveyId)
-            .ToDictionary(
-                group => group.Key,
-                group => (List<SurveyQuestionItem>)group
-                    .Select(row => new SurveyQuestionItem
-                    {
-                        Id = row.QuestionOrder,
-                        Text = row.QuestionText
-                    })
-                    .ToList());
-
-        foreach (var survey in surveyList)
-        {
-            survey.Questions = questionLookup.GetValueOrDefault(survey.IdSurvey, new List<SurveyQuestionItem>());
-        }
-    }
-
-    private sealed class ArchiveQuestionLookupRow
-    {
-        public int SurveyId { get; init; }
-        public int QuestionOrder { get; init; }
-        public string QuestionText { get; init; } = string.Empty;
     }
 }

@@ -10,52 +10,33 @@
         let organizations = [];
         let loading = true;
         let error = '';
-        let extensions = [{ organizationId: '', extendedUntil: '' }];
+        let extension = { organizationId: '', extendedUntil: '' };
         const today = new Date().toISOString().split('T')[0];
 
         const isFormValid = () => {
-            return extensions.every((item) => item.organizationId && item.extendedUntil)
-                && extensions.some((item) => item.extendedUntil > today);
+            return Boolean(
+                extension.organizationId
+                && extension.extendedUntil
+                && extension.extendedUntil > today
+            );
         };
 
-        const isOrganizationSelected = (organizationId, currentIndex) => {
-            return extensions.some((item, index) => index !== currentIndex && item.organizationId === organizationId);
-        };
-
-        const handleChange = (index, field, value) => {
-            extensions = extensions.map((item, itemIndex) => {
-                if (itemIndex !== index) {
-                    return item;
-                }
-
-                return {
-                    ...item,
-                    [field]: value
-                };
-            });
-            render();
-        };
-
-        const addExtensionRow = () => {
-            extensions = [...extensions, { organizationId: '', extendedUntil: '' }];
-            render();
-        };
-
-        const removeExtensionRow = (index) => {
-            extensions = extensions.length > 1
-                ? extensions.filter((_, itemIndex) => itemIndex !== index)
-                : extensions;
+        const handleChange = (field, value) => {
+            extension = {
+                ...extension,
+                [field]: value
+            };
             render();
         };
 
         const handleSubmit = async () => {
-            if (extensions.some((item) => !item.organizationId || !item.extendedUntil)) {
+            if (!extension.organizationId || !extension.extendedUntil) {
                 alert('Пожалуйста, заполните все поля.');
                 return;
             }
 
-            if (extensions.some((item) => item.extendedUntil <= today)) {
-                alert('Дата окончания должна быть в будущем.');
+            if (extension.extendedUntil <= today) {
+                alert('Дата конца должна быть в будущем.');
                 return;
             }
 
@@ -68,10 +49,10 @@
                     },
                     body: JSON.stringify({
                         surveyId: survey?.id_survey,
-                        extensions: extensions.map((item) => ({
-                            organizationId: parseInt(item.organizationId, 10),
-                            extendedUntil: item.extendedUntil
-                        }))
+                        extensions: [{
+                            organizationId: parseInt(extension.organizationId, 10),
+                            extendedUntil: extension.extendedUntil
+                        }]
                     })
                 });
 
@@ -85,9 +66,13 @@
                 }
 
                 if (!response.ok || !responseData?.success) {
+                    const validationErrors = Array.isArray(responseData?.errors)
+                        ? responseData.errors.filter(Boolean).join('\n')
+                        : '';
                     throw new Error(
-                        responseData?.message
+                        validationErrors
                         || responseData?.error
+                        || responseData?.message
                         || responseText
                         || (window.getResponseErrorMessage
                             ? window.getResponseErrorMessage(response, 'Ошибка продления')
@@ -95,8 +80,19 @@
                     );
                 }
 
-                alert(responseData.message || 'Доступ успешно продлён.');
                 onClose();
+                if (typeof window.handleAdminMutationSuccess === 'function') {
+                    await window.handleAdminMutationSuccess({
+                        message: responseData.message || 'Доступ успешно продлён.',
+                        tabName: typeof window.resolveCurrentAdminTab === 'function'
+                            ? window.resolveCurrentAdminTab()
+                            : 'get_surveys',
+                        fallbackUrl: window.location.pathname
+                    });
+                    return;
+                }
+
+                alert(responseData.message || 'Доступ успешно продлён.');
                 window.location.reload();
             } catch (submitError) {
                 console.error('Ошибка продления анкеты:', submitError);
@@ -120,7 +116,6 @@
             const errorNode = root.querySelector('[data-role="error"]');
             const rowsContainer = root.querySelector('[data-role="rows-container"]');
             const emptyState = root.querySelector('[data-role="empty-state"]');
-            const addRowButton = root.querySelector('[data-role="add-row"]');
             const submitButton = root.querySelector('[data-role="submit"]');
             const cancelButton = root.querySelector('[data-role="cancel"]');
 
@@ -139,60 +134,44 @@
             if (emptyState) {
                 emptyState.style.display = !loading && !error && organizations.length === 0 ? '' : 'none';
             }
-            if (addRowButton) {
-                addRowButton.style.display = showRows ? '' : 'none';
-            }
 
             if (showRows && rowsContainer) {
-                extensions.forEach((extension, index) => {
-                    const row = rowTemplate.content.firstElementChild.cloneNode(true);
-                    const orgSelect = row.querySelector('[data-role="org-select"]');
-                    const dateInput = row.querySelector('[data-role="date-input"]');
-                    const removeButton = row.querySelector('[data-role="remove-row"]');
+                const row = rowTemplate.content.firstElementChild.cloneNode(true);
+                const orgSelect = row.querySelector('[data-role="org-select"]');
+                const dateInput = row.querySelector('[data-role="date-input"]');
 
-                    if (orgSelect) {
-                        const defaultOption = document.createElement('option');
-                        defaultOption.value = '';
-                        defaultOption.textContent = '-- Выберите организацию --';
-                        orgSelect.appendChild(defaultOption);
+                if (orgSelect) {
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = '-- Выберите организацию --';
+                    orgSelect.appendChild(defaultOption);
 
-                        organizations.forEach((organization) => {
-                            const option = document.createElement('option');
-                            const alreadySelected = isOrganizationSelected(organization.organizationId, index);
-                            option.value = organization.organizationId;
-                            option.disabled = alreadySelected;
-                            option.textContent = `${organization.organizationName}${alreadySelected ? ' (уже выбрана)' : ''}`;
-                            if (extension.organizationId === organization.organizationId) {
-                                option.selected = true;
-                            }
-                            orgSelect.appendChild(option);
-                        });
+                    organizations.forEach((organization) => {
+                        const option = document.createElement('option');
+                        option.value = organization.organizationId;
+                        option.textContent = organization.organizationName;
+                        if (extension.organizationId === organization.organizationId) {
+                            option.selected = true;
+                        }
+                        orgSelect.appendChild(option);
+                    });
 
-                        orgSelect.addEventListener('change', (event) => {
-                            handleChange(index, 'organizationId', event.target.value);
-                        });
-                    }
+                    orgSelect.addEventListener('change', (event) => {
+                        handleChange('organizationId', event.target.value);
+                    });
+                }
 
-                    if (dateInput) {
-                        dateInput.value = extension.extendedUntil;
-                        dateInput.min = today;
-                        dateInput.addEventListener('change', (event) => {
-                            handleChange(index, 'extendedUntil', event.target.value);
-                        });
-                    }
+                if (dateInput) {
+                    dateInput.value = extension.extendedUntil;
+                    dateInput.min = today;
+                    dateInput.addEventListener('change', (event) => {
+                        handleChange('extendedUntil', event.target.value);
+                    });
+                }
 
-                    if (removeButton) {
-                        removeButton.style.display = extensions.length > 1 ? '' : 'none';
-                        removeButton.addEventListener('click', () => removeExtensionRow(index));
-                    }
-
-                    rowsContainer.appendChild(row);
-                });
+                rowsContainer.appendChild(row);
             }
 
-            if (addRowButton) {
-                addRowButton.addEventListener('click', addExtensionRow);
-            }
             if (submitButton) {
                 submitButton.disabled = !isFormValid() || loading;
                 submitButton.textContent = loading ? 'Обработка...' : 'Продлить доступ';
@@ -224,9 +203,9 @@
                 const data = await response.json();
                 organizations = Array.isArray(data)
                     ? data
-                        .filter((org) => org && (org.organization_id !== undefined || org.id !== undefined))
+                        .filter((org) => org && (org.id_organization !== undefined || org.id !== undefined))
                         .map((org) => ({
-                            organizationId: String(org.organization_id ?? org.id),
+                            organizationId: String(org.id_organization ?? org.id),
                             organizationName: String(org.organization_name ?? org.name ?? '')
                         }))
                         .filter((org) => org.organizationName)

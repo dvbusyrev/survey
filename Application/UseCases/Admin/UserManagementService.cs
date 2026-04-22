@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text;
 using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
@@ -35,6 +36,15 @@ public sealed class UserManagementService : IUserManagementService
         return GetUsers(includeArchived: true);
     }
 
+    public UserListPageViewModel GetArchivedUsersPage()
+    {
+        return new UserListPageViewModel
+        {
+            Users = GetUsers(includeArchived: true),
+            Organizations = GetOrganizationOptions()
+        };
+    }
+
     public User? GetUserById(int id)
     {
         using var connection = _connectionFactory.CreateConnection();
@@ -46,15 +56,15 @@ public sealed class UserManagementService : IUserManagementService
                 u.full_name,
                 u.name_user,
                 u.email,
-                COALESCE(o.organization_name, '') AS organization_name,
-                COALESCE(u.organization_id, 0) AS organization_id,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
+                COALESCE(u.id_organization, 0) AS OrganizationId,
                 u.name_role,
                 u.date_begin,
                 u.date_end,
                 u.hash_password
             FROM public.app_user u
             LEFT JOIN public.organization o
-                ON u.organization_id = o.organization_id
+                ON u.id_organization = o.id_organization
             WHERE u.id_user = @id;
             """,
             new { id });
@@ -62,7 +72,13 @@ public sealed class UserManagementService : IUserManagementService
 
     public OperationResult CreateUser(UserSaveRequest request)
     {
-        if (!TryValidateUserCreateRequest(request, out var organizationId, out var normalizedRole, out var validationError))
+        if (!TryValidateUserCreateRequest(
+            request,
+            out var organizationId,
+            out var normalizedRole,
+            out var dateBegin,
+            out var dateEnd,
+            out var validationError))
         {
             return new OperationResult
             {
@@ -77,13 +93,14 @@ public sealed class UserManagementService : IUserManagementService
         var affectedRows = connection.Execute(
             """
             INSERT INTO public.app_user (
-                organization_id,
+                id_organization,
                 name_user,
                 full_name,
                 name_role,
                 hash_password,
                 email,
-                date_begin
+                date_begin,
+                date_end
             )
             VALUES (
                 @organizationId,
@@ -92,7 +109,8 @@ public sealed class UserManagementService : IUserManagementService
                 @role,
                 @hashPassword,
                 @email,
-                NOW()
+                @dateBegin,
+                @dateEnd
             );
             """,
             new
@@ -102,14 +120,16 @@ public sealed class UserManagementService : IUserManagementService
                 fullName = request.FullName.Trim(),
                 role = normalizedRole,
                 hashPassword = PasswordHasher.HashPassword(request.Username.Trim(), request.Password),
-                email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim()
+                email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                dateBegin,
+                dateEnd
             });
 
         return new OperationResult
         {
             Success = affectedRows > 0,
             Message = affectedRows > 0
-                ? $"Добавлен пользователь: {request.Username.Trim()}"
+                ? $"Добавлен Клиент: {request.Username.Trim()}"
                 : "Не удалось добавить запись в БД"
         };
     }
@@ -133,7 +153,7 @@ public sealed class UserManagementService : IUserManagementService
             SET
                 name_user = @userName,
                 full_name = @fullName,
-                organization_id = @organizationId,
+                id_organization = @organizationId,
                 name_role = @role,
                 email = @email,
                 date_begin = @dateBegin,
@@ -167,13 +187,47 @@ public sealed class UserManagementService : IUserManagementService
             Success = affectedRows > 0,
             Message = affectedRows > 0
                 ? "Данные пользователя успешно обновлены"
-                : "Пользователь не найден или данные не изменились"
+                : "Клиент не найден или данные не изменились"
         };
     }
 
     public OperationResult DeleteUser(int id)
     {
         using var connection = _connectionFactory.CreateConnection();
+
+        var user = connection.QueryFirstOrDefault<UserDeleteCandidate>(
+            """
+            SELECT
+                id_user AS IdUser,
+                full_name AS FullName,
+                name_user AS UserName
+            FROM public.app_user
+            WHERE id_user = @id;
+            """,
+            new { id });
+
+        if (user == null)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = "Пользователь с указанным ID не найден."
+            };
+        }
+
+        var answeredSurveyNames = GetUserAnsweredSurveyNames(connection, id);
+        var signedSurveyNames = GetUserSignedSurveyNames(connection, id);
+        if (answeredSurveyNames.Count > 0 || signedSurveyNames.Count > 0)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = BuildUserDeleteBlockedMessage(
+                    ResolveUserDisplayName(user),
+                    answeredSurveyNames,
+                    signedSurveyNames)
+            };
+        }
 
         var affectedRows = connection.Execute(
             "DELETE FROM public.app_user WHERE id_user = @id;",
@@ -206,11 +260,12 @@ public sealed class UserManagementService : IUserManagementService
         return connection.Query<SelectionOption>(
             """
             SELECT
-                organization_id AS Id,
-                organization_name AS Name
+                id_organization AS Id,
+                COALESCE(NULLIF(organization_short_name, ''), organization_name) AS Name
             FROM public.organization
-            WHERE block = false
-            ORDER BY organization_name;
+            WHERE date_end IS NULL
+               OR date_end >= CURRENT_DATE
+            ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name);
             """).ToList();
     }
 
@@ -218,10 +273,14 @@ public sealed class UserManagementService : IUserManagementService
         UserSaveRequest request,
         out int organizationId,
         out string normalizedRole,
+        out DateTime? dateBegin,
+        out DateTime? dateEnd,
         out string validationError)
     {
         normalizedRole = AppRoles.Normalize(request.Role);
         validationError = string.Empty;
+        dateBegin = null;
+        dateEnd = null;
 
         if (!TryParseOrganizationId(request.OrganizationId, out organizationId))
         {
@@ -244,6 +303,23 @@ public sealed class UserManagementService : IUserManagementService
         if (!AppRoles.IsSupported(normalizedRole))
         {
             validationError = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}";
+            return false;
+        }
+
+        if (!TryParseOptionalDate(request.DateBegin, out dateBegin, out validationError))
+        {
+            dateEnd = null;
+            return false;
+        }
+
+        if (!TryParseOptionalDate(request.DateEnd, out dateEnd, out validationError))
+        {
+            return false;
+        }
+
+        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value < dateBegin.Value)
+        {
+            validationError = "Дата конца не может быть раньше даты начала.";
             return false;
         }
 
@@ -313,7 +389,7 @@ public sealed class UserManagementService : IUserManagementService
 
         if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value < dateBegin.Value)
         {
-            validationError = "Дата окончания не может быть раньше даты начала.";
+            validationError = "Дата конца не может быть раньше даты начала.";
             return false;
         }
 
@@ -400,12 +476,118 @@ public sealed class UserManagementService : IUserManagementService
         return true;
     }
 
+    private static string ResolveUserDisplayName(UserDeleteCandidate user)
+    {
+        if (!string.IsNullOrWhiteSpace(user.FullName))
+        {
+            return user.FullName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.UserName))
+        {
+            return user.UserName.Trim();
+        }
+
+        return $"ID {user.IdUser}";
+    }
+
+    private static string BuildUserDeleteBlockedMessage(
+        string userDisplayName,
+        IReadOnlyList<string> answeredSurveyNames,
+        IReadOnlyList<string> signedSurveyNames)
+    {
+        var builder = new StringBuilder();
+        builder.Append($"Пользователь \"{userDisplayName}\" не может быть удалён, так как уже работал с анкетами.");
+
+        if (answeredSurveyNames.Count > 0)
+        {
+            builder.AppendLine();
+            builder.Append("Отвечал на анкеты: ");
+            builder.Append(string.Join(", ", answeredSurveyNames));
+            builder.Append('.');
+        }
+
+        if (signedSurveyNames.Count > 0)
+        {
+            builder.AppendLine();
+            builder.Append("Подписывал анкеты: ");
+            builder.Append(string.Join(", ", signedSurveyNames));
+            builder.Append('.');
+        }
+
+        return builder.ToString();
+    }
+
+    private static IReadOnlyList<string> GetUserAnsweredSurveyNames(
+        global::Npgsql.NpgsqlConnection connection,
+        int userId)
+    {
+        return connection.Query<string>(
+            """
+            SELECT DISTINCT
+                COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
+            FROM (
+                SELECT
+                    changed_by_user_id,
+                    CASE
+                        WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
+                            THEN (row_data->>'id_survey')::integer
+                        ELSE NULL
+                    END AS SurveyId,
+                    COALESCE(row_data->>'csp', '') AS SignatureValue
+                FROM public.answer_l
+            ) audit_row
+            LEFT JOIN public.survey s
+                ON s.id_survey = audit_row.SurveyId
+            WHERE audit_row.changed_by_user_id = @userId
+              AND audit_row.SurveyId IS NOT NULL
+              AND audit_row.SignatureValue = ''
+            ORDER BY survey_name;
+            """,
+            new { userId })
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetUserSignedSurveyNames(
+        global::Npgsql.NpgsqlConnection connection,
+        int userId)
+    {
+        return connection.Query<string>(
+            """
+            SELECT DISTINCT
+                COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
+            FROM (
+                SELECT
+                    changed_by_user_id,
+                    CASE
+                        WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
+                            THEN (row_data->>'id_survey')::integer
+                        ELSE NULL
+                    END AS SurveyId,
+                    COALESCE(row_data->>'csp', '') AS SignatureValue
+                FROM public.answer_l
+            ) audit_row
+            LEFT JOIN public.survey s
+                ON s.id_survey = audit_row.SurveyId
+            WHERE audit_row.changed_by_user_id = @userId
+              AND audit_row.SurveyId IS NOT NULL
+              AND audit_row.SignatureValue <> ''
+            ORDER BY survey_name;
+            """,
+            new { userId })
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static class UserQueries
     {
         public const string ActiveUsers = """
             SELECT
                 u.id_user,
-                COALESCE(o.organization_name, '') AS organization_name,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
                 u.name_user,
                 u.name_role,
                 u.hash_password,
@@ -413,10 +595,10 @@ public sealed class UserManagementService : IUserManagementService
                 u.date_end,
                 u.full_name,
                 u.email,
-                COALESCE(u.organization_id, 0) AS organization_id
+                COALESCE(u.id_organization, 0) AS OrganizationId
             FROM public.app_user u
             LEFT JOIN public.organization o
-                ON u.organization_id = o.organization_id
+                ON u.id_organization = o.id_organization
             WHERE u.date_end IS NULL OR u.date_end >= CURRENT_DATE
             ORDER BY COALESCE(u.full_name, u.name_user), u.id_user;
             """;
@@ -424,7 +606,7 @@ public sealed class UserManagementService : IUserManagementService
         public const string ArchivedUsers = """
             SELECT
                 u.id_user,
-                COALESCE(o.organization_name, '') AS organization_name,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
                 u.name_user,
                 u.name_role,
                 u.hash_password,
@@ -432,12 +614,19 @@ public sealed class UserManagementService : IUserManagementService
                 u.date_end,
                 u.full_name,
                 u.email,
-                COALESCE(u.organization_id, 0) AS organization_id
+                COALESCE(u.id_organization, 0) AS OrganizationId
             FROM public.app_user u
             LEFT JOIN public.organization o
-                ON u.organization_id = o.organization_id
+                ON u.id_organization = o.id_organization
             WHERE u.date_end < CURRENT_DATE
             ORDER BY COALESCE(u.full_name, u.name_user), u.id_user;
             """;
+    }
+
+    private sealed class UserDeleteCandidate
+    {
+        public int IdUser { get; set; }
+        public string? FullName { get; set; }
+        public string? UserName { get; set; }
     }
 }

@@ -15,3 +15,9 @@ COMMIT;
 \ir 001_unified_schema.sql
 \ir 002_repair_survey_foreign_keys.sql
 \ir 003_add_update_metadata.sql
+\ir 004_add_organization_short_name.sql
+\ir 005_add_organization_survey_schedule.sql
+\ir 006_move_organization_survey_schedule_sync_to_triggers.sql
+\ir 007_rename_schedule_dates_and_remove_legacy_columns.sql
+\ir 008_convert_dates_and_rename_organization_id.sql
+\ir 009_derive_survey_schedule_from_assignments.sql

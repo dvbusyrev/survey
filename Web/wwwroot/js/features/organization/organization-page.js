@@ -25,6 +25,37 @@
         }
     }
 
+    function refreshOrganizationList() {
+        if (typeof window.refreshAdminUi === 'function') {
+            window.refreshAdminUi({
+                tabName: 'get_organization',
+                fallbackUrl: '/organizations',
+                options: {
+                    force: true,
+                    historyMode: 'replace',
+                    scrollMode: 'carry'
+                }
+            });
+            return;
+        }
+
+        if (typeof window.refreshAdminTab === 'function') {
+            window.refreshAdminTab('get_organization');
+            return;
+        }
+
+        if (typeof window.handleTabClick === 'function') {
+            window.handleTabClick('get_organization', {
+                force: true,
+                scrollMode: 'restore'
+            });
+            return;
+        }
+
+        window.AppScrollState?.saveCurrentPosition?.();
+        window.location.assign('/organizations');
+    }
+
     function resetAddOrganizationForm() {
         const form = byId('organizationForm');
         const message = byId('message');
@@ -65,6 +96,8 @@
             const errorText = await response.text();
             throw new Error(errorText || 'Ошибка обновления организации');
         }
+
+        return response.text();
     }
 
     async function createOrganization() {
@@ -74,12 +107,13 @@
         const message = byId('message');
         const payload = {
             Name: byId('Name')?.value?.trim() || '',
+            ShortName: byId('ShortName')?.value?.trim() || '',
             Email: byId('organization_email')?.value?.trim() || '',
             DateBegin: byId('DateBegin')?.value || '',
             DateEnd: byId('DateEnd')?.value || ''
         };
 
-        if (!payload.Name || !payload.Email || !payload.DateBegin || !payload.DateEnd) {
+        if (!payload.Name || !payload.Email || !payload.DateBegin) {
             showMessage(message, 'Заполните все поля.', false);
             return;
         }
@@ -99,21 +133,27 @@
                 throw new Error(result.message || 'Ошибка добавления организации');
             }
 
-            showMessage(message, result.message || 'Организация добавлена.', true);
             closeOrganizationModal('addOrganizationModal');
-            if (typeof window.handleTabClick === 'function') {
-                window.handleTabClick('get_organization');
-            } else {
-                window.location.assign('/organizations');
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: result.message || 'Организация добавлена.',
+                    tabName: 'get_organization',
+                    fallbackUrl: '/organizations'
+                });
+                return;
             }
+
+            showMessage(message, result.message || 'Организация добавлена.', true);
+            refreshOrganizationList();
         } catch (error) {
             showMessage(message, error.message || 'Ошибка добавления организации', false);
         }
     }
 
-    function openEditOrganizationModal(id, name, email, dateBegin, dateEnd) {
+    function openEditOrganizationModal(id, name, shortName, email, dateBegin, dateEnd) {
         byId('editOrganizationId').value = id || '';
         byId('organizationName').value = name || '';
+        byId('organizationShortName').value = shortName || '';
         byId('organizationEmail').value = email || '';
         byId('organizationDateBegin').value = dateBegin || '';
         byId('organizationDateEnd').value = dateEnd || '';
@@ -138,6 +178,7 @@
         openEditOrganizationModal(
             organizationId,
             trigger?.dataset?.organizationName || '',
+            trigger?.dataset?.organizationShortName || '',
             trigger?.dataset?.organizationEmail || '',
             trigger?.dataset?.organizationDateBegin || '',
             trigger?.dataset?.organizationDateEnd || ''
@@ -152,25 +193,32 @@
         }
 
         const name = byId('organizationName')?.value?.trim() || '';
+        const shortName = byId('organizationShortName')?.value?.trim() || '';
         const email = byId('organizationEmail')?.value?.trim() || '';
         const dateBegin = byId('organizationDateBegin')?.value || '';
         const dateEnd = byId('organizationDateEnd')?.value || '';
 
         const payload = {
             Name: name,
+            ShortName: shortName,
             Email: email,
             DateBegin: dateBegin,
             DateEnd: dateEnd
         };
 
         try {
-            await submitOrganizationUpdate(id, payload);
+            const successMessage = await submitOrganizationUpdate(id, payload);
             closeOrganizationModal('editOrganizationModal');
-            if (typeof window.handleTabClick === 'function') {
-                window.handleTabClick('get_organization');
-            } else {
-                window.location.assign('/organizations');
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: successMessage || 'Организация успешно обновлена.',
+                    tabName: 'get_organization',
+                    fallbackUrl: '/organizations'
+                });
+                return;
             }
+
+            refreshOrganizationList();
         } catch (error) {
             alert(error.message || 'Ошибка обновления организации');
         }
@@ -179,14 +227,24 @@
     async function updateOrganizationPage(id) {
         const payload = {
             Name: byId('name')?.value?.trim() || '',
+            ShortName: byId('short_name')?.value?.trim() || '',
             Email: byId('email')?.value?.trim() || '',
             DateBegin: byId('date_begin')?.value || '',
             DateEnd: byId('date_end')?.value || ''
         };
 
         try {
-            await submitOrganizationUpdate(id, payload);
-            window.location.assign('/organizations');
+            const successMessage = await submitOrganizationUpdate(id, payload);
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: successMessage || 'Организация успешно обновлена.',
+                    tabName: 'get_organization',
+                    fallbackUrl: '/organizations'
+                });
+                return;
+            }
+
+            refreshOrganizationList();
         } catch (error) {
             alert(error.message || 'Ошибка обновления организации');
         }
@@ -208,14 +266,21 @@
                 }
             });
 
+            const responseText = await response.text();
             if (!response.ok) {
-                const text = await response.text();
-                throw new Error(text || 'Ошибка удаления организации');
+                throw new Error(responseText || 'Ошибка удаления организации');
             }
 
-            if (typeof window.handleTabClick === 'function') {
-                window.handleTabClick('get_organization');
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: responseText || 'Организация успешно удалена.',
+                    tabName: 'get_organization',
+                    fallbackUrl: '/organizations'
+                });
+                return;
             }
+
+            refreshOrganizationList();
         } catch (error) {
             alert(error.message || 'Ошибка удаления организации');
         }

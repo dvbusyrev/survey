@@ -22,7 +22,6 @@
 .answers-page__check,
 .answers-page__view,
 .answers-page__signatures,
-.answers-page__statistics,
 .answers-page__update {
   max-width: 1200px;
   margin: 0 auto;
@@ -129,11 +128,6 @@
 .not-signed {
   background-color: #fff3cd;
   color: #664d03;
-}
-
-.answers-page__statistics {
-  background-color: #f5f5f5;
-  min-height: 100vh;
 }
 
 .answers-page__statistics .note,

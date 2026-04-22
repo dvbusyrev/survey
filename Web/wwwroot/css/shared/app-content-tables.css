@@ -2,13 +2,17 @@
 #content_user {
   width: 100%;
   min-width: 0;
-  min-height: calc(100dvh - var(--header-height) - (var(--page-gap) * 2));
+  min-height: 0;
+  height: 100%;
   margin: 0;
   padding: clamp(12px, 1.4vw, 18px) clamp(16px, 2vw, 28px) clamp(16px, 2vw, 28px);
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
 }
 
 .content-wrapper {
@@ -52,7 +56,6 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 1.5rem;
   padding-bottom: 4px;
   overflow-x: auto;
   border-bottom: 1px solid var(--border);
@@ -138,6 +141,7 @@
 }
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) {
+  --app-table-font-size: 0.8rem;
   width: 100%;
   min-width: 100%;
   margin-top: 0;
@@ -152,13 +156,15 @@
 }
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
-  padding: 0.68rem;
+  padding: 0.8em;
   color: #4a5568;
-  font-size: 0.95rem;
-  line-height: 1.4;
+  font-size: var(--app-table-font-size);
+  line-height: 1.35;
   text-align: left;
   vertical-align: middle;
   white-space: normal;
+  -webkit-hyphens: auto;
+  /*hyphens: auto;*/
   word-break: normal;
   overflow-wrap: break-word;
   border-bottom: 1px solid #e2e8f0;
@@ -168,16 +174,46 @@
   overflow: visible;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th.table-col--date, td.table-col--date) {
-  min-width: 132px;
-  white-space: nowrap;
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-col--date {
+  width: 10ch;
+  min-width: 10ch;
+  max-width: 13ch;
+  white-space: normal;
+  text-wrap: balance;
+  -webkit-hyphens: none;
+  hyphens: none;
+  overflow-wrap: normal;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td.table-col--date {
+  cursor: pointer;
+  min-width: 10ch;
+  max-width: 13ch;
+  white-space: normal;
+  text-wrap: balance;
+  -webkit-hyphens: none;
+  hyphens: none;
+  overflow-wrap: normal;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td {
+  cursor: pointer;
 }
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th.table-col--actions, td.table-col--actions) {
-  width: 1%;
-  min-width: max-content;
-  white-space: nowrap;
+  width: clamp(8.5rem, 8vw, 9rem);
+  min-width: 6.5rem;
+  max-width: 9rem;
+  white-space: normal;
   overflow: visible;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-col--actions {
+  text-align: center;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td.table-col--actions {
+  text-align: center;
 }
 
 .table_tr {
@@ -195,16 +231,54 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: normal;
-  overflow-wrap: anywhere;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  word-break: normal;
+  overflow-wrap: break-word;
   border-bottom: 2px solid #764ba2;
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable {
+  position: relative;
+  padding-right: 2rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable::after {
+  content: "↕";
+  position: absolute;
+  top: 50%;
+  right: 0.7rem;
+  color: rgba(76, 84, 104, 0.55);
+  font-size: 0.9em;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:hover::after,
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible::after {
+  color: rgba(91, 95, 199, 0.9);
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="asc"]::after {
+  content: "▲";
+  color: #5b5fc7;
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="desc"]::after {
+  content: "▼";
+  color: #5b5fc7;
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.35);
+  outline-offset: -2px;
 }
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:hover {
   background-color: rgba(240, 248, 255, 0.8);
-}
-
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(tbody tr[data-click-call], tbody td[data-click-call]) {
-  cursor: pointer;
 }
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:nth-child(even) {
@@ -216,12 +290,21 @@
 }
 
 .action-icons {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  text-align: center;
+  font-size: 0;
+  line-height: 0;
+  white-space: normal;
   overflow: visible;
+}
+
+.action-icons > * {
+  display: inline-flex;
+  vertical-align: top;
+  margin: 5px;
+}
+
+.action-icons > *:last-child {
+  margin-bottom: 0;
 }
 
 .action-icons__form {
@@ -235,7 +318,8 @@
 
 .table-action-link {
   color: var(--primary-dark);
-  font-size: 0.82rem;
+  font-size: inherit;
+  line-height: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;
   background: transparent;
@@ -270,6 +354,10 @@
   cursor: pointer;
   overflow: visible;
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+td.action-icons {
+  display: table-cell;
 }
 
 .icon-container:focus-visible {
@@ -406,7 +494,10 @@
   }
 
   :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
-    white-space: nowrap;
+    white-space: normal;
+    -webkit-hyphens: auto;
+    hyphens: auto;
+    overflow-wrap: break-word;
   }
 
   .menu-bar {

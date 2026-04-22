@@ -1,5 +1,4 @@
-.help-page__message,
-.reports-page__summary {
+.help-page__message {
   margin: 0;
   color: var(--text-main);
   font-size: 1rem;
@@ -7,7 +6,6 @@
 }
 
 .help-page__actions,
-.reports-page__quarter-list,
 .email-settings-page__actions {
   display: flex;
   flex-wrap: wrap;
@@ -66,42 +64,83 @@
   justify-content: center;
 }
 
-.reports-page__link {
-  padding: 0;
-  color: var(--primary);
-  text-decoration: underline;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font: inherit;
+.reports-page__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 24px);
 }
 
-.reports-page__link:hover,
-.reports-page__link:focus-visible {
-  color: var(--primary-dark);
-}
-
-.reports-page__quarter-list {
-  flex-direction: column;
-}
-
-.reports-page__quarter-row {
+.reports-page__card {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100%;
+}
+
+.reports-page__card-header {
+  display: grid;
+  gap: 8px;
+}
+
+.reports-page__card-title {
+  margin: 0;
+  line-height: 1.2;
+  color: var(--text-main);
+}
+
+.reports-page__card-description,
+.reports-page__empty-text {
+margin: 0;
+color: var(--text-secondary);
+font-size: 0.98rem;
+line-height: 1.6;
+}
+
+.reports-page__controls {
+display: grid;
+grid-template-columns: repeat(2, minmax(0, 1fr));
+gap: 16px;
+align-items: end;
+}
+
+.reports-page__field {
+display: grid;
+gap: 8px;
+min-width: 0;
+}
+
+.reports-page__field label {
+
+font-size: 0.95rem;
+
 }
 
 .reports-page__quarter-select {
-  min-width: 180px;
+min-width: 0;
+margin-top: 0;
 }
 
-@media (max-width: 768px) {
-  .reports-page__quarter-row {
-    align-items: stretch;
-  }
+.reports-page__submit {
+grid-column: 1 / -1;
+width: 100%;
+}
 
-  .reports-page__quarter-select {
-    width: 100%;
-  }
+.reports-page__empty-state {
+text-align: center;
+}
+
+@media (max-width: 900px) {
+.reports-page__grid {
+grid-template-columns: minmax(0, 1fr);
+}
+}
+
+@media (max-width: 640px) {
+.reports-page__controls {
+grid-template-columns: minmax(0, 1fr);
+}
+
+.reports-page__submit {
+grid-column: auto;
+}
 }

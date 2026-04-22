@@ -1,4 +1,5 @@
 ﻿using MainProject.Application.DTO;
+using MainProject.Infrastructure.Serialization;
 using System.Text.Json.Serialization;
 
 namespace MainProject.Domain.Entities
@@ -12,9 +13,11 @@ namespace MainProject.Domain.Entities
         public int IdSurvey { get; set; }
 
         [JsonPropertyName("date_begin")]
+        [JsonConverter(typeof(DateOnlyDateTimeJsonConverter))]
         public DateTime DateBegin { get; set; }
 
         [JsonPropertyName("date_end")]
+        [JsonConverter(typeof(DateOnlyDateTimeJsonConverter))]
         public DateTime DateEnd { get; set; }
 
         public string? Csp { get; set; }
@@ -24,6 +27,9 @@ namespace MainProject.Domain.Entities
 
         [JsonPropertyName("name_survey")]
         public string NameSurvey { get; set; } = string.Empty;
+
+        [JsonPropertyName("organization_name")]
+        public string? OrganizationName { get; set; }
 
         public string Description { get; set; } = string.Empty;
         public List<SurveyQuestionItem> Questions { get; set; } = new();

@@ -1,6 +1,7 @@
 @{
     var activeSection = (ViewData["OrganizationSection"] as string ?? "list").ToLowerInvariant();
     var listActive = activeSection == "list";
+    var surveysActive = activeSection == "surveys";
     var archiveActive = activeSection == "archive";
 }
 
@@ -11,7 +12,15 @@
         role="tab"
         aria-selected="@(listActive ? "true" : "false")"
         data-tab-target="get_organization">
-        Организации
+        Список организаций
+    </a>
+    <a
+        href="/organizations/surveys"
+        class="menu-tab @(surveysActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(surveysActive ? "true" : "false")"
+        data-tab-target="organization_surveys">
+        Анкеты организаций
     </a>
     <a
         href="/organizations/archive"
@@ -19,6 +28,6 @@
         role="tab"
         aria-selected="@(archiveActive ? "true" : "false")"
         data-tab-target="archive_list_organizations">
-        Архив
+        Архив организаций
     </a>
 </div>

@@ -38,15 +38,15 @@ public sealed class AnswerAdminService : IAnswerAdminService
         const string sql = @"
             SELECT
                 ha.id_answer AS IdAnswer,
-                ha.organization_id AS IdOrganization,
+                ha.id_organization AS IdOrganization,
                 ha.id_survey AS IdSurvey,
-                COALESCE(o.organization_name, 'Нет данных') AS OrganizationName,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, 'Нет данных') AS OrganizationName,
                 COALESCE(s.name_survey, 'Нет данных') AS SurveyName,
                 ha.completion_date AS CompletionDate,
                 COALESCE(ha.csp, '') AS Signature
             FROM public.answer ha
             LEFT JOIN public.organization o
-                ON o.organization_id = ha.organization_id
+                ON o.id_organization = ha.id_organization
             LEFT JOIN public.survey s
                 ON s.id_survey = ha.id_survey
             ORDER BY ha.completion_date DESC NULLS LAST, ha.id_answer DESC";
@@ -80,17 +80,17 @@ public sealed class AnswerAdminService : IAnswerAdminService
 
         const string sql = @"
             SELECT
-                o.organization_name AS OrganizationName,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
                 (ha.completion_date IS NOT NULL) AS IsCompleted,
                 (COALESCE(ha.csp, '') <> '') AS IsSigned
             FROM public.organization o
             INNER JOIN public.organization_survey os
-                ON os.organization_id = o.organization_id
+                ON os.id_organization = o.id_organization
             LEFT JOIN public.answer ha
-                ON o.organization_id = ha.organization_id
+                ON o.id_organization = ha.id_organization
                AND ha.id_survey = @surveyId
             WHERE os.id_survey = @surveyId
-            ORDER BY o.organization_name";
+            ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)";
 
         var items = connection.Query<SignatureRow>(sql, new { surveyId })
             .Select(row => new SurveySignatureStatusViewModel
@@ -219,12 +219,12 @@ public sealed class AnswerAdminService : IAnswerAdminService
 
         const string sql = @"
             SELECT
-                o.organization_name AS OrganizationName,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
                 EXTRACT(YEAR FROM ha.completion_date)::int AS Year,
                 AVG(hai.rating::double precision) AS AvgRating
             FROM public.answer ha
             INNER JOIN public.organization o
-                ON ha.organization_id = o.organization_id
+                ON ha.id_organization = o.id_organization
             INNER JOIN public.answer_item hai
                 ON hai.id_answer = ha.id_answer
             WHERE ha.completion_date IS NOT NULL

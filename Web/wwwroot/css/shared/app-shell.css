@@ -90,7 +90,7 @@ body {
   text-overflow: ellipsis;
 }
 
-#role {
+.header-user-name {
   width: 100%;
   flex: 0 1 auto;
   max-width: none;
@@ -222,10 +222,25 @@ body {
   transition: transform 0.2s;
 }
 
+.admin-nav .fa-archive-docs::before {
+  content: "";
+  display: inline-flex;
+  width: 1em;
+  height: 1em;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='6' width='16' height='4' rx='1.5' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M6 10h12v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8z' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M10 14h4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='6' width='16' height='4' rx='1.5' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M6 10h12v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8z' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M10 14h4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
 .admin-nav .fa-chart-line::before,
 .admin-nav .fa-clipboard-list::before,
 .admin-nav .fa-list-check::before,
-.admin-nav .fa-archive-docs::before,
 .admin-nav .fa-box-archive::before,
 .admin-nav .fa-plus::before,
 .admin-nav .fa-users::before,
@@ -247,7 +262,6 @@ body {
 .admin-nav .fa-chart-line::before { content: "📈"; }
 .admin-nav .fa-clipboard-list::before { content: "📋"; }
 .admin-nav .fa-list-check::before { content: "☑"; }
-.admin-nav .fa-archive-docs::before,
 .admin-nav .fa-box-archive::before { content: "🗃"; }
 .admin-nav .fa-plus::before { content: "+"; }
 .admin-nav .fa-users::before { content: "👥"; }
@@ -290,6 +304,7 @@ nav {
   width: 100%;
   max-height: none;
   overflow: visible;
+  margin-top: 0;
   color: #4a5568;
   background-color: #ffffff;
   border-radius: 16px;
@@ -316,7 +331,7 @@ nav ul li a,
   gap: 12px;
   padding: 0.9rem 1rem;
   color: #4a5568;
-  font-size: clamp(0.92rem, 0.88rem + 0.15vw, 1rem);
+  font-size: clamp(0.82rem, 0.68rem + 0.15vw, 1rem);
   line-height: 1.35;
   text-decoration: none;
   white-space: normal;

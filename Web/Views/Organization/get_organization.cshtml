@@ -17,7 +17,7 @@
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            Title = "Список организаций",
+            // Title = "Список организаций",
             Description = "Ниже представлена таблица с существующими организациями."
         })
     <div class="organization-toolbar app-page__toolbar">
@@ -25,12 +25,18 @@
             type="button"
             class="modal_btn modal_btn-primary"
             data-click-call="openAddOrganizationModal"
-            data-fallback-url="/organizations/create">
+            data-fallback-url="/organizations">
             Добавить организацию
         </button>
     </div>
     <section class="app-page__section app-page__section--flush">
-        @await Html.PartialAsync("~/Web/Views/Organization/Partials/_OrganizationTable.cshtml", organizations)
+        @await Html.PartialAsync(
+            "~/Web/Views/Organization/Partials/_OrganizationTable.cshtml",
+            new MainProject.Web.ViewModels.OrganizationTableViewModel
+            {
+                Organizations = organizations,
+                ShowActions = true
+            })
     </section>
 </div>
 
@@ -42,6 +48,13 @@
     <script>
     (function(){
         if (@(openAddOrganizationModal.ToString().ToLowerInvariant())) {
+            if (window.location.pathname.toLowerCase() === '/organizations/create') {
+                const nextState = window.history.state && typeof window.history.state === 'object'
+                    ? { ...window.history.state, tab: 'get_organization', id: null }
+                    : { tab: 'get_organization', id: null };
+                window.history.replaceState(nextState, document.title, '/organizations');
+            }
+
             setTimeout(function(){
                 if (typeof window.openAddOrganizationModal === 'function') {
                     window.openAddOrganizationModal();

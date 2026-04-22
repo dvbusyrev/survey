@@ -1,0 +1,145 @@
+@model IReadOnlyList<MainProject.Application.DTO.SelectionOption>
+
+@{
+    var organizations = Model ?? Array.Empty<MainProject.Application.DTO.SelectionOption>();
+}
+
+<div id="addUserModal" class="modal">
+    <div class="modal-content">
+        
+        <div class="modal-header">
+            <h2 class="h2_modal">Добавление пользователя</h2>
+            <button type="button" class="modal-close" data-modal-close="addUserModal"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <section class="app-page__section app-page__stack">
+                <div id="message"></div>
+                <div class="form-group">
+                    <label for="fullName">ФИО</label>
+                    <input type="text" id="fullName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="username">Логин</label>
+                    <input type="text" id="username" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="text" id="password" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" required>
+                </div>
+                <div class="form-group">
+                    <label for="email_input">Email</label>
+                    <input type="email" id="email_input" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="userOrganization">Организация</label>
+                    <select id="userOrganization" class="form-control" required>
+                        <option value="">Выберите организацию</option>
+                        @foreach (var org in organizations)
+                        {
+                            <option value="@org.Id">@org.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userRole">Роль</label>
+                    <select id="userRole" class="form-control">
+                        <option value="user">Клиент</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="dateBegin">Дата начала</label>
+                    <input type="date" id="dateBegin" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="dateEnd">Дата конца</label>
+                    <input type="date" id="dateEnd" class="form-control">
+                </div>
+                @Html.AntiForgeryToken()
+            </section>
+        </div>
+        <div class="modal-footer">
+            <button type="button" data-click-call="submitFormAdd" class="modal_btn modal_btn-primary">Сохранить</button>
+            <button type="button" data-modal-close="addUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<div id="editUserModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="h2_modal">Просмотр пользователя</h2>
+            <button type="button" class="modal-close" data-modal-close="editUserModal"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <section class="app-page__section app-page__stack">
+                <input type="hidden" id="editUserId">
+                <div class="form-group">
+                    <label for="editFullName">ФИО:</label>
+                    <input type="text" id="editFullName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editUsername">Логин:</label>
+                    <input type="text" id="editUsername" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editPassword">Новый пароль:</label>
+                    <input type="text" id="editPassword" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" placeholder="Оставьте пустым, чтобы не менять">
+                </div>
+                <div class="form-group">
+                    <label for="editEmail">Email:</label>
+                    <input type="email" id="editEmail" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="editUserOrganization">Организация:</label>
+                    <select id="editUserOrganization" class="form-control" required>
+                        @foreach (var org in organizations)
+                        {
+                            <option value="@org.Id">@org.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editUserRole">Роль:</label>
+                    <select id="editUserRole" class="form-control">
+                        <option value="user">Клиент</option>
+                        <option value="admin">Администратор</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editDateBegin">Дата начала:</label>
+                    <input type="date" id="editDateBegin" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="editDateEnd">Дата конца:</label>
+                    <input type="date" id="editDateEnd" class="form-control">
+                </div>
+                @Html.AntiForgeryToken()
+            </section>
+        </div>
+        <div class="modal-footer">
+            <button type="button" data-click-call="updateUser" class="modal_btn modal_btn-primary">Сохранить</button>
+            <button type="button" data-modal-close="editUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<div id="deleteUserModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="h2_modal">Удаление пользователя</h2>
+            <button type="button" class="modal-close" data-modal-close="deleteUserModal"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <section class="app-page__section app-page__stack">
+                <p>Вы действительно хотите удалить пользователя <span id="deleteUserName"></span>?</p>
+                <input type="hidden" id="deleteUserId">
+                @Html.AntiForgeryToken()
+            </section>
+        </div>
+        <div class="modal-footer">
+            <button type="button" data-click-call="deleteUserFromModal" class="modal_btn modal_btn-danger">Удалить</button>
+            <button type="button" data-modal-close="deleteUserModal" class="modal_btn modal_btn-secondary">Отмена</button>
+        </div>
+    </div>
+</div>

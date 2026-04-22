@@ -31,7 +31,6 @@
 }
 
 .app-page__description {
-  margin: 0;
   color: var(--text-secondary);
   font-size: 1rem;
   text-align: justify;
@@ -45,10 +44,11 @@
 
 .app-page__section--flush {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .app-page__stack {
+  margin: clamp(16px, 2vw, 24px);
   display: flex;
   flex-direction: column;
   gap: 16px;

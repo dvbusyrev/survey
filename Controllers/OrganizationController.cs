@@ -64,7 +64,15 @@ public class OrganizationController : Controller
     [HttpGet("organizations/create")]
     public IActionResult AddOrganization()
     {
-        return Redirect("/organizations?openAddOrganizationModal=true");
+        try
+        {
+            var pageModel = _organizationManagementService.GetActiveOrganizationsPage(openAddOrganizationModal: true);
+            return View("get_organization", pageModel);
+        }
+        catch (Exception ex)
+        {
+            return View("Error", new ErrorViewModel { Message = $"Ошибка при открытии формы добавления организации: {ex.Message}" });
+        }
     }
 
     [HttpGet("organizations/archive")]
@@ -77,6 +85,21 @@ public class OrganizationController : Controller
         catch (Exception ex)
         {
             return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка организаций: {ex.Message}" });
+        }
+    }
+
+    [HttpGet("organizations/surveys")]
+    public IActionResult OrganizationSurveys()
+    {
+        try
+        {
+            return View(
+                "organization_surveys",
+                _organizationManagementService.GetOrganizationSurveyAssignmentsPage());
+        }
+        catch (Exception ex)
+        {
+            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении анкет организаций: {ex.Message}" });
         }
     }
 
@@ -155,6 +178,52 @@ public class OrganizationController : Controller
         catch (Exception ex)
         {
             return StatusCode(500, $"Ошибка при обновлении организации: {ex.Message}");
+        }
+    }
+
+    [HttpPost("organizations/surveys/end-date")]
+    public IActionResult UpdateOrganizationSurveyEndDates(
+        [FromBody] OrganizationSurveyEndDateUpdateRequest? request)
+    {
+        if (request == null)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = "Не удалось обновить дату конца анкет.",
+                errors = new[] { "Не переданы данные для сохранения." }
+            });
+        }
+
+        try
+        {
+            var result = _organizationManagementService.UpdateOrganizationSurveyEndDates(request);
+            if (!result.Success)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = result.Message,
+                    error = result.Error,
+                    errors = result.Errors
+                });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = result.Message,
+                updatedAssignments = result.UpdatedAssignments
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "Ошибка при обновлении даты конца анкет.",
+                error = ex.Message
+            });
         }
     }
 }

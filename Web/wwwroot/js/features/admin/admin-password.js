@@ -95,15 +95,15 @@
                     messageElement.className = '';
                 }
 
-                ['fullName', 'username', 'password', 'email_input'].forEach(function (id) {
+                ['fullName', 'username', 'password', 'email_input', 'dateBegin', 'dateEnd'].forEach(function (id) {
                     const el = document.getElementById(id);
                     if (el) el.value = '';
                 });
 
-                const roleEl = document.getElementById('role');
+                const roleEl = document.getElementById('userRole');
                 if (roleEl) roleEl.value = 'user';
 
-                const orgEl = document.getElementById('organization');
+                const orgEl = document.getElementById('userOrganization');
                 if (orgEl) orgEl.selectedIndex = 0;
 
                 if (typeof window.showSiteModal === 'function') {
@@ -150,13 +150,19 @@
         initUserModalPasswordEyes();
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function startPasswordTools() {
         bootstrapPasswordTools();
         setInterval(function () {
             ensureUserModalOpeners();
             wrapModalOpeners();
         }, 1000);
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startPasswordTools, { once: true });
+    } else {
+        startPasswordTools();
+    }
 
     window.addPasswordEye = addPasswordEye;
     window.initUserModalPasswordEyes = initUserModalPasswordEyes;

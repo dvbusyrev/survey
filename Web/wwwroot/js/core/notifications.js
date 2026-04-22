@@ -3,15 +3,70 @@
     let confirmOverlay = null;
     let confirmResolver = null;
     const modalOrigins = new WeakMap();
+    const BODY_SCROLL_LOCK_FLAG = 'modalScrollLock';
+    const BODY_SCROLL_LOCK_INLINE_PADDING = 'modalOriginalPaddingRight';
+
+    function getViewportScrollbarWidth() {
+        const root = document.documentElement;
+        if (!root) {
+            return 0;
+        }
+
+        const scrollbarWidth = window.innerWidth - root.clientWidth;
+        return scrollbarWidth > 0 ? scrollbarWidth : 0;
+    }
+
+    function syncBodyScrollLock(isLocked) {
+        if (!document.body) {
+            return;
+        }
+
+        const body = document.body;
+        const alreadyLocked = body.dataset[BODY_SCROLL_LOCK_FLAG] === 'true';
+
+        if (isLocked) {
+            body.classList.add('modal-open');
+
+            if (alreadyLocked) {
+                return;
+            }
+
+            const computedPaddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+            const scrollbarWidth = getViewportScrollbarWidth();
+
+            body.dataset[BODY_SCROLL_LOCK_FLAG] = 'true';
+            body.dataset[BODY_SCROLL_LOCK_INLINE_PADDING] = body.style.paddingRight || '';
+
+            if (scrollbarWidth > 0) {
+                body.style.paddingRight = `${computedPaddingRight + scrollbarWidth}px`;
+            }
+
+            return;
+        }
+
+        body.classList.remove('modal-open');
+
+        if (!alreadyLocked) {
+            return;
+        }
+
+        const originalInlinePaddingRight = body.dataset[BODY_SCROLL_LOCK_INLINE_PADDING] || '';
+        if (originalInlinePaddingRight) {
+            body.style.paddingRight = originalInlinePaddingRight;
+        } else {
+            body.style.removeProperty('padding-right');
+        }
+
+        delete body.dataset[BODY_SCROLL_LOCK_FLAG];
+        delete body.dataset[BODY_SCROLL_LOCK_INLINE_PADDING];
+    }
 
     function syncBodyModalState() {
         const hasOpenModal = Boolean(
-            document.querySelector('.modal.modal--visible, .modal-overlay.active, .notification-overlay.active, .modal[style*="display: flex"], .modal[style*="display:flex"], .modal[style*="display: block"], .modal[style*="display:block"], #loadingOverlay[style*="display: flex"], #loadingOverlay[style*="display:flex"]')
+            document.querySelector('.modal.modal--visible, .modal-overlay.active, .notification-overlay.active, .site-confirm-overlay.is-open, .modal[style*="display: flex"], .modal[style*="display:flex"], .modal[style*="display: block"], .modal[style*="display:block"], #loadingOverlay[style*="display: flex"], #loadingOverlay[style*="display:flex"]')
         );
 
-        if (document.body) {
-            document.body.classList.toggle('modal-open', hasOpenModal);
-        }
+        syncBodyScrollLock(hasOpenModal);
     }
 
     function ensureBody(callback) {
@@ -101,6 +156,7 @@
         }
 
         confirmOverlay.classList.remove('is-open');
+        syncBodyModalState();
 
         if (typeof confirmResolver === 'function') {
             const resolver = confirmResolver;
@@ -193,6 +249,7 @@
 
                 confirmResolver = resolve;
                 overlay.classList.add('is-open');
+                syncBodyModalState();
                 confirmButton.focus();
             });
         });
@@ -242,6 +299,19 @@
         }
     }
 
+    function dispatchModalEvent(modal, eventName) {
+        if (!modal || typeof modal.dispatchEvent !== 'function') {
+            return;
+        }
+
+        modal.dispatchEvent(new CustomEvent(eventName, {
+            bubbles: true,
+            detail: {
+                modal
+            }
+        }));
+    }
+
     function showSiteModal(target) {
         const modal = resolveModal(target);
         if (!modal) {
@@ -264,6 +334,7 @@
 
         modal.setAttribute('aria-hidden', 'false');
         syncBodyModalState();
+        dispatchModalEvent(modal, 'site-modal:shown');
         return true;
     }
 
@@ -282,6 +353,7 @@
 
         modal.setAttribute('aria-hidden', 'true');
         restoreModal(modal);
+        dispatchModalEvent(modal, 'site-modal:hidden');
         window.setTimeout(syncBodyModalState, 0);
         return true;
     }
@@ -296,6 +368,7 @@
 
     window.showSiteModal = showSiteModal;
     window.hideSiteModal = hideSiteModal;
+    window.syncSiteModalBodyState = syncBodyModalState;
 
     const nativeShowNotification = window.showNotification;
     window.showNotification = function (message, isSuccess) {

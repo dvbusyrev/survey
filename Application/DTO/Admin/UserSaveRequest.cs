@@ -21,4 +21,10 @@ public sealed class UserSaveRequest
 
     [JsonPropertyName("role")]
     public string Role { get; init; } = string.Empty;
+
+    [JsonPropertyName("dateBegin")]
+    public string? DateBegin { get; init; }
+
+    [JsonPropertyName("dateEnd")]
+    public string? DateEnd { get; init; }
 }

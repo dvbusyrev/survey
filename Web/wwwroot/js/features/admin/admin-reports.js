@@ -1,4 +1,4 @@
-function downloadReport(url, defaultFileName) {
+function createReportLoader() {
     const loader = document.createElement('div');
     loader.style.position = 'fixed';
     loader.style.top = '0';
@@ -8,49 +8,13 @@ function downloadReport(url, defaultFileName) {
     loader.style.backgroundColor = '#007bff';
     loader.style.zIndex = '9999';
     document.body.appendChild(loader);
+    return loader;
+}
 
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            let fileName = defaultFileName;
-            const contentDisposition = response.headers.get('Content-Disposition');
-
-            if (contentDisposition) {
-                const utf8FilenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-                if (utf8FilenameMatch) {
-                    fileName = decodeURIComponent(utf8FilenameMatch[1]);
-                } else {
-                    const regularMatch = contentDisposition.match(/filename="(.+)"/);
-                    if (regularMatch) {
-                        fileName = regularMatch[1];
-                    }
-                }
-            }
-
-            return response.blob().then(blob => ({ blob, fileName }));
-        })
-        .then(({ blob, fileName }) => {
-            const objectUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = objectUrl;
-            link.download = sanitizeFileName(fileName);
-            document.body.appendChild(link);
-            link.click();
-
-            setTimeout(() => {
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(objectUrl);
-                document.body.removeChild(loader);
-            }, 100);
-        })
-        .catch(error => {
-            console.error('Ошибка при скачивании файла:', error);
-            document.body.removeChild(loader);
-            alert('Произошла ошибка при скачивании отчета. Пожалуйста, попробуйте позже.');
-        });
+function removeReportLoader(loader) {
+    if (loader && loader.parentNode) {
+        loader.parentNode.removeChild(loader);
+    }
 }
 
 function sanitizeFileName(name) {
@@ -61,79 +25,230 @@ function sanitizeFileName(name) {
         .substring(0, 255);
 }
 
-function createMonthlyReport(id) {
-    downloadReport(`/reports/monthly/${id}`, 'Отчет.docx');
+function parseContentDispositionFileName(headerValue, defaultFileName) {
+    if (!headerValue) {
+        return defaultFileName;
+    }
+
+    const utf8FilenameMatch = headerValue.match(/filename\*=UTF-8''(.+)/i);
+    if (utf8FilenameMatch) {
+        return decodeURIComponent(utf8FilenameMatch[1]);
+    }
+
+    const regularFilenameMatch = headerValue.match(/filename="?([^"]+)"?/i);
+    if (regularFilenameMatch) {
+        return regularFilenameMatch[1];
+    }
+
+    return defaultFileName;
 }
 
-function createMonthlySummaryReport() {
-    downloadReport('/reports/monthly', 'Отчет_по_всем_анкетам.docx');
+async function extractReportErrorMessage(response, fallbackMessage) {
+    const responseText = await response.text();
+    if (!responseText) {
+        return fallbackMessage;
+    }
+
+    try {
+        const payload = JSON.parse(responseText);
+        return payload?.message || payload?.error || responseText;
+    } catch (error) {
+        return responseText;
+    }
 }
 
-function createQuarterlyReport(quarter, year) {
-    const xhr = new XMLHttpRequest();
-    xhr.responseType = 'blob';
+function setReportNotificationVisible(isVisible) {
+    const notification = document.getElementById('notification');
+    if (!notification) {
+        return false;
+    }
 
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState !== 4) {
-            return;
+    if (isVisible) {
+        if (typeof window.showSiteModal === 'function') {
+            window.showSiteModal(notification);
+        } else {
+            notification.classList.add('active');
+            notification.style.display = 'flex';
+        }
+        return true;
+    }
+
+    if (typeof window.hideSiteModal === 'function') {
+        window.hideSiteModal(notification);
+    } else {
+        notification.classList.remove('active');
+        notification.style.display = 'none';
+    }
+
+    return true;
+}
+
+function hideNotification() {
+    setReportNotificationVisible(false);
+}
+
+function normalizeReportFailureReason(message) {
+    const normalized = String(message || '').trim();
+    if (!normalized) {
+        return 'Причина: не удалось получить данные для формирования отчёта.';
+    }
+
+    return /^Причина:/i.test(normalized)
+        ? normalized
+        : `Причина: ${normalized}`;
+}
+
+function showReportFailure(reportTitle, message) {
+    const safeTitle = reportTitle && String(reportTitle).trim()
+        ? `${String(reportTitle).trim()} не сформирован`
+        : 'Отчёт не сформирован';
+    const safeMessage = normalizeReportFailureReason(message);
+    const notification = document.getElementById('notification');
+
+    if (notification) {
+        const titleElement = document.getElementById('notificationTitle');
+        const messageElement = document.getElementById('notificationMessage');
+
+        if (titleElement) {
+            titleElement.textContent = safeTitle;
+            titleElement.className = 'notification-title notification-error';
         }
 
-        if (xhr.status === 200) {
-            const contentDisposition = xhr.getResponseHeader('Content-Disposition');
-            let fileName = `quarterly_report_q${quarter}.xlsx`;
+        if (messageElement) {
+            messageElement.textContent = safeMessage;
+            messageElement.className = 'notification-message notification-error';
+        }
 
-            if (contentDisposition) {
-                const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-                if (fileNameMatch && fileNameMatch[1]) {
-                    fileName = fileNameMatch[1];
-                }
+        setReportNotificationVisible(true);
+        return;
+    }
+
+    if (typeof window.siteNotify === 'function') {
+        window.siteNotify(safeMessage, 'error', { title: safeTitle, duration: 0 });
+        return;
+    }
+
+    window.alert(`${safeTitle}. ${safeMessage}`);
+}
+
+function resolvePositiveInteger(value, fallbackElementId) {
+    const candidate = Number(value);
+    if (Number.isInteger(candidate) && candidate > 0) {
+        return candidate;
+    }
+
+    const field = fallbackElementId ? document.getElementById(fallbackElementId) : null;
+    const fieldValue = Number(field?.value || 0);
+    return Number.isInteger(fieldValue) && fieldValue > 0 ? fieldValue : 0;
+}
+
+async function downloadReport(url, defaultFileName, options = {}) {
+    const { reportTitle = 'Отчёт' } = options;
+    const loader = createReportLoader();
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(await extractReportErrorMessage(response, 'Не удалось сформировать отчёт.'));
+        }
+
+        const fileName = parseContentDispositionFileName(
+            response.headers.get('Content-Disposition'),
+            defaultFileName
+        );
+        const blob = await response.blob();
+
+        if (!blob || blob.size === 0) {
+            throw new Error('Сервер вернул пустой файл отчёта.');
+        }
+
+        const objectUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = sanitizeFileName(fileName);
+        document.body.appendChild(link);
+        link.click();
+
+        window.setTimeout(() => {
+            if (link.parentNode) {
+                link.parentNode.removeChild(link);
             }
+            window.URL.revokeObjectURL(objectUrl);
+        }, 100);
 
-            const blob = new Blob([xhr.response], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            });
-            const link = document.createElement('a');
-            link.href = window.URL.createObjectURL(blob);
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            return;
+        return true;
+    } catch (error) {
+        console.error('Ошибка при скачивании файла:', error);
+        showReportFailure(reportTitle, error.message || 'Произошла ошибка при скачивании отчёта.');
+        return false;
+    } finally {
+        removeReportLoader(loader);
+    }
+}
+
+function createMonthlyReport(id) {
+    return downloadReport(`/reports/monthly/${id}`, 'Отчет.docx');
+}
+
+function createMonthlySummaryReport(month, year, options = {}) {
+    const resolvedMonth = resolvePositiveInteger(month, 'reportMonth');
+    const resolvedYear = resolvePositiveInteger(year, 'reportMonthYear');
+
+    if (!resolvedMonth || !resolvedYear) {
+        showReportFailure('Месячный отчёт', 'Выберите месяц и год для формирования отчёта.');
+        return false;
+    }
+
+    return downloadReport(
+        `/reports/monthly?month=${resolvedMonth}&year=${resolvedYear}`,
+        `Отчет_за_${resolvedMonth}_${resolvedYear}.docx`,
+        {
+            ...options,
+            reportTitle: 'Месячный отчёт'
         }
-
-        console.error('Ошибочка: ' + xhr.status);
-    };
-
-    xhr.onerror = function () {
-        console.error('Проблемы с интернетом');
-    };
-
-    const yearSegment = year ? `/${year}` : '';
-    xhr.open('GET', `/reports/quarterly/${quarter}${yearSegment}`, true);
-    xhr.send();
+    );
 }
 
-function populateYears(quarter, select) {
-    if (select.options.length > 1) {
-        return;
+function createQuarterlyReport(quarter, year, options = {}) {
+    const resolvedQuarter = resolvePositiveInteger(quarter, 'reportQuarter');
+    const resolvedYear = resolvePositiveInteger(year, 'reportQuarterYear');
+
+    if (!resolvedQuarter || !resolvedYear) {
+        showReportFailure('Квартальный отчёт', 'Выберите квартал и год для формирования отчёта.');
+        return false;
     }
 
-    const currentYear = new Date().getFullYear();
-    for (let offset = 1; offset <= 4; offset += 1) {
-        const year = currentYear - offset;
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        select.appendChild(option);
-    }
+    return downloadReport(
+        `/reports/quarterly/${resolvedQuarter}/${resolvedYear}`,
+        `Отчет_за_${resolvedQuarter}_квартал_${resolvedYear}.xlsx`,
+        {
+            ...options,
+            reportTitle: 'Квартальный отчёт'
+        }
+    );
 }
 
-function onYearChange(quarter, select) {
-    const year = select.value;
-    if (!year) {
-        return;
-    }
-
-    createQuarterlyReport(quarter, year);
-    select.selectedIndex = 0;
+function submitMonthlyReport() {
+    return createMonthlySummaryReport();
 }
+
+function submitQuarterlyReport() {
+    return createQuarterlyReport();
+}
+
+function populateYears() {
+    return null;
+}
+
+function onYearChange() {
+    return null;
+}
+
+window.createMonthlyReport = createMonthlyReport;
+window.createMonthlySummaryReport = createMonthlySummaryReport;
+window.createQuarterlyReport = createQuarterlyReport;
+window.submitMonthlyReport = submitMonthlyReport;
+window.submitQuarterlyReport = submitQuarterlyReport;
+window.populateYears = populateYears;
+window.onYearChange = onYearChange;
+window.hideNotification = hideNotification;

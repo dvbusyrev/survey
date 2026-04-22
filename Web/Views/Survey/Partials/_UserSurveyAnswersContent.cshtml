@@ -1,0 +1,72 @@
+@model MainProject.Web.ViewModels.UserSurveyAnswersContentViewModel
+
+@{
+    var pageModel = Model ?? new MainProject.Web.ViewModels.UserSurveyAnswersContentViewModel();
+    var survey = pageModel.Survey ?? new MainProject.Application.DTO.SurveyAnswersSurveyViewModel();
+    var answerGroups = pageModel.Answers ?? Array.Empty<MainProject.Application.DTO.SurveyAnswerResultViewModel>();
+    var isSigned = !string.IsNullOrWhiteSpace(survey.Csp) || answerGroups.Any(answer => answer.IsSigned);
+}
+
+<div class="app-page app-page--narrow survey-editor-page"
+     data-role="survey-answers-page"
+     data-survey-id="@survey.Id"
+     data-organization-id="@pageModel.OrganizationId">
+    <header class="app-page__intro">
+        <h1 class="app-page__title">Ответы на анкету: @(!string.IsNullOrWhiteSpace(survey.Name) ? survey.Name : "Анкета")</h1>
+        <p class="app-page__description">Ниже вы можете посмотреть заполненные ответы и скачать PDF анкеты.</p>
+    </header>
+
+    <section class="app-page__section @(isSigned ? string.Empty : "u-hidden")" data-role="signature-info">
+        <div class="survey-user-signature-status">
+            Подпись:
+            <span data-role="signature-status" class="@(isSigned ? "signed" : "not-signed")">
+                @(isSigned ? "подписано" : "не подписано")
+            </span>
+        </div>
+    </section>
+
+    @if (answerGroups.Count == 0)
+    {
+        <section class="app-page__section" data-role="empty-message">
+            Нет данных для отображения
+        </section>
+    }
+    else
+    {
+        <div data-role="answers-content">
+            @foreach (var group in answerGroups)
+            {
+                <section class="app-page__section">
+                    <div class="survey-user-answer-date">
+                        Дата заполнения: @(!string.IsNullOrWhiteSpace(group.Date) ? group.Date : "Дата не указана")
+                    </div>
+                    <table class="surveys-table" data-role="main-table">
+                        <thead>
+                            <tr class="table_tr">
+                                <th class="table-th--start">Вопрос</th>
+                                <th>Оценка</th>
+                                <th class="table-th--end">Комментарий</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var answer in group.Answers)
+                            {
+                                <tr>
+                                    <td>@answer.QuestionText</td>
+                                    <td><span class="rating-badge">@answer.Rating</span></td>
+                                    <td>@(!string.IsNullOrWhiteSpace(answer.Comment) ? answer.Comment : "Без комментария")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </section>
+            }
+        </div>
+    }
+
+    <section class="app-page__section">
+        <div class="button-container">
+            <button type="button" class="modal_btn modal_btn-primary" data-role="pdf-btn">Скачать PDF с анкетой</button>
+        </div>
+    </section>
+</div>

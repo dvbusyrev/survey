@@ -3,7 +3,6 @@
 @using System.Text.Json
 @using MainProject.Infrastructure.Security
 @{
-    ViewData["Title"] = "Архив анкет";
     var userOrganizationId = Model.UserOrganizationId;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
@@ -15,12 +14,7 @@
         : (!string.IsNullOrWhiteSpace(nameUser) ? nameUser : AppRoles.GetDisplayName(userRole));
     var archiveBootstrapJson = JsonSerializer.Serialize(new
     {
-        initialSurveys = Model.ArchivedSurveys,
         initialTab = "archived",
-        initialPage = Model.CurrentPage,
-        initialTotalPages = Model.TotalPages,
-        initialTotalCount = Model.TotalCount,
-        initialSearchTerm = Model.SearchTerm,
         userId,
         userRole,
         userOrganizationId,
@@ -28,17 +22,48 @@
         userName = nameUser,
         organizationName = nameOrganization
     });
+    var pageContentModel = new MainProject.Web.ViewModels.UserSurveyPageContentViewModel
+    {
+        Surveys = Model.ArchivedSurveys,
+        ActiveTab = "archived",
+        CurrentPage = Model.CurrentPage,
+        TotalPages = Model.TotalPages,
+        ActiveCount = (ViewBag.ActiveTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel)?.ActiveCount ?? 0,
+        ArchivedCount = Model.TotalCount,
+        SearchTerm = Model.SearchTerm,
+        SignedOnly = Model.SignedOnly
+    };
+    var activeTabContentModel = ViewBag.ActiveTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel;
 }
 
 @section PageStyles {
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
 }
 
-<div id="root"></div>
-<template id="user-archive-bootstrap">@archiveBootstrapJson</template>
+<div class="page-container">
+    <div id="chrome-header"></div>
+    <div class="admin-container">
+        <div id="chrome-navigation"></div>
+        <div id="content_admin">
+            <div class="app-page" id="default_content" data-page="user-surveys">
+                @await Html.PartialAsync("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", pageContentModel)
+            </div>
+        </div>
+    </div>
+    <div data-role="fill-modal-host"></div>
+    <div data-role="answers-modal-host"></div>
+    <div id="chrome-footer"></div>
+</div>
+
+<script type="application/json" id="user-archive-bootstrap">@Html.Raw(archiveBootstrapJson)</script>
+@if (activeTabContentModel is not null)
+{
+    <template id="survey-user-active-content-template">
+        @await Html.PartialAsync("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", activeTabContentModel)
+    </template>
+}
 
 @section Scripts {
-    @await Html.PartialAsync("~/Web/Views/Shared/_NavigationTemplates.cshtml")
     @await Html.PartialAsync("~/Web/Views/Shared/_SurveyUserTemplates.cshtml")
     <script src="~/js/dist/survey-user-app.js" asp-append-version="true"></script>
 }

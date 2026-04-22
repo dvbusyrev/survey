@@ -1,15 +1,15 @@
 ﻿function renderHeader(host, { userRole, displayName, userName, organizationName }) {
     const rawDisplayName = displayName && String(displayName).trim()
         ? String(displayName).trim()
-        : (userRole === 'admin' ? 'Администратор' : 'Пользователь');
+        : (userRole === 'admin' ? 'Администратор' : 'Клиент');
     const displayNameParts = rawDisplayName.split(':').map(part => part.trim()).filter(Boolean);
     const normalizedUserName = userName && String(userName).trim()
         ? String(userName).trim()
         : (displayNameParts.length > 1 ? displayNameParts.slice(1).join(': ').trim() : rawDisplayName);
     const normalizedOrganizationName = organizationName && String(organizationName).trim()
         ? String(organizationName).trim()
-        : (displayNameParts[0] || 'Пользователь');
-    const headerTopLine = userRole === 'admin' ? 'Администрирование' : normalizedOrganizationName;
+        : (displayNameParts[0] || 'Клиент');
+    const headerTopLine = normalizedOrganizationName;
     const normalizedDisplayName = userRole === 'admin'
         ? (normalizedUserName || 'Администратор')
         : (normalizedUserName || rawDisplayName);
@@ -22,7 +22,7 @@
     host.innerHTML = '';
     const header = template.content.firstElementChild.cloneNode(true);
     const modeLabel = header.querySelector('.header-mode-label');
-    const role = header.querySelector('#role');
+    const role = header.querySelector('.header-user-name');
     const logoutButton = header.querySelector('.logout-button');
 
     if (modeLabel) {

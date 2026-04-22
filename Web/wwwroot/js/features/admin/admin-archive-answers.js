@@ -65,7 +65,7 @@ window.AdminArchives = (function () {
       const rowSpan = answerItems.length > 0 ? answerItems.length : 1;
       const signatureCellContent = document.createElement('span');
       signatureCellContent.className = answer.is_signed ? 'signed' : 'not-signed';
-      signatureCellContent.textContent = answer.is_signed ? '✓' : '✗';
+      signatureCellContent.textContent = answer.is_signed ? 'Подписана' : 'Нет подписи';
 
       if (answerItems.length > 0) {
         answerItems.forEach((item, index) => {
@@ -172,7 +172,18 @@ window.AdminArchives = (function () {
       });
 
       if (!response.ok) {
-        throw new Error(`Ошибка сервера: ${response.status}`);
+        let errorMessage = response.status === 404
+          ? 'Ответы по выбранной архивной анкете не найдены.'
+          : `Ошибка сервера: ${response.status}`;
+
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData?.error || errorData?.message || errorMessage;
+        } catch (parseError) {
+          // Ignore invalid JSON error payloads and keep fallback message.
+        }
+
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();

@@ -46,7 +46,7 @@ public class UserController : Controller
             var user = _userManagementService.GetUserById(id);
             if (user == null)
             {
-                return NotFound("Пользователь не найден.");
+                return NotFound("Клиент не найден.");
             }
 
             return View("update_user", user);
@@ -134,7 +134,7 @@ public class UserController : Controller
     {
         try
         {
-            return View("archive_list_users", _userManagementService.GetArchivedUsers());
+            return View("archived_users", _userManagementService.GetArchivedUsersPage());
         }
         catch (Exception ex)
         {

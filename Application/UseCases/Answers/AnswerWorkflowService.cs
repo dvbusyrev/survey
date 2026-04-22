@@ -32,8 +32,6 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             _answerDataService.UpdateAnswerRecord(answerRecord);
         }
 
-        _answerDataService.ClearSurveyExtension(answerRecord.OrganizationId, answerRecord.IdSurvey);
-
         var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
         if (model == null)
         {

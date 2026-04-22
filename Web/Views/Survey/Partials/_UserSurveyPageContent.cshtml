@@ -1,0 +1,102 @@
+@model MainProject.Web.ViewModels.UserSurveyPageContentViewModel
+@using System.Text.Json
+
+@{
+    var pageModel = Model ?? new MainProject.Web.ViewModels.UserSurveyPageContentViewModel();
+    var surveysJson = JsonSerializer.Serialize(pageModel.Surveys);
+}
+
+<div class="client-surveys-page__content"
+     data-role="survey-user-content"
+     data-active-tab="@pageModel.ActiveTab"
+     data-current-page="@pageModel.CurrentPage"
+     data-total-pages="@pageModel.TotalPages"
+     data-total-count="@(pageModel.IsArchive ? pageModel.ArchivedCount : pageModel.ActiveCount)"
+     data-search-term="@pageModel.SearchTerm"
+     data-signed-only="@(pageModel.SignedOnly ? "true" : "false")">
+    <div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы анкет клиента">
+        <a href="/my-surveys"
+           class="menu-tab @(pageModel.IsArchive ? string.Empty : "active-tab")"
+           role="tab"
+           aria-selected="@(pageModel.IsArchive ? "false" : "true")"
+           data-role="tab-active">
+            Доступные анкеты
+            <span class="count-badge" data-role="active-count">@pageModel.ActiveCount</span>
+        </a>
+        <a href="/my-surveys/archive"
+           class="menu-tab @(pageModel.IsArchive ? "active-tab" : string.Empty)"
+           role="tab"
+           aria-selected="@(pageModel.IsArchive ? "true" : "false")"
+           data-role="tab-archived">
+            Архив анкет
+            <span class="count-badge" data-role="archived-count">@pageModel.ArchivedCount</span>
+        </a>
+    </div>
+
+    <header class="app-page__intro">
+        <p class="app-page__description" data-role="subtitle">@pageModel.Description</p>
+    </header>
+
+    <section class="app-page__section u-hidden" data-role="error">
+        <div class="error-message">
+            <span data-role="error-text"></span>
+        </div>
+    </section>
+
+    <section class="app-page__section">
+        <form class="filter-sort" data-role="search-form">
+            <input type="text"
+                   class="form-control"
+                   data-role="search-input"
+                   value="@pageModel.SearchTerm"
+                   placeholder="Поиск по названию анкеты" />
+            <select class="filter-select" data-role="month-filter">
+                <option value="">Все месяцы</option>
+            </select>
+            <select class="filter-select" data-role="year-filter">
+                <option value="">Все годы</option>
+            </select>
+            <label class="@(pageModel.IsArchive ? string.Empty : "u-hidden")" data-role="signed-filter-wrap">
+                <input type="checkbox" data-role="signed-filter-input" @(pageModel.SignedOnly ? "checked" : null) />
+                Только подписанные
+            </label>
+            <button type="submit" class="modal_btn modal_btn-primary">
+                Найти
+            </button>
+        </form>
+    </section>
+
+    <section class="app-page__section u-hidden" data-role="loading">
+        <div class="loading">Загрузка анкет...</div>
+    </section>
+
+    <div data-role="table-section">
+        @await Html.PartialAsync(
+            "~/Web/Views/Survey/Partials/_UserSurveyTable.cshtml",
+            new MainProject.Web.ViewModels.UserSurveyTableViewModel
+            {
+                Surveys = pageModel.Surveys,
+                IsArchive = pageModel.IsArchive
+            })
+    </div>
+
+    <div class="@(pageModel.ShowPagination ? string.Empty : "u-hidden")" data-role="pagination">
+        <div class="pagination-container">
+            <button type="button"
+                    class="pagination-button"
+                    data-role="prev-page"
+                    @(pageModel.CurrentPage <= 1 ? "disabled" : null)>
+                Назад
+            </button>
+            <span data-role="page-label">@pageModel.PageLabel</span>
+            <button type="button"
+                    class="pagination-button"
+                    data-role="next-page"
+                    @(pageModel.CurrentPage >= pageModel.TotalPages ? "disabled" : null)>
+                Вперед
+            </button>
+        </div>
+    </div>
+
+    <script type="application/json" data-role="survey-user-items">@Html.Raw(surveysJson)</script>
+</div>

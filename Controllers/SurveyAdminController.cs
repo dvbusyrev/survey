@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.ViewModels;
 using Npgsql;
 
 [Authorize(Roles = AppRoles.Admin)]
@@ -17,16 +18,28 @@ public class SurveyAdminController : Controller
         _logger = logger;
     }
 
+    private SurveyListPageViewModel BuildSurveyListPage(
+        bool openAddSurveyModal = false,
+        SurveyEditPageViewModel? editSurveyPage = null)
+    {
+        return new SurveyListPageViewModel
+        {
+            Surveys = _surveyAdminService.GetSurveys(),
+            OpenAddSurveyModal = openAddSurveyModal,
+            EditSurveyPage = editSurveyPage
+        };
+    }
+
     [HttpGet("surveys")]
     public IActionResult GetSurveys()
     {
-        return View("~/Web/Views/Survey/get_surveys.cshtml", _surveyAdminService.GetSurveys());
+        return View("~/Web/Views/Survey/get_surveys.cshtml", BuildSurveyListPage());
     }
 
     [HttpGet("surveys/create")]
     public IActionResult AddSurvey()
     {
-        return View("~/Web/Views/Survey/add_survey.cshtml");
+        return View("~/Web/Views/Survey/get_surveys.cshtml", BuildSurveyListPage(openAddSurveyModal: true));
     }
 
     [HttpPost("surveys/create")]
@@ -195,7 +208,7 @@ public class SurveyAdminController : Controller
                 return NotFound("Анкета не найдена");
             }
 
-            return View("~/Web/Views/Survey/update_survey.cshtml", pageModel);
+            return View("~/Web/Views/Survey/get_surveys.cshtml", BuildSurveyListPage(editSurveyPage: pageModel));
         }
         catch (Exception ex)
         {

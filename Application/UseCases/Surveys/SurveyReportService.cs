@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Globalization;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Dapper;
@@ -44,6 +45,23 @@ public sealed class SurveyReportService : ISurveyReportService
         _downloadsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Downloads");
+    }
+
+    public IReadOnlyList<int> GetAvailableReportYears()
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        return connection.Query<int>(
+            @"SELECT DISTINCT EXTRACT(YEAR FROM report_year)::integer AS report_year
+              FROM public.survey_schedule ss
+              CROSS JOIN LATERAL generate_series(
+                  date_trunc('year', ss.date_begin),
+                  date_trunc('year', ss.date_end),
+                  interval '1 year'
+              ) AS report_year
+              WHERE ss.date_begin IS NOT NULL
+                AND ss.date_end IS NOT NULL
+              ORDER BY report_year DESC").ToList();
     }
 
     public GeneratedFileResult CreateSurveyMonthlyReport(int surveyId, int organizationId)
@@ -273,24 +291,39 @@ public sealed class SurveyReportService : ISurveyReportService
         };
     }
 
-    public GeneratedFileResult CreateAllMonthlyReport()
+    public GeneratedFileResult CreateAllMonthlyReport(int month, int year)
     {
-        var surveyIds = new List<int>();
-        using (var connection = _connectionFactory.CreateConnection())
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = @"
-                SELECT id_survey FROM public.survey";
+        ValidateMonthlyPeriod(month, year);
 
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                surveyIds.Add(reader.GetInt32(0));
-            }
+        var periodLabel = FormatRussianMonthYear(month, year);
+        var allAnswers = GetAnswersFromDatabase()
+            .Where(answer => answer.CompletionDate?.Month == month && answer.CompletionDate?.Year == year)
+            .Where(answer => answer.Answers.Count > 0)
+            .ToList();
+
+        if (allAnswers.Count == 0)
+        {
+            throw new InvalidOperationException("За выбранный месяц и год записи для отчёта не найдены.");
         }
 
-        string currentMonth = DateTime.Now.ToString("MMMM yyyy").ToLower();
-        string fileName = $"Сводный отчет по всем анкетам ({currentMonth}).docx";
+        var reportSections = GetSurveysForReport()
+            .Select(survey => new
+            {
+                Survey = survey,
+                Criteria = survey.Questions?.Select(question => question.Text).ToList() ?? new List<string>(),
+                Answers = allAnswers
+                    .Where(answer => answer.IdSurvey == survey.IdSurvey)
+                    .ToList()
+            })
+            .Where(section => section.Criteria.Count > 0 && section.Answers.Count > 0)
+            .ToList();
+
+        if (reportSections.Count == 0)
+        {
+            throw new InvalidOperationException("За выбранный месяц и год записи для отчёта не найдены.");
+        }
+
+        string fileName = $"Сводный отчет по всем анкетам ({periodLabel}).docx";
 
         using var mem = new MemoryStream();
         using (var document = WordprocessingDocument.Create(mem, WordprocessingDocumentType.Document, true))
@@ -313,7 +346,7 @@ public sealed class SurveyReportService : ISurveyReportService
             });
 
             body.AppendChild(new Paragraph(
-                new Run(new Text($"за {currentMonth}"))
+                new Run(new Text($"за {periodLabel}"))
                 {
                     RunProperties = new RunProperties(
                         new Italic(),
@@ -326,7 +359,7 @@ public sealed class SurveyReportService : ISurveyReportService
             });
 
             body.AppendChild(new Paragraph(
-                new Run(new Text("Данный отчет содержит сводную информацию по всем анкетам за указанный месяц."))
+                new Run(new Text("Данный отчет содержит сводную информацию по всем анкетам за выбранный месяц."))
                 {
                     RunProperties = new RunProperties(new FontSize() { Val = "20" })
                 })
@@ -334,53 +367,36 @@ public sealed class SurveyReportService : ISurveyReportService
                 ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { After = "200" })
             });
 
-            foreach (var surveyId in surveyIds)
+            for (int surveyIndex = 0; surveyIndex < reportSections.Count; surveyIndex++)
             {
-                string surveyName;
-                bool isArchive;
-                List<string> criteriaList;
+                var section = reportSections[surveyIndex];
                 var organizations = new List<string>();
                 var ratings = new List<List<int>>();
                 var srednee = new List<double>();
 
-                using (var connection = _connectionFactory.CreateConnection())
+                foreach (var answer in section.Answers)
                 {
-                    isArchive = connection.ExecuteScalar<bool>(
-                        "SELECT date_close < NOW() FROM public.survey WHERE id_survey = @surveyId",
-                        new { surveyId });
-
-                    surveyName = connection.ExecuteScalar<string?>(
-                        "SELECT name_survey FROM public.survey WHERE id_survey = @surveyId",
-                        new { surveyId }) ?? string.Empty;
-
-                    criteriaList = LoadSurveyQuestions(connection, surveyId)
-                        .Select(question => question.Text)
-                        .ToList();
-
-                    var surveyAnswers = LoadSurveyAnswers(connection, surveyId);
-                    foreach (var answer in surveyAnswers)
-                    {
-                        organizations.Add(answer.OrganizationName ?? string.Empty);
-                        ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
-                    }
-
-                    for (int i = 0; i < criteriaList.Count; i++)
-                    {
-                        double sum = 0;
-                        int count = 0;
-                        for (int j = 0; j < ratings.Count; j++)
-                        {
-                            if (ratings[j].Count > i)
-                            {
-                                sum += ratings[j][i];
-                                count++;
-                            }
-                        }
-                        srednee.Add(count > 0 ? sum / count : 0);
-                    }
+                    organizations.Add(answer.OrganizationName ?? string.Empty);
+                    ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
                 }
 
-                string surveyTitle = surveyName + (isArchive ? " (архивная)" : "");
+                for (int criteriaIndex = 0; criteriaIndex < section.Criteria.Count; criteriaIndex++)
+                {
+                    double sum = 0;
+                    int count = 0;
+                    for (int ratingIndex = 0; ratingIndex < ratings.Count; ratingIndex++)
+                    {
+                        if (ratings[ratingIndex].Count > criteriaIndex)
+                        {
+                            sum += ratings[ratingIndex][criteriaIndex];
+                            count++;
+                        }
+                    }
+
+                    srednee.Add(count > 0 ? sum / count : 0);
+                }
+
+                string surveyTitle = section.Survey.NameSurvey + (section.Survey.DateEnd < DateTime.Today ? " (архивная)" : string.Empty);
                 body.AppendChild(new Paragraph(
                     new Run(new Text(surveyTitle))
                     {
@@ -409,67 +425,52 @@ public sealed class SurveyReportService : ISurveyReportService
                 qHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Средняя оценка")) { RunProperties = new RunProperties(new Bold()) })));
                 questionsTable.Append(qHeaderRow);
 
-                for (int i = 0; i < criteriaList.Count; i++)
+                for (int criteriaIndex = 0; criteriaIndex < section.Criteria.Count; criteriaIndex++)
                 {
                     var row = new TableRow();
-                    row.Append(new TableCell(new Paragraph(new Run(new Text((i + 1).ToString())))));
-                    row.Append(new TableCell(new Paragraph(new Run(new Text(criteriaList[i])))));
-                    row.Append(new TableCell(new Paragraph(new Run(new Text(srednee[i].ToString("F1"))))));
+                    row.Append(new TableCell(new Paragraph(new Run(new Text((criteriaIndex + 1).ToString())))));
+                    row.Append(new TableCell(new Paragraph(new Run(new Text(section.Criteria[criteriaIndex])))));
+                    row.Append(new TableCell(new Paragraph(new Run(new Text(srednee[criteriaIndex].ToString("F1"))))));
                     questionsTable.Append(row);
                 }
+
                 body.AppendChild(questionsTable);
 
-                if (organizations.Count > 0)
+                var orgsTable = new Table();
+                orgsTable.AppendChild(new TableProperties(
+                    new TableBorders(
+                        new TopBorder { Val = BorderValues.Single, Size = 4 },
+                        new BottomBorder { Val = BorderValues.Single, Size = 4 },
+                        new LeftBorder { Val = BorderValues.Single, Size = 4 },
+                        new RightBorder { Val = BorderValues.Single, Size = 4 },
+                        new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
+                        new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
+                    new TableWidth() { Width = "100%", Type = TableWidthUnitValues.Auto }));
+
+                var oHeaderRow = new TableRow();
+                oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Организация")) { RunProperties = new RunProperties(new Bold()) })));
+                oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Средняя оценка")) { RunProperties = new RunProperties(new Bold()) })));
+                oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Кол-во ответов")) { RunProperties = new RunProperties(new Bold()) })));
+                orgsTable.Append(oHeaderRow);
+
+                for (int answerIndex = 0; answerIndex < organizations.Count; answerIndex++)
                 {
-                    var orgsTable = new Table();
-                    orgsTable.AppendChild(new TableProperties(
-                        new TableBorders(
-                            new TopBorder { Val = BorderValues.Single, Size = 4 },
-                            new BottomBorder { Val = BorderValues.Single, Size = 4 },
-                            new LeftBorder { Val = BorderValues.Single, Size = 4 },
-                            new RightBorder { Val = BorderValues.Single, Size = 4 },
-                            new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4 },
-                            new InsideVerticalBorder { Val = BorderValues.Single, Size = 4 }),
-                        new TableWidth() { Width = "100%", Type = TableWidthUnitValues.Auto }));
-
-                    var oHeaderRow = new TableRow();
-                    oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Организация")) { RunProperties = new RunProperties(new Bold()) })));
-                    oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Средняя оценка")) { RunProperties = new RunProperties(new Bold()) })));
-                    oHeaderRow.Append(new TableCell(new Paragraph(new Run(new Text("Кол-во ответов")) { RunProperties = new RunProperties(new Bold()) })));
-                    orgsTable.Append(oHeaderRow);
-
-                    for (int i = 0; i < organizations.Count; i++)
-                    {
-                        var row = new TableRow();
-                        row.Append(new TableCell(new Paragraph(new Run(new Text(organizations[i])))));
-                        row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[i].Count > 0 ? ratings[i].Average().ToString("F1") : "0")))));
-                        row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[i].Count.ToString())))));
-                        orgsTable.Append(row);
-                    }
-
-                    var totalRow = new TableRow();
-                    totalRow.Append(new TableCell(new Paragraph(new Run(new Text("Итого:")))));
-                    totalRow.Append(new TableCell(new Paragraph(new Run(new Text(srednee.Count > 0 ? srednee.Average().ToString("F1") : "0")))));
-                    totalRow.Append(new TableCell(new Paragraph(new Run(new Text(ratings.Sum(r => r.Count).ToString())))));
-                    orgsTable.Append(totalRow);
-
-                    body.AppendChild(orgsTable);
-                }
-                else
-                {
-                    body.AppendChild(new Paragraph(
-                        new Run(new Text("Нет данных по ответам организаций"))
-                        {
-                            RunProperties = new RunProperties(
-                                new Italic(),
-                                new FontSize() { Val = "16" })
-                        })
-                    {
-                        ParagraphProperties = new ParagraphProperties(new SpacingBetweenLines() { Before = "100", After = "100" })
-                    });
+                    var row = new TableRow();
+                    row.Append(new TableCell(new Paragraph(new Run(new Text(organizations[answerIndex])))));
+                    row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[answerIndex].Count > 0 ? ratings[answerIndex].Average().ToString("F1") : "0")))));
+                    row.Append(new TableCell(new Paragraph(new Run(new Text(ratings[answerIndex].Count.ToString())))));
+                    orgsTable.Append(row);
                 }
 
-                if (surveyId != surveyIds.Last())
+                var totalRow = new TableRow();
+                totalRow.Append(new TableCell(new Paragraph(new Run(new Text("Итого:")))));
+                totalRow.Append(new TableCell(new Paragraph(new Run(new Text(srednee.Count > 0 ? srednee.Average().ToString("F1") : "0")))));
+                totalRow.Append(new TableCell(new Paragraph(new Run(new Text(ratings.Sum(rating => rating.Count).ToString())))));
+                orgsTable.Append(totalRow);
+
+                body.AppendChild(orgsTable);
+
+                if (surveyIndex < reportSections.Count - 1)
                 {
                     body.AppendChild(new Paragraph(new Run(new Break() { Type = BreakValues.Page })));
                 }
@@ -499,52 +500,57 @@ public sealed class SurveyReportService : ISurveyReportService
 
     public GeneratedFileResult CreateQuarterlyReport(int quarter, int year)
     {
-        if (year == 0)
-        {
-            year = DateTime.Now.Year;
-        }
+        ValidateQuarterlyPeriod(quarter, year);
 
-        var quarterNames = new Dictionary<int, string>
+        var months = GetMonthsForQuarter(quarter);
+        var monthNumbers = months.Select(month => month.Number).ToHashSet();
+        var quarterName = quarter switch
         {
-            { 1, "I" },
-            { 2, "II" },
-            { 3, "III" },
-            { 4, "IV" }
+            1 => "I",
+            2 => "II",
+            3 => "III",
+            4 => "IV",
+            _ => quarter.ToString(CultureInfo.InvariantCulture)
         };
 
-        string quarterName = quarterNames.ContainsKey(quarter)
-            ? quarterNames[quarter]
-            : $"{quarter} квартал";
+        var answers = GetAnswersFromDatabase()
+            .Where(answer => answer.CompletionDate.HasValue)
+            .Where(answer => answer.CompletionDate!.Value.Year == year)
+            .Where(answer => monthNumbers.Contains(answer.CompletionDate!.Value.Month))
+            .Where(answer => answer.Answers.Count > 0)
+            .ToList();
 
-        var answers = GetAnswersFromDatabase();
+        if (answers.Count == 0)
+        {
+            throw new InvalidOperationException("За выбранный квартал и год записи для отчёта не найдены.");
+        }
+
         var surveys = GetSurveysForReport();
 
         using var workbook = new XLWorkbook();
+        int worksheetsCreated = 0;
+
         foreach (var survey in surveys)
         {
-            var surveyAnswers = answers.Where(a => a.IdSurvey == survey.IdSurvey).ToList();
-            if (surveyAnswers.Count == 0)
-            {
-                continue;
-            }
-
-            string sheetName = new string((survey.NameSurvey ?? "Опрос")
-                .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) || c == '-' || c == '_')
-                .Take(31)
-                .ToArray());
-
-            var worksheet = workbook.Worksheets.Add(sheetName);
             var questions = survey.Questions;
-
             if (questions == null || questions.Count == 0)
             {
                 continue;
             }
 
+            var surveyAnswers = answers
+                .Where(answer => answer.IdSurvey == survey.IdSurvey)
+                .ToList();
+
+            if (surveyAnswers.Count == 0)
+            {
+                continue;
+            }
+
+            var worksheet = workbook.Worksheets.Add(BuildUniqueWorksheetName(workbook, survey.NameSurvey));
             BuildWorksheetHeaders(worksheet, questions);
 
             int currentRow = 3;
-            var months = GetMonthsForQuarter(quarter);
             var orgAverages = new List<double>();
             var questionRatings = new Dictionary<int, List<double>>();
 
@@ -562,25 +568,34 @@ public sealed class SurveyReportService : ISurveyReportService
                 currentRow++;
 
                 var monthAnswers = surveyAnswers
-                    .Where(a => a.CreateDateSurvey?.Month == month.Number && a.CreateDateSurvey?.Year == year)
-                    .GroupBy(a => a.OrganizationName)
-                    .OrderBy(g => g.Key);
+                    .Where(answer => answer.CompletionDate?.Month == month.Number && answer.CompletionDate?.Year == year)
+                    .GroupBy(answer => answer.OrganizationName)
+                    .OrderBy(group => group.Key)
+                    .ToList();
+
+                if (monthAnswers.Count == 0)
+                {
+                    worksheet.Cell(currentRow, 1).Value = "Нет данных";
+                    worksheet.Range(currentRow, 1, currentRow, 2 + questions.Count * 2 + 1).Merge();
+                    currentRow++;
+                    continue;
+                }
 
                 foreach (var orgGroup in monthAnswers)
                 {
-                    worksheet.Cell(currentRow, 1).Value = orgGroup.Key;
+                    worksheet.Cell(currentRow, 1).Value = orgGroup.Key ?? "Не указано";
                     worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-                    var answersData = orgGroup.First().Answers ?? new List<MainProject.Application.UseCases.Answers.AnswerPayloadItem>();
-
+                    var answersData = orgGroup.First().Answers ?? new List<AnswerPayloadItem>();
                     var orgRatings = new List<double>();
+
                     for (int i = 0; i < questions.Count; i++)
                     {
                         string questionId = questions[i].Id.ToString();
-                        var answer = answersData.FirstOrDefault(a => a.QuestionId == questionId);
+                        var answer = answersData.FirstOrDefault(item => item.QuestionId == questionId);
                         if (answer?.Rating.HasValue == true)
                         {
-                            var rating = answer.Rating.Value;
+                            double rating = answer.Rating.Value;
                             worksheet.Cell(currentRow, 2 + i).Value = rating;
                             orgRatings.Add(rating);
                             questionRatings[i].Add(rating);
@@ -603,18 +618,11 @@ public sealed class SurveyReportService : ISurveyReportService
                     for (int i = 0; i < questions.Count; i++)
                     {
                         string questionId = questions[i].Id.ToString();
-                        var answer = answersData.FirstOrDefault(a => a.QuestionId == questionId);
+                        var answer = answersData.FirstOrDefault(item => item.QuestionId == questionId);
                         worksheet.Cell(currentRow, 2 + questions.Count + 1 + i).Value = answer?.Comment ?? string.Empty;
                     }
 
                     worksheet.Row(currentRow).AdjustToContents();
-                    currentRow++;
-                }
-
-                if (!monthAnswers.Any())
-                {
-                    worksheet.Cell(currentRow, 1).Value = "Нет данных";
-                    worksheet.Range(currentRow, 1, currentRow, 2 + questions.Count * 2 + 1).Merge();
                     currentRow++;
                 }
             }
@@ -631,10 +639,10 @@ public sealed class SurveyReportService : ISurveyReportService
                         : string.Empty;
                 }
 
-                if (questionRatings.Any(q => q.Value.Count > 0))
+                if (questionRatings.Any(entry => entry.Value.Count > 0))
                 {
                     worksheet.Cell(currentRow, 2 + questions.Count).Value =
-                        questionRatings.Where(q => q.Value.Count > 0).Average(q => q.Value.Average());
+                        questionRatings.Where(entry => entry.Value.Count > 0).Average(entry => entry.Value.Average());
                 }
 
                 currentRow++;
@@ -647,10 +655,16 @@ public sealed class SurveyReportService : ISurveyReportService
             }
 
             FormatWorksheet(worksheet, questions.Count);
+            worksheetsCreated++;
+        }
+
+        if (worksheetsCreated == 0)
+        {
+            throw new InvalidOperationException("За выбранный квартал и год записи для отчёта не найдены.");
         }
 
         string safeQuarterName = string.Join("_", quarterName.Split(Path.GetInvalidFileNameChars()));
-        string fileName = $"quarterly_report_{safeQuarterName}_{year}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        string fileName = $"Отчет_за_{safeQuarterName}_квартал_{year}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
 
         Directory.CreateDirectory(_downloadsPath);
         string filePath = Path.Combine(_downloadsPath, fileName);
@@ -662,6 +676,69 @@ public sealed class SurveyReportService : ISurveyReportService
             ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             FileName = fileName
         };
+    }
+
+    private static void ValidateMonthlyPeriod(int month, int year)
+    {
+        if (month is < 1 or > 12)
+        {
+            throw new InvalidOperationException("Выберите корректный месяц для формирования отчёта.");
+        }
+
+        if (year <= 0)
+        {
+            throw new InvalidOperationException("Выберите корректный год для формирования отчёта.");
+        }
+    }
+
+    private static void ValidateQuarterlyPeriod(int quarter, int year)
+    {
+        if (quarter is < 1 or > 4)
+        {
+            throw new InvalidOperationException("Выберите корректный квартал для формирования отчёта.");
+        }
+
+        if (year <= 0)
+        {
+            throw new InvalidOperationException("Выберите корректный год для формирования отчёта.");
+        }
+    }
+
+    private static string FormatRussianMonthYear(int month, int year)
+    {
+        var culture = CultureInfo.GetCultureInfo("ru-RU");
+        return new DateTime(year, month, 1).ToString("MMMM yyyy", culture).ToLower(culture);
+    }
+
+    private static string BuildUniqueWorksheetName(XLWorkbook workbook, string? surveyName)
+    {
+        var baseName = new string((surveyName ?? "Опрос")
+            .Where(character => char.IsLetterOrDigit(character) || char.IsWhiteSpace(character) || character == '-' || character == '_')
+            .ToArray())
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(baseName))
+        {
+            baseName = "Опрос";
+        }
+
+        if (baseName.Length > 31)
+        {
+            baseName = baseName[..31];
+        }
+
+        var worksheetName = baseName;
+        int suffix = 2;
+
+        while (workbook.Worksheets.Any(worksheet => string.Equals(worksheet.Name, worksheetName, StringComparison.OrdinalIgnoreCase)))
+        {
+            var suffixText = $"_{suffix}";
+            var prefixLength = Math.Max(1, 31 - suffixText.Length);
+            worksheetName = $"{baseName[..Math.Min(baseName.Length, prefixLength)]}{suffixText}";
+            suffix++;
+        }
+
+        return worksheetName;
     }
 
     private static IReadOnlyList<SurveyQuestionItem> LoadSurveyQuestions(
@@ -686,17 +763,16 @@ public sealed class SurveyReportService : ISurveyReportService
         var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
-                  ha.organization_id,
+                  ha.id_organization AS OrganizationId,
                   ha.id_survey,
                   ha.csp,
                   ha.completion_date,
-                  ha.create_date_survey,
-                  o.organization_name
+                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
               FROM public.answer ha
               LEFT JOIN public.organization o
-                  ON o.organization_id = ha.organization_id
+                  ON o.id_organization = ha.id_organization
               WHERE ha.id_survey = @surveyId
-                AND (@organizationId IS NULL OR ha.organization_id = @organizationId)
+                AND (@organizationId IS NULL OR ha.id_organization = @organizationId)
                 AND EXISTS (
                     SELECT 1
                     FROM public.answer_item hai
@@ -717,17 +793,23 @@ public sealed class SurveyReportService : ISurveyReportService
             @"SELECT
                   s.id_survey,
                   s.name_survey,
+                  ss.date_end,
                   COALESCE(
                       (
-                          SELECT string_agg(o.organization_name, ', ')
+                          SELECT string_agg(
+                              COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name),
+                              ', '
+                          )
                           FROM public.organization_survey os
                           INNER JOIN public.organization o
-                              ON o.organization_id = os.organization_id
+                              ON o.id_organization = os.id_organization
                           WHERE os.id_survey = s.id_survey
                       ),
                       'Не указано'
                   ) AS organization_name
-              FROM public.survey s").ToList();
+              FROM public.survey s
+              LEFT JOIN public.survey_schedule ss
+                  ON ss.id_survey = s.id_survey").ToList();
 
         AttachSurveyQuestions(connection, surveys);
         return surveys;
@@ -739,19 +821,24 @@ public sealed class SurveyReportService : ISurveyReportService
 
         var answers = connection.Query<AnswerRecord>(
             @"SELECT
-                  a.organization_id,
-                  o.organization_name,
+                  a.id_organization AS OrganizationId,
+                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
                   a.csp,
                   a.id_answer,
                   a.id_survey,
                   s.name_survey,
-                  a.completion_date,
-                  a.create_date_survey
+                  a.completion_date
               FROM public.answer a
               LEFT JOIN public.organization o
-                  ON o.organization_id = a.organization_id
+                  ON o.id_organization = a.id_organization
               LEFT JOIN public.survey s
-                  ON s.id_survey = a.id_survey").ToList();
+                  ON s.id_survey = a.id_survey
+              WHERE EXISTS (
+                  SELECT 1
+                  FROM public.answer_item ai
+                  WHERE ai.id_answer = a.id_answer
+              )
+              ORDER BY a.completion_date DESC").ToList();
 
         AttachAnswerItems(connection, answers);
         return answers;

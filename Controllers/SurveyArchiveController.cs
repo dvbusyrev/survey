@@ -3,22 +3,40 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.ViewModels;
 
 [Authorize]
 public class SurveyArchiveController : Controller
 {
     private readonly ISurveyArchiveService _surveyArchiveService;
+    private readonly ISurveyAdminService _surveyAdminService;
+    private readonly ISurveyUserService _surveyUserService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SurveyArchiveController> _logger;
 
     public SurveyArchiveController(
         ISurveyArchiveService surveyArchiveService,
+        ISurveyAdminService surveyAdminService,
+        ISurveyUserService surveyUserService,
         ICurrentUserService currentUserService,
         ILogger<SurveyArchiveController> logger)
     {
         _surveyArchiveService = surveyArchiveService;
+        _surveyAdminService = surveyAdminService;
+        _surveyUserService = surveyUserService;
         _currentUserService = currentUserService;
         _logger = logger;
+    }
+
+    private IActionResult RenderAdminArchivePage(SurveyEditPageViewModel? editSurveyPage = null)
+    {
+        return View(
+            "~/Web/Views/Survey/archived_surveys.cshtml",
+            new MainProject.Web.ViewModels.SurveyArchivePageViewModel
+            {
+                Surveys = _surveyArchiveService.GetAdminArchivedSurveys(),
+                EditSurveyPage = editSurveyPage
+            });
     }
 
     private IActionResult? EnsureUserRouteAccess(int requestedUserId)
@@ -50,9 +68,28 @@ public class SurveyArchiveController : Controller
     [HttpGet("surveys/archive")]
     public IActionResult ArchivedSurveys()
     {
-            return View(
-                "~/Web/Views/Survey/archived_surveys.cshtml",
-                _surveyArchiveService.GetAdminArchivedSurveys());
+        return RenderAdminArchivePage();
+    }
+
+    [Authorize(Roles = AppRoles.Admin)]
+    [HttpGet("surveys/archive/{id:int}/edit")]
+    public IActionResult ArchivedSurveyEdit(int id)
+    {
+        try
+        {
+            var pageModel = _surveyAdminService.GetSurveyEditPage(id);
+            if (pageModel == null)
+            {
+                return NotFound("Анкета не найдена");
+            }
+
+            return RenderAdminArchivePage(pageModel);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при открытии архивной анкеты {SurveyId} для редактирования", id);
+            return StatusCode(500, "Произошла ошибка при загрузке анкеты");
+        }
     }
 
     [HttpGet("my-surveys/archive")]
@@ -80,8 +117,17 @@ public class SurveyArchiveController : Controller
 
         if (pageModel == null)
         {
-            return NotFound(new { error = "Пользователь не найден" });
+            return NotFound(new { error = "Клиент не найден" });
         }
+
+        var activePageModel = _surveyUserService.GetActiveSurveysPage(
+            _currentUserService.UserId.Value,
+            1,
+            searchTerm: null);
+
+        ViewBag.ActiveTabContentModel = BuildActiveContentModel(
+            activePageModel,
+            pageModel.TotalCount);
 
         return View("~/Web/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
     }
@@ -116,7 +162,7 @@ public class SurveyArchiveController : Controller
 
             if (pageModel == null)
             {
-                return NotFound(new { error = "Пользователь не найден" });
+                return NotFound(new { error = "Клиент не найден" });
             }
 
             if (countOnly)
@@ -124,20 +170,23 @@ public class SurveyArchiveController : Controller
                 return Ok(new { totalCount = pageModel.TotalCount });
             }
 
+            var activePageModel = _surveyUserService.GetActiveSurveysPage(
+                id,
+                1,
+                searchTerm: null);
+
+            var archiveContentModel = BuildArchivedContentModel(
+                pageModel,
+                activePageModel?.TotalCount ?? 0);
+
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
-                return Ok(new
-                {
-                    accessibleSurveys = pageModel.ArchivedSurveys,
-                    currentPage = pageModel.CurrentPage,
-                    totalPages = pageModel.TotalPages,
-                    totalCount = pageModel.TotalCount,
-                    searchTerm = pageModel.SearchTerm,
-                    dateFrom = pageModel.DateFrom,
-                    dateTo = pageModel.DateTo,
-                    signedOnly = pageModel.SignedOnly
-                });
+                return PartialView("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", archiveContentModel);
             }
+
+            ViewBag.ActiveTabContentModel = BuildActiveContentModel(
+                activePageModel,
+                pageModel.TotalCount);
 
             return View("~/Web/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
         }
@@ -150,6 +199,39 @@ public class SurveyArchiveController : Controller
                 details = ex.Message
             });
         }
+    }
+
+    private static UserSurveyPageContentViewModel BuildActiveContentModel(
+        UserSurveyListPageViewModel? pageModel,
+        int archivedCount)
+    {
+        return new UserSurveyPageContentViewModel
+        {
+            Surveys = pageModel?.AccessibleSurveys ?? Array.Empty<MainProject.Domain.Entities.Survey>(),
+            ActiveTab = "active",
+            CurrentPage = pageModel?.CurrentPage ?? 1,
+            TotalPages = pageModel?.TotalPages ?? 1,
+            ActiveCount = pageModel?.TotalCount ?? 0,
+            ArchivedCount = archivedCount,
+            SearchTerm = pageModel?.SearchTerm ?? string.Empty
+        };
+    }
+
+    private static UserSurveyPageContentViewModel BuildArchivedContentModel(
+        UserSurveyArchivePageViewModel pageModel,
+        int activeCount)
+    {
+        return new UserSurveyPageContentViewModel
+        {
+            Surveys = pageModel.ArchivedSurveys,
+            ActiveTab = "archived",
+            CurrentPage = pageModel.CurrentPage,
+            TotalPages = pageModel.TotalPages,
+            ActiveCount = activeCount,
+            ArchivedCount = pageModel.TotalCount,
+            SearchTerm = pageModel.SearchTerm,
+            SignedOnly = pageModel.SignedOnly
+        };
     }
 
     [Authorize(Roles = AppRoles.Admin)]

@@ -44,12 +44,21 @@ body {
 }
 
 .action-icons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 15px;
-  white-space: nowrap;
+  text-align: center;
+  font-size: 0;
+  line-height: 0;
+  white-space: normal;
   overflow: visible;
+}
+
+.action-icons > * {
+  display: inline-flex;
+  vertical-align: top;
+  margin: 0 5px 10px;
+}
+
+.action-icons > *:last-child {
+  margin-bottom: 0;
 }
 
 .icon-container {
@@ -66,6 +75,10 @@ body {
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
   overflow: visible;
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+td.action-icons {
+  display: table-cell;
 }
 
 .icon-container:hover {

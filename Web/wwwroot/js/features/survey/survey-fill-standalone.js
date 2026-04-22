@@ -1,127 +1,126 @@
-// stage12: standalone survey fill page extracted from get_survey_questions.cshtml
-window.renderStandaloneSurveyFill = function (initialData) {
-    const root = document.getElementById('root');
-    const pageTemplate = document.getElementById('survey-fill-page-template');
-    const questionTemplate = document.getElementById('survey-fill-question-template');
-    const successTemplate = document.getElementById('survey-fill-success-template');
-    if (!root || !pageTemplate?.content?.firstElementChild || !questionTemplate?.content?.firstElementChild) {
+window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(initialData) {
+    const page = document.querySelector('[data-page="survey-fill-standalone"]');
+    if (!page) {
         return;
     }
+
+    const refs = {
+        errorBlock: page.querySelector('[data-role="error"]'),
+        errorText: page.querySelector('[data-role="error-text"]'),
+        submitButton: page.querySelector('[data-role="submit"]'),
+        submitLabel: page.querySelector('[data-role="submit-label"]')
+    };
 
     const answers = {};
     let loading = false;
     let error = null;
 
-    root.innerHTML = '';
-    const page = pageTemplate.content.firstElementChild.cloneNode(true);
-    root.appendChild(page);
+    function renderChrome() {
+        const headerHost = document.getElementById('chrome-header');
+        const navHost = document.getElementById('chrome-navigation');
+        const footerHost = document.getElementById('chrome-footer');
 
-    const headerHost = page.querySelector('[data-component="header"]');
-    const navHost = page.querySelector('[data-component="navigation"]');
-    const footerHost = page.querySelector('[data-component="footer"]');
-    const questionsHost = page.querySelector('[data-role="questions"]');
-    const errorBlock = page.querySelector('[data-role="error"]');
-    const errorText = page.querySelector('[data-role="error-text"]');
-    const submitButton = page.querySelector('[data-role="submit"]');
-    const submitLabel = page.querySelector('[data-role="submit-label"]');
+        if (headerHost && typeof window.mountHeader === 'function') {
+            window.mountHeader(headerHost, {
+                userRole: initialData.userRole,
+                displayName: initialData.displayName,
+                userName: initialData.userName,
+                organizationName: initialData.organizationName
+            });
+        }
 
-    if (headerHost && typeof window.mountHeader === 'function') {
-        window.mountHeader(headerHost, {
-            userRole: initialData.userRole,
-            displayName: initialData.displayName,
-            userName: initialData.userName,
-            organizationName: initialData.organizationName
-        });
+        if (navHost && typeof window.mountNavigation === 'function') {
+            window.mountNavigation(navHost, {
+                activeTab: 'answers_tab',
+                userRole: initialData.userRole,
+                userId: initialData.userId
+            });
+        }
+
+        if (footerHost && typeof window.mountFooter === 'function') {
+            window.mountFooter(footerHost);
+        }
     }
-    if (navHost && typeof window.mountNavigation === 'function') {
-        window.mountNavigation(navHost, {
-            activeTab: 'answers_tab',
-            userRole: initialData.userRole,
-            userId: initialData.userId
-        });
-    }
-    if (footerHost && typeof window.mountFooter === 'function') {
-        window.mountFooter(footerHost);
+
+    function getQuestionNodes() {
+        return Array.from(page.querySelectorAll('[data-role="survey-question"]'));
     }
 
     function renderError() {
-        if (!errorBlock || !errorText) {
+        if (!refs.errorBlock || !refs.errorText) {
             return;
         }
+
         if (error) {
-            errorText.textContent = error;
-            errorBlock.style.display = 'flex';
+            refs.errorText.textContent = error;
+            refs.errorBlock.classList.remove('u-hidden');
         } else {
-            errorText.textContent = '';
-            errorBlock.style.display = 'none';
+            refs.errorText.textContent = '';
+            refs.errorBlock.classList.add('u-hidden');
         }
     }
 
     function renderSubmitState() {
-        if (!submitButton || !submitLabel) {
+        if (!refs.submitButton || !refs.submitLabel) {
             return;
         }
-        submitButton.disabled = loading;
-        submitButton.querySelector('.loading-spinner')?.remove();
+
+        refs.submitButton.disabled = loading;
+        refs.submitButton.querySelector('.loading-spinner')?.remove();
+
         if (loading) {
             const spinner = document.createElement('span');
             spinner.className = 'loading-spinner';
-            submitButton.insertBefore(spinner, submitLabel);
-            submitLabel.textContent = 'Отправка...';
-        } else {
-            submitLabel.textContent = 'Отправить ответы';
+            refs.submitButton.insertBefore(spinner, refs.submitLabel);
+            refs.submitLabel.textContent = 'Отправка...';
+            return;
         }
+
+        refs.submitLabel.textContent = 'Отправить ответы';
     }
 
     function updateQuestionState(questionId, questionElement) {
         const answer = answers[questionId] || {};
-        questionElement.querySelectorAll('.btn_crit').forEach((button) => {
+
+        questionElement.querySelectorAll('[data-role="rating-button"]').forEach((button) => {
             const rating = Number(button.dataset.rating || 0);
             button.classList.toggle('active', answer.rating === rating);
         });
 
         const commentBlock = questionElement.querySelector('[data-role="comment-block"]');
-        const commentInput = questionElement.querySelector('textarea');
+        const commentInput = questionElement.querySelector('[data-role="comment-input"]');
         const showComment = answer.rating > 0 && answer.rating < 5;
+
         if (commentBlock) {
-            commentBlock.style.display = showComment ? '' : 'none';
+            commentBlock.classList.toggle('u-hidden', !showComment);
         }
+
         if (commentInput) {
             commentInput.value = answer.comment || '';
         }
     }
 
-    function buildQuestion(question, index) {
-        const questionId = String(question.id || question.Id || index);
-        const questionText = question.text || question.Text || `Вопрос ${index + 1}`;
-        const questionNode = questionTemplate.content.firstElementChild.cloneNode(true);
-        const title = questionNode.querySelector('[data-role="question-title"]');
-        const ratingsHost = questionNode.querySelector('[data-role="ratings"]');
-        const commentInput = questionNode.querySelector('textarea');
-
-        if (title) {
-            title.textContent = questionText;
+    function bindQuestion(questionElement) {
+        const questionId = questionElement.dataset.questionId || '';
+        if (!questionId) {
+            return;
         }
 
-        for (let rating = 1; rating <= 5; rating += 1) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'btn_crit';
-            button.dataset.rating = String(rating);
-            button.textContent = String(rating);
+        questionElement.querySelectorAll('[data-role="rating-button"]').forEach((button) => {
             button.addEventListener('click', () => {
                 error = null;
+                const rating = Number(button.dataset.rating || 0);
                 answers[questionId] = {
                     ...answers[questionId],
                     rating,
                     comment: rating < 5 ? answers[questionId]?.comment || '' : ''
                 };
                 renderError();
-                updateQuestionState(questionId, questionNode);
+                updateQuestionState(questionId, questionElement);
             });
-            ratingsHost?.appendChild(button);
-        }
+        });
 
+        const commentInput = questionElement.querySelector('[data-role="comment-input"]');
         commentInput?.addEventListener('input', (event) => {
             error = null;
             answers[questionId] = {
@@ -131,20 +130,7 @@ window.renderStandaloneSurveyFill = function (initialData) {
             renderError();
         });
 
-        updateQuestionState(questionId, questionNode);
-        return questionNode;
-    }
-
-    function showSuccessAndRedirect() {
-        if (!successTemplate?.content?.firstElementChild) {
-            window.location.href = '/survey/thank-you';
-            return;
-        }
-        root.innerHTML = '';
-        root.appendChild(successTemplate.content.firstElementChild.cloneNode(true));
-        window.setTimeout(() => {
-            window.location.href = '/survey/thank-you';
-        }, 2000);
+        updateQuestionState(questionId, questionElement);
     }
 
     async function submitAnswers() {
@@ -154,14 +140,17 @@ window.renderStandaloneSurveyFill = function (initialData) {
             renderError();
             renderSubmitState();
 
-            const payloadAnswers = Object.entries(answers).map(([questionId, answer]) => ({
-                question_id: questionId,
-                question_text: initialData.questions.find((q) => String(q.id || q.Id) === String(questionId))?.text
-                    || initialData.questions.find((q) => String(q.id || q.Id) === String(questionId))?.Text
-                    || '',
-                rating: answer.rating,
-                comment: answer.comment || ''
-            }));
+            const payloadAnswers = Object.entries(answers).map(([questionId, answer]) => {
+                const questionNode = getQuestionNodes().find((node) => node.dataset.questionId === questionId);
+                const questionText = questionNode?.querySelector('[data-role="question-title"]')?.textContent?.trim() || '';
+
+                return {
+                    question_id: questionId,
+                    question_text: questionText,
+                    rating: answer.rating,
+                    comment: answer.comment || ''
+                };
+            });
 
             const response = await fetch('/answers/create', {
                 method: 'POST',
@@ -171,7 +160,7 @@ window.renderStandaloneSurveyFill = function (initialData) {
                 },
                 body: JSON.stringify({
                     id_survey: initialData.surveyId,
-                    organization_id: initialData.organizationId,
+                    id_organization: initialData.organizationId,
                     answers: payloadAnswers
                 })
             });
@@ -181,7 +170,7 @@ window.renderStandaloneSurveyFill = function (initialData) {
                 throw new Error(errorData?.error || 'Ошибка при отправке ответов');
             }
 
-            showSuccessAndRedirect();
+            window.location.href = '/survey/thank-you';
         } catch (err) {
             error = err?.message || 'Не удалось отправить ответы';
             renderError();
@@ -191,23 +180,21 @@ window.renderStandaloneSurveyFill = function (initialData) {
         }
     }
 
-    submitButton?.addEventListener('click', submitAnswers);
+    refs.submitButton?.addEventListener('click', submitAnswers);
+    getQuestionNodes().forEach(bindQuestion);
+    renderChrome();
     renderError();
     renderSubmitState();
-
-    (initialData.questions || []).forEach((question, index) => {
-        questionsHost?.appendChild(buildQuestion(question, index));
-    });
 };
 
 function getStandaloneBootstrapData() {
     const bootstrapElement = document.getElementById('survey-fill-bootstrap');
-    if (!bootstrapElement?.content?.textContent) {
+    if (!bootstrapElement?.textContent) {
         return null;
     }
 
     try {
-        return JSON.parse(bootstrapElement.content.textContent.trim());
+        return JSON.parse(bootstrapElement.textContent.trim());
     } catch (error) {
         console.error('Не удалось прочитать bootstrap-данные страницы анкеты:', error);
         return null;
@@ -215,6 +202,6 @@ function getStandaloneBootstrapData() {
 }
 
 const standaloneBootstrapData = getStandaloneBootstrapData();
-if (document.getElementById('root') && standaloneBootstrapData) {
-    window.renderStandaloneSurveyFill(standaloneBootstrapData);
+if (document.querySelector('[data-page="survey-fill-standalone"]') && standaloneBootstrapData) {
+    window.bindStandaloneSurveyFillPage(standaloneBootstrapData);
 }

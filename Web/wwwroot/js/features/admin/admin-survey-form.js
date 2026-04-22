@@ -1,7 +1,6 @@
 (function () {
     var selectedOrganization = [];
     var allOrganizations = [];
-    var criteriaConfirmed = false;
 
     window.surveyEditSelectedOrganization = window.surveyEditSelectedOrganization || [];
     window.surveyEditModalOpen = false;
@@ -37,9 +36,64 @@
 
     function normalizeOrganization(rawOrganization) {
         return {
-            id: Number(rawOrganization.organization_id ?? rawOrganization.id ?? 0),
+            id: Number(rawOrganization.id_organization ?? rawOrganization.id ?? 0),
             name: String(rawOrganization.organization_name ?? rawOrganization.name ?? '').trim()
         };
+    }
+
+    function cloneOrganizations(items) {
+        if (!Array.isArray(items)) {
+            return [];
+        }
+
+        return items
+            .map((item) => normalizeOrganization(item || {}))
+            .filter((item) => item.id > 0 && item.name);
+    }
+
+    function setSelectedOrganizations(items) {
+        selectedOrganization = cloneOrganizations(items);
+        window.surveyEditSelectedOrganization = cloneOrganizations(selectedOrganization);
+    }
+
+    function getSelectedOrganizations() {
+        return cloneOrganizations(selectedOrganization);
+    }
+
+    function getOrganizationItemName(item) {
+        const datasetName = String(item?.dataset?.name || '').trim();
+        if (datasetName) {
+            return datasetName;
+        }
+
+        const labelText = String(item?.querySelector('label')?.textContent || '').trim();
+        if (labelText) {
+            return labelText;
+        }
+
+        return String(item?.textContent || '').trim();
+    }
+
+    function syncOrganizationItemSelection(item, isSelected) {
+        if (!item) {
+            return;
+        }
+
+        item.dataset.selected = isSelected ? 'true' : 'false';
+        item.classList.toggle('selected', isSelected);
+
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            checkbox.checked = isSelected;
+        }
+    }
+
+    function syncOrganizationListSelectionFromState() {
+        const selectedIds = new Set(selectedOrganization.map((organization) => organization.id));
+        document.querySelectorAll('#organizationList .organization-item').forEach((item) => {
+            const id = Number.parseInt(item.dataset.id || '', 10);
+            syncOrganizationItemSelection(item, Number.isFinite(id) && selectedIds.has(id));
+        });
     }
 
     function openOrganizationModal() {
@@ -49,6 +103,11 @@
         }
 
         setModalVisible(modal, true);
+        if (allOrganizations.length > 0) {
+            renderOrganizationsList();
+            return;
+        }
+
         loadOrganizations();
     }
 
@@ -121,11 +180,16 @@
         }
 
         organizationList.innerHTML = '';
+        organizationList.classList.remove('u-hidden');
+        organizationList.style.display = '';
 
         allOrganizations.forEach((organization) => {
             const isSelected = selectedOrganization.some((item) => item.id === organization.id);
             const organizationItem = document.createElement('div');
             organizationItem.className = `organization-item ${isSelected ? 'selected' : ''}`;
+            organizationItem.dataset.id = String(organization.id);
+            organizationItem.dataset.name = organization.name;
+            organizationItem.dataset.selected = isSelected ? 'true' : 'false';
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -143,6 +207,8 @@
             organizationItem.appendChild(label);
             organizationList.appendChild(organizationItem);
         });
+
+        syncOrganizationListSelectionFromState();
     }
 
     function loadOrganizations() {
@@ -153,7 +219,9 @@
             return;
         }
 
+        loadingElement.classList.remove('u-hidden');
         loadingElement.style.display = 'block';
+        organizationList.classList.add('u-hidden');
         organizationList.style.display = 'none';
 
         fetch('/organizations/data', {
@@ -189,19 +257,24 @@
             })
             .finally(() => {
                 loadingElement.style.display = 'none';
+                loadingElement.classList.add('u-hidden');
+                organizationList.classList.remove('u-hidden');
                 organizationList.style.display = 'block';
             });
     }
 
     function toggleOrganizationSelection(id, name) {
-        const index = selectedOrganization.findIndex((organization) => organization.id === id);
+        const nextSelection = getSelectedOrganizations();
+        const index = nextSelection.findIndex((organization) => organization.id === id);
 
         if (index === -1) {
-            selectedOrganization.push({ id, name });
-            return;
+            nextSelection.push({ id, name });
+        } else {
+            nextSelection.splice(index, 1);
         }
 
-        selectedOrganization.splice(index, 1);
+        setSelectedOrganizations(nextSelection);
+        syncOrganizationListSelectionFromState();
     }
 
     function saveSelectedOrganization() {
@@ -212,17 +285,23 @@
     function updateSelectedOrganizationDisplay() {
         const container = getElementByRole('selected-organizations-container');
         const list = getElementByRole('selected-organizations-list');
+        const idsInput = document.getElementById('selectedOrganizationIds');
 
         if (!container || !list) {
             return;
         }
 
         if (selectedOrganization.length === 0) {
+            container.classList.add('u-hidden');
             container.style.display = 'none';
             list.innerHTML = '';
+            if (idsInput) {
+                idsInput.value = '';
+            }
             return;
         }
 
+        container.classList.remove('u-hidden');
         container.style.display = 'block';
         list.innerHTML = '';
 
@@ -246,83 +325,163 @@
             item.appendChild(button);
             list.appendChild(item);
         });
+
+        if (idsInput) {
+            idsInput.value = selectedOrganization.map((organization) => organization.id).join(',');
+        }
     }
 
     function removeSelectedOrganization(id) {
-        selectedOrganization = selectedOrganization.filter((organization) => organization.id !== id);
+        setSelectedOrganizations(
+            selectedOrganization.filter((organization) => organization.id !== id)
+        );
         updateSelectedOrganizationDisplay();
-
-        const organizationModal = document.getElementById('organizationModal');
-        if (organizationModal && organizationModal.classList.contains('active')) {
-            renderOrganizationsList();
-        }
+        syncOrganizationListSelectionFromState();
     }
 
-    function addRowCriteriy() {
-        const container = getElementByRole('criteria-list');
-        if (!container) {
-            return;
-        }
+    function getCriteriaList() {
+        return getElementByRole('criteria-list');
+    }
 
-        const count = container.querySelectorAll('.criteriy').length + 1;
+    function getCriteriaItems(container) {
+        const criteriaList = container || getCriteriaList();
+        return criteriaList
+            ? Array.from(criteriaList.querySelectorAll('.survey-editor-page__criteria-item'))
+            : [];
+    }
+
+    function refreshCriteriaFields(container) {
+        getCriteriaItems(container).forEach((item, index) => {
+            const criterionNumber = index + 1;
+            const label = item.querySelector('label');
+            const input = item.querySelector('.criteriy');
+            const removeButton = item.querySelector('.survey-editor-page__criteria-remove');
+
+            if (input) {
+                input.id = `criterion${criterionNumber}`;
+            }
+
+            if (label) {
+                label.setAttribute('for', `criterion${criterionNumber}`);
+                label.textContent = `Критерий №${criterionNumber}:`;
+            }
+
+            if (removeButton) {
+                removeButton.setAttribute('aria-label', `Удалить критерий ${criterionNumber}`);
+            }
+        });
+    }
+
+    function createCriteriaField(value) {
         const wrapper = document.createElement('div');
-        wrapper.className = 'form-group';
+        wrapper.className = 'form-group survey-editor-page__criteria-item';
+
         const label = document.createElement('label');
-        label.setAttribute('for', `criteriy${count}`);
-        label.textContent = `Критерий оценки ${count}:`;
+
+        const control = document.createElement('div');
+        control.className = 'survey-editor-page__criteria-control';
 
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'form-control criteriy';
-        input.id = `criteriy${count}`;
         input.placeholder = 'Введите критерий оценки';
         input.required = true;
+        input.value = value || '';
 
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'survey-editor-page__criteria-remove';
+        removeButton.dataset.clickCall = 'removeSurveyCriterion';
+        removeButton.dataset.clickPassElement = 'true';
+
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-trash';
+        icon.setAttribute('aria-hidden', 'true');
+        removeButton.appendChild(icon);
+
+        const error = document.createElement('div');
+        error.className = 'error-message';
+
+        control.appendChild(input);
+        control.appendChild(removeButton);
         wrapper.appendChild(label);
-        wrapper.appendChild(input);
+        wrapper.appendChild(control);
+        wrapper.appendChild(error);
 
-        container.appendChild(wrapper);
+        return wrapper;
     }
 
-    function confirmCriteries() {
-        const criteriaInputs = document.querySelectorAll('.criteriy');
-        let allValid = true;
+    function appendSurveyCriteriaField(value) {
+        const container = getCriteriaList();
+        if (!container) {
+            return null;
+        }
 
-        criteriaInputs.forEach((input) => {
-            if (!input.value.trim()) {
-                input.classList.add('invalid');
-                allValid = false;
-                return;
-            }
+        const field = createCriteriaField(value);
+        container.appendChild(field);
+        refreshCriteriaFields(container);
+        return field;
+    }
 
-            input.classList.remove('invalid');
-        });
-
-        if (!allValid) {
-            showError('Ошибка', 'Заполните все критерии оценки.');
+    function removeSurveyCriterion(trigger) {
+        const criterionItem = trigger?.closest('.survey-editor-page__criteria-item');
+        if (!criterionItem) {
             return;
         }
 
-        criteriaInputs.forEach((input) => {
-            input.readOnly = true;
+        const container = criterionItem.parentElement;
+        criterionItem.remove();
+        refreshCriteriaFields(container);
+    }
+
+    function validateSurveyCriteriaFields() {
+        const criteriaItems = getCriteriaItems();
+        if (criteriaItems.length === 0) {
+            showError('Ошибка', 'Добавьте хотя бы один критерий оценки.');
+            return false;
+        }
+
+        let hasErrors = false;
+        let hasFilledCriteria = false;
+
+        criteriaItems.forEach((item) => {
+            const input = item.querySelector('.criteriy');
+            const error = item.querySelector('.error-message');
+            const value = input?.value.trim() || '';
+
+            if (value) {
+                hasFilledCriteria = true;
+                input?.classList.remove('invalid');
+                if (error) {
+                    error.textContent = '';
+                    error.style.display = 'none';
+                }
+                return;
+            }
+
+            hasErrors = true;
+            input?.classList.add('invalid');
+            if (error) {
+                error.textContent = 'Заполните критерий или удалите это поле.';
+                error.style.display = 'block';
+            }
         });
 
-        getElementByRole('criteria-step')?.classList.add('confirmed-criteria');
-        const submitButton = getElementByRole('survey-submit');
-        if (submitButton) {
-            submitButton.style.display = 'inline-block';
-        }
-        const addCriteriaButton = getElementByRole('criteria-add');
-        if (addCriteriaButton) {
-            addCriteriaButton.style.display = 'none';
-        }
-        const confirmCriteriaButton = getElementByRole('criteria-confirm');
-        if (confirmCriteriaButton) {
-            confirmCriteriaButton.style.display = 'none';
+        if (!hasFilledCriteria) {
+            showError('Ошибка', 'Добавьте хотя бы один критерий оценки.');
+            return false;
         }
 
-        criteriaConfirmed = true;
-        showSuccess('Успех', 'Критерии успешно подтверждены.');
+        if (hasErrors) {
+            showError('Ошибка', 'Заполните все критерии оценки или удалите пустые поля.');
+            return false;
+        }
+
+        return true;
+    }
+
+    function addRowCriteriy() {
+        appendSurveyCriteriaField('');
     }
 
     function showSuccess(title, message) {
@@ -335,6 +494,53 @@
 
     function hideNotification() {
         setModalVisible('notification', false);
+    }
+
+    function resetSurveyCreateForm() {
+        setSelectedOrganizations([]);
+        allOrganizations = [];
+
+        const title = safeGetElement('surveyTitle');
+        const description = safeGetElement('surveyDescription');
+        const startDate = safeGetElement('startDate');
+        const endDate = safeGetElement('endDate');
+
+        if (title) {
+            title.value = '';
+            title.classList.remove('invalid');
+        }
+
+        if (description) {
+            description.value = '';
+            description.classList.remove('invalid');
+        }
+
+        if (startDate) {
+            startDate.value = '';
+            startDate.classList.remove('invalid');
+        }
+
+        if (endDate) {
+            endDate.value = '';
+            endDate.classList.remove('invalid');
+        }
+
+        const criteriaStep = getElementByRole('criteria-step');
+        const criteriaList = getElementByRole('criteria-list');
+
+        if (criteriaStep) {
+            criteriaStep.classList.remove('confirmed-criteria');
+        }
+
+        if (criteriaList) {
+            criteriaList.innerHTML = '';
+            appendSurveyCriteriaField('');
+        }
+
+        updateSelectedOrganizationDisplay();
+        closeModal('organizationModal');
+        setModalVisible('notification', false);
+        setModalVisible('loadingOverlay', false);
     }
 
     function validateForm() {
@@ -360,7 +566,7 @@
         const endDate = new Date(safeGetValue('endDate'));
         if (endDate <= startDate) {
             safeGetElement('endDate')?.classList.add('invalid');
-            showError('Ошибка', 'Дата окончания должна быть позже даты начала.');
+            showError('Ошибка', 'Дата конца должна быть позже даты начала.');
             isValid = false;
         } else {
             safeGetElement('endDate')?.classList.remove('invalid');
@@ -371,8 +577,7 @@
             isValid = false;
         }
 
-        if (!criteriaConfirmed) {
-            showError('Ошибка', 'Подтвердите критерии оценки.');
+        if (!validateSurveyCriteriaFields()) {
             isValid = false;
         }
 
@@ -418,6 +623,20 @@
                     throw new Error(data.message || 'Не удалось создать анкету.');
                 }
 
+                if (typeof window.handleSurveyCreateSuccess === 'function') {
+                    window.handleSurveyCreateSuccess(data);
+                    return;
+                }
+
+                if (typeof window.handleAdminMutationSuccess === 'function') {
+                    window.handleAdminMutationSuccess({
+                        message: data.message || 'Анкета успешно создана.',
+                        tabName: 'get_surveys',
+                        fallbackUrl: '/surveys'
+                    });
+                    return;
+                }
+
                 showSuccess('Успех', 'Анкета успешно создана. Пожалуйста, перезагрузите страницу.');
                 window.setTimeout(function () {
                     window.location.reload();
@@ -444,8 +663,7 @@
         var selectedNames = window.selectedOrganizationNames
             || window.__adminBootstrap?.selectedOrganizationNames
             || [];
-
-        window.surveyEditSelectedOrganization = [];
+        var nextSelection = [];
 
         selectedIds.forEach(function (rawId, index) {
             if (!rawId) {
@@ -466,43 +684,33 @@
             }
 
             if (resolvedName) {
-                window.surveyEditSelectedOrganization.push({
+                nextSelection.push({
                     id: parsedId,
                     name: resolvedName
                 });
             }
         });
 
-        if (window.surveyEditSelectedOrganization.length === 0) {
+        if (nextSelection.length === 0) {
             document.querySelectorAll('#organizationList .organization-item[data-selected="true"]').forEach(function (item) {
                 var parsedId = parseInt(item.dataset.id, 10);
                 if (!Number.isNaN(parsedId)) {
-                    window.surveyEditSelectedOrganization.push({
+                    nextSelection.push({
                         id: parsedId,
-                        name: item.dataset.name || ''
+                        name: getOrganizationItemName(item)
                     });
                 }
             });
         }
 
-        document.querySelectorAll('#organizationList .organization-item').forEach(function (item) {
-            item.classList.toggle('selected', item.dataset.selected === 'true');
-        });
+        setSelectedOrganizations(nextSelection);
+        syncOrganizationListSelectionFromState();
 
-        if (typeof window.surveyEditUpdateSelectedOrganizationDisplay === 'function') {
-            window.surveyEditUpdateSelectedOrganizationDisplay();
-        }
+        updateSelectedOrganizationDisplay();
     }
 
     function surveyEditOpenOrganizationModal() {
-        document.querySelectorAll('#organizationList .organization-item').forEach(function (item) {
-            var parsedId = parseInt(item.dataset.id, 10);
-            var isSelected = window.surveyEditSelectedOrganization.some(function (organization) {
-                return organization.id === parsedId;
-            });
-            item.dataset.selected = isSelected ? 'true' : 'false';
-            item.classList.toggle('selected', isSelected);
-        });
+        syncOrganizationListSelectionFromState();
 
         setModalVisible('organizationModal', true);
 
@@ -521,13 +729,19 @@
     window.saveSelectedOrganization = saveSelectedOrganization;
     window.updateSelectedOrganizationDisplay = updateSelectedOrganizationDisplay;
     window.removeSelectedOrganization = removeSelectedOrganization;
+    window.getSelectedOrganizations = getSelectedOrganizations;
+    window.setSelectedOrganizations = setSelectedOrganizations;
+    window.syncOrganizationListSelectionFromState = syncOrganizationListSelectionFromState;
+    window.appendSurveyCriteriaField = appendSurveyCriteriaField;
+    window.removeSurveyCriterion = removeSurveyCriterion;
+    window.validateSurveyCriteriaFields = validateSurveyCriteriaFields;
     window.addRowCriteriy = addRowCriteriy;
-    window.confirmCriteries = confirmCriteries;
     window.showSuccess = showSuccess;
     window.showError = showError;
     window.hideNotification = hideNotification;
     window.addSurvey = addSurvey;
     window.validateForm = validateForm;
+    window.resetSurveyCreateForm = resetSurveyCreateForm;
 
     window.surveyEditInit = surveyEditInit;
     window.surveyEditOpenOrganizationModal = surveyEditOpenOrganizationModal;

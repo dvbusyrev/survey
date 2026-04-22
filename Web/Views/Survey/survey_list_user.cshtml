@@ -4,9 +4,6 @@
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Активные анкеты";
-    int currentPage = Model.CurrentPage;
-    int totalPages = Model.TotalPages;
-    string searchTerm = Model.SearchTerm;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
@@ -16,22 +13,28 @@
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
     var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
-    int userOrganizationId = Model.UserOrganizationId;
-    var accessibleSurveys = Model.AccessibleSurveys;
+    var userOrganizationId = Model.UserOrganizationId;
     var surveyListBootstrapJson = JsonSerializer.Serialize(new
     {
         userId,
         userRole,
         userOrganizationId,
-        initialSurveys = accessibleSurveys,
-        initialPage = currentPage,
-        initialTotalPages = totalPages,
-        initialTotalCount = Model.TotalCount,
-        initialSearchTerm = searchTerm,
+        initialTab = "active",
         displayName,
         userName = nameUser,
         organizationName = nameOrganization
     });
+    var pageContentModel = new MainProject.Web.ViewModels.UserSurveyPageContentViewModel
+    {
+        Surveys = Model.AccessibleSurveys,
+        ActiveTab = "active",
+        CurrentPage = Model.CurrentPage,
+        TotalPages = Model.TotalPages,
+        ActiveCount = Model.TotalCount,
+        ArchivedCount = (ViewBag.ArchivedTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel)?.ArchivedCount ?? 0,
+        SearchTerm = Model.SearchTerm
+    };
+    var archivedTabContentModel = ViewBag.ArchivedTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel;
 }
 
 @section PageStyles {
@@ -49,14 +52,32 @@
 }
 else
 {
-    <div id="root"></div>
-    <template id="survey-user-list-bootstrap">@surveyListBootstrapJson</template>
+    <div class="page-container">
+        <div id="chrome-header"></div>
+        <div class="admin-container">
+            <div id="chrome-navigation"></div>
+            <div id="content_admin">
+                <div class="app-page" id="default_content" data-page="user-surveys">
+                    @await Html.PartialAsync("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", pageContentModel)
+                </div>
+            </div>
+        </div>
+        <div data-role="fill-modal-host"></div>
+        <div data-role="answers-modal-host"></div>
+        <div id="chrome-footer"></div>
+    </div>
+    <script type="application/json" id="survey-user-list-bootstrap">@Html.Raw(surveyListBootstrapJson)</script>
+    @if (archivedTabContentModel is not null)
+    {
+        <template id="survey-user-archived-content-template">
+            @await Html.PartialAsync("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", archivedTabContentModel)
+        </template>
+    }
 }
 
 @section Scripts {
     @if (isAuthenticated)
     {
-        @await Html.PartialAsync("~/Web/Views/Shared/_NavigationTemplates.cshtml")
         @await Html.PartialAsync("~/Web/Views/Shared/_SurveyUserTemplates.cshtml")
         <script src="~/js/dist/survey-user-app.js" asp-append-version="true"></script>
     }

@@ -5,7 +5,6 @@
 }
 
 @section PageStyles {
-    <link rel="stylesheet" href="~/css/pages/admin-archives.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 }
 
@@ -15,7 +14,7 @@
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            Title = "Ответы на анкеты",
+            // Title = "Ответы на анкеты",
             Description = "На этой странице вы можете посмотреть ответы организаций на анкеты."
         })
 
@@ -39,9 +38,9 @@
         <table data-role="main-table">
             <thead>
                 <tr class="table_tr">
-                    <th class="table-th--start">Название организации <span class="sort-icon" id="sortIcon0"></span></th>
-                    <th>Название анкеты <span class="sort-icon answers-page__sort-icon--hidden" id="sortIcon1"></span></th>
-                    <th class="table-col--date">Дата ответа <span class="sort-icon" id="sortIcon2"></span></th>
+                    <th class="table-th--start">Организация</th>
+                    <th>Анкета</th>
+                    <th class="table-col--date">Дата</th>
                     <th class="text-center">Подпись</th>
                     <th class="table-th--end table-col--actions text-center">Ответы</th>
                 </tr>
@@ -60,11 +59,11 @@
                             <td class="text-center">
                                 @if (!answer.IsSigned)
                                 {
-                                    <span class="answers-page__unsigned-icon">❌</span>
+                                    <span class="answers-page__unsigned-icon">Не подписи</span>
                                 }
                                 else
                                 {
-                                    <span class="answers-page__signed-icon">✔️</span>
+                                    <span class="answers-page__signed-icon">Подписана</span>
                                 }
                             </td>
                             <td class="answers-page__view-link table-col--actions text-center">Смотреть</td>

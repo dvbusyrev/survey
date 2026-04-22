@@ -27,11 +27,11 @@ public sealed class AuthService : IAuthService
                 u.id_user AS UserId,
                 u.name_role AS Role,
                 u.name_user AS UserName,
-                COALESCE(o.organization_name, '') AS OrganizationName,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS OrganizationName,
                 u.hash_password AS PasswordHash
             FROM public.app_user u
             LEFT JOIN public.organization o
-                ON u.organization_id = o.organization_id
+                ON u.id_organization = o.id_organization
             WHERE u.name_user = @username;
             """,
             new { username });

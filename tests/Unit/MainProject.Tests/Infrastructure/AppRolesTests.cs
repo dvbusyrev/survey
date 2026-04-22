@@ -8,7 +8,7 @@ public sealed class AppRolesTests
     [InlineData("admin", AppRoles.Admin)]
     [InlineData("Administrator", AppRoles.Admin)]
     [InlineData("администратор", AppRoles.Admin)]
-    [InlineData("пользователь", AppRoles.User)]
+    [InlineData("клиент", AppRoles.User)]
     [InlineData("user", AppRoles.User)]
     public void Normalize_MapsKnownAliases(string input, string expected)
     {

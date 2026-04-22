@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using MainProject.Infrastructure.Serialization;
+using System.Text.Json.Serialization;
 
 namespace MainProject.Domain.Entities
 {
@@ -24,16 +25,18 @@ namespace MainProject.Domain.Entities
         [JsonPropertyName("name_role")]
         public required string NameRole { get; set; }
 
-        [JsonPropertyName("organization_id")]
+        [JsonPropertyName("id_organization")]
         public int OrganizationId { get; set; }
 
         [JsonPropertyName("key_csp")]
         public string? KeyCsp { get; set; }
 
         [JsonPropertyName("date_begin")]
+        [JsonConverter(typeof(NullableDateOnlyDateTimeJsonConverter))]
         public DateTime? DateBegin { get; set; }
 
         [JsonPropertyName("date_end")]
+        [JsonConverter(typeof(NullableDateOnlyDateTimeJsonConverter))]
         public DateTime? DateEnd { get; set; }
     }
 }

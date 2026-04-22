@@ -22,9 +22,16 @@ public sealed class SurveyAnswersService : ISurveyAnswersService
         using var connection = _connectionFactory.CreateConnection();
 
         var survey = connection.QueryFirstOrDefault<Survey>(
-            @"SELECT *
-              FROM public.survey
-              WHERE id_survey = @surveyId",
+            @"SELECT
+                  s.id_survey,
+                  s.name_survey,
+                  s.description,
+                  ss.date_begin,
+                  ss.date_end
+              FROM public.survey s
+              LEFT JOIN public.survey_schedule ss
+                  ON ss.id_survey = s.id_survey
+              WHERE s.id_survey = @surveyId",
             new { surveyId });
 
         if (survey == null)
@@ -36,14 +43,13 @@ public sealed class SurveyAnswersService : ISurveyAnswersService
             @"SELECT
                   ha.id_answer,
                   ha.id_survey,
-                  ha.organization_id,
-                  o.organization_name,
+                  ha.id_organization AS OrganizationId,
+                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
                   ha.completion_date,
-                  ha.create_date_survey,
                   ha.csp
               FROM public.answer ha
               INNER JOIN public.organization o
-                  ON o.organization_id = ha.organization_id
+                  ON o.id_organization = ha.id_organization
               WHERE ha.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
@@ -79,9 +85,16 @@ public sealed class SurveyAnswersService : ISurveyAnswersService
         using var connection = _connectionFactory.CreateConnection();
 
         var survey = connection.QueryFirstOrDefault<Survey>(
-            @"SELECT *
-              FROM public.survey
-              WHERE id_survey = @surveyId",
+            @"SELECT
+                  s.id_survey,
+                  s.name_survey,
+                  s.description,
+                  ss.date_begin,
+                  ss.date_end
+              FROM public.survey s
+              LEFT JOIN public.survey_schedule ss
+                  ON ss.id_survey = s.id_survey
+              WHERE s.id_survey = @surveyId",
             new { surveyId });
 
         if (survey == null)
@@ -96,15 +109,14 @@ public sealed class SurveyAnswersService : ISurveyAnswersService
         var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
-                  ha.organization_id,
+                  ha.id_organization AS OrganizationId,
                   ha.id_survey,
-                  o.organization_name,
+                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
                   ha.csp,
-                  ha.completion_date,
-                  ha.create_date_survey
+                  ha.completion_date
               FROM public.answer ha
               INNER JOIN public.organization o
-                  ON ha.organization_id = o.organization_id
+                  ON ha.id_organization = o.id_organization
               WHERE ha.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();

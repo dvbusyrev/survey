@@ -1,0 +1,62 @@
+@model MainProject.Web.ViewModels.UserSurveyFillContentViewModel
+
+@{
+    var pageModel = Model ?? new MainProject.Web.ViewModels.UserSurveyFillContentViewModel();
+    var survey = pageModel.Survey ?? new MainProject.Domain.Entities.Survey();
+    var questions = pageModel.Questions ?? Array.Empty<MainProject.Application.DTO.SurveyQuestionItem>();
+    var description = string.IsNullOrWhiteSpace(survey.Description)
+        ? "Пожалуйста, оцените каждый вопрос по шкале от 1 до 5."
+        : survey.Description;
+}
+
+<div class="app-page app-page--narrow survey-editor-page"
+     data-role="survey-fill-page"
+     data-survey-id="@survey.IdSurvey"
+     data-organization-id="@pageModel.OrganizationId">
+    <header class="app-page__intro">
+        <h1 class="app-page__title">@(!string.IsNullOrWhiteSpace(survey.NameSurvey) ? survey.NameSurvey : "Анкета")</h1>
+        <p class="app-page__description">@description</p>
+    </header>
+
+    <section class="app-page__section">
+        <div class="error-message u-hidden" data-role="error">
+            <span data-role="error-text"></span>
+        </div>
+        <div class="survey-user-question-list" data-role="questions">
+            @foreach (var question in questions)
+            {
+                <section class="app-page__section survey-user-question-card user-survey-question"
+                         data-role="survey-question"
+                         data-question-id="@question.Id">
+                    <h3 class="survey-editor-page__section-title" data-role="question-title">@question.Text</h3>
+                    <div class="rating-buttons" data-role="ratings">
+                        @for (var rating = 1; rating <= 5; rating += 1)
+                        {
+                            <button type="button"
+                                    class="btn_crit"
+                                    data-role="rating-button"
+                                    data-rating="@rating">
+                                @rating
+                            </button>
+                        }
+                    </div>
+                    <div class="comment-container u-hidden" data-role="comment-block">
+                        <label class="comment-label">Ваш комментарий</label>
+                        <textarea class="form-control"
+                                  data-role="comment-input"
+                                  placeholder="Напишите комментарий"></textarea>
+                    </div>
+                </section>
+            }
+        </div>
+    </section>
+
+    <section class="app-page__section">
+        <div class="button-container">
+            <button type="button" class="modal_btn modal_btn-primary" data-role="submit">
+                <span data-role="submit-label">Отправить ответы</span>
+            </button>
+            <button type="button" class="modal_btn modal_btn-secondary" data-role="cancel-btn">Отмена</button>
+        </div>
+    </section>
+</div>

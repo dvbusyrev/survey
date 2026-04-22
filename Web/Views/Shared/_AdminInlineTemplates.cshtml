@@ -5,8 +5,6 @@
     <div class="error-message admin-extension-error u-hidden" data-role="error"></div>
     <div data-role="rows-container" class="admin-extension-rows"></div>
     <p data-role="empty-state" class="u-hidden">Доступных организаций для продления не найдено.</p>
-    <button type="button" data-role="add-row">+ Добавить организацию</button>
-    <br />
     <div class="admin-extension-actions">
       <button type="button" data-role="submit" class="modal_btn modal_btn-primary">Продлить доступ</button>
       <button type="button" data-role="cancel" class="modal_btn modal_btn-secondary">Отмена</button>
@@ -21,12 +19,9 @@
       <select data-role="org-select" class="admin-extension-input" required></select>
     </div>
     <div class="admin-extension-col">
-      <label>Дата окончания:</label>
+      <label>Дата конца:</label>
       <input type="date" data-role="date-input" class="admin-extension-input" required />
     </div>
-    <button type="button" data-role="remove-row" class="admin-extension-remove">
-      Удалить
-    </button>
   </div>
 </template>
 

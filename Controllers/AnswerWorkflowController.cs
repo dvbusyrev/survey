@@ -118,6 +118,39 @@ public class AnswerWorkflowController : Controller
         }
     }
 
+    [HttpGet("answers/{idSurvey:int}/{idOrganization:int}/content")]
+    public IActionResult AnswersContent(int idSurvey, int idOrganization)
+    {
+        var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
+        if (accessResult != null)
+        {
+            return accessResult;
+        }
+
+        try
+        {
+            var response = _answerWorkflowService.GetAnswersResponse(idSurvey, idOrganization, "regular", false);
+            if (!response.Success || response.Survey == null)
+            {
+                return NotFound(response.Error ?? "Ответы не найдены.");
+            }
+
+            var model = new UserSurveyAnswersContentViewModel
+            {
+                Survey = response.Survey,
+                OrganizationId = idOrganization,
+                Answers = response.Answers
+            };
+
+            return PartialView("~/Web/Views/Survey/Partials/_UserSurveyAnswersContent.cshtml", model);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при загрузке содержимого ответов {SurveyId} для организации {OrganizationId}", idSurvey, idOrganization);
+            return StatusCode(500, "Произошла ошибка при загрузке ответов.");
+        }
+    }
+
     [HttpGet("answers/{idSurvey}/{idOrganization}/edit")]
     public IActionResult UpdateAnswer([FromRoute] int idSurvey, [FromRoute] int idOrganization)
     {

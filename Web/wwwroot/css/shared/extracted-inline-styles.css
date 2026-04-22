@@ -60,10 +60,7 @@
 }
 
 .admin-extension-input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    min-width: 0;
 }
 
 .admin-extension-remove {

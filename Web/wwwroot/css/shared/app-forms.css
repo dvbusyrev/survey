@@ -1,6 +1,5 @@
 .form-group {
-  display: grid;
-  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
+  grid-template-columns: minmax(140px, 170px) minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   margin-bottom: 1rem;
@@ -21,13 +20,17 @@
 .form-group select,
 .form-group textarea,
 .form-control,
-.organization-dropdown {
+.organization-dropdown,
+.admin-extension-input {
+  margin-top: 15px;
   width: 100%;
   min-width: 0;
   min-height: 44px;
   padding: 0.75rem 0.9rem;
   color: #4a5568;
+  font-family: inherit;
   font-size: 0.95rem;
+  line-height: 1.4;
   background: white;
   border: 1px solid var(--border-dark);
   border-radius: 8px;
@@ -36,20 +39,36 @@
 
 .form-group select,
 select.form-control,
+.admin-extension-input:is(select),
 .organization-dropdown,
 .filter-select,
 .reports-page__quarter-select,
 .help-page__select {
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   appearance: none;
   padding-right: 2.75rem;
+  text-overflow: ellipsis;
   background-image:
     linear-gradient(45deg, transparent 50%, #667eea 50%),
     linear-gradient(135deg, #667eea 50%, transparent 50%);
   background-position:
-          calc(100% - 18px) calc(50% - -1px),
-          calc(100% - 12px) calc(50% - -1px);
+          calc(100% - 18px) 50%,
+          calc(100% - 12px) 50%;
   background-size: 6px 6px, 6px 6px;
   background-repeat: no-repeat;
+}
+
+.form-group select option,
+select.form-control option,
+.admin-extension-input:is(select) option,
+.organization-dropdown option,
+.filter-select option,
+.reports-page__quarter-select option,
+.help-page__select option {
+  color: #4a5568;
+  background: white;
 }
 
 .form-group input[type="text"]::placeholder,
@@ -77,7 +96,8 @@ textarea.form-control {
 .form-group select:focus,
 .form-group textarea:focus,
 .form-control:focus,
-.organization-dropdown:focus {
+.organization-dropdown:focus,
+.admin-extension-input:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
@@ -233,24 +253,29 @@ a.btn:focus,
 .selected-organization {
   margin-top: 15px;
   padding: 15px;
-  background-color: #e9ecef;
-  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .selected-organization-item {
+  
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   display: inline-flex;
   align-items: center;
   gap: 8px;
   max-width: 100%;
   margin: 5px;
   padding: 6px 12px;
-  color: #495057;
+  color: white;
   font-size: 14px;
   line-height: 1.5;
   white-space: normal;
   overflow-wrap: anywhere;
-  background-color: #dee2e6;
-  border-radius: 20px;
+  background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
   transition: all 0.2s ease;
 }
 
@@ -263,7 +288,7 @@ a.btn:focus,
   height: 22px;
   margin: 0;
   padding: 0;
-  color: #dc3545;
+  color: white;
   font-size: 14px;
   line-height: 1;
   background: none;
@@ -322,11 +347,15 @@ a.btn:focus,
 .password-eye-wrap {
   position: relative;
   width: 100%;
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
 }
 
 .password-eye-wrap input[type="password"],
 .password-eye-wrap input[type="text"],
 .password-eye-wrap input[data-password-field="true"] {
+  margin-top: 0;
   padding-right: 44px !important;
 }
 

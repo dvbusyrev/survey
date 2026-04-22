@@ -138,7 +138,7 @@
                 },
                 body: JSON.stringify({
                     id_survey: surveyId,
-                    organization_id: organizationId,
+                    id_organization: organizationId,
                     answers: payload.answers
                 })
             });

@@ -9,9 +9,9 @@ namespace MainProject.Domain.Entities
     public class OrganizationProd
     {
         [JsonPropertyName("organization_name")]
-        public string OrganizationName { get; set; } = string.Empty; // Идентификатор организации (строка)
+        public string OrganizationName { get; set; } = string.Empty;
 
         [JsonPropertyName("date_end")]
-        public string DateEnd { get; set; } = string.Empty; // Дата окончания (строка)
+        public string DateEnd { get; set; } = string.Empty; 
     }
 }
