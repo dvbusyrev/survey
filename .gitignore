@@ -51,7 +51,6 @@ artifacts/
 
 # VS Code
 .vscode/
-node_modules/
 
 *_i.c
 *_p.c
@@ -238,7 +237,6 @@ FakesAssemblies/
 
 # Node.js Tools for Visual Studio
 .ntvs_analysis.dat
-node_modules/
 
 # Typescript v1 declaration files
 typings/
