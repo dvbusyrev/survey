@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MainProject.Domain.Entities;
 using Microsoft.Extensions.Configuration;
+using MainProject.Infrastructure.Persistence;
 
 namespace MainProject.Application.UseCases
 {
@@ -19,8 +20,7 @@ namespace MainProject.Application.UseCases
         public SurveyExpirationService(ILogger<SurveyExpirationService> logger, IConfiguration configuration)
         {
             _logger = logger;
-            _connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+            _connectionString = DefaultConnectionStringResolver.Resolve(configuration);
         }
 
         public Task StartAsync(CancellationToken cancellationToken)

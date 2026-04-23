@@ -10,8 +10,7 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
 
     public NpgsqlConnectionFactory(IConfiguration configuration, ICurrentUserService currentUserService)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new ArgumentNullException("DefaultConnection");
+        _connectionString = DefaultConnectionStringResolver.Resolve(configuration);
         _currentUserService = currentUserService;
     }
 
