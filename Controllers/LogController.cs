@@ -23,7 +23,14 @@ public class LogController : Controller
     {
         try
         {
-            return View("get_logs", BuildLogsPageViewModel(_auditLogService.GetLogs()));
+            var model = BuildLogsPageViewModel(_auditLogService.GetLogs());
+            var isInlineRequest = HttpContext?.Request?.Headers.ContainsKey("X-Admin-Inline-Request") == true;
+            if (isInlineRequest)
+            {
+                return PartialView("~/Web/Views/Log/_LogsPageContent.cshtml", model);
+            }
+
+            return View("get_logs", model);
         }
         catch (Exception ex)
         {

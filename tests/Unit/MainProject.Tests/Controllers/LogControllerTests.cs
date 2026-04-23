@@ -1,6 +1,7 @@
 using MainProject.Application.Contracts;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 
@@ -42,6 +43,26 @@ public sealed class LogControllerTests
         Assert.Single(model.Logs);
         Assert.Contains("\"Id\":10", model.LogsBootstrapJson);
         Assert.Contains("\\\"operation\\\": \\\"UPDATE\\\"", model.LogsBootstrapJson);
+    }
+
+    [Fact]
+    public void GetLogs_ReturnsPartialView_ForInlineRequest()
+    {
+        var controller = new LogController(new StubAuditLogService(Array.Empty<Log>()))
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        controller.Request.Headers["X-Admin-Inline-Request"] = "true";
+
+        var result = controller.GetLogs();
+
+        var viewResult = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("~/Web/Views/Log/_LogsPageContent.cshtml", viewResult.ViewName);
+        Assert.IsType<AuditLogPageViewModel>(viewResult.Model);
     }
 
     [Fact]
