@@ -5,12 +5,21 @@ using MainProject.Application.Contracts;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Persistence;
 using Newtonsoft.Json.Linq;
+using Npgsql;
 
 namespace MainProject.Application.UseCases.Admin;
 
 public sealed class AuditLogService : IAuditLogService
 {
     private const string RedactedValue = "[REDACTED]";
+    private static readonly AuditSourceDescriptor[] AuditSources =
+    [
+        new("app_user", "app_user_l"),
+        new("organization", "organization_l"),
+        new("survey", "survey_l"),
+        new("answer", "answer_l"),
+        new("organization_survey", "organization_survey_l")
+    ];
 
     private static readonly HashSet<string> SensitiveFieldNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -32,7 +41,13 @@ public sealed class AuditLogService : IAuditLogService
     public IReadOnlyList<Log> GetLogs()
     {
         using var connection = _connectionFactory.CreateConnection();
-        var rows = connection.Query<AuditLogRow>(AuditSql).ToList();
+        var auditSql = BuildAuditSql(GetAvailableAuditSources(connection));
+        if (string.IsNullOrWhiteSpace(auditSql))
+        {
+            return Array.Empty<Log>();
+        }
+
+        var rows = connection.Query<AuditLogRow>(auditSql).ToList();
         var orderedRows = rows
             .OrderBy(row => row.ChangedAt)
             .ThenBy(row => row.IdAudit)
@@ -578,36 +593,59 @@ public sealed class AuditLogService : IAuditLogService
             : null;
     }
 
-    private const string AuditSql = """
-        SELECT
-            audit_entries.source_table AS SourceTable,
-            audit_entries.id_audit AS IdAudit,
-            audit_entries.operation AS Operation,
-            audit_entries.changed_at AS ChangedAt,
-            audit_entries.changed_by_user_id AS ChangedByUserId,
-            COALESCE(actor.full_name, actor.name_user) AS ActorName,
-            audit_entries.record_pk::text AS RecordPkJson,
-            audit_entries.row_data::text AS RowDataJson
-        FROM (
-            SELECT 'app_user'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.app_user_l
-            UNION ALL
-            SELECT 'organization'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.organization_l
-            UNION ALL
-            SELECT 'survey'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.survey_l
-            UNION ALL
-            SELECT 'answer'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.answer_l
-            UNION ALL
-            SELECT 'organization_survey'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.organization_survey_l
-        ) audit_entries
-        LEFT JOIN public.app_user actor
-            ON actor.id_user = audit_entries.changed_by_user_id
-        ORDER BY audit_entries.changed_at DESC, audit_entries.id_audit DESC;
-        """;
+    private static IReadOnlyList<AuditSourceDescriptor> GetAvailableAuditSources(NpgsqlConnection connection)
+    {
+        var existingTables = connection.Query<string>(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public';
+            """)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return AuditSources
+            .Where(source => existingTables.Contains(source.TableName))
+            .ToArray();
+    }
+
+    internal static string BuildAuditSql(IReadOnlyList<AuditSourceDescriptor> auditSources)
+    {
+        if (auditSources == null || auditSources.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var unionSql = string.Join(
+            """
+            
+                    UNION ALL
+            
+            """,
+            auditSources.Select(source =>
+                $"""
+                    SELECT '{source.SourceTable}'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
+                    FROM public.{source.TableName}
+                """));
+
+        return
+            $"""
+            SELECT
+                audit_entries.source_table AS SourceTable,
+                audit_entries.id_audit AS IdAudit,
+                audit_entries.operation AS Operation,
+                audit_entries.changed_at AS ChangedAt,
+                audit_entries.changed_by_user_id AS ChangedByUserId,
+                COALESCE(actor.full_name, actor.name_user) AS ActorName,
+                audit_entries.record_pk::text AS RecordPkJson,
+                audit_entries.row_data::text AS RowDataJson
+            FROM (
+            {unionSql}
+            ) audit_entries
+            LEFT JOIN public.app_user actor
+                ON actor.id_user = audit_entries.changed_by_user_id
+            ORDER BY audit_entries.changed_at DESC, audit_entries.id_audit DESC;
+            """;
+    }
 
     private sealed class AuditLogRow
     {
@@ -620,4 +658,6 @@ public sealed class AuditLogService : IAuditLogService
         public string? RecordPkJson { get; init; }
         public string? RowDataJson { get; init; }
     }
+
+    internal sealed record AuditSourceDescriptor(string SourceTable, string TableName);
 }

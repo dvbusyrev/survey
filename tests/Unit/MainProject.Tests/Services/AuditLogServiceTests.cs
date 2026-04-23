@@ -75,6 +75,30 @@ public sealed class AuditLogServiceTests
             result);
     }
 
+    [Fact]
+    public void BuildAuditSql_ReturnsEmptyString_WhenNoAuditTablesExist()
+    {
+        var result = AuditLogService.BuildAuditSql(Array.Empty<AuditLogService.AuditSourceDescriptor>());
+
+        Assert.Equal(string.Empty, result);
+    }
+
+    [Fact]
+    public void BuildAuditSql_UsesOnlyExistingAuditTables()
+    {
+        var result = AuditLogService.BuildAuditSql(
+            new[]
+            {
+                new AuditLogService.AuditSourceDescriptor("app_user", "app_user_l"),
+                new AuditLogService.AuditSourceDescriptor("survey", "survey_l")
+            });
+
+        Assert.Contains("FROM public.app_user_l", result);
+        Assert.Contains("FROM public.survey_l", result);
+        Assert.DoesNotContain("FROM public.answer_l", result);
+        Assert.DoesNotContain("FROM public.organization_survey_l", result);
+    }
+
     private sealed class ThrowingDbConnectionFactory : IDbConnectionFactory
     {
         public NpgsqlConnection CreateConnection()
