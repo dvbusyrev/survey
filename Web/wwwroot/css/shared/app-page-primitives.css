@@ -20,7 +20,7 @@
   display: inline-block;
   margin-bottom: 20px;
   color: var(--primary);
-  font-size: 16px;
+  font-size: 1rem;
   cursor: pointer;
 }
 
@@ -35,11 +35,11 @@
   gap: 8px;
   margin: 15px 0 20px;
   color: #6b7280;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .calendar-icon {
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .answers-table {
@@ -75,7 +75,7 @@
   min-width: 24px;
   padding: 4px 10px;
   color: white;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   background-color: #3b82f6;
   border-radius: 12px;
@@ -113,7 +113,7 @@
 
 .loading-container p {
   color: #6b7280;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .error-container {

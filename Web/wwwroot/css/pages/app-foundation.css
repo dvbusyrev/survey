@@ -1,4 +1,5 @@
 :root {
+  --platform-ui-scale: 1;
   --primary: #6366f1;
   --primary-light: #818cf8;
   --primary-dark: #4f46e5;
@@ -22,10 +23,19 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --header-height: 62px;
-  --page-gap: clamp(8px, 2vw, 8px);
-  --nav-width: clamp(220px, 18vw, 240px);
-  --content-max-width: 1600px;
+  --header-height: calc(62px * var(--platform-ui-scale));
+  --page-gap: calc(8px * var(--platform-ui-scale));
+  --nav-width: clamp(calc(220px * var(--platform-ui-scale)), calc(18vw * var(--platform-ui-scale)), calc(240px * var(--platform-ui-scale)));
+  --content-max-width: calc(1600px * var(--platform-ui-scale));
+}
+
+/*
+  Windows browsers render the UI noticeably smaller than macOS in this project.
+  Tune this factor in one place if the parity needs additional calibration later.
+*/
+html.platform-windows {
+  --platform-ui-scale: 1.4925;
+  font-size: 149.25%;
 }
 
 html,
@@ -35,7 +45,7 @@ body {
 }
 
 html {
-  scroll-padding-top: 12px;
+  scroll-padding-top: calc(12px * var(--platform-ui-scale));
 }
 
 body {
@@ -164,9 +174,9 @@ option,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(12px * var(--platform-ui-scale));
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: calc(16px * var(--platform-ui-scale));
 }
 
 .back-button {
@@ -193,15 +203,15 @@ option,
 .filter-sort {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: calc(12px * var(--platform-ui-scale));
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: calc(16px * var(--platform-ui-scale));
 }
 
 .filter-select {
-  min-width: 220px;
+  min-width: calc(220px * var(--platform-ui-scale));
   max-width: 100%;
-  padding: 10px 12px;
+  padding: calc(10px * var(--platform-ui-scale)) calc(12px * var(--platform-ui-scale));
   color: var(--text-main);
   background: white;
   border: 1px solid var(--border);
@@ -212,8 +222,8 @@ option,
   width: 100%;
   overflow: visible;
   overflow-y: visible;
-  padding-top: 52px;
-  padding-bottom: 56px;
+  padding-top: calc(52px * var(--platform-ui-scale));
+  padding-bottom: calc(56px * var(--platform-ui-scale));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -248,8 +258,8 @@ option,
 
 .access-denied {
   display: block;
-  max-width: 720px;
-  margin: 120px auto 40px;
+  max-width: calc(720px * var(--platform-ui-scale));
+  margin: calc(120px * var(--platform-ui-scale)) auto calc(40px * var(--platform-ui-scale));
   padding: 2rem;
   text-align: center;
   background: rgba(255, 255, 255, 0.96);
@@ -290,8 +300,8 @@ option,
   .table-responsive {
     overflow-x: auto;
     overflow-y: visible;
-    padding-top: 24px;
-    padding-bottom: 24px;
+    padding-top: calc(24px * var(--platform-ui-scale));
+    padding-bottom: calc(24px * var(--platform-ui-scale));
   }
 }
 
@@ -310,7 +320,7 @@ option,
   }
 
   .access-denied {
-    margin: 100px 12px 24px;
+    margin: calc(100px * var(--platform-ui-scale)) calc(12px * var(--platform-ui-scale)) calc(24px * var(--platform-ui-scale));
     padding: 1.5rem;
   }
 }

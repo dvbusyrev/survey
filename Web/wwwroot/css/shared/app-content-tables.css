@@ -447,12 +447,12 @@ td.action-icons {
   align-items: center;
   gap: 10px;
   color: #ff4c5b;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .no-results-message i {
   color: #999;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 
 .pagination-container {
@@ -467,7 +467,7 @@ td.action-icons {
 .page-info {
   min-width: 0;
   color: #666;
-  font-size: 14px;
+  font-size: 0.875rem;
   text-align: center;
 }
 
