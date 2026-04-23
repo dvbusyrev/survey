@@ -89,31 +89,33 @@
     <script>
         (function () {
             const contextNode = document.getElementById('chrome-context');
-            if (!contextNode) {
+            const chromeContext = (typeof window.readAppChromeContext === 'function' && window.readAppChromeContext())
+                || (contextNode ? {
+                    userRole: contextNode.dataset.userRole || '',
+                    userId: Number(contextNode.dataset.userId || 0),
+                    displayName: contextNode.dataset.displayName || '',
+                    userName: contextNode.dataset.userName || '',
+                    organizationName: contextNode.dataset.organizationName || ''
+                } : null);
+            if (!chromeContext) {
                 return;
             }
 
-            const userRole = contextNode.dataset.userRole || '';
-            const userId = Number(contextNode.dataset.userId || 0);
-            const displayName = contextNode.dataset.displayName || '';
-            const userName = contextNode.dataset.userName || '';
-            const organizationName = contextNode.dataset.organizationName || '';
-
             if (typeof window.mountHeader === 'function') {
                 window.mountHeader(document.getElementById('chrome-header'), {
-                    userRole,
-                    userId,
-                    displayName,
-                    userName,
-                    organizationName
+                    userRole: chromeContext.userRole,
+                    userId: chromeContext.userId,
+                    displayName: chromeContext.displayName,
+                    userName: chromeContext.userName,
+                    organizationName: chromeContext.organizationName
                 });
             }
 
             if (typeof window.mountNavigation === 'function') {
                 window.mountNavigation(document.getElementById('chrome-navigation'), {
                     activeTab: 'get_surveys',
-                    userRole,
-                    userId
+                    userRole: chromeContext.userRole,
+                    userId: chromeContext.userId
                 });
             }
 

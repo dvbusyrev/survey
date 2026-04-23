@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -121,8 +122,11 @@ builder.Services.AddHostedService<SurveyExpirationService>(); // Регистр�
 builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddDataProtection();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IUserChromeContextService, UserChromeContextService>();
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IOrganizationManagementService, OrganizationManagementService>();
@@ -138,9 +142,7 @@ builder.Services.AddScoped<IAnswerAccessService, AnswerAccessService>();
 builder.Services.AddScoped<IAnswerWorkflowService, AnswerWorkflowService>();
 builder.Services.AddScoped<IAnswerSigningService, AnswerSigningService>();
 builder.Services.AddScoped<IAnswerExportService, AnswerExportService>();
-builder.Services.AddScoped<EmailSettingsStore>();
 builder.Services.AddScoped<SmtpEmailSender>();
-builder.Services.Configure<SmtpEmailOptions>(builder.Configuration.GetSection(SmtpEmailOptions.SectionName));
 
 // Сжатие ответов для ускорения загрузки
 builder.Services.AddResponseCompression(options =>

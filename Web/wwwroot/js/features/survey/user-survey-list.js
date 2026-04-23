@@ -49,6 +49,8 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
         openRequestId: 0
     };
 
+    let refreshPromise = null;
+
     function getContentRoot() {
         return contentHost.querySelector('[data-role="survey-user-content"]');
     }
@@ -77,22 +79,26 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
         const headerHost = document.getElementById('chrome-header');
         const navHost = document.getElementById('chrome-navigation');
         const footerHost = document.getElementById('chrome-footer');
+        const chromeContext = typeof window.readAppChromeContext === 'function'
+            ? window.readAppChromeContext()
+            : null;
+        const chromeProps = {
+            userRole: chromeContext?.userRole || initialData.userRole,
+            displayName: chromeContext?.displayName || initialData.displayName,
+            userName: chromeContext?.userName || initialData.userName,
+            organizationName: chromeContext?.organizationName || initialData.organizationName
+        };
 
         if (headerHost && typeof window.mountHeader === 'function') {
-            window.mountHeader(headerHost, {
-                userRole: initialData.userRole,
-                displayName: initialData.displayName,
-                userName: initialData.userName,
-                organizationName: initialData.organizationName
-            });
+            window.mountHeader(headerHost, chromeProps);
         }
 
         if (navHost && typeof window.mountNavigation === 'function') {
             window.mountNavigation(navHost, {
                 openTab: handleTabChange,
                 activeTab: state.activeTab === 'archived' ? 'archived_surveys_for_user' : state.activeTab,
-                userRole: initialData.userRole,
-                userId: initialData.userId
+                userRole: chromeProps.userRole,
+                userId: chromeContext?.userId || initialData.userId
             });
         }
 
@@ -384,26 +390,48 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
 
     async function handleSurveySubmitted() {
         handleBackToList();
+        await refreshAllSnapshots({ preserveFilters: true });
+    }
+
+    async function refreshAllSnapshots(options = {}) {
+        if (refreshPromise) {
+            return refreshPromise;
+        }
 
         const activeSnapshot = state.tabSnapshots.active;
         const archivedSnapshot = state.tabSnapshots.archived;
 
-        await loadTabSnapshot('active', {
-            page: activeSnapshot?.currentPage ?? 1,
-            searchTerm: activeSnapshot?.searchTerm ?? '',
-            applyToCurrent: state.activeTab === 'active'
+        refreshPromise = Promise.all([
+            loadTabSnapshot('active', {
+                page: activeSnapshot?.currentPage ?? 1,
+                searchTerm: activeSnapshot?.searchTerm ?? '',
+                applyToCurrent: false,
+                showLoading: state.activeTab === 'active'
+            }),
+            loadTabSnapshot('archived', {
+                page: archivedSnapshot?.currentPage ?? 1,
+                searchTerm: archivedSnapshot?.searchTerm ?? '',
+                signedOnly: archivedSnapshot?.signedOnly ?? false,
+                applyToCurrent: false,
+                showLoading: state.activeTab === 'archived'
+            })
+        ]).finally(() => {
+            refreshPromise = null;
         });
 
-        await loadTabSnapshot('archived', {
-            page: archivedSnapshot?.currentPage ?? 1,
-            searchTerm: archivedSnapshot?.searchTerm ?? '',
-            signedOnly: archivedSnapshot?.signedOnly ?? false,
-            applyToCurrent: state.activeTab === 'archived'
-        });
+        const [nextActiveSnapshot, nextArchivedSnapshot] = await refreshPromise;
+        const currentSnapshot = state.activeTab === 'archived'
+            ? nextArchivedSnapshot
+            : nextActiveSnapshot;
 
-        if (state.activeTab === 'active' && state.tabSnapshots.active) {
-            mountSnapshot(state.tabSnapshots.active, { preserveFilters: true });
+        if (currentSnapshot) {
+            mountSnapshot(currentSnapshot, { preserveFilters: options.preserveFilters === true });
         }
+
+        return {
+            active: nextActiveSnapshot,
+            archived: nextArchivedSnapshot
+        };
     }
 
     function handleTabChange(tab, _unused = null, options = {}) {
@@ -560,6 +588,12 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
 
     syncHistory(state.activeTab, 'replace');
     mountSnapshot(initialSnapshot);
+
+    window.refreshSurveyUserPageData = function refreshSurveyUserPageData(options = {}) {
+        return refreshAllSnapshots({
+            preserveFilters: options.preserveFilters !== false
+        });
+    };
 };
 
 function getSurveyUserBootstrapData() {

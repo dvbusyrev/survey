@@ -69,7 +69,7 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
         ? ['get_surveys', 'add_survey', 'list_answers_users', 'archived_surveys'].includes(activeTab)
         : ['active', 'archived', 'answers_tab', 'archived_surveys_for_user'].includes(activeTab);
     const isOrganizationSectionActive = ['get_organization', 'organization_surveys', 'add_organization', 'archive_list_organizations'].includes(activeTab);
-    const isOtherSectionActive = ['get_logs', 'email'].includes(activeTab);
+    const isEmailSectionActive = ['email', 'email_new', 'email_settings'].includes(activeTab);
 
     const navigate = (tab) => {
         if (tab === 'add_user') {
@@ -174,7 +174,9 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
             organization_surveys: '/organizations/surveys',
             archive_list_organizations: '/organizations/archive',
             reports: '/reports',
-            email: '/mail-settings',
+            email: '/mail',
+            email_new: '/mail',
+            email_settings: '/mail/configuration',
             get_logs: '/logs'
         };
 
@@ -215,8 +217,8 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
             ? isSurveySectionActive
             : navClass === 'organizations'
                 ? isOrganizationSectionActive
-                : navClass === 'other'
-                    ? isOtherSectionActive
+                : navClass === 'email'
+                    ? isEmailSectionActive
                 : tab === activeTab;
         item.classList.toggle('active', isActive);
     });

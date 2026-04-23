@@ -1,71 +1,112 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.Security;
 using Microsoft.AspNetCore.Mvc;
+using MainProject.Application.Contracts;
+using MainProject.Application.DTO.Email;
+using MainProject.Application.UseCases.Admin;
+
 [Authorize(Roles = AppRoles.Admin)]
 public class EmailController : Controller
 {
-        private readonly EmailSettingsStore _settingsStore;
-        private readonly SmtpEmailSender _emailSender;
+    private readonly IEmailTemplateService _emailTemplateService;
 
-        public EmailController(EmailSettingsStore settingsStore, SmtpEmailSender emailSender)
+    public EmailController(IEmailTemplateService emailTemplateService)
+    {
+        _emailTemplateService = emailTemplateService;
+    }
+
+    [HttpGet("mail/settings")]
+    public async Task<IActionResult> GetEmailSettings(CancellationToken cancellationToken)
+    {
+        var settings = await _emailTemplateService.GetAsync(cancellationToken);
+        return Ok(settings);
+    }
+
+    [HttpPost("mail/settings")]
+    public async Task<IActionResult> SaveEmailSettings([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
+    {
+        try
         {
-            _settingsStore = settingsStore;
-            _emailSender = emailSender;
+            await _emailTemplateService.SaveAsync(settings ?? new EmailTemplateSettings(), cancellationToken);
+            return Ok(new { success = true, message = "Настройки электронной почты сохранены." });
+        }
+        catch (EmailTemplateValidationException ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message, errors = ex.Errors });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, error = $"Не удалось сохранить настройки: {GetDetailedErrorMessage(ex)}" });
+        }
+    }
+
+    [HttpPost("mail/send")]
+    public async Task<IActionResult> SendMessage([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var recipientCount = await _emailTemplateService.SendAsync(settings ?? new EmailTemplateSettings(), cancellationToken);
+            return Ok(new
+            {
+                success = true,
+                message = recipientCount == 1
+                    ? "Письмо отправлено."
+                    : $"Письмо отправлено ({recipientCount} получателя)."
+            });
+        }
+        catch (EmailTemplateValidationException ex)
+        {
+            return BadRequest(new { success = false, error = ex.Message, errors = ex.Errors });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { success = false, error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { success = false, error = $"Не удалось отправить письмо: {GetDetailedErrorMessage(ex)}" });
+        }
+    }
+
+    [HttpGet("mail")]
+    [HttpGet("mail/new")]
+    public async Task<IActionResult> NewMessage(CancellationToken cancellationToken)
+    {
+        var settings = await _emailTemplateService.GetAsync(cancellationToken);
+        return View("new_message", settings);
+    }
+
+    [HttpGet("mail/configuration")]
+    public async Task<IActionResult> UpdateSettings(CancellationToken cancellationToken)
+    {
+        var settings = await _emailTemplateService.GetAsync(cancellationToken);
+        return View("update_settings", settings);
+    }
+
+    [HttpGet("mail-settings")]
+    public IActionResult LegacyMailSettings()
+    {
+        return Redirect("/mail/configuration");
+    }
+
+    private static string GetDetailedErrorMessage(Exception exception)
+    {
+        var messages = new List<string>();
+        Exception? current = exception;
+
+        while (current != null)
+        {
+            if (!string.IsNullOrWhiteSpace(current.Message)
+                && !messages.Contains(current.Message, StringComparer.Ordinal))
+            {
+                messages.Add(current.Message);
+            }
+
+            current = current.InnerException;
         }
 
-        [HttpGet("mail/settings")]
-        public async Task<IActionResult> GetEmailSettings(CancellationToken cancellationToken)
-        {
-            var settings = await _settingsStore.GetAsync(cancellationToken);
-            return Ok(settings);
-        }
-
-        [HttpPost("mail/settings")]
-        public async Task<IActionResult> SaveEmailSettings([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
-        {
-            if (settings == null)
-            {
-                return BadRequest(new { success = false, error = "Параметры письма не переданы." });
-            }
-
-            try
-            {
-                await _settingsStore.SaveAsync(settings, cancellationToken);
-                return Ok(new { success = true });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, error = ex.Message });
-            }
-        }
-
-        [HttpPost("mail/send")]
-        public async Task<IActionResult> SendMessage(CancellationToken cancellationToken)
-        {
-            try
-            {
-                var settings = await _settingsStore.GetAsync(cancellationToken);
-                await _emailSender.SendAsync(settings, cancellationToken);
-                return Ok(new { message = $"Письмо успешно отправлено на {settings.To}!" });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (FormatException ex)
-            {
-                return BadRequest(new { message = $"Некорректный адрес электронной почты: {ex.Message}" });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = $"Ошибка: {ex.Message}" });
-            }
-        }
-
-        [HttpGet("mail-settings")]
-        public IActionResult UpdateSettings()
-        {
-            return View("update_settings");
-        }
+        return messages.Count > 0
+            ? string.Join(" | ", messages)
+            : "Неизвестная ошибка.";
+    }
 }

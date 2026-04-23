@@ -21,3 +21,5 @@ COMMIT;
 \ir 007_rename_schedule_dates_and_remove_legacy_columns.sql
 \ir 008_convert_dates_and_rename_organization_id.sql
 \ir 009_derive_survey_schedule_from_assignments.sql
+\ir 010_add_email_template_storage.sql
+\ir 011_add_email_template_audit_log.sql

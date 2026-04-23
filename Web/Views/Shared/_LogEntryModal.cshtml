@@ -1,0 +1,61 @@
+<div class="modal logs-modal" id="logEntryModal" aria-hidden="true">
+    <div class="modal-content">
+        <span class="modal-close" aria-label="Закрыть">
+            <i class="fas fa-xmark" aria-hidden="true"></i>
+        </span>
+        <div class="modal-header">
+            <div>
+                <h2 class="modal-title">Просмотр записи журнала</h2>
+                <p class="modal-description" data-role="log-modal-subtitle">Подробности выбранного события.</p>
+            </div>
+        </div>
+        <div class="modal-body logs-modal__body">
+            <div class="logs-modal__grid">
+                <div class="logs-modal__field">
+                    <span class="logs-modal__label">Дата</span>
+                    <span class="logs-modal__value" data-role="log-date">—</span>
+                </div>
+                <div class="logs-modal__field">
+                    <span class="logs-modal__label">Пользователь</span>
+                    <span class="logs-modal__value" data-role="log-user">—</span>
+                </div>
+                <div class="logs-modal__field">
+                    <span class="logs-modal__label">Событие</span>
+                    <span class="logs-modal__value" data-role="log-event">—</span>
+                </div>
+                <div class="logs-modal__field">
+                    <span class="logs-modal__label">Объект</span>
+                    <span class="logs-modal__value" data-role="log-object">—</span>
+                </div>
+                <div class="logs-modal__field">
+                    <span class="logs-modal__label">Таблица</span>
+                    <span class="logs-modal__value" data-role="log-table">—</span>
+                </div>
+                <div class="logs-modal__field">
+                    <span class="logs-modal__label">ID записи</span>
+                    <span class="logs-modal__value" data-role="log-record-id">—</span>
+                </div>
+            </div>
+
+            <div class="logs-modal__section">
+                <h3 class="logs-modal__section-title">Описание</h3>
+                <div class="logs-modal__text" data-role="log-description">—</div>
+            </div>
+
+            <div class="logs-modal__section u-hidden" data-role="log-changes-section">
+                <h3 class="logs-modal__section-title">Изменённые поля</h3>
+                <div class="logs-modal__changes" data-role="log-changes"></div>
+            </div>
+
+            <div class="logs-modal__section u-hidden" data-role="log-reason-section">
+                <h3 class="logs-modal__section-title">Причина</h3>
+                <div class="logs-modal__text" data-role="log-reason"></div>
+            </div>
+
+            <div class="logs-modal__section">
+                <h3 class="logs-modal__section-title">Детали записи</h3>
+                <pre class="logs-modal__json" data-role="log-json">—</pre>
+            </div>
+        </div>
+    </div>
+</div>

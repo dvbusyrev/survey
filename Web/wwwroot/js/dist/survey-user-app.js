@@ -1,5 +1,17 @@
 (() => {
   // Web/wwwroot/js/ui/app-header.js
+  function readChromeContextNode(contextNode) {
+    if (!contextNode?.dataset) {
+      return null;
+    }
+    return {
+      userRole: contextNode.dataset.userRole || "",
+      userId: Number(contextNode.dataset.userId || 0),
+      displayName: contextNode.dataset.displayName || "",
+      userName: contextNode.dataset.userName || "",
+      organizationName: contextNode.dataset.organizationName || ""
+    };
+  }
   function renderHeader(host, { userRole, displayName, userName, organizationName }) {
     const rawDisplayName = displayName && String(displayName).trim() ? String(displayName).trim() : userRole === "admin" ? "Администратор" : "Клиент";
     const displayNameParts = rawDisplayName.split(":").map((part) => part.trim()).filter(Boolean);
@@ -41,6 +53,9 @@
   }
   window.mountHeader = function mountHeader(host, props) {
     return renderHeader(host, props || {});
+  };
+  window.readAppChromeContext = function readAppChromeContext() {
+    return readChromeContextNode(document.getElementById("layout-chrome-context")) || readChromeContextNode(document.getElementById("chrome-context")) || null;
   };
 
   // Web/wwwroot/js/ui/app-navigation.js
@@ -98,7 +113,7 @@
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
       const isSurveySectionActive = isAdmin ? ["get_surveys", "add_survey", "list_answers_users", "archived_surveys"].includes(activeTab) : ["active", "archived", "answers_tab", "archived_surveys_for_user"].includes(activeTab);
       const isOrganizationSectionActive = ["get_organization", "organization_surveys", "add_organization", "archive_list_organizations"].includes(activeTab);
-      const isOtherSectionActive = ["get_logs", "email"].includes(activeTab);
+      const isEmailSectionActive = ["email", "email_new", "email_settings"].includes(activeTab);
       const navigate = (tab) => {
         if (tab === "add_user") {
           const tryOpenAddUserModal = () => {
@@ -187,7 +202,9 @@
           organization_surveys: "/organizations/surveys",
           archive_list_organizations: "/organizations/archive",
           reports: "/reports",
-          email: "/mail-settings",
+          email: "/mail",
+          email_new: "/mail",
+          email_settings: "/mail/configuration",
           get_logs: "/logs"
         };
         if (routes[tab]) {
@@ -217,7 +234,7 @@
       nav.querySelectorAll(".nav-item").forEach((item) => {
         const tab = item.dataset.tab || "";
         const navClass = item.dataset.navClass || "";
-        const isActive = navClass === "surveys" ? isSurveySectionActive : navClass === "organizations" ? isOrganizationSectionActive : navClass === "other" ? isOtherSectionActive : tab === activeTab;
+        const isActive = navClass === "surveys" ? isSurveySectionActive : navClass === "organizations" ? isOrganizationSectionActive : navClass === "email" ? isEmailSectionActive : tab === activeTab;
         item.classList.toggle("active", isActive);
       });
       nav.querySelectorAll(".submenu-item").forEach((subItem) => {
@@ -854,6 +871,7 @@
       prefetchedHtml: null,
       openRequestId: 0
     };
+    let refreshPromise = null;
     function getContentRoot() {
       return contentHost.querySelector('[data-role="survey-user-content"]');
     }
@@ -880,20 +898,22 @@
       const headerHost = document.getElementById("chrome-header");
       const navHost = document.getElementById("chrome-navigation");
       const footerHost = document.getElementById("chrome-footer");
+      const chromeContext = typeof window.readAppChromeContext === "function" ? window.readAppChromeContext() : null;
+      const chromeProps = {
+        userRole: chromeContext?.userRole || initialData.userRole,
+        displayName: chromeContext?.displayName || initialData.displayName,
+        userName: chromeContext?.userName || initialData.userName,
+        organizationName: chromeContext?.organizationName || initialData.organizationName
+      };
       if (headerHost && typeof window.mountHeader === "function") {
-        window.mountHeader(headerHost, {
-          userRole: initialData.userRole,
-          displayName: initialData.displayName,
-          userName: initialData.userName,
-          organizationName: initialData.organizationName
-        });
+        window.mountHeader(headerHost, chromeProps);
       }
       if (navHost && typeof window.mountNavigation === "function") {
         window.mountNavigation(navHost, {
           openTab: handleTabChange,
           activeTab: state.activeTab === "archived" ? "archived_surveys_for_user" : state.activeTab,
-          userRole: initialData.userRole,
-          userId: initialData.userId
+          userRole: chromeProps.userRole,
+          userId: chromeContext?.userId || initialData.userId
         });
       }
       if (footerHost && typeof window.mountFooter === "function") {
@@ -1120,22 +1140,40 @@
     }
     async function handleSurveySubmitted() {
       handleBackToList();
+      await refreshAllSnapshots({ preserveFilters: true });
+    }
+    async function refreshAllSnapshots(options = {}) {
+      if (refreshPromise) {
+        return refreshPromise;
+      }
       const activeSnapshot = state.tabSnapshots.active;
       const archivedSnapshot = state.tabSnapshots.archived;
-      await loadTabSnapshot("active", {
-        page: activeSnapshot?.currentPage ?? 1,
-        searchTerm: activeSnapshot?.searchTerm ?? "",
-        applyToCurrent: state.activeTab === "active"
+      refreshPromise = Promise.all([
+        loadTabSnapshot("active", {
+          page: activeSnapshot?.currentPage ?? 1,
+          searchTerm: activeSnapshot?.searchTerm ?? "",
+          applyToCurrent: false,
+          showLoading: state.activeTab === "active"
+        }),
+        loadTabSnapshot("archived", {
+          page: archivedSnapshot?.currentPage ?? 1,
+          searchTerm: archivedSnapshot?.searchTerm ?? "",
+          signedOnly: archivedSnapshot?.signedOnly ?? false,
+          applyToCurrent: false,
+          showLoading: state.activeTab === "archived"
+        })
+      ]).finally(() => {
+        refreshPromise = null;
       });
-      await loadTabSnapshot("archived", {
-        page: archivedSnapshot?.currentPage ?? 1,
-        searchTerm: archivedSnapshot?.searchTerm ?? "",
-        signedOnly: archivedSnapshot?.signedOnly ?? false,
-        applyToCurrent: state.activeTab === "archived"
-      });
-      if (state.activeTab === "active" && state.tabSnapshots.active) {
-        mountSnapshot(state.tabSnapshots.active, { preserveFilters: true });
+      const [nextActiveSnapshot, nextArchivedSnapshot] = await refreshPromise;
+      const currentSnapshot = state.activeTab === "archived" ? nextArchivedSnapshot : nextActiveSnapshot;
+      if (currentSnapshot) {
+        mountSnapshot(currentSnapshot, { preserveFilters: options.preserveFilters === true });
       }
+      return {
+        active: nextActiveSnapshot,
+        archived: nextArchivedSnapshot
+      };
     }
     function handleTabChange(tab, _unused = null, options = {}) {
       options = options || {};
@@ -1265,6 +1303,11 @@
     });
     syncHistory(state.activeTab, "replace");
     mountSnapshot(initialSnapshot);
+    window.refreshSurveyUserPageData = function refreshSurveyUserPageData(options = {}) {
+      return refreshAllSnapshots({
+        preserveFilters: options.preserveFilters !== false
+      });
+    };
   };
   function getSurveyUserBootstrapData() {
     const bootstrapElement = document.getElementById("survey-user-list-bootstrap") || document.getElementById("user-archive-bootstrap");

@@ -1,5 +1,5 @@
-@using System.Security.Claims
 @using MainProject.Infrastructure.Security
+@inject MainProject.Application.Contracts.IUserChromeContextService UserChromeContextService
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -12,17 +12,17 @@
     @RenderSection("PageStyles", required: false)
     @RenderSection("Head", required: false)
 </head>
-<body class="@(ViewData["BodyClass"] as string ?? string.Empty)">
+    <body class="@(ViewData["BodyClass"] as string ?? string.Empty)">
     @{
         var isAuthenticated = User?.Identity?.IsAuthenticated == true;
-        var layoutUserRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
-        var layoutUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var layoutUserId = int.TryParse(layoutUserIdClaim, out var parsedLayoutUserId) ? parsedLayoutUserId : 0;
-        var layoutOrganizationName = User.FindFirst("organization_name")?.Value ?? string.Empty;
-        var layoutUserName = User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
-        var layoutDisplayName = !string.IsNullOrWhiteSpace(layoutOrganizationName) && !string.IsNullOrWhiteSpace(layoutUserName)
-            ? $"{layoutOrganizationName}: {layoutUserName}"
-            : (!string.IsNullOrWhiteSpace(layoutUserName) ? layoutUserName : AppRoles.GetDisplayName(layoutUserRole));
+        var chromeContext = isAuthenticated
+            ? UserChromeContextService.GetCurrentContext()
+            : new MainProject.Application.DTO.UserChromeContext();
+        var layoutUserRole = chromeContext.UserRole;
+        var layoutUserId = chromeContext.UserId;
+        var layoutOrganizationName = chromeContext.OrganizationName;
+        var layoutUserName = chromeContext.UserName;
+        var layoutDisplayName = chromeContext.DisplayName;
     }
     <div id="global-antiforgery-token" hidden aria-hidden="true">
         @Html.AntiForgeryToken()
@@ -69,7 +69,9 @@
                         ['/organizations/archive', 'archive_list_organizations'],
                         ['/organizations', 'get_organization'],
                         ['/reports', 'reports'],
-                        ['/mail-settings', 'email'],
+                        ['/mail/configuration', 'email_settings'],
+                        ['/mail-settings', 'email_settings'],
+                        ['/mail', 'email_new'],
                         ['/logs', 'get_logs'],
                         ['/help', 'help']
                     ];
@@ -90,7 +92,8 @@
                         'organization-list': 'get_organization',
                         'organization-surveys': 'organization_surveys',
                         'reports': 'reports',
-                        'mail-settings': 'email',
+                        'mail-compose': 'email_new',
+                        'mail-settings-page': 'email_settings',
                         'help-page': 'help'
                     };
 

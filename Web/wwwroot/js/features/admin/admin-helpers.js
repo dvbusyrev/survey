@@ -60,8 +60,14 @@
             return 'get_logs';
         }
 
-        if (normalizedPath === '/mail-settings') {
-            return 'email';
+        if (normalizedPath === '/mail'
+            || normalizedPath === '/mail/new') {
+            return 'email_new';
+        }
+
+        if (normalizedPath === '/mail/configuration'
+            || normalizedPath === '/mail-settings') {
+            return 'email_settings';
         }
 
         if (normalizedPath === '/help') {

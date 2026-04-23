@@ -1,4 +1,18 @@
-﻿function renderHeader(host, { userRole, displayName, userName, organizationName }) {
+﻿function readChromeContextNode(contextNode) {
+    if (!contextNode?.dataset) {
+        return null;
+    }
+
+    return {
+        userRole: contextNode.dataset.userRole || '',
+        userId: Number(contextNode.dataset.userId || 0),
+        displayName: contextNode.dataset.displayName || '',
+        userName: contextNode.dataset.userName || '',
+        organizationName: contextNode.dataset.organizationName || ''
+    };
+}
+
+function renderHeader(host, { userRole, displayName, userName, organizationName }) {
     const rawDisplayName = displayName && String(displayName).trim()
         ? String(displayName).trim()
         : (userRole === 'admin' ? 'Администратор' : 'Клиент');
@@ -54,4 +68,10 @@
 
 window.mountHeader = function mountHeader(host, props) {
     return renderHeader(host, props || {});
+};
+
+window.readAppChromeContext = function readAppChromeContext() {
+    return readChromeContextNode(document.getElementById('layout-chrome-context'))
+        || readChromeContextNode(document.getElementById('chrome-context'))
+        || null;
 };

@@ -202,7 +202,6 @@
 
 :where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th.table-col--actions, td.table-col--actions) {
   width: clamp(8.5rem, 8vw, 9rem);
-  min-width: 6.5rem;
   max-width: 9rem;
   white-space: normal;
   overflow: visible;

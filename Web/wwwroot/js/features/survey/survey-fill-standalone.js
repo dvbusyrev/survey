@@ -19,21 +19,25 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
         const headerHost = document.getElementById('chrome-header');
         const navHost = document.getElementById('chrome-navigation');
         const footerHost = document.getElementById('chrome-footer');
+        const chromeContext = typeof window.readAppChromeContext === 'function'
+            ? window.readAppChromeContext()
+            : null;
+        const chromeProps = {
+            userRole: chromeContext?.userRole || initialData.userRole,
+            displayName: chromeContext?.displayName || initialData.displayName,
+            userName: chromeContext?.userName || initialData.userName,
+            organizationName: chromeContext?.organizationName || initialData.organizationName
+        };
 
         if (headerHost && typeof window.mountHeader === 'function') {
-            window.mountHeader(headerHost, {
-                userRole: initialData.userRole,
-                displayName: initialData.displayName,
-                userName: initialData.userName,
-                organizationName: initialData.organizationName
-            });
+            window.mountHeader(headerHost, chromeProps);
         }
 
         if (navHost && typeof window.mountNavigation === 'function') {
             window.mountNavigation(navHost, {
                 activeTab: 'answers_tab',
-                userRole: initialData.userRole,
-                userId: initialData.userId
+                userRole: chromeProps.userRole,
+                userId: chromeContext?.userId || initialData.userId
             });
         }
 
@@ -170,7 +174,7 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
                 throw new Error(errorData?.error || 'Ошибка при отправке ответов');
             }
 
-            window.location.href = '/survey/thank-you';
+            window.location.assign('/my-surveys/archive');
         } catch (err) {
             error = err?.message || 'Не удалось отправить ответы';
             renderError();

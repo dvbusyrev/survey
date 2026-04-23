@@ -66,6 +66,9 @@ async function CSP(id, organizationId) {
         await sendSignatureToServer(id, organizationId, signature);
         
         updateUISuccess();
+        if (typeof window.refreshSurveyUserPageData === 'function') {
+            await window.refreshSurveyUserPageData({ preserveFilters: true });
+        }
     } catch (error) {
         console.error("Ошибка в CSP:", error);
         showError(error.message);

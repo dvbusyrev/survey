@@ -1,38 +1,104 @@
+@model MainProject.Application.DTO.Email.EmailTemplateSettings
+
 @{
-    ViewData["Title"] = "Настройки почты";
+    ViewData["Title"] = "Настройки отправителя";
+    ViewData["EmailSection"] = "settings";
+    var settings = Model ?? new MainProject.Application.DTO.Email.EmailTemplateSettings();
 }
 
 @section PageStyles {
     <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
 }
 
-<div class="app-page app-page--narrow email-settings-page" id="default_content" data-page="mail-settings">
+<div class="app-page email-settings-page" id="default_content" data-page="mail-settings-page">
+    @await Html.PartialAsync("~/Web/Views/Email/Partials/_EmailSubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            Title = "Электронная почта",
-            Description = "Здесь можно сохранить и загрузить шаблон параметров для рассылки."
+            // Title = "Настройка эл. почты",
+            Description = "Здесь можно сохранить SMTP-профиль отправителя. Параметры хранятся в базе данных, а пароль SMTP сохраняется в защищённом виде."
         })
 
     <section class="app-page__section">
-        <div class="email-settings-page__form">
-            <div class="form-group">
-                <label for="email-to">Кому:</label>
-                <input type="text" id="email-to" placeholder="Введите email получателя">
+        <div class="email-settings-page__grid email-settings-page__grid--single">
+            <div class="email-settings-page__panel">
+                <div class="email-settings-page__form">
+                    <div class="form-group email-settings-page__form-group">
+                        <label for="email-smtp-host">SMTP сервер</label>
+                        <input type="text"
+                               class="form-control"
+                               id="email-smtp-host"
+                               value="@settings.SmtpHost"
+                               placeholder="smtp.example.com" />
+                    </div>
+                    <div class="form-group email-settings-page__form-group">
+                        <label for="email-smtp-port">Порт SMTP</label>
+                        <input type="number"
+                               class="form-control"
+                               id="email-smtp-port"
+                               min="1"
+                               max="65535"
+                               value="@settings.SmtpPort" />
+                    </div>
+                    <div class="form-group email-settings-page__form-group">
+                        <label for="email-smtp-enable-ssl">SSL/TLS</label>
+                        <select id="email-smtp-enable-ssl" class="form-control">
+                            @if (settings.SmtpEnableSsl)
+                            {
+                                <option value="true" selected>Включён</option>
+                                <option value="false">Выключен</option>
+                            }
+                            else
+                            {
+                                <option value="true">Включён</option>
+                                <option value="false" selected>Выключен</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group email-settings-page__form-group">
+                        <label for="email-smtp-user-name">Логин SMTP</label>
+                        <input type="text"
+                               class="form-control"
+                               id="email-smtp-user-name"
+                               value="@settings.SmtpUserName"
+                               placeholder="Введите логин SMTP" />
+                    </div>
+                    <div class="form-group email-settings-page__form-group">
+                        <label for="email-smtp-password">Пароль SMTP</label>
+                        <input type="password"
+                               class="form-control"
+                               id="email-smtp-password"
+                               value="@settings.SmtpPassword"
+                               autocomplete="current-password"
+                               placeholder="Введите пароль SMTP" />
+                    </div>
+                    <div class="form-group email-settings-page__form-group">
+                        <label for="email-from-address">Email отправителя</label>
+                        <input type="email"
+                               class="form-control"
+                               id="email-from-address"
+                               value="@settings.FromAddress"
+                               placeholder="sender@domain.ru" />
+                    </div>
+                    <div class="form-group email-settings-page__form-group">
+                        <label for="email-from-display-name">Имя отправителя</label>
+                        <input type="text"
+                               class="form-control"
+                               id="email-from-display-name"
+                               value="@settings.FromDisplayName"
+                               placeholder="Название компании или отправителя" />
+                    </div>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="email-subject">Тема:</label>
-                <input type="text" id="email-subject" placeholder="Введите тему письма">
-            </div>
-            <div class="form-group">
-                <label for="email-content">Содержание:</label>
-                <textarea id="email-content" placeholder="Введите текст письма"></textarea>
-            </div>
-            <div class="email-settings-page__actions">
-                <button type="button" class="btn" data-click-call="saveEmailSettings">Сохранить</button>
-                <button type="button" class="btn" data-click-call="loadEmailSettings">Загрузить данные</button>
-            </div>
+        </div>
+
+        <input type="hidden" id="email-to" value="@settings.To" />
+        <input type="hidden" id="email-subject" value="@settings.Subject" />
+        <textarea id="email-content" hidden aria-hidden="true">@settings.Content</textarea>
+
+        <div class="email-settings-page__actions">
+            <button type="button" id="email-save-button" class="modal_btn modal_btn-primary">Сохранить</button>
         </div>
     </section>
 </div>

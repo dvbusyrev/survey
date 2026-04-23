@@ -60,7 +60,49 @@
   gap: 18px;
 }
 
+.email-settings-page__notice {
+  margin-bottom: 20px;
+  color: var(--text-secondary);
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+
+.email-settings-page__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 24px);
+}
+
+.email-settings-page__grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.email-settings-page__panel {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.email-settings-page__panel-title {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.email-settings-page__form-group {
+}
+
+.email-settings-page__form-group--textarea {
+  align-items: start;
+}
+
+.email-settings-page__form-group--textarea textarea {
+  min-height: 220px;
+}
+
 .email-settings-page__actions {
+  margin-top: 24px;
   justify-content: center;
 }
 
@@ -131,6 +173,10 @@ text-align: center;
 
 @media (max-width: 900px) {
 .reports-page__grid {
+grid-template-columns: minmax(0, 1fr);
+}
+
+.email-settings-page__grid {
 grid-template-columns: minmax(0, 1fr);
 }
 }

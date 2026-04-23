@@ -59,7 +59,10 @@
             case 'get_logs':
                 return { tab, id: null, url: '/logs' };
             case 'email':
-                return { tab, id: null, url: '/mail-settings' };
+            case 'email_new':
+                return { tab: tab === 'email' ? 'email_new' : tab, id: null, url: '/mail' };
+            case 'email_settings':
+                return { tab, id: null, url: '/mail/configuration' };
             case 'help':
                 return { tab, id: null, url: '/help' };
             default:
@@ -126,8 +129,14 @@
             return buildAdminHistoryEntry('get_logs');
         }
 
-        if (normalizedPath === '/mail-settings') {
-            return buildAdminHistoryEntry('email');
+        if (normalizedPath === '/mail'
+            || normalizedPath === '/mail/new') {
+            return buildAdminHistoryEntry('email_new');
+        }
+
+        if (normalizedPath === '/mail/configuration'
+            || normalizedPath === '/mail-settings') {
+            return buildAdminHistoryEntry('email_settings');
         }
 
         if (normalizedPath === '/help') {
@@ -612,6 +621,14 @@
                 }
             }, 0);
         }
+
+        if (['email', 'email_new', 'email_settings'].includes(state.activeTab)) {
+            window.setTimeout(() => {
+                if (typeof window.initEmailSettingsPage === 'function') {
+                    window.initEmailSettingsPage();
+                }
+            }, 0);
+        }
     };
 
     const setContentMount = (mountFn) => {
@@ -1077,8 +1094,13 @@
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'email':
-                    await fetchHtmlPage('/mail-settings');
-                    setActiveTabAndRefreshNav(tab);
+                case 'email_new':
+                    await fetchHtmlPage('/mail');
+                    setActiveTabAndRefreshNav('email_new');
+                    break;
+                case 'email_settings':
+                    await fetchHtmlPage('/mail/configuration');
+                    setActiveTabAndRefreshNav('email_settings');
                     break;
                 default:
                     console.warn(`Вкладка ${tab} не обработана.`);

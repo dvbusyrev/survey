@@ -512,4 +512,293 @@
             host.innerHTML = '';
         };
     };
+
+    function getEmailField(id) {
+        return document.getElementById(id);
+    }
+
+    function getEmailTrimmedValue(id) {
+        return (getEmailField(id)?.value || '').trim();
+    }
+
+    function splitEmailRecipients(value) {
+        return String(value || '')
+            .split(/[;,\r\n]+/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
+
+    function isValidEmailAddress(email) {
+        const value = String(email || '').trim();
+        if (!value) {
+            return false;
+        }
+
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+
+    function setEmailInvalidState(id, isInvalid) {
+        const element = getEmailField(id);
+        if (!element) {
+            return;
+        }
+
+        element.classList.toggle('invalid', Boolean(isInvalid));
+        element.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
+    }
+
+    function clearEmailInvalidStates() {
+        [
+            'email-to',
+            'email-subject',
+            'email-content',
+            'email-smtp-host',
+            'email-smtp-port',
+            'email-smtp-user-name',
+            'email-smtp-password',
+            'email-from-address',
+            'email-from-display-name'
+        ].forEach((id) => setEmailInvalidState(id, false));
+    }
+
+    function collectEmailSettingsPayload() {
+        const smtpPortValue = Number.parseInt(getEmailField('email-smtp-port')?.value || '', 10);
+
+        return {
+            to: getEmailTrimmedValue('email-to'),
+            subject: getEmailTrimmedValue('email-subject'),
+            content: (getEmailField('email-content')?.value || '').trim(),
+            smtpHost: getEmailTrimmedValue('email-smtp-host'),
+            smtpPort: Number.isFinite(smtpPortValue) ? smtpPortValue : 0,
+            smtpEnableSsl: (getEmailField('email-smtp-enable-ssl')?.value || 'true') === 'true',
+            smtpUserName: getEmailTrimmedValue('email-smtp-user-name'),
+            smtpPassword: getEmailField('email-smtp-password')?.value || '',
+            fromAddress: getEmailTrimmedValue('email-from-address'),
+            fromDisplayName: getEmailTrimmedValue('email-from-display-name')
+        };
+    }
+
+    function validateEmailSettingsPayload(settings) {
+        clearEmailInvalidStates();
+
+        const errors = [];
+        const recipients = splitEmailRecipients(settings.to);
+
+        if (recipients.length === 0) {
+            errors.push('Поле «Кому» должно содержать хотя бы один email.');
+            setEmailInvalidState('email-to', true);
+        } else {
+            const invalidRecipients = recipients.filter((email) => !isValidEmailAddress(email));
+            if (invalidRecipients.length > 0) {
+                errors.push(`Поле «Кому» содержит некорректные email: ${invalidRecipients.join(', ')}.`);
+                setEmailInvalidState('email-to', true);
+            }
+        }
+
+        if (!settings.subject) {
+            errors.push('Поле «Тема» обязательно.');
+            setEmailInvalidState('email-subject', true);
+        }
+
+        if (!settings.content) {
+            errors.push('Поле «Содержание» обязательно.');
+            setEmailInvalidState('email-content', true);
+        }
+
+        if (!settings.smtpHost) {
+            errors.push('Поле «SMTP сервер» обязательно.');
+            setEmailInvalidState('email-smtp-host', true);
+        }
+
+        if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
+            errors.push('Поле «Порт SMTP» должно быть числом от 1 до 65535.');
+            setEmailInvalidState('email-smtp-port', true);
+        }
+
+        if (!isValidEmailAddress(settings.fromAddress)) {
+            errors.push('Поле «Email отправителя» заполнено некорректно.');
+            setEmailInvalidState('email-from-address', true);
+        }
+
+        const hasUserName = Boolean(settings.smtpUserName);
+        const hasPassword = Boolean(settings.smtpPassword);
+        if (hasUserName !== hasPassword) {
+            errors.push('Логин SMTP и пароль SMTP должны быть заполнены вместе.');
+            setEmailInvalidState('email-smtp-user-name', true);
+            setEmailInvalidState('email-smtp-password', true);
+        }
+
+        return errors;
+    }
+
+    async function extractEmailApiErrors(response) {
+        const fallbackMessage = typeof window.getResponseErrorMessage === 'function'
+            ? window.getResponseErrorMessage(response, 'Ошибка')
+            : 'Не удалось выполнить запрос.';
+
+        const responseText = await response.text();
+        if (!responseText) {
+            return [fallbackMessage];
+        }
+
+        try {
+            const payload = JSON.parse(responseText);
+            if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+                return payload.errors.filter(Boolean);
+            }
+
+            if (payload?.error) {
+                return [payload.error];
+            }
+
+            if (payload?.message) {
+                return [payload.message];
+            }
+        } catch (error) {
+            return [responseText];
+        }
+
+        return [fallbackMessage];
+    }
+
+    function showEmailToast(message, type, title, options = {}) {
+        const normalizedMessage = String(message || '').trim();
+        if (!normalizedMessage) {
+            return;
+        }
+
+        if (typeof window.siteNotify === 'function') {
+            window.siteNotify(normalizedMessage, type, {
+                title,
+                duration: options.duration ?? (type === 'error' ? 0 : 4500)
+            });
+            return;
+        }
+
+        window.alert(normalizedMessage);
+    }
+
+    function showEmailValidationErrors(errors) {
+        const normalizedErrors = (Array.isArray(errors) ? errors : [errors])
+            .map((item) => String(item || '').trim())
+            .filter(Boolean);
+
+        if (normalizedErrors.length === 0) {
+            return;
+        }
+
+        showEmailToast(normalizedErrors.join(' • '), 'error', 'Проверьте поля', { duration: 0 });
+    }
+
+    function setEmailButtonsBusy(isBusy, options = {}) {
+        const activeButtonId = options.activeButtonId || '';
+        const busyLabel = options.busyLabel || '';
+
+        document
+            .querySelectorAll('.email-settings-page__actions button')
+            .forEach((button) => {
+                button.disabled = isBusy;
+                if (!button.dataset.defaultLabel) {
+                    button.dataset.defaultLabel = button.textContent || '';
+                }
+
+                if (isBusy) {
+                    button.textContent = activeButtonId && button.id === activeButtonId
+                        ? busyLabel || button.dataset.defaultLabel || button.textContent
+                        : button.dataset.defaultLabel || button.textContent;
+                    return;
+                }
+
+                button.textContent = button.dataset.defaultLabel || button.textContent;
+            });
+    }
+
+    async function submitEmailSettings(url, options) {
+        const settings = collectEmailSettingsPayload();
+        const validationErrors = validateEmailSettingsPayload(settings);
+        if (validationErrors.length > 0) {
+            showEmailValidationErrors(validationErrors);
+            return false;
+        }
+
+        setEmailButtonsBusy(true, {
+            activeButtonId: options.busyButtonId,
+            busyLabel: options.busyLabel
+        });
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+
+            if (!response.ok) {
+                throw new Error((await extractEmailApiErrors(response)).join(' '));
+            }
+
+            const payload = await response.json();
+            clearEmailInvalidStates();
+            showEmailToast(
+                payload?.message || options.successMessage,
+                'success',
+                options.successTitle
+            );
+            return true;
+        } catch (error) {
+            showEmailToast(
+                error.message || options.errorMessage || 'Не удалось выполнить операцию.',
+                'error',
+                options.errorTitle,
+                { duration: 0 }
+            );
+            return false;
+        } finally {
+            setEmailButtonsBusy(false);
+        }
+    }
+
+    window.saveEmailSettings = function saveEmailSettings() {
+        return submitEmailSettings('/mail/settings', {
+            busyButtonId: 'email-save-button',
+            busyLabel: 'Сохранение...',
+            successTitle: 'Настройки сохранены',
+            successMessage: 'Настройки электронной почты сохранены.',
+            errorTitle: 'Сохранение не выполнено',
+            errorMessage: 'Не удалось сохранить настройки.'
+        });
+    };
+
+    window.sendEmailMessage = function sendEmailMessage() {
+        return submitEmailSettings('/mail/send', {
+            busyButtonId: 'email-send-button',
+            busyLabel: 'Отправка...',
+            successTitle: 'Письмо отправлено',
+            successMessage: 'Письмо отправлено.',
+            errorTitle: 'Письмо не отправлено',
+            errorMessage: 'Не удалось отправить письмо.'
+        });
+    };
+
+    function bindEmailAction(buttonId, action) {
+        const button = document.getElementById(buttonId);
+        if (!button || button.dataset.emailActionBound === 'true') {
+            return;
+        }
+
+        button.dataset.emailActionBound = 'true';
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            action();
+        });
+    }
+
+    window.initEmailSettingsPage = function initEmailSettingsPage() {
+        bindEmailAction('email-save-button', window.saveEmailSettings);
+        bindEmailAction('email-send-button', window.sendEmailMessage);
+    };
 })();
