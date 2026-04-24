@@ -238,7 +238,6 @@ body {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='4' y='6' width='16' height='4' rx='1.5' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M6 10h12v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-8z' fill='none' stroke='black' stroke-width='2'/%3E%3Cpath d='M10 14h4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
-.admin-nav .fa-chart-line::before,
 .admin-nav .fa-clipboard-list::before,
 .admin-nav .fa-list-check::before,
 .admin-nav .fa-box-archive::before,
@@ -259,7 +258,6 @@ body {
   mask-image: none;
 }
 
-.admin-nav .fa-chart-line::before { content: "📈"; }
 .admin-nav .fa-clipboard-list::before { content: "📋"; }
 .admin-nav .fa-list-check::before { content: "☑"; }
 .admin-nav .fa-box-archive::before { content: "🗃"; }
