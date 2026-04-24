@@ -237,6 +237,8 @@ option,
     color: white;
     padding: calc(12px * var(--auth-platform-scale)) calc(24px * var(--auth-platform-scale));
     border-radius: calc(10px * var(--auth-platform-scale));
+    font-size: 1rem;
+    line-height: 1.2;
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
