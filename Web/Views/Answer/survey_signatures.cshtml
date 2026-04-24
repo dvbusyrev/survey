@@ -16,46 +16,44 @@
             Description = "На этой странице вы можете посмотреть, какие организации прошли и подписали анкету."
         })
 
-    <section class="app-page__section">
-        <div class="table-responsive">
-            <table class="answers-page__signatures-table" data-role="main-table">
-                <thead>
-                    <tr>
-                        <th class="table-th--start">Организация</th>
-                        <th class="text-center">Статус прохождения</th>
-                        <th class="text-center table-th--end">Статус подписи</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model.Items.Any())
-                    {
-                        @foreach (var item in Model.Items)
-                        {
-                            <tr>
-                                <td>@item.OrganizationName</td>
-                                <td class="text-center">
-                                    <span class="status-badge @(item.IsCompleted ? "completed" : "not-completed")">
-                                        @item.CompletionStatus
-                                    </span>
-                                </td>
-                                <td class="text-center">
-                                    <span class="status-badge @(item.IsSigned ? "signed" : "not-signed")">
-                                        @item.SignatureStatus
-                                    </span>
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else
+    <div class="table-responsive">
+        <table class="answers-page__signatures-table" data-role="main-table">
+            <thead>
+                <tr>
+                    <th class="table-th--start">Организация</th>
+                    <th class="text-center">Статус прохождения</th>
+                    <th class="text-center table-th--end">Статус подписи</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Any())
+                {
+                    @foreach (var item in Model.Items)
                     {
                         <tr>
-                            <td colspan="3" class="table-empty-cell text-center">
-                                Нет данных о подписях организаций
+                            <td>@item.OrganizationName</td>
+                            <td class="text-center">
+                                <span class="status-badge @(item.IsCompleted ? "completed" : "not-completed")">
+                                    @item.CompletionStatus
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="status-badge @(item.IsSigned ? "signed" : "not-signed")">
+                                    @item.SignatureStatus
+                                </span>
                             </td>
                         </tr>
                     }
-                </tbody>
-            </table>
-        </div>
-    </section>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="3" class="table-empty-cell text-center">
+                            Нет данных о подписях организаций
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>

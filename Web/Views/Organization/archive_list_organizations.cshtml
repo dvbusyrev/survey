@@ -19,15 +19,13 @@
             // Title = "Архив организаций",
             Description = "Ниже представлена таблица с архивными организациями."
         })
-    <section class="app-page__section app-page__section--flush">
-        @await Html.PartialAsync(
-            "~/Web/Views/Organization/Partials/_OrganizationTable.cshtml",
-            new MainProject.Web.ViewModels.OrganizationTableViewModel
-            {
-                Organizations = organizations.ToList(),
-                ShowActions = true
-            })
-    </section>
+    @await Html.PartialAsync(
+        "~/Web/Views/Organization/Partials/_OrganizationTable.cshtml",
+        new MainProject.Web.ViewModels.OrganizationTableViewModel
+        {
+            Organizations = organizations.ToList(),
+            ShowActions = true
+        })
 </div>
 
 @await Html.PartialAsync("~/Web/Views/Organization/Partials/_EditOrganizationModal.cshtml")

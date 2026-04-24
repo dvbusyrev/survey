@@ -17,39 +17,37 @@
             Description = "На этой странице вы можете ознакомиться с ответами на анкету."
         })
 
-        <section class="app-page__section">
-            <div class="table-container">
-            <table class="answers-table" data-disable-column-sort="true">
-                <thead>
+    <div class="table-container">
+        <table class="answers-table" data-disable-column-sort="true">
+            <thead>
+                <tr>
+                    <th>Вопрос</th>
+                    <th>Ответ</th>
+                    <th>Комментарий</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var answer in Model.Answers)
+                {
                     <tr>
-                        <th>Вопрос</th>
-                        <th>Ответ</th>
-                        <th>Комментарий</th>
+                        <td colspan="3" class="survey-header">
+                            <strong>Ответы на анкету: @Model.Survey.NameSurvey</strong>
+                            <br />
+                            <span class="answers-page__completion-date">Организация: @answer.NameOrganization</span>
+                            <br />
+                            <span class="answers-page__completion-date">Дата ответа: @answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</span>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var answer in Model.Answers)
+                    @foreach (var detail in answer.Details)
                     {
                         <tr>
-                            <td colspan="3" class="survey-header">
-                                <strong>Ответы на анкету: @Model.Survey.NameSurvey</strong>
-                                <br />
-                                <span class="answers-page__completion-date">Организация: @answer.NameOrganization</span>
-                                <br />
-                                <span class="answers-page__completion-date">Дата ответа: @answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</span>
-                            </td>
+                            <td>@detail.DisplayQuestion</td>
+                            <td>@detail.Rating</td>
+                            <td>@detail.Comment</td>
                         </tr>
-                        @foreach (var detail in answer.Details)
-                        {
-                            <tr>
-                                <td>@detail.DisplayQuestion</td>
-                                <td>@detail.Rating</td>
-                                <td>@detail.Comment</td>
-                            </tr>
-                        }
                     }
-                </tbody>
-            </table>
-        </div>
-    </section>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>

@@ -61,15 +61,13 @@
                 </button>
             </div>
 
-            <section class="app-page__section app-page__section--flush">
-                @await Html.PartialAsync(
-                    "~/Web/Views/Survey/Partials/_SurveyTable.cshtml",
-                    new MainProject.Web.ViewModels.SurveyTableViewModel
-                    {
-                        Surveys = surveyRows,
-                        IsArchive = false
-                    })
-            </section>
+            @await Html.PartialAsync(
+                "~/Web/Views/Survey/Partials/_SurveyTable.cshtml",
+                new MainProject.Web.ViewModels.SurveyTableViewModel
+                {
+                    Surveys = surveyRows,
+                    IsArchive = false
+                })
         </div>
     </div>
 </div>

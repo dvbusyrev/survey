@@ -1646,6 +1646,10 @@
     font-weight: 600;
 }
 
+.survey-user-answer-group + .survey-user-answer-group {
+    margin-top: clamp(16px, 2vw, 24px);
+}
+
 .app-page[data-page="user-surveys"],
 #default_content[data-page="user-surveys"] {
     font-size: inherit;

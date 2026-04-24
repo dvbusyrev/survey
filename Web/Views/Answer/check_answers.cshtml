@@ -39,36 +39,34 @@
             }
         </section>
 
-        <section class="app-page__section">
-            <div class="table-container">
-                @if (answers == null || !answers.Any())
-                {
-                    <p>Ответы не найдены</p>
-                }
-                else
-                {
-                    <table data-column-sort="true">
-                        <thead>
+        <div class="table-container">
+            @if (answers == null || !answers.Any())
+            {
+                <p>Ответы не найдены</p>
+            }
+            else
+            {
+                <table data-column-sort="true">
+                    <thead>
+                        <tr>
+                            <th>Вопрос</th>
+                            <th>Оценка</th>
+                            <th>Комментарий</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var answer in answers)
+                        {
                             <tr>
-                                <th>Вопрос</th>
-                                <th>Оценка</th>
-                                <th>Комментарий</th>
+                                <td>@answer.DisplayQuestion</td>
+                                <td>@answer.DisplayRating</td>
+                                <td>@answer.Comment</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var answer in answers)
-                            {
-                                <tr>
-                                    <td>@answer.DisplayQuestion</td>
-                                    <td>@answer.DisplayRating</td>
-                                    <td>@answer.Comment</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-            </div>
-        </section>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
 
         <section class="app-page__section">
             <div class="answers-page__actions">

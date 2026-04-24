@@ -16,15 +16,13 @@
             Description = "Ниже представлена таблица с архивными пользователями."
         })
 
-    <section class="app-page__section app-page__section--flush">
-        @await Html.PartialAsync(
-            "~/Web/Views/User/Partials/_UserTable.cshtml",
-            new MainProject.Web.ViewModels.UserTableViewModel
-            {
-                Users = users,
-                ShowActions = true
-            })
-    </section>
+    @await Html.PartialAsync(
+        "~/Web/Views/User/Partials/_UserTable.cshtml",
+        new MainProject.Web.ViewModels.UserTableViewModel
+        {
+            Users = users,
+            ShowActions = true
+        })
 </div>
 
 @await Html.PartialAsync("~/Web/Views/User/Partials/_UserManagementModals.cshtml", organizations)

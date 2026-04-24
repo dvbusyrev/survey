@@ -36,7 +36,7 @@
         <div data-role="answers-content">
             @foreach (var group in answerGroups)
             {
-                <section class="app-page__section">
+                <div class="survey-user-answer-group">
                     <div class="survey-user-answer-date">
                         Дата заполнения: @(!string.IsNullOrWhiteSpace(group.Date) ? group.Date : "Дата не указана")
                     </div>
@@ -59,7 +59,7 @@
                             }
                         </tbody>
                     </table>
-                </section>
+                </div>
             }
         </div>
     }

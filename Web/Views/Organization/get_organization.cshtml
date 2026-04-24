@@ -29,15 +29,13 @@
             Добавить организацию
         </button>
     </div>
-    <section class="app-page__section app-page__section--flush">
-        @await Html.PartialAsync(
-            "~/Web/Views/Organization/Partials/_OrganizationTable.cshtml",
-            new MainProject.Web.ViewModels.OrganizationTableViewModel
-            {
-                Organizations = organizations,
-                ShowActions = true
-            })
-    </section>
+    @await Html.PartialAsync(
+        "~/Web/Views/Organization/Partials/_OrganizationTable.cshtml",
+        new MainProject.Web.ViewModels.OrganizationTableViewModel
+        {
+            Organizations = organizations,
+            ShowActions = true
+        })
 </div>
 
 @await Html.PartialAsync("~/Web/Views/Organization/Partials/_AddOrganizationModal.cshtml")
