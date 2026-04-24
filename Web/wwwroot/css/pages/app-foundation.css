@@ -25,7 +25,7 @@
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --header-height: calc(62px * var(--platform-ui-scale));
   --page-gap: calc(8px * var(--platform-ui-scale));
-  --nav-width: clamp(220px, 18vw, 240px);
+  --nav-width: clamp(250px, 18vw, 240px);
   --content-max-width: calc(1600px * var(--platform-ui-scale));
 }
 
