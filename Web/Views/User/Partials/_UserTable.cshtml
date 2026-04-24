@@ -14,7 +14,7 @@
             <th>Роль</th>
             <th class="table-col--date">Дата начала</th>
             <th class="table-col--date">Дата конца</th>
-            <th class="table-th--end table-col--actions"></th>
+            <th class="table-th--end table-col--actions">Действия</th>
         </tr>
     </thead>
     <tbody>
@@ -52,27 +52,29 @@
                     <td class="action-icons table-col--actions">
                         @if (showActions)
                         {
-                            <div class="icon-container"
-                                 data-user-id="@user.IdUser"
-                                 data-user-full-name="@(user.FullName ?? string.Empty)"
-                                 data-user-name="@(user.NameUser ?? string.Empty)"
-                                 data-user-email="@(user.Email ?? string.Empty)"
-                                 data-user-organization-id="@user.OrganizationId"
-                                 data-user-role="@AppRoles.Normalize(user.NameRole)"
-                                 data-user-date-begin="@(user.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
-                                 data-user-date-end="@(user.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
-                                 data-click-call="openEditUserModalFromTrigger"
-                                 data-click-pass-element="true">
-                                <span><i class="fas fa-pen-to-square"></i></span>
-                                <span class="icon-tooltip">Посмотреть / обновить</span>
-                            </div>
-                            <div class="icon-container"
-                                 data-user-id="@user.IdUser"
-                                 data-user-full-name="@(user.FullName ?? string.Empty)"
-                                 data-click-call="deleteUserFromTrigger"
-                                 data-click-pass-element="true">
-                                <span><i class="fas fa-trash"></i></span>
-                                <span class="icon-tooltip">Удалить</span>
+                            <div class="action-icons__content">
+                                <div class="icon-container"
+                                     data-user-id="@user.IdUser"
+                                     data-user-full-name="@(user.FullName ?? string.Empty)"
+                                     data-user-name="@(user.NameUser ?? string.Empty)"
+                                     data-user-email="@(user.Email ?? string.Empty)"
+                                     data-user-organization-id="@user.OrganizationId"
+                                     data-user-role="@AppRoles.Normalize(user.NameRole)"
+                                     data-user-date-begin="@(user.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                     data-user-date-end="@(user.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                     data-click-call="openEditUserModalFromTrigger"
+                                     data-click-pass-element="true">
+                                    <span><i class="fas fa-pen-to-square"></i></span>
+                                    <span class="icon-tooltip">Посмотреть / обновить</span>
+                                </div>
+                                <div class="icon-container"
+                                     data-user-id="@user.IdUser"
+                                     data-user-full-name="@(user.FullName ?? string.Empty)"
+                                     data-click-call="deleteUserFromTrigger"
+                                     data-click-pass-element="true">
+                                    <span><i class="fas fa-trash"></i></span>
+                                    <span class="icon-tooltip">Удалить</span>
+                                </div>
                             </div>
                         }
                     </td>

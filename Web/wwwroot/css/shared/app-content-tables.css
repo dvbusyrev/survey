@@ -93,7 +93,7 @@
   background-color: white;
   border-color: var(--border);
   border-bottom-color: white;
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
 }
 
 .menu-tab .count-badge {
@@ -140,22 +140,45 @@
   margin: 0;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) {
   --app-table-font-size: 0.8rem;
   width: 100%;
   min-width: 100%;
   margin-top: 0;
   overflow: visible;
   background-color: rgba(255, 255, 255, 0.95);
+  background-clip: padding-box;
   backdrop-filter: blur(10px);
   border-collapse: separate;
   border-spacing: 0;
   table-layout: auto;
   border-radius: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border);
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th, td) {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) :is(th, td) {
   padding: 0.8em;
   color: #4a5568;
   font-size: var(--app-table-font-size);
@@ -170,11 +193,33 @@
   border-bottom: 1px solid #e2e8f0;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th:last-child, td:last-child) {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) :is(th:last-child, td:last-child) {
   overflow: visible;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-col--date {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) th.table-col--date {
   width: 10ch;
   min-width: 10ch;
   max-width: 13ch;
@@ -185,7 +230,18 @@
   overflow-wrap: normal;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td.table-col--date {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) td.table-col--date {
   cursor: pointer;
   min-width: 10ch;
   max-width: 13ch;
@@ -196,22 +252,67 @@
   overflow-wrap: normal;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) td {
   cursor: pointer;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) :is(th.table-col--actions, td.table-col--actions) {
-  width: clamp(8.5rem, 8vw, 9rem);
-  max-width: 9rem;
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) :is(th.table-col--actions, td.table-col--actions) {
+  width: clamp(10.75rem, 12vw, 12rem);
+  min-width: 10.75rem;
+  max-width: 12rem;
   white-space: normal;
   overflow: visible;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-col--actions {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) th.table-col--actions {
   text-align: center;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td.table-col--actions {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) td.table-col--actions {
   text-align: center;
 }
 
@@ -220,11 +321,68 @@
   border-radius: 16px 16px 0 0;
 }
 
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) thead tr.table_tr th {
+  background-color: rgba(102, 126, 234, 0.1);
+  background-clip: padding-box;
+}
+
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) thead tr:first-child th:first-child {
+  border-top-left-radius: 16px;
+}
+
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) thead tr:first-child th:last-child {
+  border-top-right-radius: 16px;
+}
+
 .th-centered {
   text-align: center;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) th {
   color: #4a5568;
   font-weight: 600;
   text-transform: uppercase;
@@ -239,36 +397,57 @@
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable {
   position: relative;
-  padding-right: 2rem;
+  padding-right: 2.2rem;
   cursor: pointer;
   user-select: none;
 }
 
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable::before,
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable::after {
-  content: "↕";
+  content: "";
   position: absolute;
-  top: 50%;
-  right: 0.7rem;
-  color: rgba(76, 84, 104, 0.55);
-  font-size: 0.9em;
-  line-height: 1;
-  transform: translateY(-50%);
-  transition: color 0.15s ease, opacity 0.15s ease;
+  right: 0.85rem;
+  width: 0;
+  height: 0;
+  border-left: 0.34rem solid transparent;
+  border-right: 0.34rem solid transparent;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable::before {
+  top: calc(50% - 0.52rem);
+  border-bottom: 0.44rem solid rgba(76, 84, 104, 0.5);
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable::after {
+  top: calc(50% + 0.08rem);
+  border-top: 0.44rem solid rgba(76, 84, 104, 0.5);
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:hover::before,
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible::before {
+  border-bottom-color: rgba(91, 95, 199, 0.9);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:hover::after,
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible::after {
-  color: rgba(91, 95, 199, 0.9);
+  border-top-color: rgba(91, 95, 199, 0.9);
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="asc"]::before {
+  border-bottom-color: #5b5fc7;
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="asc"]::after {
-  content: "▲";
-  color: #5b5fc7;
+  border-top-color: rgba(91, 95, 199, 0.25);
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="desc"]::before {
+  border-bottom-color: rgba(91, 95, 199, 0.25);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="desc"]::after {
-  content: "▼";
-  color: #5b5fc7;
+  border-top-color: #5b5fc7;
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible {
@@ -276,48 +455,114 @@
   outline-offset: -2px;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:hover {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) tbody tr:hover {
   background-color: rgba(240, 248, 255, 0.8);
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:nth-child(even) {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) tbody tr:nth-child(even) {
   background-color: rgba(248, 249, 250, 0.7);
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:last-child td {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) tbody tr:last-child td {
   border-bottom: none;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:last-child td:first-child {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) tbody tr:last-child td:first-child {
   border-bottom-left-radius: 16px;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:last-child td:last-child {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) tbody tr:last-child td:last-child {
   border-bottom-right-radius: 16px;
 }
 
-:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td.table-empty-cell {
+:where(
+  [data-role="main-table"],
+  [data-column-sort="true"],
+  .surveys-table,
+  .users-table,
+  .organization-table,
+  .answers-page__signatures-table,
+  .answers-table,
+  .logs-table,
+  .help-document-page__content table,
+  .modal-content table
+) td.table-empty-cell {
   border-bottom: none;
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
 }
 
 .action-icons {
-  text-align: center;
-  font-size: 0;
-  line-height: 0;
-  white-space: normal;
-  overflow: visible;
+  padding-inline: 0.6rem;
 }
 
-.action-icons > * {
-  display: inline-flex;
-  vertical-align: top;
-  margin: 5px;
+.action-icons__content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  min-width: 9.75rem;
+  margin: 0 auto;
 }
 
-.action-icons > *:last-child {
-  margin-bottom: 0;
+.action-icons__content > * {
+  margin: 0;
 }
 
 .action-icons__form {
@@ -367,10 +612,6 @@
   cursor: pointer;
   overflow: visible;
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-}
-
-td.action-icons {
-  display: table-cell;
 }
 
 .icon-container:focus-visible {

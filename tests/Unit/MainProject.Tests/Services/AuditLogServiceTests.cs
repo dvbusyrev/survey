@@ -3,11 +3,33 @@ using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Persistence;
 using Newtonsoft.Json.Linq;
 using Npgsql;
+using System.Reflection;
 
 namespace MainProject.Tests.Services;
 
 public sealed class AuditLogServiceTests
 {
+    [Fact]
+    public void BuildAuditSql_ReturnsNull_WhenNoAuditTablesExist()
+    {
+        var result = InvokeBuildAuditSql(Array.Empty<string>());
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void BuildAuditSql_UsesOnlyExistingAuditTables()
+    {
+        var result = InvokeBuildAuditSql(["survey_l", "organization_survey_l"]);
+
+        Assert.NotNull(result);
+        Assert.Contains("FROM public.survey_l", result);
+        Assert.Contains("FROM public.organization_survey_l", result);
+        Assert.DoesNotContain("FROM public.app_user_l", result);
+        Assert.DoesNotContain("FROM public.organization_l", result);
+        Assert.DoesNotContain("FROM public.answer_l", result);
+    }
+
     [Fact]
     public void GenerateLogText_FormatsUpdateEntryWithChangedAttributes()
     {
@@ -81,5 +103,13 @@ public sealed class AuditLogServiceTests
         {
             throw new NotSupportedException("Database access is not used in these tests.");
         }
+    }
+
+    private static string? InvokeBuildAuditSql(IReadOnlyCollection<string> availableAuditTables)
+    {
+        var method = typeof(AuditLogService).GetMethod("BuildAuditSql", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        return (string?)method!.Invoke(null, [availableAuditTables]);
     }
 }

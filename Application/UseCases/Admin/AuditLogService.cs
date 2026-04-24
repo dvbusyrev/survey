@@ -11,6 +11,14 @@ namespace MainProject.Application.UseCases.Admin;
 public sealed class AuditLogService : IAuditLogService
 {
     private const string RedactedValue = "[REDACTED]";
+    private static readonly AuditSourceDefinition[] AuditSources =
+    [
+        new("app_user", "app_user_l"),
+        new("organization", "organization_l"),
+        new("survey", "survey_l"),
+        new("answer", "answer_l"),
+        new("organization_survey", "organization_survey_l")
+    ];
 
     private static readonly HashSet<string> SensitiveFieldNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -32,7 +40,18 @@ public sealed class AuditLogService : IAuditLogService
     public IReadOnlyList<Log> GetLogs()
     {
         using var connection = _connectionFactory.CreateConnection();
-        var rows = connection.Query<AuditLogRow>(AuditSql).ToList();
+        var availableAuditTables = connection.Query<string>(
+                ExistingAuditTablesSql,
+                new { TableNames = AuditSources.Select(source => source.AuditTableName).ToArray() })
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var auditSql = BuildAuditSql(availableAuditTables);
+        if (string.IsNullOrWhiteSpace(auditSql))
+        {
+            return Array.Empty<Log>();
+        }
+
+        var rows = connection.Query<AuditLogRow>(auditSql).ToList();
         var orderedRows = rows
             .OrderBy(row => row.ChangedAt)
             .ThenBy(row => row.IdAudit)
@@ -578,35 +597,46 @@ public sealed class AuditLogService : IAuditLogService
             : null;
     }
 
-    private const string AuditSql = """
-        SELECT
-            audit_entries.source_table AS SourceTable,
-            audit_entries.id_audit AS IdAudit,
-            audit_entries.operation AS Operation,
-            audit_entries.changed_at AS ChangedAt,
-            audit_entries.changed_by_user_id AS ChangedByUserId,
-            COALESCE(actor.full_name, actor.name_user) AS ActorName,
-            audit_entries.record_pk::text AS RecordPkJson,
-            audit_entries.row_data::text AS RowDataJson
-        FROM (
-            SELECT 'app_user'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.app_user_l
-            UNION ALL
-            SELECT 'organization'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.organization_l
-            UNION ALL
-            SELECT 'survey'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.survey_l
-            UNION ALL
-            SELECT 'answer'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.answer_l
-            UNION ALL
-            SELECT 'organization_survey'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
-            FROM public.organization_survey_l
-        ) audit_entries
-        LEFT JOIN public.app_user actor
-            ON actor.id_user = audit_entries.changed_by_user_id
-        ORDER BY audit_entries.changed_at DESC, audit_entries.id_audit DESC;
+    private static string? BuildAuditSql(IReadOnlyCollection<string> availableAuditTables)
+    {
+        var unionParts = AuditSources
+            .Where(source => availableAuditTables.Contains(source.AuditTableName))
+            .Select(source =>
+                $$"""
+                    SELECT '{{source.SourceTable}}'::text AS source_table, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data
+                    FROM public.{{source.AuditTableName}}
+                """)
+            .ToArray();
+
+        if (unionParts.Length == 0)
+        {
+            return null;
+        }
+
+        return $$"""
+            SELECT
+                audit_entries.source_table AS SourceTable,
+                audit_entries.id_audit AS IdAudit,
+                audit_entries.operation AS Operation,
+                audit_entries.changed_at AS ChangedAt,
+                audit_entries.changed_by_user_id AS ChangedByUserId,
+                COALESCE(actor.full_name, actor.name_user) AS ActorName,
+                audit_entries.record_pk::text AS RecordPkJson,
+                audit_entries.row_data::text AS RowDataJson
+            FROM (
+                {{string.Join("\n                UNION ALL\n", unionParts)}}
+            ) audit_entries
+            LEFT JOIN public.app_user actor
+                ON actor.id_user = audit_entries.changed_by_user_id
+            ORDER BY audit_entries.changed_at DESC, audit_entries.id_audit DESC;
+            """;
+    }
+
+    private const string ExistingAuditTablesSql = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = ANY(@TableNames);
         """;
 
     private sealed class AuditLogRow
@@ -620,4 +650,6 @@ public sealed class AuditLogService : IAuditLogService
         public string? RecordPkJson { get; init; }
         public string? RowDataJson { get; init; }
     }
+
+    private sealed record AuditSourceDefinition(string SourceTable, string AuditTableName);
 }

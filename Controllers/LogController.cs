@@ -25,7 +25,8 @@ public class LogController : Controller
         }
         catch (Exception ex)
         {
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка логов: {ex.Message}" });
+            ViewData["LogLoadErrorMessage"] = $"Не удалось загрузить журнал событий: {ex.Message}";
+            return View("get_logs", Array.Empty<Log>());
         }
     }
 

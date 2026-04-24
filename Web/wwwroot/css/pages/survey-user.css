@@ -1702,7 +1702,7 @@
     background-color: #fff;
     border-color: var(--border);
     border-bottom-color: #fff;
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
 }
 
 #default_content[data-page="user-surveys"] .menu-tab:not(.active-tab):not(.active) {

@@ -44,21 +44,21 @@ body {
 }
 
 .action-icons {
-  text-align: center;
-  font-size: 0;
-  line-height: 0;
-  white-space: normal;
-  overflow: visible;
+  padding-inline: 0.6rem;
 }
 
-.action-icons > * {
-  display: inline-flex;
-  vertical-align: top;
-  margin: 0 5px 10px;
+.action-icons__content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  min-width: 9.75rem;
+  margin: 0 auto;
 }
 
-.action-icons > *:last-child {
-  margin-bottom: 0;
+.action-icons__content > * {
+  margin: 0;
 }
 
 .icon-container {
@@ -75,10 +75,6 @@ body {
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
   overflow: visible;
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-}
-
-td.action-icons {
-  display: table-cell;
 }
 
 .icon-container:hover {

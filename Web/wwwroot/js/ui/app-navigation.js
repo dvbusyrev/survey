@@ -232,7 +232,11 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
         const onEnter = () => {
             if (isNavigationSubmenuSuppressed(itemTab)) {
                 releaseNavigationSubmenuSuppression();
-            } else if (isNavigationSubmenuSuppressed()) {
+                item.classList.remove('submenu-open');
+                return;
+            }
+
+            if (isNavigationSubmenuSuppressed()) {
                 releaseNavigationSubmenuSuppression();
             }
 
@@ -240,10 +244,6 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
         };
         const onLeave = () => {
             item.classList.remove('submenu-open');
-
-            if (isNavigationSubmenuSuppressed(itemTab)) {
-                releaseNavigationSubmenuSuppression();
-            }
         };
         item.addEventListener('mouseenter', onEnter);
         item.addEventListener('mouseleave', onLeave);

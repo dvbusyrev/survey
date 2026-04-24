@@ -161,10 +161,13 @@
 
     function handleSurveyCreateSuccess(result) {
         window.siteNotify?.(result?.message || 'Анкета успешно создана.', 'success');
-        closeSurveyEditorModal();
-        if (!refreshSurveyListPreservingScroll()) {
-            window.location.assign('/surveys');
+        if (typeof window.resetSurveyCreateForm === 'function') {
+            window.resetSurveyCreateForm();
         }
+
+        syncSurveyListHistory();
+        setSurveyEditorModalVisible(true);
+        refreshSurveyListPreservingScroll();
     }
 
     function handleSurveyUpdateSuccess(result) {

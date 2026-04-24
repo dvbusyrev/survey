@@ -11,7 +11,7 @@
             <th class="table-th--start">Организация</th>
             <th class="table-col--date">Дата начала</th>
             <th class="table-col--date">Дата конца</th>
-            <th class="table-th--end table-col--actions"></th>
+            <th class="table-th--end table-col--actions">Действия</th>
         </tr>
     </thead>
     <tbody id="organizationTableBody">
@@ -45,23 +45,25 @@
                     <td class="action-icons table-col--actions">
                         @if (showActions)
                         {
-                            <div class="icon-container"
-                                 data-organization-id="@organization.OrganizationId"
-                                 data-organization-name="@(organization.OrganizationName ?? string.Empty)"
-                                 data-organization-short-name="@(organization.OrganizationShortName ?? string.Empty)"
-                                 data-organization-email="@(organization.Email ?? string.Empty)"
-                                 data-organization-date-begin="@(organization.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
-                                 data-organization-date-end="@(organization.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
-                                 data-click-call="openEditOrganizationModalFromTrigger"
-                                 data-click-pass-element="true">
-                                <span><i class="fas fa-pen-to-square"></i></span>
-                                <span class="icon-tooltip">Посмотреть / обновить</span>
-                            </div>
-                            <div class="icon-container"
-                                 data-click-call="deleteOrganization"
-                                 data-click-args='[@organization.OrganizationId]'>
-                                <span><i class="fas fa-trash"></i></span>
-                                <span class="icon-tooltip">Удалить</span>
+                            <div class="action-icons__content">
+                                <div class="icon-container"
+                                     data-organization-id="@organization.OrganizationId"
+                                     data-organization-name="@(organization.OrganizationName ?? string.Empty)"
+                                     data-organization-short-name="@(organization.OrganizationShortName ?? string.Empty)"
+                                     data-organization-email="@(organization.Email ?? string.Empty)"
+                                     data-organization-date-begin="@(organization.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                     data-organization-date-end="@(organization.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                     data-click-call="openEditOrganizationModalFromTrigger"
+                                     data-click-pass-element="true">
+                                    <span><i class="fas fa-pen-to-square"></i></span>
+                                    <span class="icon-tooltip">Посмотреть / обновить</span>
+                                </div>
+                                <div class="icon-container"
+                                     data-click-call="deleteOrganization"
+                                     data-click-args='[@organization.OrganizationId]'>
+                                    <span><i class="fas fa-trash"></i></span>
+                                    <span class="icon-tooltip">Удалить</span>
+                                </div>
                             </div>
                         }
                     </td>
