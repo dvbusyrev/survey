@@ -288,6 +288,20 @@
   border-bottom: none;
 }
 
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 16px;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 16px;
+}
+
+:where([data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) td.table-empty-cell {
+  border-bottom: none;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
 .action-icons {
   text-align: center;
   font-size: 0;

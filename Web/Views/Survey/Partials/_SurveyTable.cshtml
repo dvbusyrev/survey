@@ -23,6 +23,13 @@
         }
         else
         {
+            @if (isArchive)
+            {
+                <tr id="none_result" class="is-hidden">
+                    <td colspan="4" class="table-empty-cell">Результаты не найдены!</td>
+                </tr>
+            }
+
             @foreach (var survey in surveys)
             {
                 <tr class="@(isArchive ? "active" : null)"
@@ -107,13 +114,6 @@
                             <span class="icon-tooltip">Удалить</span>
                         </button>
                     </td>
-                </tr>
-            }
-
-            @if (isArchive)
-            {
-                <tr id="none_result" class="is-hidden">
-                    <td colspan="4" class="table-empty-cell">Результаты не найдены!</td>
                 </tr>
             }
         }
