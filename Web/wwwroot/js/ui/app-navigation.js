@@ -146,7 +146,7 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
         }
 
         if (tab === 'download_logs') {
-            window.location.href = '/logs/export';
+            window.location.href = '/event-log/export';
             return;
         }
 
@@ -177,7 +177,7 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
             email: '/mail',
             email_new: '/mail',
             email_settings: '/mail/configuration',
-            get_logs: '/logs'
+            get_logs: '/event-log'
         };
 
         if (routes[tab]) {

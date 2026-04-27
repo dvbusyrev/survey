@@ -6,10 +6,9 @@
       return;
     }
     const loginTemplate = document.getElementById("auth-login-template");
-    const modalTemplate = document.getElementById("auth-modal-template");
     const eyeOpenTemplate = document.getElementById("auth-eye-open-template");
     const eyeClosedTemplate = document.getElementById("auth-eye-closed-template");
-    if (!loginTemplate?.content?.firstElementChild || !modalTemplate?.content?.firstElementChild) {
+    if (!loginTemplate?.content?.firstElementChild) {
       return;
     }
     function parseJsonSafely(value) {
@@ -35,19 +34,25 @@
     }
     rootElement.innerHTML = "";
     const loginContent = loginTemplate.content.firstElementChild.cloneNode(true);
-    const modal = modalTemplate.content.firstElementChild.cloneNode(true);
     rootElement.appendChild(loginContent);
-    rootElement.appendChild(modal);
     const form = loginContent.querySelector("#loginForm");
     const usernameInput = loginContent.querySelector("#username");
     const passwordInput = loginContent.querySelector("#password");
     const submitButton = loginContent.querySelector(".submit-button");
     const toggleButton = loginContent.querySelector(".password-toggle-btn");
-    const modalTitle = modal.querySelector(".modal-title");
-    const modalMessage = modal.querySelector(".modal-message");
-    const modalCloseButton = modal.querySelector(".modal-button");
     let isSubmitting = false;
     let isPasswordVisible = false;
+    function notifyAuthError(message) {
+      const safeMessage = typeof message === "string" && message.trim().length > 0 ? message.trim() : "Проверьте правильность введенных данных.";
+      if (typeof window.siteNotify === "function") {
+        window.siteNotify(safeMessage, "error", {
+          title: "Ошибка авторизации",
+          duration: 0
+        });
+        return;
+      }
+      window.alert(safeMessage);
+    }
     function renderEyeIcon() {
       if (!toggleButton) {
         return;
@@ -74,26 +79,6 @@
       }
       renderEyeIcon();
     }
-    function showModal(title, message) {
-      const safeTitle = typeof title === "string" && title.trim().length > 0 ? title : "Ошибка авторизации";
-      const safeMessage = typeof message === "string" && message.trim().length > 0 ? message : "Проверьте правильность введенных данных.";
-      if (modalTitle) {
-        modalTitle.textContent = safeTitle;
-      }
-      if (modalMessage) {
-        modalMessage.textContent = safeMessage;
-      }
-      modal.classList.remove("u-hidden");
-    }
-    function hideModal() {
-      modal.classList.add("u-hidden");
-    }
-    modalCloseButton?.addEventListener("click", hideModal);
-    modal.addEventListener("click", (event) => {
-      if (event.target === modal) {
-        hideModal();
-      }
-    });
     toggleButton?.addEventListener("mousedown", (event) => event.preventDefault());
     toggleButton?.addEventListener("click", () => {
       setPasswordVisibility(!isPasswordVisible);
@@ -138,10 +123,7 @@
         throw new Error("Неизвестная роль пользователя");
       } catch (error) {
         console.error("Ошибка авторизации:", error);
-        showModal(
-          "Ошибка авторизации",
-          error instanceof Error ? error.message : "Произошла ошибка при попытке входа."
-        );
+        notifyAuthError(error instanceof Error ? error.message : "Произошла ошибка при попытке входа.");
       } finally {
         setSubmittingState(false);
       }

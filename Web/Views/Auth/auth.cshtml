@@ -21,9 +21,10 @@
     </script>
     <title>Авторизация</title>
 
-  <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
+    <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/site-notifications.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pages/auth-page.css" asp-append-version="true" />
 </head>
 <body>
@@ -74,15 +75,6 @@
             </div>
         </div>
     </template>
-    <template id="auth-modal-template">
-        <div class="modal-overlay u-hidden">
-            <div class="modal-content">
-                <h2 class="modal-title"></h2>
-                <p class="modal-message"></p>
-                <button class="modal-button" type="button">Закрыть</button>
-            </div>
-        </div>
-    </template>
     <template id="auth-eye-open-template">
         <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
@@ -98,6 +90,7 @@
         </svg>
     </template>
 
+    <script src="~/js/core/notifications.js" asp-append-version="true"></script>
     <script src="~/js/core/antiforgery.js" asp-append-version="true"></script>
     <script src="~/js/dist/auth-page.js" asp-append-version="true"></script>
 </body>

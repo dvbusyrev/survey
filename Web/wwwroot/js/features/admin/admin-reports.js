@@ -57,34 +57,8 @@ async function extractReportErrorMessage(response, fallbackMessage) {
     }
 }
 
-function setReportNotificationVisible(isVisible) {
-    const notification = document.getElementById('notification');
-    if (!notification) {
-        return false;
-    }
-
-    if (isVisible) {
-        if (typeof window.showSiteModal === 'function') {
-            window.showSiteModal(notification);
-        } else {
-            notification.classList.add('active');
-            notification.style.display = 'flex';
-        }
-        return true;
-    }
-
-    if (typeof window.hideSiteModal === 'function') {
-        window.hideSiteModal(notification);
-    } else {
-        notification.classList.remove('active');
-        notification.style.display = 'none';
-    }
-
-    return true;
-}
-
 function hideNotification() {
-    setReportNotificationVisible(false);
+    return;
 }
 
 function normalizeReportFailureReason(message) {
@@ -103,25 +77,6 @@ function showReportFailure(reportTitle, message) {
         ? `${String(reportTitle).trim()} не сформирован`
         : 'Отчёт не сформирован';
     const safeMessage = normalizeReportFailureReason(message);
-    const notification = document.getElementById('notification');
-
-    if (notification) {
-        const titleElement = document.getElementById('notificationTitle');
-        const messageElement = document.getElementById('notificationMessage');
-
-        if (titleElement) {
-            titleElement.textContent = safeTitle;
-            titleElement.className = 'notification-title notification-error';
-        }
-
-        if (messageElement) {
-            messageElement.textContent = safeMessage;
-            messageElement.className = 'notification-message notification-error';
-        }
-
-        setReportNotificationVisible(true);
-        return;
-    }
 
     if (typeof window.siteNotify === 'function') {
         window.siteNotify(safeMessage, 'error', { title: safeTitle, duration: 0 });

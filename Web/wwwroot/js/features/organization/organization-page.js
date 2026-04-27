@@ -8,9 +8,14 @@
     }
 
     function showMessage(element, text, isSuccess) {
+        const message = text || '';
+        if (message) {
+            window.siteNotify?.(message, isSuccess ? 'success' : 'error');
+        }
+
         if (!element) return;
-        element.style.display = 'block';
-        element.textContent = text || '';
+        element.style.display = 'none';
+        element.textContent = '';
         element.className = isSuccess ? 'success-message' : 'error-message';
     }
 
@@ -109,8 +114,8 @@
             Name: byId('Name')?.value?.trim() || '',
             ShortName: byId('ShortName')?.value?.trim() || '',
             Email: byId('organization_email')?.value?.trim() || '',
-            DateBegin: byId('DateBegin')?.value || '',
-            DateEnd: byId('DateEnd')?.value || ''
+            DateBegin: window.AppDate?.getInputIso('DateBegin') || '',
+            DateEnd: window.AppDate?.getInputIso('DateEnd') || ''
         };
 
         if (!payload.Name || !payload.Email || !payload.DateBegin) {
@@ -155,8 +160,8 @@
         byId('organizationName').value = name || '';
         byId('organizationShortName').value = shortName || '';
         byId('organizationEmail').value = email || '';
-        byId('organizationDateBegin').value = dateBegin || '';
-        byId('organizationDateEnd').value = dateEnd || '';
+        window.AppDate?.setInputValue('organizationDateBegin', dateBegin || '');
+        window.AppDate?.setInputValue('organizationDateEnd', dateEnd || '');
 
         const modal = byId('editOrganizationModal');
         if (modal) {
@@ -171,7 +176,7 @@
     function openEditOrganizationModalFromTrigger(trigger) {
         const organizationId = Number.parseInt(trigger?.dataset?.organizationId || '', 10);
         if (!Number.isFinite(organizationId) || organizationId <= 0) {
-            alert('Не найден идентификатор организации');
+            window.siteNotify?.('Не найден идентификатор организации', 'error');
             return;
         }
 
@@ -188,15 +193,15 @@
     async function updateOrganization() {
         const id = byId('editOrganizationId')?.value;
         if (!id) {
-            alert('Не найден идентификатор организации');
+            window.siteNotify?.('Не найден идентификатор организации', 'error');
             return;
         }
 
         const name = byId('organizationName')?.value?.trim() || '';
         const shortName = byId('organizationShortName')?.value?.trim() || '';
         const email = byId('organizationEmail')?.value?.trim() || '';
-        const dateBegin = byId('organizationDateBegin')?.value || '';
-        const dateEnd = byId('organizationDateEnd')?.value || '';
+        const dateBegin = window.AppDate?.getInputIso('organizationDateBegin') || '';
+        const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
 
         const payload = {
             Name: name,
@@ -220,7 +225,7 @@
 
             refreshOrganizationList();
         } catch (error) {
-            alert(error.message || 'Ошибка обновления организации');
+            window.siteNotify?.(error.message || 'Ошибка обновления организации', 'error');
         }
     }
 
@@ -229,8 +234,8 @@
             Name: byId('name')?.value?.trim() || '',
             ShortName: byId('short_name')?.value?.trim() || '',
             Email: byId('email')?.value?.trim() || '',
-            DateBegin: byId('date_begin')?.value || '',
-            DateEnd: byId('date_end')?.value || ''
+            DateBegin: window.AppDate?.getInputIso('date_begin') || '',
+            DateEnd: window.AppDate?.getInputIso('date_end') || ''
         };
 
         try {
@@ -246,7 +251,7 @@
 
             refreshOrganizationList();
         } catch (error) {
-            alert(error.message || 'Ошибка обновления организации');
+            window.siteNotify?.(error.message || 'Ошибка обновления организации', 'error');
         }
     }
 
@@ -282,7 +287,7 @@
 
             refreshOrganizationList();
         } catch (error) {
-            alert(error.message || 'Ошибка удаления организации');
+            window.siteNotify?.(error.message || 'Ошибка удаления организации', 'error');
         }
     }
 

@@ -206,9 +206,9 @@
         const dateInput = document.getElementById('organizationSurveyDateEnd');
         const saveButton = document.getElementById('organizationSurveySaveButton');
         const assignments = collectAssignments();
-        const dateEnd = dateInput?.value || '';
+        const dateEnd = window.AppDate?.getInputIso(dateInput) || '';
 
-        if (!dateEnd) {
+        if (!dateInput?.value || !dateEnd) {
             setPageMessage('Укажите новую дату конца.', false);
             return false;
         }

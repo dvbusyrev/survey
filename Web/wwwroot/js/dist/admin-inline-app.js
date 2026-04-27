@@ -177,7 +177,7 @@
           return;
         }
         if (tab === "download_logs") {
-          window.location.href = "/logs/export";
+          window.location.href = "/event-log/export";
           return;
         }
         if ((tab === "active" || tab === "answers_tab") && userId) {
@@ -205,7 +205,7 @@
           email: "/mail",
           email_new: "/mail",
           email_settings: "/mail/configuration",
-          get_logs: "/logs"
+          get_logs: "/event-log"
         };
         if (routes[tab]) {
           window.AppScrollState?.prepareNavigation({ carry: true });
@@ -245,16 +245,16 @@
         const onEnter = () => {
           if (isNavigationSubmenuSuppressed(itemTab)) {
             releaseNavigationSubmenuSuppression();
-          } else if (isNavigationSubmenuSuppressed()) {
+            item.classList.remove("submenu-open");
+            return;
+          }
+          if (isNavigationSubmenuSuppressed()) {
             releaseNavigationSubmenuSuppression();
           }
           item.classList.add("submenu-open");
         };
         const onLeave = () => {
           item.classList.remove("submenu-open");
-          if (isNavigationSubmenuSuppressed(itemTab)) {
-            releaseNavigationSubmenuSuppression();
-          }
         };
         item.addEventListener("mouseenter", onEnter);
         item.addEventListener("mouseleave", onLeave);
@@ -347,10 +347,10 @@
       let loading = true;
       let error = "";
       let extension = { organizationId: "", extendedUntil: "" };
-      const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+      const today = window.AppDate?.todayIso?.() || (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
       const isFormValid = () => {
         return Boolean(
-          extension.organizationId && extension.extendedUntil && extension.extendedUntil > today
+          extension.organizationId && extension.extendedUntil && window.AppDate?.compare(extension.extendedUntil, today) > 0
         );
       };
       const handleChange = (field, value) => {
@@ -362,11 +362,11 @@
       };
       const handleSubmit = async () => {
         if (!extension.organizationId || !extension.extendedUntil) {
-          alert("Пожалуйста, заполните все поля.");
+          window.siteNotify?.("Пожалуйста, заполните все поля.", "error");
           return;
         }
-        if (extension.extendedUntil <= today) {
-          alert("Дата конца должна быть в будущем.");
+        if ((window.AppDate?.compare(extension.extendedUntil, today) ?? -1) <= 0) {
+          window.siteNotify?.("Дата конца должна быть в будущем.", "error");
           return;
         }
         try {
@@ -406,11 +406,11 @@
             });
             return;
           }
-          alert(responseData.message || "Доступ успешно продлён.");
+          window.siteNotify?.(responseData.message || "Доступ успешно продлён.", "success");
           window.location.reload();
         } catch (submitError) {
           console.error("Ошибка продления анкеты:", submitError);
-          alert(`Ошибка: ${submitError.message || "Не удалось продлить доступ."}`);
+          window.siteNotify?.(submitError.message || "Не удалось продлить доступ.", "error");
         }
       };
       const render = () => {
@@ -467,10 +467,13 @@
             });
           }
           if (dateInput) {
-            dateInput.value = extension.extendedUntil;
-            dateInput.min = today;
+            if (window.AppDate?.setInputValue) {
+              window.AppDate.setInputValue(dateInput, extension.extendedUntil);
+            } else {
+              dateInput.value = extension.extendedUntil;
+            }
             dateInput.addEventListener("change", (event) => {
-              handleChange("extendedUntil", event.target.value);
+              handleChange("extendedUntil", window.AppDate?.getInputIso(event.target) || event.target.value);
             });
           }
           rowsContainer.appendChild(row);
@@ -1067,7 +1070,7 @@
         case "reports":
           return { tab, id: null, url: "/reports" };
         case "get_logs":
-          return { tab, id: null, url: "/logs" };
+          return { tab, id: null, url: "/event-log" };
         case "email":
         case "email_new":
           return { tab: tab === "email" ? "email_new" : tab, id: null, url: "/mail" };
@@ -1120,7 +1123,7 @@
       if (normalizedPath === "/reports") {
         return buildAdminHistoryEntry("reports");
       }
-      if (normalizedPath === "/logs") {
+      if (normalizedPath === "/event-log") {
         return buildAdminHistoryEntry("get_logs");
       }
       if (normalizedPath === "/mail" || normalizedPath === "/mail/new") {
@@ -1830,11 +1833,11 @@
             openModalWhenReady("surveyEditorModal", window.openAddSurveyModal);
             break;
           case "get_logs":
-            await fetchHtmlPage("/logs");
+            await fetchHtmlPage("/event-log");
             setActiveTabAndRefreshNav(tab);
             break;
           case "download_logs": {
-            const response = await fetch("/logs/export");
+            const response = await fetch("/event-log/export");
             if (!response.ok) {
               throw new Error(window.getResponseErrorMessage ? window.getResponseErrorMessage(response, "Ошибка выгрузки логов") : `Ошибка выгрузки логов: ${response.status}`);
             }
@@ -1881,7 +1884,7 @@
           case "delete_survey": {
             const result = await deleteSurvey(state.modal.data?.id_survey);
             await fetchHtmlPage("/surveys");
-            setModal({ isOpen: true, content: "message", message: result.message, isSuccess: true, data: null });
+            window.siteNotify?.(result.message, "success");
             setActiveTabAndRefreshNav("get_surveys");
             break;
           }
@@ -1900,7 +1903,7 @@
           case "delete_user": {
             const message = await deleteUser(state.modal.data?.id_user);
             await fetchHtmlPage("/users");
-            setModal({ isOpen: true, content: "message", message, isSuccess: true, data: null });
+            window.siteNotify?.(message, "success");
             setActiveTabAndRefreshNav("get_users");
             break;
           }
@@ -1986,13 +1989,7 @@
         }
       } catch (error) {
         console.error("Ошибка переключения вкладки:", error);
-        setModal({
-          isOpen: true,
-          content: "message",
-          message: error.message || "Произошла ошибка загрузки.",
-          isSuccess: false,
-          data: null
-        });
+        window.siteNotify?.(error.message || "Произошла ошибка загрузки.", "error");
       } finally {
         setLoading(false);
       }
@@ -2010,23 +2007,11 @@
         setLoading(true);
         const result = await deleteSurvey(state.modal.data?.id_survey);
         await fetchHtmlPage("/surveys");
-        setModal({
-          isOpen: true,
-          content: "message",
-          message: result.message,
-          isSuccess: true,
-          data: null
-        });
+        window.siteNotify?.(result.message, "success");
         setActiveTabAndRefreshNav("get_surveys");
       } catch (error) {
         console.error("Ошибка при удалении анкеты:", error);
-        setModal({
-          isOpen: true,
-          content: "message",
-          message: error.message || "Не удалось удалить анкету.",
-          isSuccess: false,
-          data: null
-        });
+        window.siteNotify?.(error.message || "Не удалось удалить анкету.", "error");
       } finally {
         setLoading(false);
       }
@@ -2162,6 +2147,20 @@
   })();
 
   // Web/wwwroot/js/features/admin/admin-survey-edit.js
+  function surveyEditNotify(message, type = "error", options = {}) {
+    const normalizedMessage = String(message || "").trim();
+    if (!normalizedMessage) {
+      return;
+    }
+    if (typeof window.siteNotify === "function") {
+      window.siteNotify(normalizedMessage, type, {
+        title: options.title,
+        duration: options.duration ?? (type === "error" ? 0 : 4500)
+      });
+      return;
+    }
+    window.alert(normalizedMessage);
+  }
   function surveyEditToggleOrganizationSelection(element) {
     const orgId = parseInt(element.dataset.id, 10);
     const orgName = element.dataset.name || element.querySelector("label")?.textContent?.trim() || "";
@@ -2214,14 +2213,14 @@
         return;
       }
       if (!token || !surveyId) {
-        alert("Ошибка безопасности. Пожалуйста, обновите страницу.");
+        surveyEditNotify("Ошибка безопасности. Пожалуйста, обновите страницу.");
         return;
       }
       const formData = {
         Title: surveyTitle.value.trim(),
         Description: surveyDescription?.value.trim() || "",
-        StartDate: new Date(startDate.value).toISOString(),
-        EndDate: new Date(endDate.value).toISOString(),
+        StartDate: window.AppDate?.getInputIso(startDate) || "",
+        EndDate: window.AppDate?.getInputIso(endDate) || "",
         Organizations: (typeof window.getSelectedOrganizations === "function" ? window.getSelectedOrganizations() : surveyEditSelectedOrganization).map((org) => org.id),
         Criteria: Array.from(document.querySelectorAll(".criteriy")).map((input) => input.value.trim()).filter((text) => text !== "")
       };
@@ -2258,7 +2257,7 @@
           });
           return;
         }
-        alert(result.message || "Анкета успешно обновлена!");
+        surveyEditNotify(result.message || "Анкета успешно обновлена!", "success");
         window.location.reload();
       } else {
         throw new Error(result.message || "Неизвестная ошибка");
@@ -2273,7 +2272,7 @@
       } else if (error.message.includes("validation")) {
         userMessage = "Ошибка валидации данных: " + error.message;
       }
-      alert(`Ошибка: ${userMessage}`);
+      surveyEditNotify(userMessage);
       const showDetails = await window.siteConfirm("Показать технические подробности ошибки?", {
         title: "Подробности ошибки",
         confirmText: "Показать",
@@ -2306,7 +2305,12 @@
     const startDate = document.getElementById("startDate");
     const endDate = document.getElementById("endDate");
     const endDateError = document.getElementById("endDateError");
-    if (startDate.value && endDate.value && new Date(endDate.value) <= new Date(startDate.value)) {
+    const startDateIso = window.AppDate?.getInputIso(startDate) || "";
+    const endDateIso = window.AppDate?.getInputIso(endDate) || "";
+    if (startDate.value && !startDateIso || endDate.value && !endDateIso) {
+      surveyEditNotify("Используйте формат даты ДД/ММ/ГГГГ.");
+      isValid = false;
+    } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
       endDate.classList.add("invalid");
       if (endDateError) {
         endDateError.textContent = "Дата конца должна быть позже даты начала";
@@ -2328,14 +2332,14 @@
     return isValid;
   }
   function copySurvey(id) {
-    const startDate = document.getElementById("startDate").value;
-    const endDate = document.getElementById("endDate").value;
+    const startDate = window.AppDate?.getInputIso("startDate") || "";
+    const endDate = window.AppDate?.getInputIso("endDate") || "";
     const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
     if (!startDate || !endDate) {
       showNotification("Пожалуйста, заполните все обязательные поля", false);
       return;
     }
-    if (new Date(endDate) <= new Date(startDate)) {
+    if ((window.AppDate?.compare(endDate, startDate) ?? -1) <= 0) {
       showNotification("Дата конца должна быть позже даты начала", false);
       return;
     }
@@ -2367,7 +2371,7 @@
             fallbackUrl: "/surveys"
           });
         }
-        alert("Анкета успешно скопирована!");
+        surveyEditNotify("Анкета успешно скопирована!", "success");
         window.location.reload();
       } else {
         throw new Error(data.message || "Ошибка при копировании анкеты");

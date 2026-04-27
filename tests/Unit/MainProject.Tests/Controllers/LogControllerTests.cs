@@ -32,6 +32,30 @@ public sealed class LogControllerTests
         Assert.Contains("Не удалось загрузить журнал событий", controller.ViewData["LogLoadErrorMessage"] as string);
     }
 
+    [Fact]
+    public void RedirectLegacyLogs_RedirectsToEventLog()
+    {
+        var controller = new LogController(new StubAuditLogService(Array.Empty<Log>()));
+
+        var result = controller.RedirectLegacyLogs();
+
+        var redirectResult = Assert.IsType<RedirectResult>(result);
+        Assert.True(redirectResult.Permanent);
+        Assert.Equal("/event-log", redirectResult.Url);
+    }
+
+    [Fact]
+    public void RedirectLegacyDumpLogs_RedirectsToEventLogExport()
+    {
+        var controller = new LogController(new StubAuditLogService(Array.Empty<Log>()));
+
+        var result = controller.RedirectLegacyDumpLogs();
+
+        var redirectResult = Assert.IsType<RedirectResult>(result);
+        Assert.True(redirectResult.Permanent);
+        Assert.Equal("/event-log/export", redirectResult.Url);
+    }
+
     private sealed class StubAuditLogService : IAuditLogService
     {
         private readonly IReadOnlyList<Log> _logs;

@@ -3,6 +3,23 @@ function surveyEditGetOrganizationItems() {
     return organizationList ? organizationList.querySelectorAll('.organization-item') : [];
 }
 
+function surveyEditNotify(message, type = 'error', options = {}) {
+    const normalizedMessage = String(message || '').trim();
+    if (!normalizedMessage) {
+        return;
+    }
+
+    if (typeof window.siteNotify === 'function') {
+        window.siteNotify(normalizedMessage, type, {
+            title: options.title,
+            duration: options.duration ?? (type === 'error' ? 0 : 4500)
+        });
+        return;
+    }
+
+    window.alert(normalizedMessage);
+}
+
 function surveyEditGetElementByRole(role) {
     return document.querySelector(`[data-role="${role}"]`);
 }
@@ -81,15 +98,15 @@ function surveyEditToggleOrganizationSelection(element) {
             }
 
             if (!token || !surveyId) {
-                alert('Ошибка безопасности. Пожалуйста, обновите страницу.');
+                surveyEditNotify('Ошибка безопасности. Пожалуйста, обновите страницу.');
                 return;
             }
 
             const formData = {
                 Title: surveyTitle.value.trim(),
                 Description: surveyDescription?.value.trim() || '',
-                StartDate: new Date(startDate.value).toISOString(),
-                EndDate: new Date(endDate.value).toISOString(),
+                StartDate: window.AppDate?.getInputIso(startDate) || '',
+                EndDate: window.AppDate?.getInputIso(endDate) || '',
                 Organizations: (typeof window.getSelectedOrganizations === 'function'
                     ? window.getSelectedOrganizations()
                     : surveyEditSelectedOrganization
@@ -136,7 +153,7 @@ function surveyEditToggleOrganizationSelection(element) {
                     return;
                 }
 
-                alert(result.message || 'Анкета успешно обновлена!');
+                surveyEditNotify(result.message || 'Анкета успешно обновлена!', 'success');
                 window.location.reload();
             } else {
                 throw new Error(result.message || 'Неизвестная ошибка');
@@ -155,7 +172,7 @@ function surveyEditToggleOrganizationSelection(element) {
                 userMessage = 'Ошибка валидации данных: ' + error.message;
             }
             
-            alert(`Ошибка: ${userMessage}`);
+            surveyEditNotify(userMessage);
             
             const showDetails = await window.siteConfirm('Показать технические подробности ошибки?', {
                 title: 'Подробности ошибки',
@@ -195,7 +212,13 @@ function surveyEditToggleOrganizationSelection(element) {
         const endDate = document.getElementById('endDate');
         const endDateError = document.getElementById('endDateError');
         
-        if (startDate.value && endDate.value && new Date(endDate.value) <= new Date(startDate.value)) {
+        const startDateIso = window.AppDate?.getInputIso(startDate) || '';
+        const endDateIso = window.AppDate?.getInputIso(endDate) || '';
+
+        if ((startDate.value && !startDateIso) || (endDate.value && !endDateIso)) {
+            surveyEditNotify('Используйте формат даты ДД/ММ/ГГГГ.');
+            isValid = false;
+        } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
             endDate.classList.add('invalid');
             if (endDateError) {
                 endDateError.textContent = 'Дата конца должна быть позже даты начала';
@@ -243,8 +266,8 @@ function surveyEditToggleOrganizationSelection(element) {
             }
 
             function copySurvey(id) {
-                const startDate = document.getElementById('startDate').value;
-                const endDate = document.getElementById('endDate').value;
+                const startDate = window.AppDate?.getInputIso('startDate') || '';
+                const endDate = window.AppDate?.getInputIso('endDate') || '';
                 const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
                 
                 if (!startDate || !endDate) {
@@ -252,7 +275,7 @@ function surveyEditToggleOrganizationSelection(element) {
                     return;
                 }
                 
-                if (new Date(endDate) <= new Date(startDate)) {
+                if ((window.AppDate?.compare(endDate, startDate) ?? -1) <= 0) {
                     showNotification('Дата конца должна быть позже даты начала', false);
                     return;
                 }
@@ -290,7 +313,7 @@ function surveyEditToggleOrganizationSelection(element) {
                             });
                         }
 
-                        alert("Анкета успешно скопирована!");
+                        surveyEditNotify('Анкета успешно скопирована!', 'success');
                         window.location.reload();
                     } else {
                         throw new Error(data.message || 'Ошибка при копировании анкеты');

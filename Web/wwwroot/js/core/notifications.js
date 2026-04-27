@@ -372,16 +372,21 @@
 
     const nativeShowNotification = window.showNotification;
     window.showNotification = function (message, isSuccess) {
-        if (typeof nativeShowNotification === 'function' && document.getElementById('notification')) {
-            nativeShowNotification(message, isSuccess);
-            return;
-        }
-
         showToast(message, isSuccess ? 'success' : 'error');
     };
 
     window.alert = function (message) {
-        showToast(message, 'error', { title: 'Сообщение' });
+        const normalizedMessage = normalizeMessage(message);
+        const hasErrorTone = /ошиб|не удалось|некоррект|проверьте|не найден|не заполн|не может/i.test(normalizedMessage);
+        const hasSuccessTone = /успешно|сохранен|создан|обновлен|добавлен|загружен|удален|отправлен/i.test(normalizedMessage);
+        const toastType = hasErrorTone ? 'error' : hasSuccessTone ? 'success' : 'info';
+        const title = toastType === 'error'
+            ? 'Ошибка'
+            : toastType === 'success'
+                ? 'Успешно'
+                : 'Сообщение';
+
+        showToast(normalizedMessage, toastType, { title });
     };
 
     document.addEventListener('click', function (event) {

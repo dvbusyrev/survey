@@ -151,26 +151,10 @@
     }
 
     function showTimedNotification(type, title, message) {
-        const notification = safeGetElement('notification');
-        if (!notification) {
-            window.siteNotify?.(message, type);
-            return;
-        }
-
-        const titleElement = document.getElementById('notificationTitle');
-        const messageElement = document.getElementById('notificationMessage');
-        if (titleElement) {
-            titleElement.textContent = title;
-            titleElement.className = `notification-title notification-${type}`;
-        }
-        if (messageElement) {
-            messageElement.textContent = message;
-        }
-
-        setModalVisible(notification, true);
-        window.setTimeout(function () {
-            setModalVisible(notification, false);
-        }, 3000);
+        window.siteNotify?.(message, type, {
+            title,
+            duration: type === 'error' ? 0 : 3000
+        });
     }
 
     function renderOrganizationsList() {
@@ -493,7 +477,7 @@
     }
 
     function hideNotification() {
-        setModalVisible('notification', false);
+        return;
     }
 
     function resetSurveyCreateForm() {
@@ -539,7 +523,6 @@
 
         updateSelectedOrganizationDisplay();
         closeModal('organizationModal');
-        setModalVisible('notification', false);
         setModalVisible('loadingOverlay', false);
     }
 
@@ -562,9 +545,12 @@
             element.classList.remove('invalid');
         });
 
-        const startDate = new Date(safeGetValue('startDate'));
-        const endDate = new Date(safeGetValue('endDate'));
-        if (endDate <= startDate) {
+        const startDateIso = window.AppDate?.getInputIso('startDate') || '';
+        const endDateIso = window.AppDate?.getInputIso('endDate') || '';
+        if ((safeGetValue('startDate') && !startDateIso) || (safeGetValue('endDate') && !endDateIso)) {
+            showError('Ошибка', 'Используйте формат даты ДД/ММ/ГГГГ.');
+            isValid = false;
+        } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
             safeGetElement('endDate')?.classList.add('invalid');
             showError('Ошибка', 'Дата конца должна быть позже даты начала.');
             isValid = false;
@@ -603,8 +589,8 @@
             body: JSON.stringify({
                 Title: safeGetValue('surveyTitle'),
                 Description: safeGetValue('surveyDescription'),
-                StartDate: safeGetElement('startDate')?.value,
-                EndDate: safeGetElement('endDate')?.value,
+                StartDate: window.AppDate?.getInputIso('startDate') || '',
+                EndDate: window.AppDate?.getInputIso('endDate') || '',
                 Organizations: selectedOrganization.map((organization) => organization.id),
                 Criteria: Array.from(document.querySelectorAll('.criteriy')).map((input) => input.value.trim())
             })

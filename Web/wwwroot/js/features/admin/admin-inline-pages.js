@@ -11,13 +11,13 @@
         let loading = true;
         let error = '';
         let extension = { organizationId: '', extendedUntil: '' };
-        const today = new Date().toISOString().split('T')[0];
+        const today = window.AppDate?.todayIso?.() || new Date().toISOString().split('T')[0];
 
         const isFormValid = () => {
             return Boolean(
                 extension.organizationId
                 && extension.extendedUntil
-                && extension.extendedUntil > today
+                && window.AppDate?.compare(extension.extendedUntil, today) > 0
             );
         };
 
@@ -31,12 +31,12 @@
 
         const handleSubmit = async () => {
             if (!extension.organizationId || !extension.extendedUntil) {
-                alert('Пожалуйста, заполните все поля.');
+                window.siteNotify?.('Пожалуйста, заполните все поля.', 'error');
                 return;
             }
 
-            if (extension.extendedUntil <= today) {
-                alert('Дата конца должна быть в будущем.');
+            if ((window.AppDate?.compare(extension.extendedUntil, today) ?? -1) <= 0) {
+                window.siteNotify?.('Дата конца должна быть в будущем.', 'error');
                 return;
             }
 
@@ -92,11 +92,11 @@
                     return;
                 }
 
-                alert(responseData.message || 'Доступ успешно продлён.');
+                window.siteNotify?.(responseData.message || 'Доступ успешно продлён.', 'success');
                 window.location.reload();
             } catch (submitError) {
                 console.error('Ошибка продления анкеты:', submitError);
-                alert(`Ошибка: ${submitError.message || 'Не удалось продлить доступ.'}`);
+                window.siteNotify?.(submitError.message || 'Не удалось продлить доступ.', 'error');
             }
         };
 
@@ -162,10 +162,13 @@
                 }
 
                 if (dateInput) {
-                    dateInput.value = extension.extendedUntil;
-                    dateInput.min = today;
+                    if (window.AppDate?.setInputValue) {
+                        window.AppDate.setInputValue(dateInput, extension.extendedUntil);
+                    } else {
+                        dateInput.value = extension.extendedUntil;
+                    }
                     dateInput.addEventListener('change', (event) => {
-                        handleChange('extendedUntil', event.target.value);
+                        handleChange('extendedUntil', window.AppDate?.getInputIso(event.target) || event.target.value);
                     });
                 }
 

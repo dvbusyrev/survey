@@ -177,7 +177,7 @@
           return;
         }
         if (tab === "download_logs") {
-          window.location.href = "/logs/export";
+          window.location.href = "/event-log/export";
           return;
         }
         if ((tab === "active" || tab === "answers_tab") && userId) {
@@ -205,7 +205,7 @@
           email: "/mail",
           email_new: "/mail",
           email_settings: "/mail/configuration",
-          get_logs: "/logs"
+          get_logs: "/event-log"
         };
         if (routes[tab]) {
           window.AppScrollState?.prepareNavigation({ carry: true });
@@ -245,16 +245,16 @@
         const onEnter = () => {
           if (isNavigationSubmenuSuppressed(itemTab)) {
             releaseNavigationSubmenuSuppression();
-          } else if (isNavigationSubmenuSuppressed()) {
+            item.classList.remove("submenu-open");
+            return;
+          }
+          if (isNavigationSubmenuSuppressed()) {
             releaseNavigationSubmenuSuppression();
           }
           item.classList.add("submenu-open");
         };
         const onLeave = () => {
           item.classList.remove("submenu-open");
-          if (isNavigationSubmenuSuppressed(itemTab)) {
-            releaseNavigationSubmenuSuppression();
-          }
         };
         item.addEventListener("mouseenter", onEnter);
         item.addEventListener("mouseleave", onLeave);

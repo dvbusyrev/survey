@@ -16,7 +16,7 @@ public class LogController : Controller
         _auditLogService = auditLogService;
     }
 
-    [HttpGet("logs")]
+    [HttpGet("event-log")]
     public IActionResult GetLogs()
     {
         try
@@ -30,7 +30,13 @@ public class LogController : Controller
         }
     }
 
-    [HttpGet("logs/export")]
+    [HttpGet("logs")]
+    public IActionResult RedirectLegacyLogs()
+    {
+        return RedirectPermanent("/event-log");
+    }
+
+    [HttpGet("event-log/export")]
     public IActionResult GetDumpLogs()
     {
         IReadOnlyList<Log> logs;
@@ -48,5 +54,11 @@ public class LogController : Controller
         var fileName = $"logs_dump_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
         var fileBytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(logText);
         return File(fileBytes, "text/plain", fileName);
+    }
+
+    [HttpGet("logs/export")]
+    public IActionResult RedirectLegacyDumpLogs()
+    {
+        return RedirectPermanent("/event-log/export");
     }
 }

@@ -56,7 +56,7 @@
             return 'reports';
         }
 
-        if (normalizedPath === '/logs') {
+        if (normalizedPath === '/event-log') {
             return 'get_logs';
         }
 
@@ -184,24 +184,7 @@
     }
 
     function showNotification(message, isSuccess) {
-        const notification = document.getElementById('notification');
-        const messageElement = document.getElementById('notificationMessage');
-        if (!notification || !messageElement) {
-            window.siteNotify(message, isSuccess ? 'success' : 'error');
-            return;
-        }
-
-        messageElement.textContent = message;
-        messageElement.className = isSuccess
-            ? 'notification-message notification-success'
-            : 'notification-message notification-error';
-
-        if (window.showSiteModal) {
-            window.showSiteModal(notification);
-        } else {
-            notification.style.display = 'flex';
-            notification.classList.add('active');
-        }
+        window.siteNotify?.(message, isSuccess ? 'success' : 'error');
     }
 
     function refreshAdminUi({ tabName, id = null, fallbackUrl, options } = {}) {

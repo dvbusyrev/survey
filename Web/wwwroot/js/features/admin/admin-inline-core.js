@@ -57,7 +57,7 @@
             case 'reports':
                 return { tab, id: null, url: '/reports' };
             case 'get_logs':
-                return { tab, id: null, url: '/logs' };
+                return { tab, id: null, url: '/event-log' };
             case 'email':
             case 'email_new':
                 return { tab: tab === 'email' ? 'email_new' : tab, id: null, url: '/mail' };
@@ -125,7 +125,7 @@
             return buildAdminHistoryEntry('reports');
         }
 
-        if (normalizedPath === '/logs') {
+        if (normalizedPath === '/event-log') {
             return buildAdminHistoryEntry('get_logs');
         }
 
@@ -956,11 +956,11 @@
                     openModalWhenReady('surveyEditorModal', window.openAddSurveyModal);
                     break;
                 case 'get_logs':
-                    await fetchHtmlPage('/logs');
+                    await fetchHtmlPage('/event-log');
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'download_logs': {
-                    const response = await fetch('/logs/export');
+                    const response = await fetch('/event-log/export');
                     if (!response.ok) {
                         throw new Error(window.getResponseErrorMessage
                             ? window.getResponseErrorMessage(response, 'Ошибка выгрузки логов')
@@ -1009,7 +1009,7 @@
                 case 'delete_survey': {
                     const result = await deleteSurvey(state.modal.data?.id_survey);
                     await fetchHtmlPage('/surveys');
-                    setModal({ isOpen: true, content: 'message', message: result.message, isSuccess: true, data: null });
+                    window.siteNotify?.(result.message, 'success');
                     setActiveTabAndRefreshNav('get_surveys');
                     break;
                 }
@@ -1028,7 +1028,7 @@
                 case 'delete_user': {
                     const message = await deleteUser(state.modal.data?.id_user);
                     await fetchHtmlPage('/users');
-                    setModal({ isOpen: true, content: 'message', message, isSuccess: true, data: null });
+                    window.siteNotify?.(message, 'success');
                     setActiveTabAndRefreshNav('get_users');
                     break;
                 }
@@ -1133,13 +1133,7 @@
             }
         } catch (error) {
             console.error('Ошибка переключения вкладки:', error);
-            setModal({
-                isOpen: true,
-                content: 'message',
-                message: error.message || 'Произошла ошибка загрузки.',
-                isSuccess: false,
-                data: null
-            });
+            window.siteNotify?.(error.message || 'Произошла ошибка загрузки.', 'error');
         } finally {
             setLoading(false);
         }
@@ -1158,23 +1152,11 @@
             setLoading(true);
             const result = await deleteSurvey(state.modal.data?.id_survey);
             await fetchHtmlPage('/surveys');
-            setModal({
-                isOpen: true,
-                content: 'message',
-                message: result.message,
-                isSuccess: true,
-                data: null
-            });
+            window.siteNotify?.(result.message, 'success');
             setActiveTabAndRefreshNav('get_surveys');
         } catch (error) {
             console.error('Ошибка при удалении анкеты:', error);
-            setModal({
-                isOpen: true,
-                content: 'message',
-                message: error.message || 'Не удалось удалить анкету.',
-                isSuccess: false,
-                data: null
-            });
+            window.siteNotify?.(error.message || 'Не удалось удалить анкету.', 'error');
         } finally {
             setLoading(false);
         }

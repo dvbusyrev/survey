@@ -39,36 +39,53 @@ function navigateAdminTab(tabName, fallbackUrl, options = {}) {
     }
 }
 
+function showAdminToast(message, type = 'error', options = {}) {
+    const normalizedMessage = String(message || '').trim();
+    if (!normalizedMessage) {
+        return;
+    }
+
+    if (typeof window.siteNotify === 'function') {
+        window.siteNotify(normalizedMessage, type, {
+            title: options.title,
+            duration: options.duration ?? (type === 'error' ? 0 : 4500)
+        });
+        return;
+    }
+
+    window.alert(normalizedMessage);
+}
+
 function submitFormAdd() {
     const messageElement = document.getElementById('message');
     messageElement.textContent = '';
     messageElement.className = '';
 
     if (!document.getElementById('username').value){
-        alert("Введите никнейм пользователя!");
+        showAdminToast('Введите никнейм пользователя!');
         return;
     }
 
         if (!document.getElementById('password').value){
-        alert("Введите пароль!");
+        showAdminToast('Введите пароль!');
         return;
     }
 
             if (!document.getElementById('userOrganization').value){
-        alert("Выберите организацию пользователя!");
+        showAdminToast('Выберите организацию пользователя!');
         return;
     }
 
                 if (!document.getElementById('userRole').value){
-        alert("Выберите роль пользователя!");
+        showAdminToast('Выберите роль пользователя!');
         return;
     }
 
-    const dateBegin = document.getElementById('dateBegin')?.value || '';
-    const dateEnd = document.getElementById('dateEnd')?.value || '';
+    const dateBegin = window.AppDate?.getInputIso('dateBegin') || '';
+    const dateEnd = window.AppDate?.getInputIso('dateEnd') || '';
 
-    if (dateBegin && dateEnd && new Date(dateEnd) < new Date(dateBegin)) {
-        alert("Дата конца не может быть раньше даты начала.");
+    if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
+        showAdminToast('Дата конца не может быть раньше даты начала.');
         return;
     }
 
@@ -112,8 +129,7 @@ function submitFormAdd() {
     })
     .catch(error => {
         console.error("Ошибка:", error);
-        messageElement.textContent = 'Ошибка соединения';
-        messageElement.className = 'error-message';
+        showAdminToast('Ошибка соединения');
     });
 }
 
@@ -152,12 +168,12 @@ async function deleteUser(id, fullName) {
             return;
         }
 
-        alert(result); // Показываем ответ сервера
+        showAdminToast(result, 'success');
         navigateAdminTab("get_users", "/users");
     })
     .catch(error => {
         console.error("Ошибка:", error);
-        alert("Произошла ошибка: " + error.message);
+        showAdminToast(`Произошла ошибка: ${error.message}`);
     });
 }
 
@@ -166,7 +182,7 @@ function deleteUserFromTrigger(trigger) {
     const fullName = trigger?.dataset?.userFullName || '';
 
     if (!Number.isFinite(id) || id <= 0) {
-        alert('Не найден идентификатор пользователя');
+        showAdminToast('Не найден идентификатор пользователя');
         return;
     }
 
@@ -178,7 +194,7 @@ function deleteUserFromModal() {
     const fullName = document.getElementById('deleteUserName')?.textContent?.trim() || '';
 
     if (!Number.isFinite(id) || id <= 0) {
-        alert('Не найден идентификатор пользователя');
+        showAdminToast('Не найден идентификатор пользователя');
         return;
     }
 
@@ -283,8 +299,8 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
         usernameEl.value = username || '';
         emailEl.value = email || '';
         roleEl.value = role || 'user';
-        dateBeginEl.value = dateBegin?.split('T')[0] || '';
-        dateEndEl.value = dateEnd?.split('T')[0] || '';
+        window.AppDate?.setInputValue(dateBeginEl, dateBegin || '');
+        window.AppDate?.setInputValue(dateEndEl, dateEnd || '');
         passwordEl.value = '';
 
         // Загружаем организации
@@ -295,7 +311,7 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
 
     } catch (error) {
         console.error('Ошибка при открытии формы:', error);
-        alert('Ошибка: ' + error.message);
+        showAdminToast(`Ошибка: ${error.message}`);
     }
 }
 
@@ -304,7 +320,7 @@ function openEditUserModalFromTrigger(trigger) {
     const organizationId = Number.parseInt(trigger?.dataset?.userOrganizationId || '', 10);
 
     if (!Number.isFinite(userId) || userId <= 0) {
-        alert('Не найден идентификатор пользователя');
+        showAdminToast('Не найден идентификатор пользователя');
         return;
     }
 
@@ -324,19 +340,19 @@ async function updateUser() {
 
         if (!document.getElementById('editUsername').value)
     {
-        alert("Введите никнейм пользователя!");
+        showAdminToast('Введите никнейм пользователя!');
         return;
     }
 
             if (!document.getElementById('editUserOrganization').value)
     {
-        alert("Выберите организацию пользователя!");
+        showAdminToast('Выберите организацию пользователя!');
         return;
     }
 
             if (!document.getElementById('editUserRole').value)
     {
-        alert("Выберите роль пользователя!");
+        showAdminToast('Выберите роль пользователя!');
         return;
     }
 
@@ -370,7 +386,10 @@ async function updateUser() {
             throw new Error('Заполните все обязательные поля');
         }
 
-        if (elements.dateBegin.value && elements.dateEnd.value && new Date(elements.dateEnd.value) < new Date(elements.dateBegin.value)) {
+        const dateBeginIso = window.AppDate?.getInputIso(elements.dateBegin) || '';
+        const dateEndIso = window.AppDate?.getInputIso(elements.dateEnd) || '';
+
+        if (elements.dateBegin.value && elements.dateEnd.value && (window.AppDate?.compare(dateEndIso, dateBeginIso) ?? -1) < 0) {
             throw new Error('Дата конца не может быть раньше даты начала.');
         }
 
@@ -382,8 +401,8 @@ async function updateUser() {
             email: elements.email.value,
             organizationId: elements.organization.value,
             role: elements.role.value,
-            dateBegin: elements.dateBegin.value,
-            dateEnd: elements.dateEnd.value
+            dateBegin: dateBeginIso,
+            dateEnd: dateEndIso
         };
 
         // Отправляем запрос
@@ -422,7 +441,7 @@ async function updateUser() {
             messageContainer.textContent = error.message;
             messageContainer.style.color = 'red';
         } else {
-            alert('Ошибка: ' + error.message);
+            showAdminToast(`Ошибка: ${error.message}`);
         }
     }
 }
@@ -464,7 +483,7 @@ async function createOrganization() {
 
     if (!document.getElementById('Name').value)
 {
-    alert("Введите название организации!");
+    showAdminToast('Введите название организации!');
     return;
 }
 
@@ -475,8 +494,8 @@ async function createOrganization() {
             Name: form.Name.value,
             ShortName: (document.getElementById('ShortName')?.value || '').trim(),
             Email: form.organization_email.value,
-            DateBegin: form.DateBegin.value,
-            DateEnd: form.DateEnd.value
+            DateBegin: window.AppDate?.getInputIso(form.DateBegin) || '',
+            DateEnd: window.AppDate?.getInputIso(form.DateEnd) || ''
         };
 
         // 2. Получаем CSRF-токен
@@ -511,7 +530,7 @@ async function createOrganization() {
             }
 
             navigateAdminTab("get_organization", "/organizations");
-            alert("Организация успешно создана!");
+            showAdminToast('Организация успешно создана!', 'success');
         }
         
         messageDiv.className = result.success ? 'alert alert-success' : 'alert alert-danger';
@@ -536,8 +555,8 @@ function openEditOrganizationModal(id, name, shortName, email, dateBegin, dateEn
     document.getElementById('organizationName').value = name || '';
     document.getElementById('organizationShortName').value = shortName || '';
     document.getElementById('organizationEmail').value = email || '';
-    document.getElementById('organizationDateBegin').value = dateBegin || '';
-    document.getElementById('organizationDateEnd').value = dateEnd || '';
+    window.AppDate?.setInputValue('organizationDateBegin', dateBegin || '');
+    window.AppDate?.setInputValue('organizationDateEnd', dateEnd || '');
     setModalVisibility('editOrganizationModal', true);
 }
 
@@ -545,7 +564,7 @@ function openEditOrganizationModalFromTrigger(trigger) {
     const organizationId = Number.parseInt(trigger?.dataset?.organizationId || '', 10);
 
     if (!Number.isFinite(organizationId) || organizationId <= 0) {
-        alert('Не найден идентификатор организации');
+        showAdminToast('Не найден идентификатор организации');
         return;
     }
 
@@ -564,7 +583,7 @@ async function updateOrganization() {
 
     if (!document.getElementById('organizationName').value)
 {
-    alert("Введите название организации!");
+    showAdminToast('Введите название организации!');
     return;
 }
 
@@ -574,8 +593,8 @@ async function updateOrganization() {
         const name = document.getElementById('organizationName').value.trim();
         const shortName = document.getElementById('organizationShortName').value.trim();
         const email = document.getElementById('organizationEmail').value.trim();
-        const dateBegin = document.getElementById('organizationDateBegin').value;
-        const dateEnd = document.getElementById('organizationDateEnd').value;
+        const dateBegin = window.AppDate?.getInputIso('organizationDateBegin') || '';
+        const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
 
         // 2. Подготовка данных в формате, ожидаемом сервером
         const organizationData = {
@@ -628,7 +647,7 @@ async function updateOrganization() {
             return;
         }
 
-        alert("Организация успешно отредактирована!");
+        showAdminToast('Организация успешно отредактирована!', 'success');
         navigateAdminTab("get_organization", "/organizations");
 
     } catch (error) {
@@ -640,7 +659,7 @@ async function updateOrganization() {
             errorMessage = "Проверьте правильность заполнения всех полей";
         }
         
-        alert(`Ошибка: ${errorMessage}`);
+        showAdminToast(`Ошибка: ${errorMessage}`);
     } finally {
         const saveBtn = document.getElementById('saveOrganizationBtn');
         if (saveBtn) {
