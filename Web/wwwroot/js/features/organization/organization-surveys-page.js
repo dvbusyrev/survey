@@ -208,6 +208,13 @@
         const assignments = collectAssignments();
         const dateEnd = window.AppDate?.getInputIso(dateInput) || '';
 
+        const dateError = window.AppDate?.getInputError?.(dateInput, { label: 'Дата конца' }) || '';
+        if (dateError) {
+            setPageMessage(dateError, false);
+            window.AppDate?.focusInput?.(dateInput);
+            return false;
+        }
+
         if (!dateInput?.value || !dateEnd) {
             setPageMessage('Укажите новую дату конца.', false);
             return false;

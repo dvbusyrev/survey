@@ -56,6 +56,17 @@ function showAdminToast(message, type = 'error', options = {}) {
     window.alert(normalizedMessage);
 }
 
+function ensureValidDateInput(target, label, options = {}) {
+    const error = window.AppDate?.getInputError?.(target, { label, required: options.required }) || '';
+    if (!error) {
+        return true;
+    }
+
+    showAdminToast(error);
+    window.AppDate?.focusInput?.(target);
+    return false;
+}
+
 function submitFormAdd() {
     const messageElement = document.getElementById('message');
     messageElement.textContent = '';
@@ -83,6 +94,14 @@ function submitFormAdd() {
 
     const dateBegin = window.AppDate?.getInputIso('dateBegin') || '';
     const dateEnd = window.AppDate?.getInputIso('dateEnd') || '';
+
+    if (!ensureValidDateInput('dateBegin', 'Дата начала')) {
+        return;
+    }
+
+    if (!ensureValidDateInput('dateEnd', 'Дата конца')) {
+        return;
+    }
 
     if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
         showAdminToast('Дата конца не может быть раньше даты начала.');
@@ -389,6 +408,14 @@ async function updateUser() {
         const dateBeginIso = window.AppDate?.getInputIso(elements.dateBegin) || '';
         const dateEndIso = window.AppDate?.getInputIso(elements.dateEnd) || '';
 
+        if (!ensureValidDateInput(elements.dateBegin, 'Дата начала')) {
+            return;
+        }
+
+        if (!ensureValidDateInput(elements.dateEnd, 'Дата конца')) {
+            return;
+        }
+
         if (elements.dateBegin.value && elements.dateEnd.value && (window.AppDate?.compare(dateEndIso, dateBeginIso) ?? -1) < 0) {
             throw new Error('Дата конца не может быть раньше даты начала.');
         }
@@ -489,6 +516,14 @@ async function createOrganization() {
 
 
     try {
+        if (!ensureValidDateInput(form.DateBegin, 'Дата начала', { required: true })) {
+            return;
+        }
+
+        if (!ensureValidDateInput(form.DateEnd, 'Дата конца')) {
+            return;
+        }
+
         // 1. Собираем данные из формы
         const formData = {
             Name: form.Name.value,
@@ -497,6 +532,12 @@ async function createOrganization() {
             DateBegin: window.AppDate?.getInputIso(form.DateBegin) || '',
             DateEnd: window.AppDate?.getInputIso(form.DateEnd) || ''
         };
+
+        if (formData.DateBegin && formData.DateEnd && (window.AppDate?.compare(formData.DateEnd, formData.DateBegin) ?? -1) < 0) {
+            showAdminToast('Дата конца не может быть раньше даты начала.');
+            window.AppDate?.focusInput?.(form.DateEnd);
+            return;
+        }
 
         // 2. Получаем CSRF-токен
         const token = document.querySelector('[name="__RequestVerificationToken"]').value;
@@ -588,6 +629,14 @@ async function updateOrganization() {
 }
 
     try {
+        if (!ensureValidDateInput('organizationDateBegin', 'Дата начала')) {
+            return;
+        }
+
+        if (!ensureValidDateInput('organizationDateEnd', 'Дата конца')) {
+            return;
+        }
+
         // 1. Получаем значения из формы
         const id = document.getElementById('editOrganizationId').value;
         const name = document.getElementById('organizationName').value.trim();
@@ -595,6 +644,12 @@ async function updateOrganization() {
         const email = document.getElementById('organizationEmail').value.trim();
         const dateBegin = window.AppDate?.getInputIso('organizationDateBegin') || '';
         const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
+
+        if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
+            showAdminToast('Дата конца не может быть раньше даты начала.');
+            window.AppDate?.focusInput?.('organizationDateEnd');
+            return;
+        }
 
         // 2. Подготовка данных в формате, ожидаемом сервером
         const organizationData = {

@@ -278,8 +278,35 @@ option,
 @media (max-width: 900px) {
   .admin-container {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     padding-top: 0;
+  }
+
+  #chrome-navigation {
+    position: fixed;
+    top: calc(var(--header-height) + var(--page-gap));
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 120;
+    display: flex;
+    align-items: stretch;
+    padding: 0 var(--page-gap) var(--page-gap);
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+    background: rgba(15, 23, 42, 0.26);
+    transition: opacity 0.22s ease;
+  }
+
+  body.mobile-nav-open #chrome-navigation {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body.mobile-nav-open #content_admin,
+  body.mobile-nav-open #content_user {
+    pointer-events: none;
   }
 
   .content,

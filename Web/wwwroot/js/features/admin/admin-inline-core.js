@@ -1235,8 +1235,14 @@
         const isDirectNavDisabled = tabHolder?.classList?.contains('nav-item')
             && tabHolder.classList.contains('has-submenu')
             && tabHolder.dataset.disableDirectNav === 'true';
+        const isMobileNavigationViewport = typeof window.matchMedia === 'function'
+            ? window.matchMedia('(max-width: 900px)').matches
+            : window.innerWidth <= 900;
+        const isMobileSubmenuToggle = isMobileNavigationViewport
+            && tabHolder?.classList?.contains('nav-item')
+            && tabHolder.classList.contains('has-submenu');
 
-        if (isDirectNavDisabled) {
+        if (isDirectNavDisabled || isMobileSubmenuToggle) {
             releaseSubmenuSuppression();
             const shouldOpen = !tabHolder.classList.contains('submenu-open');
             closeOpenSubmenus();
@@ -1254,6 +1260,9 @@
 
         event.preventDefault();
         event.stopPropagation();
+        if (isMobileNavigationViewport && typeof window.closeMobileNavigation === 'function') {
+            window.closeMobileNavigation();
+        }
         openTab(tabName, null, { scrollMode: 'carry' });
     }, true);
 

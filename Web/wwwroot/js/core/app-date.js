@@ -6,6 +6,7 @@
     const DISPLAY_PLACEHOLDER = 'ДД.ММ.ГГГГ';
     const ACTIVE_DATE_FORMAT = 'dd.mm.yyyy';
     const LEGACY_DATE_FORMAT = 'dd/mm/yyyy';
+    const GLOBAL_YEAR_RANGE = 10;
     const DATE_INPUT_SELECTOR = `input[type="date"]:not([data-date-proxy="true"]), input[data-date-format="${ACTIVE_DATE_FORMAT}"], input[data-date-format="${LEGACY_DATE_FORMAT}"]`;
 
     function pad(value) {
@@ -19,6 +20,33 @@
     function createIsoString(year, month, day) {
         return `${year}-${pad(month)}-${pad(day)}`;
     }
+
+    function shiftDateByYears(date, yearOffset) {
+        const sourceDate = date instanceof Date ? new Date(date.getTime()) : new Date();
+        const sourceMonth = sourceDate.getMonth();
+        const shiftedDate = new Date(sourceDate.getTime());
+        shiftedDate.setFullYear(shiftedDate.getFullYear() + yearOffset);
+
+        while (shiftedDate.getMonth() !== sourceMonth) {
+            shiftedDate.setDate(shiftedDate.getDate() - 1);
+        }
+
+        return shiftedDate;
+    }
+
+    function dateToIso(date) {
+        return createIsoString(date.getFullYear(), date.getMonth() + 1, date.getDate());
+    }
+
+    function createGlobalDateBounds() {
+        const today = new Date();
+        return {
+            min: dateToIso(shiftDateByYears(today, -GLOBAL_YEAR_RANGE)),
+            max: dateToIso(shiftDateByYears(today, GLOBAL_YEAR_RANGE))
+        };
+    }
+
+    const GLOBAL_DATE_BOUNDS = createGlobalDateBounds();
 
     function buildDate(year, month, day) {
         const parsedYear = Number.parseInt(year, 10);
@@ -115,13 +143,51 @@
         return target;
     }
 
+    function normalizeLabel(label) {
+        return String(label || '')
+            .replace(/\s+/g, ' ')
+            .replace(/[:*]+$/g, '')
+            .trim();
+    }
+
+    function resolveInputLabel(input) {
+        if (!input || !input.id) {
+            return '';
+        }
+
+        const labels = Array.from(document.querySelectorAll('label[for]'));
+        const matchingLabel = labels.find((label) => label.htmlFor === input.id);
+        if (matchingLabel?.textContent) {
+            return normalizeLabel(matchingLabel.textContent);
+        }
+
+        return '';
+    }
+
+    function resolveEffectiveBounds(input) {
+        const explicitMin = normalizeInput(input?.dataset?.dateMin || input?.min || '');
+        const explicitMax = normalizeInput(input?.dataset?.dateMax || input?.max || '');
+
+        let min = GLOBAL_DATE_BOUNDS.min;
+        let max = GLOBAL_DATE_BOUNDS.max;
+
+        if (explicitMin && compare(explicitMin, min) > 0) {
+            min = explicitMin;
+        }
+
+        if (explicitMax && compare(explicitMax, max) < 0) {
+            max = explicitMax;
+        }
+
+        return { min, max };
+    }
+
     function isIsoWithinRange(input, isoValue) {
         if (!input || !isoValue) {
             return false;
         }
 
-        const min = normalizeInput(input.dataset.dateMin || input.min || '');
-        const max = normalizeInput(input.dataset.dateMax || input.max || '');
+        const { min, max } = resolveEffectiveBounds(input);
 
         if (min && compare(isoValue, min) < 0) {
             return false;
@@ -174,6 +240,51 @@
         return true;
     }
 
+    function getInputError(target, options = {}) {
+        const input = resolveInput(target);
+        if (!input) {
+            return '';
+        }
+
+        const normalizedValue = normalizeInput(input.value);
+        const label = normalizeLabel(options.label || input.dataset.dateLabel || resolveInputLabel(input) || 'Дата');
+
+        if (!normalizedValue) {
+            if (options.required) {
+                return `Заполните поле «${label}».`;
+            }
+
+            return '';
+        }
+
+        const isoValue = toIso(normalizedValue);
+        if (!isoValue) {
+            return `Укажите корректную дату в поле «${label}» в формате ДД.ММ.ГГГГ.`;
+        }
+
+        const { min, max } = resolveEffectiveBounds(input);
+
+        if (min && compare(isoValue, min) < 0) {
+            return `Дата в поле «${label}» не может быть раньше ${toDisplay(min)}.`;
+        }
+
+        if (max && compare(isoValue, max) > 0) {
+            return `Дата в поле «${label}» не может быть позже ${toDisplay(max)}.`;
+        }
+
+        return '';
+    }
+
+    function focusInput(target) {
+        const input = resolveInput(target);
+        if (!input) {
+            return false;
+        }
+
+        input.focus();
+        return true;
+    }
+
     function openPicker(input) {
         const picker = input?._appDatePickerProxy;
         if (!picker) {
@@ -223,20 +334,23 @@
         iconGlyph.setAttribute('aria-hidden', 'true');
         icon.appendChild(iconGlyph);
 
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'app-date-field__button';
+        button.setAttribute('aria-label', 'Открыть календарь');
+        button.appendChild(icon);
+
         const picker = document.createElement('input');
         picker.type = 'date';
         picker.className = 'app-date-field__picker';
         picker.tabIndex = -1;
         picker.dataset.dateProxy = 'true';
         picker.setAttribute('aria-label', 'Выбрать дату');
+        picker.setAttribute('aria-hidden', 'true');
 
-        if (input.dataset.dateMin) {
-            picker.min = input.dataset.dateMin;
-        }
-
-        if (input.dataset.dateMax) {
-            picker.max = input.dataset.dateMax;
-        }
+        const bounds = resolveEffectiveBounds(input);
+        picker.min = bounds.min;
+        picker.max = bounds.max;
 
         if (input.dataset.dateStep) {
             picker.step = input.dataset.dateStep;
@@ -249,7 +363,12 @@
             input.dispatchEvent(new Event('change', { bubbles: true }));
         });
 
-        wrapper.appendChild(icon);
+        button.addEventListener('click', function (event) {
+            event.preventDefault();
+            openPicker(input);
+        });
+
+        wrapper.appendChild(button);
         wrapper.appendChild(picker);
         input._appDatePickerProxy = picker;
         return wrapper;
@@ -308,6 +427,7 @@
         input.pattern = '\\d{2}\\.\\d{2}\\.\\d{4}';
         input.placeholder = DISPLAY_PLACEHOLDER;
         input.autocomplete = 'off';
+        input.title = DISPLAY_PLACEHOLDER;
         input.dataset.dateFormat = ACTIVE_DATE_FORMAT;
         input.classList.add('app-date-field__input');
 
@@ -377,8 +497,26 @@
                 return;
             }
 
+            const dateInputs = Array.from(form.querySelectorAll('input[data-date-enhanced="true"]'));
+            const firstInvalidInput = dateInputs.find((input) => {
+                const hasValue = Boolean(normalizeInput(input.value));
+                if (!hasValue) {
+                    input.classList.remove('invalid');
+                    return false;
+                }
+
+                return !updateInputValidationState(input);
+            });
+
+            if (firstInvalidInput) {
+                event.preventDefault();
+                focusInput(firstInvalidInput);
+                window.siteNotify?.(getInputError(firstInvalidInput), 'error', { duration: 0 });
+                return;
+            }
+
             const restoreQueue = [];
-            form.querySelectorAll('input[data-date-enhanced="true"]').forEach((input) => {
+            dateInputs.forEach((input) => {
                 const normalized = normalizeInput(input.value);
                 if (!normalized) {
                     input.value = '';
@@ -438,6 +576,9 @@
     window.AppDate = {
         compare,
         enhanceDateInputs,
+        focusInput,
+        getBounds: () => ({ ...GLOBAL_DATE_BOUNDS }),
+        getInputError,
         getInputIso,
         isInputValid,
         parseDate,

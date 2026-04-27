@@ -35,13 +35,48 @@ body {
   margin-bottom: var(--page-gap);
 }
 
-.app-header img {
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--platform-ui-scale));
+  min-width: 0;
+}
+
+.app-header img,
+.header-left img {
   justify-self: start;
   width: calc(105px * var(--platform-ui-scale));
   height: calc(var(--header-height) - calc(8px * var(--platform-ui-scale)));
   max-height: calc(68px * var(--platform-ui-scale));
   margin: 0;
   object-fit: contain;
+}
+
+.header-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(40px * var(--platform-ui-scale));
+  height: calc(40px * var(--platform-ui-scale));
+  padding: 0;
+  color: #fff;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.header-menu-toggle:hover,
+.header-menu-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.36);
+  outline: none;
+}
+
+.header-menu-toggle[aria-expanded="true"] {
+  transform: translateY(1px);
 }
 
 .app-header h1 {
@@ -483,9 +518,59 @@ nav ul li.submenu-open > .submenu-list {
 }
 
 @media (max-width: 900px) {
+  .app-header {
+    --header-side-slot: auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .header-menu-toggle {
+    display: inline-flex;
+  }
+
+  .header-left img {
+    width: 72px;
+    max-height: 52px;
+  }
+
+  .app-header h1 {
+    font-size: clamp(1.05rem, 0.94rem + 0.8vw, 1.4rem);
+  }
+
+  .header-right {
+    gap: 8px;
+  }
+
+  .header-mode-label {
+    font-size: 0.56rem;
+  }
+
+  .header-user-name {
+    font-size: 0.68rem;
+  }
+
+  .logout-button {
+    min-height: 34px;
+    padding-inline: 0.7rem;
+    font-size: 0.68rem;
+  }
+
   nav {
     position: static;
+    width: min(320px, calc(100vw - 40px));
+    max-width: 100%;
+    height: 100%;
     max-height: none;
+    overflow-y: auto;
+    border-radius: 18px;
+    box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
+    transform: translateX(calc(-100% - 20px));
+    transition: transform 0.22s ease;
+  }
+
+  body.mobile-nav-open #chrome-navigation nav {
+    transform: translateX(0);
   }
 
   .submenu-list {
@@ -505,6 +590,10 @@ nav ul li.submenu-open > .submenu-list {
     padding-left: 2.25rem;
     font-size: 0.92rem;
     white-space: normal;
+  }
+
+  .nav-item.submenu-open > .submenu-list {
+    display: block;
   }
 
   .chart-grid {

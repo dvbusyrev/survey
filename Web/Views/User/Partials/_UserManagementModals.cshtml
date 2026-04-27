@@ -75,23 +75,23 @@
             <section class="app-page__section app-page__stack">
                 <input type="hidden" id="editUserId">
                 <div class="form-group">
-                    <label for="editFullName">ФИО:</label>
+                    <label for="editFullName">ФИО</label>
                     <input type="text" id="editFullName" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label for="editUsername">Логин:</label>
+                    <label for="editUsername">Логин</label>
                     <input type="text" id="editUsername" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label for="editPassword">Новый пароль:</label>
+                    <label for="editPassword">Новый пароль</label>
                     <input type="text" id="editPassword" class="form-control is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" placeholder="Оставьте пустым, чтобы не менять">
                 </div>
                 <div class="form-group">
-                    <label for="editEmail">Email:</label>
+                    <label for="editEmail">Email</label>
                     <input type="email" id="editEmail" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label for="editUserOrganization">Организация:</label>
+                    <label for="editUserOrganization">Организация</label>
                     <select id="editUserOrganization" class="form-control" required>
                         @foreach (var org in organizations)
                         {
@@ -100,18 +100,18 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="editUserRole">Роль:</label>
+                    <label for="editUserRole">Роль</label>
                     <select id="editUserRole" class="form-control">
                         <option value="user">Клиент</option>
                         <option value="admin">Администратор</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="editDateBegin">Дата начала:</label>
+                    <label for="editDateBegin">Дата начала</label>
                     <input type="date" id="editDateBegin" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label for="editDateEnd">Дата конца:</label>
+                    <label for="editDateEnd">Дата конца</label>
                     <input type="date" id="editDateEnd" class="form-control">
                 </div>
                 @Html.AntiForgeryToken()

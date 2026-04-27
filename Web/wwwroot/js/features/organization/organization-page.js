@@ -19,6 +19,17 @@
         element.className = isSuccess ? 'success-message' : 'error-message';
     }
 
+    function ensureValidDateInput(target, label, options = {}) {
+        const error = window.AppDate?.getInputError?.(target, { label, required: options.required }) || '';
+        if (!error) {
+            return true;
+        }
+
+        showMessage(null, error, false);
+        window.AppDate?.focusInput?.(target);
+        return false;
+    }
+
     function closeOrganizationModal(modalId) {
         const modal = byId(modalId);
         if (modal) {
@@ -110,6 +121,15 @@
         if (!form) return;
 
         const message = byId('message');
+
+        if (!ensureValidDateInput('DateBegin', 'Дата начала', { required: true })) {
+            return;
+        }
+
+        if (!ensureValidDateInput('DateEnd', 'Дата конца')) {
+            return;
+        }
+
         const payload = {
             Name: byId('Name')?.value?.trim() || '',
             ShortName: byId('ShortName')?.value?.trim() || '',
@@ -120,6 +140,12 @@
 
         if (!payload.Name || !payload.Email || !payload.DateBegin) {
             showMessage(message, 'Заполните все поля.', false);
+            return;
+        }
+
+        if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
+            showMessage(message, 'Дата конца не может быть раньше даты начала.', false);
+            window.AppDate?.focusInput?.('DateEnd');
             return;
         }
 
@@ -200,8 +226,23 @@
         const name = byId('organizationName')?.value?.trim() || '';
         const shortName = byId('organizationShortName')?.value?.trim() || '';
         const email = byId('organizationEmail')?.value?.trim() || '';
+
+        if (!ensureValidDateInput('organizationDateBegin', 'Дата начала')) {
+            return;
+        }
+
+        if (!ensureValidDateInput('organizationDateEnd', 'Дата конца')) {
+            return;
+        }
+
         const dateBegin = window.AppDate?.getInputIso('organizationDateBegin') || '';
         const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
+
+        if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
+            window.siteNotify?.('Дата конца не может быть раньше даты начала.', 'error');
+            window.AppDate?.focusInput?.('organizationDateEnd');
+            return;
+        }
 
         const payload = {
             Name: name,
@@ -230,6 +271,14 @@
     }
 
     async function updateOrganizationPage(id) {
+        if (!ensureValidDateInput('date_begin', 'Дата начала')) {
+            return;
+        }
+
+        if (!ensureValidDateInput('date_end', 'Дата конца')) {
+            return;
+        }
+
         const payload = {
             Name: byId('name')?.value?.trim() || '',
             ShortName: byId('short_name')?.value?.trim() || '',
@@ -237,6 +286,12 @@
             DateBegin: window.AppDate?.getInputIso('date_begin') || '',
             DateEnd: window.AppDate?.getInputIso('date_end') || ''
         };
+
+        if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
+            window.siteNotify?.('Дата конца не может быть раньше даты начала.', 'error');
+            window.AppDate?.focusInput?.('date_end');
+            return;
+        }
 
         try {
             const successMessage = await submitOrganizationUpdate(id, payload);

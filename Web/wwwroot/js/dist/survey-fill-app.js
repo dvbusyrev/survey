@@ -65,6 +65,32 @@
     }
     window.__appNavigationLoaded = true;
     const NAV_SUBMENU_SUPPRESS_STORAGE_KEY = "app-nav-submenu-suppressed";
+    const MOBILE_NAV_OPEN_CLASS = "mobile-nav-open";
+    const MOBILE_NAV_MEDIA_QUERY = "(max-width: 900px)";
+    function isMobileNavigationViewport() {
+      return typeof window.matchMedia === "function" ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches : window.innerWidth <= 900;
+    }
+    function isMobileNavigationOpen() {
+      return document.body.classList.contains(MOBILE_NAV_OPEN_CLASS);
+    }
+    function syncMobileNavigationToggleButtons() {
+      const isOpen = isMobileNavigationOpen();
+      document.querySelectorAll(".header-menu-toggle").forEach((button) => {
+        button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        button.setAttribute("aria-label", isOpen ? "Закрыть навигацию" : "Открыть навигацию");
+      });
+    }
+    function setMobileNavigationOpen(nextOpen) {
+      const shouldOpen = Boolean(nextOpen) && isMobileNavigationViewport();
+      document.body.classList.toggle(MOBILE_NAV_OPEN_CLASS, shouldOpen);
+      syncMobileNavigationToggleButtons();
+    }
+    function closeMobileNavigation() {
+      setMobileNavigationOpen(false);
+    }
+    function toggleMobileNavigation() {
+      setMobileNavigationOpen(!isMobileNavigationOpen());
+    }
     function getNavigationSuppressedTab() {
       try {
         return window.sessionStorage.getItem(NAV_SUBMENU_SUPPRESS_STORAGE_KEY) || "";
@@ -108,6 +134,8 @@
     window.isNavigationSubmenuSuppressed = isNavigationSubmenuSuppressed;
     window.suppressNavigationSubmenus = suppressNavigationSubmenus;
     window.releaseNavigationSubmenuSuppression = releaseNavigationSubmenuSuppression;
+    window.closeMobileNavigation = closeMobileNavigation;
+    window.toggleMobileNavigation = toggleMobileNavigation;
     function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
       const isAdmin = userRole === "admin";
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -232,7 +260,13 @@
       host.innerHTML = "";
       const nav = template.content.firstElementChild.cloneNode(true);
       host.appendChild(nav);
+      syncMobileNavigationToggleButtons();
       const closeSubmenus = () => closeNavigationSubmenus(nav);
+      const closeMobileNavIfNeeded = () => {
+        if (isMobileNavigationViewport()) {
+          closeMobileNavigation();
+        }
+      };
       nav.querySelectorAll(".nav-item").forEach((item) => {
         const tab = item.dataset.tab || "";
         const navClass = item.dataset.navClass || "";
@@ -245,6 +279,9 @@
       nav.querySelectorAll(".nav-item.has-submenu").forEach((item) => {
         const itemTab = item.dataset.tab || "";
         const onEnter = () => {
+          if (isMobileNavigationViewport()) {
+            return;
+          }
           if (isNavigationSubmenuSuppressed(itemTab)) {
             releaseNavigationSubmenuSuppression();
             item.classList.remove("submenu-open");
@@ -256,6 +293,9 @@
           item.classList.add("submenu-open");
         };
         const onLeave = () => {
+          if (isMobileNavigationViewport()) {
+            return;
+          }
           item.classList.remove("submenu-open");
         };
         item.addEventListener("mouseenter", onEnter);
@@ -286,7 +326,16 @@
             }
             return;
           }
+          if (isMobileNavigationViewport() && item.classList.contains("has-submenu")) {
+            const shouldOpen = !item.classList.contains("submenu-open");
+            closeSubmenus();
+            if (shouldOpen) {
+              item.classList.add("submenu-open");
+            }
+            return;
+          }
           suppressNavigationSubmenus(nav, item.classList.contains("has-submenu") ? item.dataset.tab || "" : "");
+          closeMobileNavIfNeeded();
           navigate(item.dataset.tab || "");
         });
       });
@@ -300,19 +349,62 @@
           const ownerItem = event.currentTarget.closest(".nav-item.has-submenu");
           suppressNavigationSubmenus(nav, ownerItem?.dataset?.tab || "");
           const item = event.currentTarget.closest(".submenu-item");
+          closeMobileNavIfNeeded();
           navigate(item?.dataset?.tab || "");
         });
       });
+      const menuToggleButton = document.querySelector(".header-menu-toggle");
+      const menuToggleHandler = (event) => {
+        if (!isMobileNavigationViewport()) {
+          return;
+        }
+        event.preventDefault();
+        toggleMobileNavigation();
+      };
+      if (menuToggleButton) {
+        menuToggleButton.addEventListener("click", menuToggleHandler);
+      }
+      const navOverlayClickHandler = (event) => {
+        if (!isMobileNavigationViewport() || event.target !== host) {
+          return;
+        }
+        closeMobileNavigation();
+      };
+      host.addEventListener("click", navOverlayClickHandler);
+      const onEscape = (event) => {
+        if (event.key === "Escape") {
+          closeMobileNavigation();
+        }
+      };
+      document.addEventListener("keydown", onEscape);
       const onPointerDown = (event) => {
+        if (isMobileNavigationViewport()) {
+          return;
+        }
         if (!event.target.closest(".admin-nav")) {
           closeSubmenus();
           releaseNavigationSubmenuSuppression();
         }
       };
       document.addEventListener("pointerdown", onPointerDown);
+      const onResize = () => {
+        if (!isMobileNavigationViewport()) {
+          closeMobileNavigation();
+          closeSubmenus();
+        }
+        syncMobileNavigationToggleButtons();
+      };
+      window.addEventListener("resize", onResize);
       return () => {
+        if (menuToggleButton) {
+          menuToggleButton.removeEventListener("click", menuToggleHandler);
+        }
+        host.removeEventListener("click", navOverlayClickHandler);
+        document.removeEventListener("keydown", onEscape);
         document.removeEventListener("pointerdown", onPointerDown);
+        window.removeEventListener("resize", onResize);
         nav.removeEventListener("mouseleave", navLeaveHandler);
+        closeMobileNavigation();
         host.innerHTML = "";
       };
     }

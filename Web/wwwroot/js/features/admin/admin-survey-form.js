@@ -347,7 +347,7 @@
 
             if (label) {
                 label.setAttribute('for', `criterion${criterionNumber}`);
-                label.textContent = `Критерий №${criterionNumber}:`;
+                label.textContent = `Критерий №${criterionNumber}`;
             }
 
             if (removeButton) {
