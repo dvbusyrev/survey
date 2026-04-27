@@ -956,7 +956,9 @@
     .filter-button:hover {
         background-color: var(--primary-dark);
     }
-    .date-filters input[type="date"] {
+    .date-filters input[type="date"],
+    .date-filters input[data-date-format="dd.mm.yyyy"],
+    .date-filters input[data-date-format="dd/mm/yyyy"] {
         padding: 6px 8px;
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
@@ -965,7 +967,9 @@
         transition: var(--transition);
     }
 
-    .date-filters input[type="date"]:focus {
+    .date-filters input[type="date"]:focus,
+    .date-filters input[data-date-format="dd.mm.yyyy"]:focus,
+    .date-filters input[data-date-format="dd/mm/yyyy"]:focus {
         border-color: var(--primary-light);
         outline: none;
         box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
@@ -1033,15 +1037,9 @@
         white-space: nowrap;
     }
 
-    /* Календарные иконки для полей дат */
-    .date-filters input[type="date"]::-webkit-calendar-picker-indicator {
-        filter: invert(0.5);
-        cursor: pointer;
-        padding: 4px;
-    }
-
-    .date-filters input[type="date"]::-webkit-calendar-picker-indicator:hover {
-        filter: invert(0.3);
+    .date-filters .app-date-field__icon {
+        right: 0.7rem;
+        color: var(--primary);
     }
         
         #content_admin {

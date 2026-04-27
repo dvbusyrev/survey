@@ -156,39 +156,9 @@ function applySurveyFilter() {
 }
 
 function copyArchivedSurvey(surveyId) {
-    const data = {
-        survey_id: surveyId
-    };
-
-    fetch('/surveys/archive/copy', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Ошибка при добавлении анкеты');
-            }
-
-            return response.json();
-        })
-        .then(() => {
-            if (typeof window.handleAdminMutationSuccess === 'function') {
-                return window.handleAdminMutationSuccess({
-                    message: 'Анкета успешно добавлена!',
-                    tabName: typeof window.resolveCurrentAdminTab === 'function'
-                        ? window.resolveCurrentAdminTab()
-                        : 'archived_surveys',
-                    fallbackUrl: '/surveys/archive'
-                });
-            }
-
-            alert('Анкета успешно добавлена!');
-            window.location.reload();
-        })
-        .catch(error => {
-            alert(error.message);
+    if (typeof window.openCopySurveyModalById === 'function') {
+        window.openCopySurveyModalById(surveyId).catch((error) => {
+            window.siteNotify?.(error.message || 'Не удалось подготовить копирование анкеты.', 'error');
         });
+    }
 }

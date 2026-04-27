@@ -1005,8 +1005,9 @@
                     break;
                 case 'copy_survey':
                     if (!resolvedId) throw new Error('ID анкеты не указан.');
-                    await fetchHtmlPage(`/surveys/${resolvedId}/copy`);
-                    setActiveTabAndRefreshNav(tab);
+                    await fetchHtmlPage('/surveys');
+                    setActiveTabAndRefreshNav('get_surveys');
+                    openModalWhenReady('surveyEditorModal', () => window.openCopySurveyModalById?.(resolvedId, { skipListRefresh: true }));
                     break;
                 case 'update_survey':
                     if (!resolvedId) throw new Error('ID анкеты не указан.');

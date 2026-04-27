@@ -252,4 +252,43 @@ public class SurveyAdminController : Controller
             return StatusCode(500, "Внутренняя ошибка сервера");
         }
     }
+
+    [HttpGet("surveys/{id:int}/copy-template")]
+    public IActionResult GetSurveyCopyTemplate(int id)
+    {
+        try
+        {
+            var pageModel = _surveyAdminService.GetSurveyEditPage(id);
+            if (pageModel == null)
+            {
+                return NotFound(new { success = false, message = "Анкета не найдена." });
+            }
+
+            var organizations = pageModel.SelectedOrganizationIds
+                .Select((organizationId, index) => new OrganizationSelectionItem
+                {
+                    Id = organizationId,
+                    Name = pageModel.SelectedOrganizationNames.ElementAtOrDefault(index) ?? string.Empty
+                })
+                .Where(organization => organization.Id > 0 && !string.IsNullOrWhiteSpace(organization.Name))
+                .ToArray();
+
+            var response = new SurveyCopyTemplateResponse
+            {
+                Title = $"{pageModel.Survey.NameSurvey} (Копия)",
+                Description = pageModel.Survey.Description ?? string.Empty,
+                StartDate = pageModel.Survey.DateBegin.ToString("yyyy-MM-dd"),
+                EndDate = pageModel.Survey.DateEnd.ToString("yyyy-MM-dd"),
+                Organizations = organizations,
+                Criteria = pageModel.Criteria
+            };
+
+            return Json(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при подготовке шаблона копирования анкеты {SurveyId}", id);
+            return StatusCode(500, new { success = false, message = "Не удалось подготовить данные для копирования анкеты." });
+        }
+    }
 }

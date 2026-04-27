@@ -526,6 +526,71 @@
         setModalVisible('loadingOverlay', false);
     }
 
+    function normalizeSurveyCopyTemplate(rawTemplate) {
+        const criteria = Array.isArray(rawTemplate?.criteria)
+            ? rawTemplate.criteria
+                .map((criterion) => String(criterion || '').trim())
+                .filter((criterion) => criterion)
+            : [];
+
+        return {
+            title: String(rawTemplate?.title || '').trim(),
+            description: String(rawTemplate?.description || '').trim(),
+            startDate: String(rawTemplate?.startDate || '').trim(),
+            endDate: String(rawTemplate?.endDate || '').trim(),
+            organizations: cloneOrganizations(rawTemplate?.organizations),
+            criteria
+        };
+    }
+
+    function prefillSurveyCreateForm(rawTemplate) {
+        const template = normalizeSurveyCopyTemplate(rawTemplate);
+        resetSurveyCreateForm();
+
+        const title = safeGetElement('surveyTitle');
+        const description = safeGetElement('surveyDescription');
+
+        if (title) {
+            title.value = template.title;
+            title.classList.remove('invalid');
+        }
+
+        if (description) {
+            description.value = template.description;
+            description.classList.remove('invalid');
+        }
+
+        if (window.AppDate?.setInputValue) {
+            window.AppDate.setInputValue('startDate', template.startDate);
+            window.AppDate.setInputValue('endDate', template.endDate);
+        } else {
+            const startDate = safeGetElement('startDate');
+            const endDate = safeGetElement('endDate');
+            if (startDate) {
+                startDate.value = template.startDate;
+                startDate.classList.remove('invalid');
+            }
+            if (endDate) {
+                endDate.value = template.endDate;
+                endDate.classList.remove('invalid');
+            }
+        }
+
+        const criteriaList = getElementByRole('criteria-list');
+        if (criteriaList) {
+            criteriaList.innerHTML = '';
+            if (template.criteria.length === 0) {
+                appendSurveyCriteriaField('');
+            } else {
+                template.criteria.forEach((criterion) => appendSurveyCriteriaField(criterion));
+            }
+        }
+
+        setSelectedOrganizations(template.organizations);
+        updateSelectedOrganizationDisplay();
+        syncOrganizationListSelectionFromState();
+    }
+
     function validateForm() {
         let isValid = true;
 
@@ -548,7 +613,7 @@
         const startDateIso = window.AppDate?.getInputIso('startDate') || '';
         const endDateIso = window.AppDate?.getInputIso('endDate') || '';
         if ((safeGetValue('startDate') && !startDateIso) || (safeGetValue('endDate') && !endDateIso)) {
-            showError('Ошибка', 'Используйте формат даты ДД/ММ/ГГГГ.');
+            showError('Ошибка', 'Используйте формат даты ДД.ММ.ГГГГ.');
             isValid = false;
         } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
             safeGetElement('endDate')?.classList.add('invalid');
@@ -728,6 +793,7 @@
     window.addSurvey = addSurvey;
     window.validateForm = validateForm;
     window.resetSurveyCreateForm = resetSurveyCreateForm;
+    window.prefillSurveyCreateForm = prefillSurveyCreateForm;
 
     window.surveyEditInit = surveyEditInit;
     window.surveyEditOpenOrganizationModal = surveyEditOpenOrganizationModal;

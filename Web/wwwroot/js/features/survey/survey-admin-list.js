@@ -128,6 +128,89 @@
         setSurveyEditorModalVisible(true);
     }
 
+    async function fetchSurveyCopyTemplate(surveyId) {
+        const response = await fetch(`/surveys/${surveyId}/copy-template`, {
+            headers: {
+                Accept: 'application/json'
+            }
+        });
+
+        const responseText = await response.text();
+        let payload = null;
+
+        try {
+            payload = responseText ? JSON.parse(responseText) : null;
+        } catch (parseError) {
+            payload = null;
+        }
+
+        if (!response.ok) {
+            throw new Error(payload?.message || responseText || 'Не удалось загрузить данные для копирования анкеты.');
+        }
+
+        return payload || {};
+    }
+
+    async function ensureCreateSurveyModalAvailable() {
+        if (document.getElementById('surveyEditorModal') && !document.getElementById('surveyId')) {
+            return true;
+        }
+
+        const target = resolveSurveyListTarget();
+
+        if (typeof window.refreshAdminTab === 'function') {
+            await window.refreshAdminTab(target.tabName, null, {
+                force: true,
+                historyMode: 'replace',
+                scrollMode: 'carry'
+            });
+        } else if (typeof window.handleTabClick === 'function') {
+            await window.handleTabClick(target.tabName, {
+                force: true,
+                historyMode: 'replace',
+                scrollMode: 'carry'
+            });
+        } else {
+            window.location.assign(target.fallbackUrl);
+            return false;
+        }
+
+        return Boolean(document.getElementById('surveyEditorModal') && !document.getElementById('surveyId'));
+    }
+
+    async function openCopySurveyModalById(surveyId, options = {}) {
+        const resolvedSurveyId = Number.parseInt(String(surveyId || ''), 10);
+        if (!Number.isFinite(resolvedSurveyId) || resolvedSurveyId <= 0) {
+            throw new Error('Не найден идентификатор анкеты.');
+        }
+
+        const skipListRefresh = options?.skipListRefresh === true;
+        const template = await fetchSurveyCopyTemplate(resolvedSurveyId);
+
+        if (!skipListRefresh) {
+            const isReady = await ensureCreateSurveyModalAvailable();
+            if (!isReady) {
+                return;
+            }
+        }
+
+        if (typeof window.openAddSurveyModal !== 'function' || typeof window.prefillSurveyCreateForm !== 'function') {
+            throw new Error('Форма создания анкеты недоступна.');
+        }
+
+        window.openAddSurveyModal();
+        window.prefillSurveyCreateForm(template);
+    }
+
+    async function openCopySurveyModalFromTrigger(trigger) {
+        try {
+            const survey = buildSurveyData(trigger);
+            await openCopySurveyModalById(survey.id_survey);
+        } catch (error) {
+            window.siteNotify?.(error.message || 'Не удалось подготовить копирование анкеты.', 'error');
+        }
+    }
+
     function openEditSurveyModal() {
         syncSurveyListHistory();
         setSurveyEditorModalVisible(true);
@@ -340,6 +423,8 @@
     window.openSurveyExtensionModalFromTrigger = openSurveyExtensionModalFromTrigger;
     window.deleteSurveyFromTrigger = deleteSurveyFromTrigger;
     window.openAddSurveyModal = openAddSurveyModal;
+    window.openCopySurveyModalById = openCopySurveyModalById;
+    window.openCopySurveyModalFromTrigger = openCopySurveyModalFromTrigger;
     window.openEditSurveyModal = openEditSurveyModal;
     window.openEditSurveyModalFromTrigger = openEditSurveyModalFromTrigger;
     window.closeSurveyEditorModal = closeSurveyEditorModal;

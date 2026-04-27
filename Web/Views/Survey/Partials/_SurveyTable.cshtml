@@ -76,8 +76,10 @@
                             {
                                 <button type="button"
                                         class="icon-container"
-                                        data-click-call="copyArchivedSurvey"
-                                        data-click-args='[@survey.IdSurvey]'
+                                        data-survey-id="@survey.IdSurvey"
+                                        data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                        data-click-call="openCopySurveyModalFromTrigger"
+                                        data-click-pass-element="true"
                                         aria-label="Копировать">
                                     <span aria-hidden="true"><i class="fas fa-copy"></i></span>
                                     <span class="icon-tooltip">Копировать</span>
@@ -91,12 +93,16 @@
                             }
                             else
                             {
-                                <a class="icon-container"
-                                   href="/surveys/@survey.IdSurvey/copy"
+                                <button type="button"
+                                   class="icon-container"
+                                   data-survey-id="@survey.IdSurvey"
+                                   data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                   data-click-call="openCopySurveyModalFromTrigger"
+                                   data-click-pass-element="true"
                                    aria-label="Копировать">
                                     <span aria-hidden="true"><i class="fas fa-copy"></i></span>
                                     <span class="icon-tooltip">Копировать</span>
-                                </a>
+                                </button>
                                 <a class="icon-container"
                                    href="/surveys/@survey.IdSurvey/edit"
                                    aria-label="Посмотреть / обновить">

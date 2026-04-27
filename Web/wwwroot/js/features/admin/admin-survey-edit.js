@@ -216,7 +216,7 @@ function surveyEditToggleOrganizationSelection(element) {
         const endDateIso = window.AppDate?.getInputIso(endDate) || '';
 
         if ((startDate.value && !startDateIso) || (endDate.value && !endDateIso)) {
-            surveyEditNotify('Используйте формат даты ДД/ММ/ГГГГ.');
+            surveyEditNotify('Используйте формат даты ДД.ММ.ГГГГ.');
             isValid = false;
         } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
             endDate.classList.add('invalid');
