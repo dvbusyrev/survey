@@ -1,0 +1,115 @@
+<div class="survey-period-filter" data-role="survey-date-filter">
+    <button type="button"
+            class="survey-period-filter__trigger"
+            data-role="survey-date-filter-trigger"
+            aria-expanded="false"
+            aria-haspopup="dialog">
+        <i class="fas fa-calendar-days" aria-hidden="true"></i>
+        <span data-role="survey-date-filter-label">Фильтр по периоду</span>
+    </button>
+
+    <div class="survey-period-filter__popover is-hidden"
+         data-role="survey-date-filter-popover"
+         role="dialog"
+         aria-label="Фильтр анкет по периоду">
+        <div class="survey-period-filter__header">
+            <div class="survey-period-filter__mode-switch" data-role="survey-date-filter-mode-switch">
+                <button type="button"
+                        class="survey-period-filter__mode-button"
+                        data-role="survey-date-filter-mode"
+                        data-mode="year">
+                    По году
+                </button>
+                <button type="button"
+                        class="survey-period-filter__mode-button is-active"
+                        data-role="survey-date-filter-mode"
+                        data-mode="month">
+                    По месяцу
+                </button>
+                <button type="button"
+                        class="survey-period-filter__mode-button"
+                        data-role="survey-date-filter-mode"
+                        data-mode="range">
+                    По диапазону
+                </button>
+            </div>
+
+            <button type="button"
+                    class="survey-period-filter__close-button modal-close"
+                    data-role="survey-date-filter-close"
+                    aria-label="Закрыть фильтр">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <div class="survey-period-filter__panel is-hidden" data-role="survey-date-filter-year-panel">
+            <div class="survey-period-filter__panel-nav">
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-date-filter-year-range-prev"
+                        aria-label="Предыдущие годы">
+                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                </button>
+                <span class="survey-period-filter__panel-title" data-role="survey-date-filter-year-range-label"></span>
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-date-filter-year-range-next"
+                        aria-label="Следующие годы">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="survey-period-filter__years" data-role="survey-date-filter-years"></div>
+        </div>
+
+        <div class="survey-period-filter__panel" data-role="survey-date-filter-month-panel">
+            <div class="survey-period-filter__panel-nav">
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-date-filter-year-prev"
+                        aria-label="Предыдущий год">
+                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                </button>
+                <span class="survey-period-filter__panel-title" data-role="survey-date-filter-year-label"></span>
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-date-filter-year-next"
+                        aria-label="Следующий год">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="survey-period-filter__months" data-role="survey-date-filter-months"></div>
+        </div>
+
+        <div class="survey-period-filter__panel is-hidden" data-role="survey-date-filter-range-panel">
+            <div class="survey-period-filter__panel-nav">
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-date-filter-range-prev"
+                        aria-label="Предыдущий месяц">
+                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                </button>
+                <span class="survey-period-filter__panel-title" data-role="survey-date-filter-range-label"></span>
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-date-filter-range-next"
+                        aria-label="Следующий месяц">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <p class="survey-period-filter__hint" data-role="survey-date-filter-hint"></p>
+            <div class="survey-period-filter__calendars" data-role="survey-date-filter-calendars"></div>
+        </div>
+
+        <div class="survey-period-filter__footer">
+            <p class="survey-period-filter__summary" data-role="survey-date-filter-summary"></p>
+            <button type="button"
+                    class="survey-period-filter__clear-button"
+                    data-role="survey-date-filter-clear">
+                Сбросить
+            </button>
+        </div>
+    </div>
+</div>

@@ -13,7 +13,10 @@
             IdSurvey = survey.IdSurvey,
             NameSurvey = survey.NameSurvey,
             DateBegin = survey.DateBegin,
-            DateEnd = survey.DateEnd
+            DateEnd = survey.DateEnd,
+            OrganizationNames = (survey.OrganizationName ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToArray()
         })
         .ToList();
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
@@ -53,7 +56,10 @@
                     Description = "Список активных анкет и действия по управлению."
                 })
 
-            <div class="app-page__toolbar app-page__toolbar--start">
+            <div class="app-page__toolbar survey-list-toolbar">
+                @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyDateFilter.cshtml")
+                @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
+
                 <button type="button"
                         class="btn modal_btn modal_btn-primary"
                         data-click-call="openAddSurveyModal">
@@ -83,6 +89,7 @@
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminReportScripts.cshtml")
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyEditorScripts.cshtml")
     <script src="~/js/features/admin/admin-inline-pages.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>
     <script>
         (function () {

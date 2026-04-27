@@ -1,3 +1,4 @@
+@using System.Text.Json
 @model MainProject.Web.ViewModels.SurveyTableViewModel
 
 @{
@@ -23,20 +24,21 @@
         }
         else
         {
-            @if (isArchive)
-            {
-                <tr id="none_result" class="is-hidden">
-                    <td colspan="4" class="table-empty-cell">Результаты не найдены!</td>
-                </tr>
-            }
+            <tr id="none_result" data-role="survey-filter-empty-row" class="is-hidden">
+                <td colspan="4" class="table-empty-cell">Результаты не найдены!</td>
+            </tr>
 
             @foreach (var survey in surveys)
             {
+                var organizationNamesJson = JsonSerializer.Serialize(survey.OrganizationNames ?? Array.Empty<string>());
                 <tr class="@(isArchive ? "active" : null)"
                     data-dblclick-call="openEditSurveyModalFromTrigger"
                     data-dblclick-pass-element="true"
                     data-survey-id="@survey.IdSurvey"
-                    data-survey-name="@(survey.NameSurvey ?? string.Empty)">
+                    data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                    data-survey-date-begin="@survey.DateBegin.ToString("yyyy-MM-dd")"
+                    data-survey-date-end="@survey.DateEnd.ToString("yyyy-MM-dd")"
+                    data-survey-organizations="@organizationNamesJson">
                     <td>
                         @survey.NameSurvey
                     </td>

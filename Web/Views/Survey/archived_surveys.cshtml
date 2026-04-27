@@ -9,9 +9,16 @@
             IdSurvey = survey.IdSurvey,
             NameSurvey = survey.NameSurvey,
             DateBegin = survey.DateBegin,
-            DateEnd = survey.DateEnd
+            DateEnd = survey.DateEnd,
+            OrganizationNames = (survey.OrganizationName ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToArray()
         })
         .ToList();
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/survey-admin-pages.css" asp-append-version="true" />
 }
 
 <div class="app-page" id="default_content" data-page="surveys-archive">
@@ -24,15 +31,10 @@
             Description = "На этой странице вы можете посмотреть архивные анкеты."
         })
 
-    <section class="app-page__section">
-        <div class="filter-sort">
-            <select id="filterSurvey" class="filter-select"
-                    data-focus-call="loadSurveyOptions"
-                    data-change-call="applySurveyFilter">
-                <option value="">Все анкеты</option>
-            </select>
-        </div>
-    </section>
+    <div class="app-page__toolbar survey-list-toolbar">
+        @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyDateFilter.cshtml")
+        @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
+    </div>
 
     @await Html.PartialAsync(
         "~/Web/Views/Survey/Partials/_SurveyTable.cshtml",
@@ -54,8 +56,8 @@
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminInlineTemplates.cshtml")
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyEditorScripts.cshtml")
-    <script src="~/js/features/admin/admin-archive-filters.js" asp-append-version="true"></script>
     <script src="~/js/features/admin/admin-survey-edit.js" asp-append-version="true"></script>
     <script src="~/js/features/admin/admin-inline-pages.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>
 }

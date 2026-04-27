@@ -2,6 +2,383 @@
   max-width: 960px;
 }
 
+.survey-list-toolbar {
+  align-items: center;
+  gap: 16px;
+}
+
+.survey-period-filter {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.survey-period-filter__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 46px;
+  padding: 0.8rem 1.05rem;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.survey-period-filter__trigger:hover,
+.survey-period-filter__trigger[aria-expanded="true"] {
+  border-color: rgba(106, 90, 205, 0.35);
+  box-shadow: 0 10px 24px rgba(83, 92, 145, 0.12);
+  transform: translateY(-1px);
+}
+
+.survey-period-filter__trigger i {
+  color: #6a5acd;
+  font-size: 1rem;
+}
+
+survey-organization-filter__popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 20px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+
+.survey-period-filter__popover {
+  position: absolute;
+  width: min(760px, calc(100vw - 48px));
+  top: calc(100% + 12px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 20px;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+.survey-period-filter__mode-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.survey-period-filter__section-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.survey-period-filter__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.survey-period-filter__close-button {
+  position: static;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+}
+
+.survey-period-filter__mode-button,
+.survey-period-filter__nav-button,
+.survey-period-filter__year-button,
+.survey-period-filter__month-button,
+.survey-period-filter__day-button,
+.survey-period-filter__clear-button {
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.survey-period-filter__mode-button {
+  min-height: 40px;
+  padding: 0.65rem 0.95rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: rgba(241, 245, 249, 0.95);
+  border-color: rgba(203, 213, 225, 0.9);
+  border-radius: 999px;
+}
+
+.survey-period-filter__mode-button.is-active {
+  color: #fff;
+  background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
+  border-color: rgba(106, 90, 205, 0.8);
+  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.24);
+}
+
+.survey-period-filter__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.survey-period-filter__panel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.survey-period-filter__panel-title {
+  color: var(--text-main);
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.survey-period-filter__nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  color: var(--text-main);
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(203, 213, 225, 0.92);
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.survey-period-filter__nav-button:hover,
+.survey-period-filter__year-button:hover,
+.survey-period-filter__month-button:hover,
+.survey-period-filter__day-button:hover,
+.survey-period-filter__clear-button:hover {
+  transform: translateY(-1px);
+}
+
+.survey-period-filter__years,
+.survey-period-filter__months {
+  display: grid;
+  gap: 12px;
+}
+
+.survey-period-filter__years {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.survey-period-filter__months {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.survey-period-filter__year-button,
+.survey-period-filter__month-button {
+  min-height: 52px;
+  padding: 0.8rem 0.9rem;
+  color: var(--text-main);
+  font-size: 0.92rem;
+  font-weight: 700;
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(203, 213, 225, 0.92);
+  border-radius: 14px;
+}
+
+.survey-period-filter__year-button.is-selected,
+.survey-period-filter__month-button.is-selected {
+  color: #fff;
+  background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
+  border-color: rgba(106, 90, 205, 0.82);
+  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.24);
+}
+
+.survey-period-filter__organization-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.survey-period-filter__organization-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0.85rem 0.95rem;
+  background: rgba(248, 250, 252, 0.98);
+  border: 1px solid rgba(203, 213, 225, 0.92);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.survey-period-filter__organization-option:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.survey-period-filter__organization-option.is-selected {
+  background: rgba(141, 132, 255, 0.12);
+  border-color: rgba(106, 90, 205, 0.45);
+  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.12);
+}
+
+.survey-period-filter__organization-checkbox {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #6a5acd;
+}
+
+.survey-period-filter__organization-name {
+  color: var(--text-main);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.survey-period-filter__organization-empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.survey-period-filter__hint,
+.survey-period-filter__summary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.survey-period-filter__calendars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.survey-period-filter__calendar-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(248, 250, 252, 0.98);
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 18px;
+}
+
+.survey-period-filter__calendar-title {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.survey-period-filter__weekday-row,
+.survey-period-filter__days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.survey-period-filter__weekday {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.survey-period-filter__day-placeholder {
+  display: block;
+  min-height: 40px;
+}
+
+.survey-period-filter__day-button {
+  position: relative;
+  min-height: 40px;
+  padding: 0;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: #fff;
+  border-color: rgba(203, 213, 225, 0.92);
+  border-radius: 12px;
+}
+
+.survey-period-filter__day-button.is-today {
+  border-color: rgba(106, 90, 205, 0.56);
+  box-shadow: inset 0 0 0 1px rgba(106, 90, 205, 0.24);
+}
+
+.survey-period-filter__day-button.is-in-range {
+  color: #5145b8;
+  background: rgba(141, 132, 255, 0.16);
+  border-color: rgba(141, 132, 255, 0.2);
+}
+
+.survey-period-filter__day-button.is-range-start,
+.survey-period-filter__day-button.is-range-end,
+.survey-period-filter__day-button.is-range-single {
+  color: #fff;
+  background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
+  border-color: rgba(106, 90, 205, 0.82);
+  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.24);
+}
+
+.survey-period-filter__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.survey-period-filter__clear-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0.7rem 1rem;
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: rgba(248, 250, 252, 0.98);
+  border-color: rgba(203, 213, 225, 0.92);
+  border-radius: 12px;
+}
+
+.survey-period-filter__clear-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.is-hidden-by-date,
+.is-hidden-by-organization {
+  display: none !important;
+}
+
 .survey-editor-page__section-title {
   margin: 0 0 1rem;
   color: var(--text-main);
@@ -97,6 +474,41 @@
 }
 
 @media (max-width: 720px) {
+  .survey-list-toolbar {
+    align-items: stretch;
+  }
+
+  .survey-period-filter {
+    width: 100%;
+  }
+
+  .survey-period-filter__trigger {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .survey-period-filter__popover {
+    width: min(100%, calc(100vw - 32px));
+  }
+
+  .survey-period-filter__years,
+  .survey-period-filter__months {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .survey-period-filter__calendars {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .survey-period-filter__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .survey-period-filter__clear-button {
+    width: 100%;
+  }
+
   .survey-editor-page .form-group > .error-message {
     grid-column: 1;
   }
