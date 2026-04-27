@@ -11,6 +11,7 @@ public sealed class DatabaseMigrationScriptsTests
 
         Assert.Contains(@"\ir 010_add_email_template_storage.sql", script);
         Assert.Contains(@"\ir 011_add_email_template_audit_log.sql", script);
+        Assert.Contains(@"\ir 012_add_survey_auto_creation.sql", script);
     }
 
     [Fact]
@@ -43,6 +44,20 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("CREATE INDEX IF NOT EXISTS idx_email_template_l_record_pk", script);
         Assert.Contains("CREATE TRIGGER trg_email_template_audit", script);
         Assert.Contains("VALUES ('011', 'add_email_template_audit_log')", script);
+    }
+
+    [Fact]
+    public void SurveyAutoCreationMigration_CreatesConfigStorage()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "012_add_survey_auto_creation.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.survey_auto_creation_config", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.survey_auto_creation_config_survey", script);
+        Assert.Contains("creation_pattern", script);
+        Assert.Contains("start_pattern", script);
+        Assert.Contains("end_offset_business_days", script);
+        Assert.Contains("last_processed_schedule_date", script);
+        Assert.Contains("VALUES ('012', 'add_survey_auto_creation')", script);
     }
 
     private static string GetRepositoryRoot()

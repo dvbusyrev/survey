@@ -1,0 +1,215 @@
+@model MainProject.Web.ViewModels.SurveyAutoCreationPageViewModel
+@using MainProject.Application.UseCases.Surveys
+@using System.Security.Claims
+@using MainProject.Infrastructure.Security
+@{
+    ViewData["Title"] = "Автоматическое создание анкет";
+    ViewData["SettingsSection"] = "auto-creation";
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
+    var organizationName = User.FindFirst("organization_name")?.Value ?? string.Empty;
+    var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+    var displayName = !string.IsNullOrWhiteSpace(organizationName) && !string.IsNullOrWhiteSpace(userName)
+        ? $"{organizationName}: {userName}"
+        : (!string.IsNullOrWhiteSpace(userName) ? userName : AppRoles.GetDisplayName(userRole));
+    var monthWeekdayOptions = SurveyAutoCreationScheduleHelper.GetMonthWeekdayOptions();
+    var endOffsetOptions = SurveyAutoCreationScheduleHelper.GetBusinessDayOffsetOptions();
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
+}
+
+<div id="chrome-context"
+     data-user-role="@userRole"
+     data-user-id="@userId"
+     data-display-name="@displayName"
+     data-user-name="@userName"
+     data-organization-name="@organizationName"
+     hidden></div>
+
+<div class="page-container">
+    <div id="chrome-header"></div>
+    <div class="admin-container">
+        <div id="chrome-navigation"></div>
+        <div id="content_admin">
+            <div class="app-page survey-auto-creation-page" id="default_content" data-page="survey-auto-creation">
+                @await Html.PartialAsync("~/Web/Views/Shared/_SettingsSubnav.cshtml")
+                @await Html.PartialAsync(
+                    "~/Web/Views/Shared/_PageIntro.cshtml",
+                    new MainProject.Web.ViewModels.PageIntroModel
+                    {
+                        // Title = "Автоматическое создание анкет",
+                        Description = "Настройте день создания новых копий анкет, день их открытия и срок закрытия в рабочих днях. После запуска система будет автоматически создавать копии выбранных анкет по расписанию."
+                    })
+
+                <section class="app-page__section reports-page__card survey-auto-creation-page__card">
+                    <div class="reports-page__card-header survey-auto-creation-page__header">
+                        @* <h3 class="reports-page__card-title">Параметры автосоздания</h3> *@
+                        <p class="reports-page__card-description">
+                            Статус:
+                            <strong data-role="survey-auto-creation-status">
+                                @(Model?.IsEnabled == true ? "запущено" : "остановлено")
+                            </strong>
+                        </p>
+                    </div>
+
+                    <div class="survey-auto-creation-page__controls">
+                        <div class="reports-page__field">
+                            <label for="surveyAutoCreationPattern">Создание анкеты</label>
+                            <select id="surveyAutoCreationPattern" class="form-control reports-page__quarter-select">
+                                @foreach (var option in monthWeekdayOptions)
+                                {
+                                    <option value="@option.Value" selected="@(Model?.CreationPattern == option.Value)">@option.Label</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="reports-page__field">
+                            <label for="surveyAutoCreationStartPattern">Дата начала</label>
+                            <select id="surveyAutoCreationStartPattern" class="form-control reports-page__quarter-select">
+                                @foreach (var option in monthWeekdayOptions)
+                                {
+                                    <option value="@option.Value" selected="@(Model?.StartPattern == option.Value)">@option.Label</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="reports-page__field">
+                            <label for="surveyAutoCreationEndOffset">Дата конца</label>
+                            <select id="surveyAutoCreationEndOffset" class="form-control reports-page__quarter-select">
+                                @foreach (var option in endOffsetOptions)
+                                {
+                                    <option value="@option.Value" selected="@(Model?.EndOffsetBusinessDays == option.Value)">@option.Label</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="survey-auto-creation-page__selection">
+                        <h3 class="survey-auto-creation-page__selection-title">Анкеты</h3>
+                        <div class="survey-auto-creation-page__selected-list"
+                             data-role="survey-auto-creation-selected-list"
+                             aria-live="polite"></div>
+                        <div class="survey-auto-creation-page__selection-action">
+                            <button type="button"
+                                    class="btn modal_btn modal_btn-primary"
+                                    data-click-call="openSurveyAutoCreationSurveyModal">
+                                Выбрать анкеты
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="survey-auto-creation-page__actions">
+                        <button type="button"
+                                class="btn modal_btn modal_btn-secondary survey-auto-creation-page__action-btn"
+                                data-click-call="saveSurveyAutoCreationSettings">
+                            Сохранить
+                        </button>
+                        @if (Model?.IsEnabled == true)
+                        {
+                            <button type="button"
+                                    class="btn modal_btn modal_btn-primary survey-auto-creation-page__action-btn"
+                                    data-click-call="stopSurveyAutoCreation">
+                                Остановить
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="btn modal_btn modal_btn-primary survey-auto-creation-page__action-btn"
+                                    data-click-call="startSurveyAutoCreation">
+                                Запустить
+                            </button>
+                        }
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+    <div id="chrome-footer"></div>
+</div>
+
+<div id="surveyAutoCreationModal" class="modal survey-auto-creation-modal" aria-hidden="true">
+    <div class="modal-content survey-auto-creation-modal__content">
+        <div class="modal-header">
+            <h2 class="h2_modal">Выбор анкет</h2>
+            <button type="button"
+                    class="modal-close"
+                    data-click-call="closeSurveyAutoCreationSurveyModal">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="surveyAutoCreationModalLoading" class="survey-auto-creation-modal__loading u-hidden">Загрузка анкет...</div>
+            <div id="surveyAutoCreationModalList" class="survey-auto-creation-modal__list"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button"
+                    class="modal_btn modal_btn-primary"
+                    data-click-call="saveSurveyAutoCreationSurveySelection">
+                Сохранить выбор
+            </button>
+            <button type="button"
+                    class="modal_btn modal_btn-secondary"
+                    data-click-call="closeSurveyAutoCreationSurveyModal">
+                Отмена
+            </button>
+        </div>
+    </div>
+</div>
+
+<script id="survey-auto-creation-bootstrap" type="application/json">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+    {
+        isEnabled = Model?.IsEnabled ?? false,
+        selectedSurveys = Model?.SelectedSurveys ?? Array.Empty<MainProject.Web.ViewModels.SurveyAutoCreationSelectedSurveyViewModel>()
+    }))
+</script>
+
+@section Scripts {
+    <script src="~/js/features/admin/survey-auto-creation-page.js" asp-append-version="true"></script>
+    <script>
+        (function () {
+            const contextNode = document.getElementById('chrome-context');
+            const chromeContext = (typeof window.readAppChromeContext === 'function' && window.readAppChromeContext())
+                || (contextNode ? {
+                    userRole: contextNode.dataset.userRole || '',
+                    userId: Number(contextNode.dataset.userId || 0),
+                    displayName: contextNode.dataset.displayName || '',
+                    userName: contextNode.dataset.userName || '',
+                    organizationName: contextNode.dataset.organizationName || ''
+                } : null);
+            if (!chromeContext) {
+                return;
+            }
+
+            if (typeof window.mountHeader === 'function') {
+                window.mountHeader(document.getElementById('chrome-header'), {
+                    userRole: chromeContext.userRole,
+                    userId: chromeContext.userId,
+                    displayName: chromeContext.displayName,
+                    userName: chromeContext.userName,
+                    organizationName: chromeContext.organizationName
+                });
+            }
+
+            if (typeof window.mountNavigation === 'function') {
+                window.mountNavigation(document.getElementById('chrome-navigation'), {
+                    activeTab: 'survey_auto_creation',
+                    userRole: chromeContext.userRole,
+                    userId: chromeContext.userId
+                });
+            }
+
+            if (typeof window.mountFooter === 'function') {
+                window.mountFooter(document.getElementById('chrome-footer'));
+            }
+
+            if (typeof window.initSurveyAutoCreationPage === 'function') {
+                window.initSurveyAutoCreationPage();
+            }
+        })();
+    </script>
+}

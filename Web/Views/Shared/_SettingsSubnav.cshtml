@@ -1,0 +1,24 @@
+@{
+    var activeSection = (ViewData["SettingsSection"] as string ?? "sender").ToLowerInvariant();
+    var senderActive = activeSection == "sender";
+    var autoCreationActive = activeSection is "auto" or "auto-creation";
+}
+
+<div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы настроек">
+    <a
+        href="/mail/configuration"
+        class="menu-tab @(senderActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(senderActive ? "true" : "false")"
+        data-tab-target="email_settings">
+        Настройка отправителя
+    </a>
+    <a
+        href="/survey-auto-creation"
+        class="menu-tab @(autoCreationActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(autoCreationActive ? "true" : "false")"
+        data-tab-target="survey_auto_creation">
+        Автосоздание анкет
+    </a>
+</div>

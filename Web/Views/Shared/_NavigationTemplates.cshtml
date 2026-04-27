@@ -30,18 +30,21 @@
           <li class="submenu-item org-archive" data-tab="archive_list_organizations"><a href="#" class="submenu-link"><i class="fas fa-archive-docs"></i>Архив организаций</a></li>
         </ul>
       </li>
-      <li class="nav-item email has-submenu" data-tab="email_new" data-nav-class="email">
-        <a href="/mail" class="nav-link"><i class="fas fa-envelope"></i>Эл. почта</a>
-        <ul class="submenu-list">
-          <li class="submenu-item mail-new" data-tab="email_new"><a href="#" class="submenu-link"><i class="fas fa-paper-plane"></i>Новое отправление</a></li>
-          <li class="submenu-item mail-settings" data-tab="email_settings"><a href="#" class="submenu-link"><i class="fas fa-cog"></i>Настройки отправителя</a></li>
-        </ul>
+      <li class="nav-item email" data-tab="email_new" data-nav-class="email">
+        <a href="/mail" class="nav-link"><i class="fas fa-paper-plane"></i>Эл. почта</a>
       </li>
       <li class="nav-item reports" data-tab="reports" data-nav-class="reports">
         <a href="/reports" class="nav-link"><i class="fas fa-file-alt"></i>Отчёты</a>
       </li>
       <li class="nav-item logs" data-tab="get_logs" data-nav-class="logs">
         <a href="/event-log" class="nav-link"><i class="fas fa-scroll"></i>Журнал событий</a>
+      </li>
+      <li class="nav-item settings has-submenu" data-tab="settings" data-nav-class="settings" data-disable-direct-nav="true">
+        <a href="#" class="nav-link"><i class="fas fa-cog"></i>Настройки</a>
+        <ul class="submenu-list">
+          <li class="submenu-item mail-settings" data-tab="email_settings"><a href="#" class="submenu-link"><i class="fas fa-envelope"></i>Настройка отправителя</a></li>
+          <li class="submenu-item survey-auto-creation" data-tab="survey_auto_creation"><a href="#" class="submenu-link"><i class="fas fa-clipboard-list"></i>Автосоздание анкет</a></li>
+        </ul>
       </li>
       <li class="nav-item help" data-tab="help" data-nav-class="help">
         <a href="/help" class="nav-link"><i class="fas fa-question-circle"></i>Справка</a>

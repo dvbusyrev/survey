@@ -56,6 +56,8 @@
                 return { tab, id: null, url: '/organizations/archive' };
             case 'reports':
                 return { tab, id: null, url: '/reports' };
+            case 'survey_auto_creation':
+                return { tab, id: null, url: '/survey-auto-creation' };
             case 'get_logs':
                 return { tab, id: null, url: '/event-log' };
             case 'email':
@@ -123,6 +125,10 @@
 
         if (normalizedPath === '/reports') {
             return buildAdminHistoryEntry('reports');
+        }
+
+        if (normalizedPath === '/survey-auto-creation') {
+            return buildAdminHistoryEntry('survey_auto_creation');
         }
 
         if (normalizedPath === '/event-log') {
@@ -629,6 +635,14 @@
                 }
             }, 0);
         }
+
+        if (state.activeTab === 'survey_auto_creation') {
+            window.setTimeout(() => {
+                if (typeof window.initSurveyAutoCreationPage === 'function') {
+                    window.initSurveyAutoCreationPage();
+                }
+            }, 0);
+        }
     };
 
     const setContentMount = (mountFn) => {
@@ -1091,6 +1105,10 @@
                     break;
                 case 'reports':
                     await fetchHtmlPage('/reports');
+                    setActiveTabAndRefreshNav(tab);
+                    break;
+                case 'survey_auto_creation':
+                    await fetchHtmlPage('/survey-auto-creation');
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'email':

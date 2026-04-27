@@ -2,7 +2,6 @@
 
 @{
     ViewData["Title"] = "Новое отправление";
-    ViewData["EmailSection"] = "new";
     var settings = Model ?? new MainProject.Application.DTO.Email.EmailTemplateSettings();
 }
 
@@ -11,12 +10,11 @@
 }
 
 <div class="app-page email-settings-page" id="default_content" data-page="mail-compose">
-    @await Html.PartialAsync("~/Web/Views/Email/Partials/_EmailSubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            // Title = "Новое отправление",
+            Title = "Новое отправление",
             Description = "Здесь можно подготовить письмо и отправить его по сохранённому SMTP-профилю."
         })
 

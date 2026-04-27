@@ -56,6 +56,10 @@
             return 'reports';
         }
 
+        if (normalizedPath === '/survey-auto-creation') {
+            return 'survey_auto_creation';
+        }
+
         if (normalizedPath === '/event-log') {
             return 'get_logs';
         }

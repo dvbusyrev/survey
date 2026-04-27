@@ -23,3 +23,4 @@ COMMIT;
 \ir 009_derive_survey_schedule_from_assignments.sql
 \ir 010_add_email_template_storage.sql
 \ir 011_add_email_template_audit_log.sql
+\ir 012_add_survey_auto_creation.sql

@@ -36,6 +36,22 @@ public class SurveyAdminController : Controller
         return View("~/Web/Views/Survey/get_surveys.cshtml", BuildSurveyListPage());
     }
 
+    [HttpGet("surveys/data")]
+    public IActionResult GetSurveyOptions()
+    {
+        var surveys = _surveyAdminService.GetSurveys()
+            .Select(survey => new
+            {
+                id = survey.IdSurvey,
+                name = survey.NameSurvey
+            })
+            .OrderBy(survey => survey.name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(survey => survey.id)
+            .ToArray();
+
+        return Json(surveys);
+    }
+
     [HttpGet("surveys/create")]
     public IActionResult AddSurvey()
     {

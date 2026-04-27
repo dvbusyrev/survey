@@ -132,7 +132,7 @@
 
 .reports-page__card-description,
 .reports-page__empty-text {
-margin: 0;
+margin-bottom: 3%;
 color: var(--text-secondary);
 font-size: 0.98rem;
 line-height: 1.6;
@@ -171,6 +171,100 @@ width: 100%;
 text-align: center;
 }
 
+.survey-auto-creation-page__card {
+  width: 100%;
+}
+
+.survey-auto-creation-page__header {
+  text-align: left;
+}
+
+.survey-auto-creation-page__controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.survey-auto-creation-page__selection {
+  display: grid;
+  gap: 16px;
+}
+
+.survey-auto-creation-page__selection-title {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.survey-auto-creation-page__selected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.survey-auto-creation-page__selected-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(90, 106, 205, 0.12);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.survey-auto-creation-page__empty-selection {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.survey-auto-creation-page__selection-action {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.survey-auto-creation-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.survey-auto-creation-page__action-btn {
+  width: min(100%, 280px);
+}
+
+.survey-auto-creation-modal__content {
+  max-width: min(680px, calc(100vw - 32px));
+}
+
+.survey-auto-creation-modal__loading {
+  color: var(--text-secondary);
+}
+
+.survey-auto-creation-modal__list {
+  display: grid;
+  gap: 12px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.survey-auto-creation-modal__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.survey-auto-creation-modal__item input {
+  margin: 0;
+}
+
 @media (max-width: 900px) {
 .reports-page__grid {
 grid-template-columns: minmax(0, 1fr);
@@ -178,6 +272,18 @@ grid-template-columns: minmax(0, 1fr);
 
 .email-settings-page__grid {
 grid-template-columns: minmax(0, 1fr);
+}
+
+.survey-auto-creation-page__controls {
+grid-template-columns: minmax(0, 1fr);
+}
+
+.survey-auto-creation-page__actions {
+  flex-direction: column;
+}
+
+.survey-auto-creation-page__action-btn {
+  width: 100%;
 }
 }
 

@@ -119,6 +119,7 @@ builder.Services
     });
 
 builder.Services.AddHostedService<SurveyExpirationService>(); // Регистрируем фоновую службу
+builder.Services.AddHostedService<SurveyAutoCreationHostedService>();
 builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
@@ -128,6 +129,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IUserChromeContextService, UserChromeContextService>();
 builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<ISurveyAutoCreationService, SurveyAutoCreationService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 builder.Services.AddScoped<IOrganizationManagementService, OrganizationManagementService>();
 builder.Services.AddScoped<ISurveyExtensionService, SurveyExtensionService>();

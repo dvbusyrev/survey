@@ -113,7 +113,8 @@
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
       const isSurveySectionActive = isAdmin ? ["get_surveys", "add_survey", "list_answers_users", "archived_surveys"].includes(activeTab) : ["active", "archived", "answers_tab", "archived_surveys_for_user"].includes(activeTab);
       const isOrganizationSectionActive = ["get_organization", "organization_surveys", "add_organization", "archive_list_organizations"].includes(activeTab);
-      const isEmailSectionActive = ["email", "email_new", "email_settings"].includes(activeTab);
+      const isEmailSectionActive = ["email", "email_new"].includes(activeTab);
+      const isSettingsSectionActive = ["email_settings", "survey_auto_creation"].includes(activeTab);
       const navigate = (tab) => {
         if (tab === "add_user") {
           const tryOpenAddUserModal = () => {
@@ -202,6 +203,7 @@
           organization_surveys: "/organizations/surveys",
           archive_list_organizations: "/organizations/archive",
           reports: "/reports",
+          survey_auto_creation: "/survey-auto-creation",
           email: "/mail",
           email_new: "/mail",
           email_settings: "/mail/configuration",
@@ -234,7 +236,7 @@
       nav.querySelectorAll(".nav-item").forEach((item) => {
         const tab = item.dataset.tab || "";
         const navClass = item.dataset.navClass || "";
-        const isActive = navClass === "surveys" ? isSurveySectionActive : navClass === "organizations" ? isOrganizationSectionActive : navClass === "email" ? isEmailSectionActive : tab === activeTab;
+        const isActive = navClass === "surveys" ? isSurveySectionActive : navClass === "organizations" ? isOrganizationSectionActive : navClass === "email" ? isEmailSectionActive : navClass === "settings" ? isSettingsSectionActive : tab === activeTab;
         item.classList.toggle("active", isActive);
       });
       nav.querySelectorAll(".submenu-item").forEach((subItem) => {

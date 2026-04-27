@@ -2,7 +2,7 @@
 
 @{
     ViewData["Title"] = "Настройки отправителя";
-    ViewData["EmailSection"] = "settings";
+    ViewData["SettingsSection"] = "sender";
     var settings = Model ?? new MainProject.Application.DTO.Email.EmailTemplateSettings();
 }
 
@@ -11,7 +11,7 @@
 }
 
 <div class="app-page email-settings-page" id="default_content" data-page="mail-settings-page">
-    @await Html.PartialAsync("~/Web/Views/Email/Partials/_EmailSubnav.cshtml")
+    @await Html.PartialAsync("~/Web/Views/Shared/_SettingsSubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
