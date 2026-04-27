@@ -47,16 +47,6 @@ body {
   padding-inline: 0.6rem;
 }
 
-.action-icons__content {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 10px;
-  min-width: 9.75rem;
-  margin: 0 auto;
-}
-
 .action-icons__content > * {
   margin: 0;
 }

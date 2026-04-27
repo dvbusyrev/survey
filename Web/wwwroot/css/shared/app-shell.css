@@ -52,7 +52,7 @@ body {
   margin: 0;
   padding: 0 8px;
   color: white;
-  font-size: clamp(0.95rem, 0.72rem + 0.75vw, 1.3rem);
+  font-size: clamp(1.95rem, 0.72rem + 0.75vw, 1.3rem);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
