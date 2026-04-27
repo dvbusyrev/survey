@@ -1,0 +1,65 @@
+@model IReadOnlyList<MainProject.Domain.Entities.Log>
+
+@{
+    ViewData["Title"] = "Журнал событий";
+    var logs = Model ?? Array.Empty<MainProject.Domain.Entities.Log>();
+    var loadErrorMessage = ViewData["LogLoadErrorMessage"] as string;
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/logs.css" asp-append-version="true" />
+}
+
+<div class="app-page logs-page" id="default_content" data-page="get_logs">
+    @await Html.PartialAsync(
+        "~/Web/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Web.ViewModels.PageIntroModel
+        {
+            Title = "Журнал cобытий",
+            Description = "Ниже представлен журнал действий пользователей и системных операций."
+        })
+
+    <div class="app-page__toolbar app-page__toolbar--start">
+        <a class="btn modal_btn modal_btn-primary" href="/event-log/export">Выгрузить журнал событий</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
+    {
+        <div class="app-page__section">
+            <p>@loadErrorMessage</p>
+        </div>
+    }
+
+    <table class="surveys-table logs-table" data-role="main-table">
+        <thead>
+            <tr class="table_tr">
+                <th class="table-th--start table-col--date">Дата</th>
+                <th>Клиент</th>
+                <th>Событие</th>
+                <th>Объект</th>
+                <th class="table-th--end">Описание</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!logs.Any())
+            {
+                <tr>
+                    <td colspan="5" class="table-empty-cell">События не найдены</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var log in logs)
+                {
+                    <tr>
+                        <td class="table-col--date">@log.Date.ToString("dd.MM.yyyy HH:mm:ss")</td>
+                        <td>@(string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser)</td>
+                        <td>@(string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType)</td>
+                        <td>@(string.IsNullOrWhiteSpace(log.TargetName) ? log.TargetType ?? "—" : log.TargetName)</td>
+                        <td class="logs-table__summary">@(string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description)</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
