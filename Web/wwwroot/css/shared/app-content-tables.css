@@ -222,7 +222,7 @@
 ) th.table-col--date {
   width: 10ch;
   min-width: 10ch;
-  max-width: 13ch;
+  max-width: 14ch;
   white-space: normal;
   text-wrap: balance;
   -webkit-hyphens: none;
@@ -279,8 +279,8 @@
   .help-document-page__content table,
   .modal-content table
 ) :is(th.table-col--actions, td.table-col--actions) {
-  width: clamp(10.75rem, 12vw, 12rem);
-  min-width: 10.75rem;
+  width: clamp(6.75rem, 12vw, 12rem);
+  min-width: 6.75rem;
   max-width: 12rem;
   white-space: normal;
   overflow: visible;
