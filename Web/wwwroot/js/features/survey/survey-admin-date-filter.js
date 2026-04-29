@@ -418,6 +418,7 @@
             const matchesOrganizations = selectedOrganizations.length === 0
                 || rowOrganizations.some((name) => selectedOrganizations.includes(name));
 
+            row.classList.remove('is-hidden');
             row.classList.toggle('is-hidden-by-date', !matchesDate);
             row.classList.toggle('is-hidden-by-organization', !matchesOrganizations);
         });

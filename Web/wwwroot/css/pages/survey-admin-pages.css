@@ -42,23 +42,6 @@
   font-size: 1rem;
 }
 
-survey-organization-filter__popover {
-  position: absolute;
-  top: calc(100% + 12px);
-  left: 0;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.98);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 20px;
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(14px);
-}
-
-
 .survey-period-filter__popover {
   position: absolute;
   width: min(760px, calc(100vw - 48px));
@@ -74,6 +57,14 @@ survey-organization-filter__popover {
   border-radius: 20px;
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
   backdrop-filter: blur(14px);
+}
+
+.survey-organization-filter__popover {
+  right: 0;
+  left: auto;
+  width: min(360px, calc(100vw - 32px));
+  gap: 12px;
+  padding: 16px;
 }
 
 .survey-period-filter__mode-switch {
@@ -254,6 +245,7 @@ survey-organization-filter__popover {
   font-size: 0.92rem;
   font-weight: 600;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .survey-period-filter__organization-empty {
