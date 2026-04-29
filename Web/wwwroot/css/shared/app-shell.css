@@ -19,10 +19,10 @@ body {
   display: grid;
   grid-template-columns: minmax(0, var(--header-side-slot)) 1fr minmax(0, var(--header-side-slot));
   align-items: center;
-  gap: calc(10px * var(--platform-ui-scale));
+  gap: calc(5px * var(--platform-ui-scale));
   width: 100%;
   min-height: var(--header-height);
-  padding: calc(6px * var(--platform-ui-scale)) clamp(calc(10px * var(--platform-ui-scale)), calc(1.4vw * var(--platform-ui-scale)), calc(16px * var(--platform-ui-scale)));
+  padding: calc(3px * var(--platform-ui-scale)) clamp(calc(8px * var(--platform-ui-scale)), calc(1vw * var(--platform-ui-scale)), calc(12px * var(--platform-ui-scale)));
   color: white;
   background:
     linear-gradient(135deg, #8a9cf5 0%, #a78bc9 100%),
@@ -38,16 +38,16 @@ body {
 .header-left {
   display: flex;
   align-items: center;
-  gap: calc(10px * var(--platform-ui-scale));
+  gap: calc(6px * var(--platform-ui-scale));
   min-width: 0;
 }
 
 .app-header img,
 .header-left img {
   justify-self: start;
-  width: calc(105px * var(--platform-ui-scale));
-  height: calc(var(--header-height) - calc(8px * var(--platform-ui-scale)));
-  max-height: calc(68px * var(--platform-ui-scale));
+  width: calc(56px * var(--platform-ui-scale));
+  height: calc(var(--header-height) - calc(4px * var(--platform-ui-scale)));
+  max-height: calc(34px * var(--platform-ui-scale));
   margin: 0;
   object-fit: contain;
 }
@@ -56,8 +56,8 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
-  width: calc(40px * var(--platform-ui-scale));
-  height: calc(40px * var(--platform-ui-scale));
+  width: calc(28px * var(--platform-ui-scale));
+  height: calc(28px * var(--platform-ui-scale));
   padding: 0;
   color: #fff;
   font-size: 1rem;
@@ -87,7 +87,7 @@ body {
   margin: 0;
   padding: 0 8px;
   color: white;
-  font-size: clamp(1.95rem, 0.72rem + 0.75vw, 1.3rem);
+  font-size: clamp(0.95rem, 0.82rem + 0.35vw, 1.15rem);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -99,7 +99,7 @@ body {
   width: 100%;
   align-items: center;
   justify-content: flex-end;
-  gap: calc(14px * var(--platform-ui-scale));
+  gap: calc(7px * var(--platform-ui-scale));
   min-width: 0;
 }
 
@@ -110,14 +110,14 @@ body {
   flex-direction: column;
   align-items: flex-end;
   min-width: 0;
-  gap: 2px;
+  gap: 1px;
 }
 
 .header-mode-label {
   width: 100%;
   margin: 0;
   color: rgba(255, 255, 255, 0.86);
-  font-size: clamp(0.56rem, 0.5rem + 0.14vw, 0.68rem);
+  font-size: clamp(0.46rem, 0.42rem + 0.1vw, 0.56rem);
   line-height: 1.2;
   text-align: right;
   white-space: nowrap;
@@ -132,7 +132,7 @@ body {
   margin: 0;
   padding-right: 2px;
   color: #fff;
-  font-size: clamp(0.66rem, 0.58rem + 0.16vw, 0.82rem);
+  font-size: clamp(0.52rem, 0.48rem + 0.12vw, 0.64rem);
   font-weight: 700;
   line-height: 1.25;
   text-align: right;
@@ -525,8 +525,8 @@ nav ul li.submenu-open > .submenu-list {
   .app-header {
     --header-side-slot: auto;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 10px;
-    padding-inline: 12px;
+    gap: 6px;
+    padding-inline: 8px;
   }
 
   .header-menu-toggle {
@@ -534,24 +534,24 @@ nav ul li.submenu-open > .submenu-list {
   }
 
   .header-left img {
-    width: 72px;
-    max-height: 52px;
+    width: 44px;
+    max-height: 30px;
   }
 
   .app-header h1 {
-    font-size: clamp(1.05rem, 0.94rem + 0.8vw, 1.4rem);
+    font-size: clamp(0.82rem, 0.76rem + 0.45vw, 1rem);
   }
 
   .header-right {
-    gap: 8px;
+    gap: 5px;
   }
 
   .header-mode-label {
-    font-size: 0.56rem;
+    font-size: 0.45rem;
   }
 
   .header-user-name {
-    font-size: 0.68rem;
+    font-size: 0.54rem;
   }
 
   .logout-button {
