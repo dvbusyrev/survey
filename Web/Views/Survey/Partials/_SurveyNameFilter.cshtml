@@ -1,0 +1,42 @@
+<div class="survey-period-filter" data-role="survey-name-filter">
+    <button type="button"
+            class="survey-period-filter__trigger"
+            data-role="survey-name-filter-trigger"
+            aria-expanded="false"
+            aria-haspopup="dialog">
+        <i class="fas fa-clipboard" aria-hidden="true"></i>
+        <span data-role="survey-name-filter-label">Фильтр по анкетам</span>
+    </button>
+
+    <div class="survey-period-filter__popover survey-name-filter__popover is-hidden"
+         data-role="survey-name-filter-popover"
+         role="dialog"
+         aria-label="Фильтр по анкетам">
+        <div class="survey-period-filter__header">
+            <div class="survey-period-filter__mode-switch">
+                <span class="survey-period-filter__section-label">Анкеты</span>
+            </div>
+
+            <button type="button"
+                    class="survey-period-filter__close-button modal-close"
+                    data-role="survey-name-filter-close"
+                    aria-label="Закрыть фильтр анкет">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <div class="survey-period-filter__panel">
+            <div class="survey-period-filter__organization-list"
+                 data-role="survey-name-filter-options"></div>
+        </div>
+
+        <div class="survey-period-filter__footer">
+            <p class="survey-period-filter__summary" data-role="survey-name-filter-summary"></p>
+            <button type="button"
+                    class="survey-period-filter__clear-button"
+                    data-role="survey-name-filter-clear">
+                Сбросить
+            </button>
+        </div>
+    </div>
+</div>

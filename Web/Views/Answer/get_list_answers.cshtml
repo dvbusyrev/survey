@@ -1,14 +1,20 @@
-﻿@model MainProject.Web.ViewModels.AnswerListPageViewModel
+﻿@using System.Text.Json
+@model MainProject.Web.ViewModels.AnswerListPageViewModel
 @{
     ViewData["Title"] = "Ответы на анкеты";
     ViewData["SurveySection"] = "answers";
 }
 
 @section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/survey-admin-pages.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 }
 
-<div class="app-page answers-page" id="default_content" data-page="answers-list">
+<div class="app-page answers-page"
+     id="default_content"
+     data-page="answers-list"
+     data-filter-item-label="ответов"
+     data-filter-date-summary="у которых дата ответа попадает">
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveySubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
@@ -18,21 +24,11 @@
             Description = "На этой странице вы можете посмотреть ответы организаций на анкеты."
         })
 
-    <section class="app-page__section">
-        <div class="filter-sort">
-            <select id="filterOrganization" class="filter-select"
-                    data-focus-call="populateOrganizationOptions"
-                    data-change-call="filterTable">
-                <option value="">Все организации</option>
-            </select>
-
-            <select id="filterSurvey" class="filter-select"
-                    data-focus-call="populateSurveyOptions"
-                    data-change-call="filterTable">
-                <option value="">Все анкеты</option>
-            </select>
-        </div>
-    </section>
+    <div class="app-page__toolbar survey-list-toolbar answers-page__filters">
+        @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyDateFilter.cshtml")
+        @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
+        @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyNameFilter.cshtml")
+    </div>
 
     <table data-role="main-table">
         <thead>
@@ -45,13 +41,35 @@
             </tr>
         </thead>
         <tbody>
-            @if (Model.Answers.Any())
+            @if (!Model.Answers.Any())
             {
+                <tr>
+                    <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
+                </tr>
+            }
+            else
+            {
+                <tr id="none_result"
+                    data-role="survey-filter-empty-row"
+                    class="is-hidden">
+                    <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
+                </tr>
+
                 foreach (var answer in Model.Answers)
                 {
+                    var completionDateIso = answer.CompletionDate?.ToString("yyyy-MM-dd") ?? string.Empty;
+                    var organizationNamesJson = JsonSerializer.Serialize(string.IsNullOrWhiteSpace(answer.OrganizationName)
+                        ? Array.Empty<string>()
+                        : new[] { answer.OrganizationName });
+
                     <tr class="active answers-page__row"
                         data-click-call="showAnswersModal"
-                        data-click-args='[@answer.IdSurvey, @answer.IdOrganization]'>
+                        data-click-args='[@answer.IdSurvey, @answer.IdOrganization]'
+                        data-survey-id="@answer.IdSurvey"
+                        data-survey-name="@(answer.SurveyName ?? string.Empty)"
+                        data-survey-date-begin="@completionDateIso"
+                        data-survey-date-end="@completionDateIso"
+                        data-survey-organizations="@organizationNamesJson">
                         <td>@answer.OrganizationName</td>
                         <td>@answer.SurveyName</td>
                         <td class="table-col--date">@answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</td>
@@ -76,12 +94,6 @@
                     </tr>
                 }
             }
-            else
-            {
-                <tr>
-                    <td colspan="5" class="table-empty-cell" id="none_result">Результаты не найдены!</td>
-                </tr>
-            }
         </tbody>
     </table>
 
@@ -90,4 +102,5 @@
 
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminArchiveScripts.cshtml")
+    <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
 }

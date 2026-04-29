@@ -4,9 +4,10 @@
         existingController.destroy();
     }
 
-    const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"]';
+    const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"], .app-page[data-page="answers-list"]';
     const FILTER_SELECTOR = '[data-role="survey-date-filter"]';
     const ORGANIZATION_FILTER_SELECTOR = '[data-role="survey-organization-filter"]';
+    const SURVEY_NAME_FILTER_SELECTOR = '[data-role="survey-name-filter"]';
     const SURVEY_ROW_SELECTOR = 'tr[data-survey-date-begin][data-survey-date-end]';
     const MONTH_NAMES = [
         'Январь',
@@ -25,6 +26,7 @@
     const WEEKDAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     const instances = new Map();
     const organizationInstances = new Map();
+    const surveyNameInstances = new Map();
     let observer = null;
 
     function pad(value) {
@@ -232,6 +234,12 @@
                 organizationInstances.delete(root);
             }
         });
+
+        Array.from(surveyNameInstances.entries()).forEach(([root]) => {
+            if (!document.contains(root)) {
+                surveyNameInstances.delete(root);
+            }
+        });
     }
 
     function getPagesFromNode(node) {
@@ -263,6 +271,10 @@
         return Array.from(organizationInstances.values()).find((instance) => instance.page === page) || null;
     }
 
+    function getSurveyNameInstanceForPage(page) {
+        return Array.from(surveyNameInstances.values()).find((instance) => instance.page === page) || null;
+    }
+
     function parseRowOrganizations(row) {
         const rawValue = row?.dataset?.surveyOrganizations || '[]';
         try {
@@ -283,10 +295,31 @@
         )).sort((left, right) => left.localeCompare(right, 'ru'));
     }
 
+    function getRowSurveyName(row) {
+        return String(row?.dataset?.surveyName || '').trim();
+    }
+
+    function collectAvailableSurveyNames(page) {
+        return Array.from(new Set(
+            getDataRowsFromPage(page)
+                .map((row) => getRowSurveyName(row))
+                .filter(Boolean)
+        )).sort((left, right) => left.localeCompare(right, 'ru'));
+    }
+
+    function getPageItemLabel(page) {
+        return page?.dataset?.filterItemLabel || 'анкет';
+    }
+
+    function getPageDateSummary(page) {
+        return page?.dataset?.filterDateSummary || 'у которых дата начала и дата конца попадают';
+    }
+
     function getCombinedVisibleCount(rows) {
         return rows.filter((row) => (
             !row.classList.contains('is-hidden-by-date')
             && !row.classList.contains('is-hidden-by-organization')
+            && !row.classList.contains('is-hidden-by-survey-name')
         )).length;
     }
 
@@ -344,23 +377,37 @@
         return `Организаций: ${selectedOrganizations.length}`;
     }
 
+    function getSurveyNameFilterLabel(selectedSurveyNames) {
+        if (!Array.isArray(selectedSurveyNames) || selectedSurveyNames.length === 0) {
+            return 'Фильтр по анкетам';
+        }
+
+        if (selectedSurveyNames.length === 1) {
+            return selectedSurveyNames[0];
+        }
+
+        return `Анкет: ${selectedSurveyNames.length}`;
+    }
+
     function updateFilterSummary(instance, visibleCount, totalCount) {
         const { state, refs } = instance;
+        const itemLabel = getPageItemLabel(instance.page);
+        const dateSummary = getPageDateSummary(instance.page);
         let label = 'Фильтр по периоду';
-        let summary = `Показано ${visibleCount} из ${totalCount} анкет.`;
+        let summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
 
         if (state.activeFilterType === 'year' && Number.isInteger(state.activeYear)) {
             const yearLabel = getYearDescription(state.activeYear);
             label = yearLabel;
-            summary = `Показано ${visibleCount} из ${totalCount} анкет, у которых дата начала и дата конца попадают в ${yearLabel}.`;
+            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в ${yearLabel}.`;
         } else if (state.activeFilterType === 'month' && state.activeMonth) {
             const monthLabel = getMonthDescription(state.activeMonth.year, state.activeMonth.monthIndex);
             label = monthLabel;
-            summary = `Показано ${visibleCount} из ${totalCount} анкет, у которых дата начала и дата конца попадают в ${monthLabel}.`;
+            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в ${monthLabel}.`;
         } else if (state.activeFilterType === 'range' && state.rangeStart && state.rangeEnd) {
             const rangeLabel = getRangeDescription(state.rangeStart, state.rangeEnd);
             label = rangeLabel;
-            summary = `Показано ${visibleCount} из ${totalCount} анкет, у которых дата начала и дата конца попадают в период ${rangeLabel}.`;
+            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в период ${rangeLabel}.`;
         }
 
         refs.label.textContent = label;
@@ -375,12 +422,13 @@
     function updateOrganizationFilterSummary(instance, visibleCount, totalCount) {
         const selectedOrganizations = instance.state.selectedOrganizations;
         const label = getOrganizationFilterLabel(selectedOrganizations);
-        let summary = `Показано ${visibleCount} из ${totalCount} анкет.`;
+        const itemLabel = getPageItemLabel(instance.page);
+        let summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
 
         if (selectedOrganizations.length === 1) {
-            summary = `Показано ${visibleCount} из ${totalCount} анкет для организации ${selectedOrganizations[0]}.`;
+            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} для организации ${selectedOrganizations[0]}.`;
         } else if (selectedOrganizations.length > 1) {
-            summary = `Показано ${visibleCount} из ${totalCount} анкет для ${selectedOrganizations.length} организаций.`;
+            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} для ${selectedOrganizations.length} организаций.`;
         }
 
         instance.refs.label.textContent = label;
@@ -388,9 +436,27 @@
         instance.refs.clearButton.disabled = selectedOrganizations.length === 0;
     }
 
+    function updateSurveyNameFilterSummary(instance, visibleCount, totalCount) {
+        const selectedSurveyNames = instance.state.selectedSurveyNames;
+        const label = getSurveyNameFilterLabel(selectedSurveyNames);
+        const itemLabel = getPageItemLabel(instance.page);
+        let summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
+
+        if (selectedSurveyNames.length === 1) {
+            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} по анкете ${selectedSurveyNames[0]}.`;
+        } else if (selectedSurveyNames.length > 1) {
+            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} по ${selectedSurveyNames.length} анкетам.`;
+        }
+
+        instance.refs.label.textContent = label;
+        instance.refs.summary.textContent = summary;
+        instance.refs.clearButton.disabled = selectedSurveyNames.length === 0;
+    }
+
     function updatePageSummaries(page, visibleCount, totalCount) {
         const dateInstance = getDateInstanceForPage(page);
         const organizationInstance = getOrganizationInstanceForPage(page);
+        const surveyNameInstance = getSurveyNameInstanceForPage(page);
 
         if (dateInstance) {
             updateFilterSummary(dateInstance, visibleCount, totalCount);
@@ -399,6 +465,10 @@
         if (organizationInstance) {
             updateOrganizationFilterSummary(organizationInstance, visibleCount, totalCount);
         }
+
+        if (surveyNameInstance) {
+            updateSurveyNameFilterSummary(surveyNameInstance, visibleCount, totalCount);
+        }
     }
 
     function applyPageFilters(page) {
@@ -406,8 +476,10 @@
         const totalCount = rows.length;
         const dateInstance = getDateInstanceForPage(page);
         const organizationInstance = getOrganizationInstanceForPage(page);
+        const surveyNameInstance = getSurveyNameInstanceForPage(page);
         const bounds = dateInstance ? getActiveFilterBounds(dateInstance.state) : null;
         const selectedOrganizations = organizationInstance?.state?.selectedOrganizations || [];
+        const selectedSurveyNames = surveyNameInstance?.state?.selectedSurveyNames || [];
 
         rows.forEach((row) => {
             const beginIso = row.dataset.surveyDateBegin || '';
@@ -417,10 +489,14 @@
             const rowOrganizations = parseRowOrganizations(row);
             const matchesOrganizations = selectedOrganizations.length === 0
                 || rowOrganizations.some((name) => selectedOrganizations.includes(name));
+            const rowSurveyName = getRowSurveyName(row);
+            const matchesSurveyName = selectedSurveyNames.length === 0
+                || selectedSurveyNames.includes(rowSurveyName);
 
             row.classList.remove('is-hidden');
             row.classList.toggle('is-hidden-by-date', !matchesDate);
             row.classList.toggle('is-hidden-by-organization', !matchesOrganizations);
+            row.classList.toggle('is-hidden-by-survey-name', !matchesSurveyName);
         });
 
         const visibleCount = getCombinedVisibleCount(rows);
@@ -450,6 +526,14 @@
         });
 
         organizationInstances.forEach((instance, root) => {
+            if (root === exceptRoot) {
+                return;
+            }
+
+            setPopoverOpen(instance, false);
+        });
+
+        surveyNameInstances.forEach((instance, root) => {
             if (root === exceptRoot) {
                 return;
             }
@@ -628,6 +712,35 @@
         });
     }
 
+    function renderSurveyNamePanel(instance) {
+        const { state, refs } = instance;
+        refs.options.textContent = '';
+
+        if (state.availableSurveyNames.length === 0) {
+            refs.options.appendChild(
+                createElement('p', 'survey-period-filter__organization-empty', 'Анкеты для фильтрации не найдены.')
+            );
+            return;
+        }
+
+        state.availableSurveyNames.forEach((surveyName) => {
+            const optionLabel = createElement('label', 'survey-period-filter__organization-option');
+            const checkbox = createElement('input', 'survey-period-filter__organization-checkbox');
+            const labelText = createElement('span', 'survey-period-filter__organization-name', surveyName);
+            const isSelected = state.selectedSurveyNames.includes(surveyName);
+
+            optionLabel.classList.toggle('is-selected', isSelected);
+            checkbox.type = 'checkbox';
+            checkbox.dataset.role = 'survey-name-filter-option';
+            checkbox.dataset.surveyName = surveyName;
+            checkbox.checked = isSelected;
+
+            optionLabel.appendChild(checkbox);
+            optionLabel.appendChild(labelText);
+            refs.options.appendChild(optionLabel);
+        });
+    }
+
     function render(instance) {
         renderModeSwitch(instance);
         renderYearPanel(instance);
@@ -713,6 +826,10 @@
         renderOrganizationPanel(instance);
     }
 
+    function renderSurveyName(instance) {
+        renderSurveyNamePanel(instance);
+    }
+
     function toggleOrganizationSelection(instance, organizationName, isSelected) {
         const normalizedName = String(organizationName || '').trim();
         if (!normalizedName) {
@@ -729,6 +846,25 @@
         instance.state.selectedOrganizations = Array.from(nextSelectedOrganizations)
             .sort((left, right) => left.localeCompare(right, 'ru'));
         renderOrganization(instance);
+        applyPageFilters(instance.page);
+    }
+
+    function toggleSurveyNameSelection(instance, surveyName, isSelected) {
+        const normalizedName = String(surveyName || '').trim();
+        if (!normalizedName) {
+            return;
+        }
+
+        const nextSelectedSurveyNames = new Set(instance.state.selectedSurveyNames);
+        if (isSelected) {
+            nextSelectedSurveyNames.add(normalizedName);
+        } else {
+            nextSelectedSurveyNames.delete(normalizedName);
+        }
+
+        instance.state.selectedSurveyNames = Array.from(nextSelectedSurveyNames)
+            .sort((left, right) => left.localeCompare(right, 'ru'));
+        renderSurveyName(instance);
         applyPageFilters(instance.page);
     }
 
@@ -976,6 +1112,83 @@
         applyPageFilters(instance.page);
     }
 
+    function bindSurveyNameInstance(root) {
+        if (!(root instanceof Element) || surveyNameInstances.has(root)) {
+            return;
+        }
+
+        const page = root.closest(PAGE_SELECTOR);
+        const tableBody = page?.querySelector('[data-role="main-table"] tbody');
+        if (!page || !tableBody) {
+            return;
+        }
+
+        const instance = {
+            root,
+            page,
+            state: {
+                isOpen: false,
+                availableSurveyNames: collectAvailableSurveyNames(page),
+                selectedSurveyNames: []
+            },
+            refs: {
+                trigger: root.querySelector('[data-role="survey-name-filter-trigger"]'),
+                label: root.querySelector('[data-role="survey-name-filter-label"]'),
+                popover: root.querySelector('[data-role="survey-name-filter-popover"]'),
+                options: root.querySelector('[data-role="survey-name-filter-options"]'),
+                summary: root.querySelector('[data-role="survey-name-filter-summary"]'),
+                clearButton: root.querySelector('[data-role="survey-name-filter-clear"]')
+            },
+            handlers: {}
+        };
+
+        instance.handlers.click = function (event) {
+            event.stopPropagation();
+
+            const trigger = event.target.closest('[data-role="survey-name-filter-trigger"]');
+            if (trigger && root.contains(trigger)) {
+                event.preventDefault();
+                const shouldOpen = !instance.state.isOpen;
+                closeAllPopovers(shouldOpen ? root : null);
+                setPopoverOpen(instance, shouldOpen);
+                return;
+            }
+
+            if (event.target.closest('[data-role="survey-name-filter-close"]')) {
+                event.preventDefault();
+                setPopoverOpen(instance, false);
+                return;
+            }
+
+            if (event.target.closest('[data-role="survey-name-filter-clear"]')) {
+                event.preventDefault();
+                instance.state.selectedSurveyNames = [];
+                renderSurveyName(instance);
+                applyPageFilters(instance.page);
+            }
+        };
+
+        instance.handlers.change = function (event) {
+            const option = event.target.closest('[data-role="survey-name-filter-option"]');
+            if (!option || !root.contains(option)) {
+                return;
+            }
+
+            toggleSurveyNameSelection(
+                instance,
+                option.dataset.surveyName || '',
+                Boolean(option.checked)
+            );
+        };
+
+        root.addEventListener('click', instance.handlers.click);
+        root.addEventListener('change', instance.handlers.change);
+
+        surveyNameInstances.set(root, instance);
+        renderSurveyName(instance);
+        applyPageFilters(instance.page);
+    }
+
     function bindAvailablePages(root = document) {
         cleanupDetachedInstances();
         const pages = root === document
@@ -992,6 +1205,11 @@
             if (organizationFilterRoot) {
                 bindOrganizationInstance(organizationFilterRoot);
             }
+
+            const surveyNameFilterRoot = page.querySelector(SURVEY_NAME_FILTER_SELECTOR);
+            if (surveyNameFilterRoot) {
+                bindSurveyNameInstance(surveyNameFilterRoot);
+            }
         });
     }
 
@@ -1006,6 +1224,12 @@
         });
 
         organizationInstances.forEach((instance, root) => {
+            if (root.contains(event.target)) {
+                clickedInsideFilter = true;
+            }
+        });
+
+        surveyNameInstances.forEach((instance, root) => {
             if (root.contains(event.target)) {
                 clickedInsideFilter = true;
             }
@@ -1039,6 +1263,16 @@
             }
         });
         organizationInstances.clear();
+
+        surveyNameInstances.forEach((instance, root) => {
+            if (instance.handlers?.click) {
+                root.removeEventListener('click', instance.handlers.click);
+            }
+            if (instance.handlers?.change) {
+                root.removeEventListener('change', instance.handlers.change);
+            }
+        });
+        surveyNameInstances.clear();
 
         if (observer) {
             observer.disconnect();

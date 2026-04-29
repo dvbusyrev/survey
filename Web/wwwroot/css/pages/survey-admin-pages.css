@@ -44,41 +44,42 @@
 
 .survey-period-filter__popover {
   position: absolute;
-  width: min(760px, calc(100vw - 48px));
-  top: calc(100% + 12px);
+  width: min(520px, calc(100vw - 32px));
+  top: calc(100% + 8px);
   left: 0;
   z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
+  gap: 10px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 20px;
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16);
   backdrop-filter: blur(14px);
 }
 
-.survey-organization-filter__popover {
+.survey-organization-filter__popover,
+.survey-name-filter__popover {
   right: 0;
   left: auto;
-  width: min(360px, calc(100vw - 32px));
-  gap: 12px;
-  padding: 16px;
+  width: min(280px, calc(100vw - 32px));
+  gap: 8px;
+  padding: 12px;
 }
 
 .survey-period-filter__mode-switch {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
 }
 
 .survey-period-filter__section-label {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 30px;
   color: var(--text-main);
-  font-size: 0.95rem;
+  font-size: 0.86rem;
   font-weight: 700;
 }
 
@@ -86,14 +87,14 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .survey-period-filter__close-button {
   position: static;
   flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
 }
 
 .survey-period-filter__mode-button,
@@ -108,10 +109,10 @@
 }
 
 .survey-period-filter__mode-button {
-  min-height: 40px;
-  padding: 0.65rem 0.95rem;
+  min-height: 30px;
+  padding: 0.42rem 0.62rem;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 700;
   background: rgba(241, 245, 249, 0.95);
   border-color: rgba(203, 213, 225, 0.9);
@@ -122,25 +123,25 @@
   color: #fff;
   background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
   border-color: rgba(106, 90, 205, 0.8);
-  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.24);
+  box-shadow: 0 7px 16px rgba(106, 90, 205, 0.22);
 }
 
 .survey-period-filter__panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .survey-period-filter__panel-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .survey-period-filter__panel-title {
   color: var(--text-main);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   text-align: center;
 }
@@ -149,13 +150,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 30px;
+  height: 30px;
   color: var(--text-main);
   background: rgba(248, 250, 252, 0.98);
   border-color: rgba(203, 213, 225, 0.92);
-  border-radius: 12px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  border-radius: 9px;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 
 .survey-period-filter__nav-button:hover,
@@ -169,7 +170,7 @@
 .survey-period-filter__years,
 .survey-period-filter__months {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .survey-period-filter__years {
@@ -182,14 +183,14 @@
 
 .survey-period-filter__year-button,
 .survey-period-filter__month-button {
-  min-height: 52px;
-  padding: 0.8rem 0.9rem;
+  min-height: 34px;
+  padding: 0.48rem 0.55rem;
   color: var(--text-main);
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   font-weight: 700;
   background: rgba(248, 250, 252, 0.98);
   border-color: rgba(203, 213, 225, 0.92);
-  border-radius: 14px;
+  border-radius: 10px;
 }
 
 .survey-period-filter__year-button.is-selected,
@@ -197,52 +198,52 @@
   color: #fff;
   background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
   border-color: rgba(106, 90, 205, 0.82);
-  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.24);
+  box-shadow: 0 7px 16px rgba(106, 90, 205, 0.22);
 }
 
 .survey-period-filter__organization-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: 320px;
+  gap: 6px;
+  max-height: 220px;
   overflow-y: auto;
-  padding: 4px;
+  padding: 2px;
 }
 
 .survey-period-filter__organization-option {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 0.85rem 0.95rem;
+  gap: 8px;
+  padding: 0.55rem 0.65rem;
   background: rgba(248, 250, 252, 0.98);
   border: 1px solid rgba(203, 213, 225, 0.92);
-  border-radius: 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
 }
 
 .survey-period-filter__organization-option:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 
 .survey-period-filter__organization-option.is-selected {
   background: rgba(141, 132, 255, 0.12);
   border-color: rgba(106, 90, 205, 0.45);
-  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.12);
+  box-shadow: 0 7px 16px rgba(106, 90, 205, 0.12);
 }
 
 .survey-period-filter__organization-checkbox {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
   accent-color: #6a5acd;
 }
 
 .survey-period-filter__organization-name {
   color: var(--text-main);
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -251,7 +252,7 @@
 .survey-period-filter__organization-empty {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   line-height: 1.5;
 }
 
@@ -259,30 +260,30 @@
 .survey-period-filter__summary {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   line-height: 1.5;
 }
 
 .survey-period-filter__calendars {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .survey-period-filter__calendar-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 7px;
+  padding: 10px;
   background: rgba(248, 250, 252, 0.98);
   border: 1px solid rgba(203, 213, 225, 0.9);
-  border-radius: 18px;
+  border-radius: 14px;
 }
 
 .survey-period-filter__calendar-title {
   margin: 0;
   color: var(--text-main);
-  font-size: 0.98rem;
+  font-size: 0.88rem;
   font-weight: 700;
   text-align: center;
 }
@@ -291,31 +292,31 @@
 .survey-period-filter__days-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
 }
 
 .survey-period-filter__weekday {
   color: var(--text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-align: center;
 }
 
 .survey-period-filter__day-placeholder {
   display: block;
-  min-height: 40px;
+  min-height: 28px;
 }
 
 .survey-period-filter__day-button {
   position: relative;
-  min-height: 40px;
+  min-height: 28px;
   padding: 0;
   color: var(--text-main);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 700;
   background: #fff;
   border-color: rgba(203, 213, 225, 0.92);
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .survey-period-filter__day-button.is-today {
@@ -335,14 +336,14 @@
   color: #fff;
   background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
   border-color: rgba(106, 90, 205, 0.82);
-  box-shadow: 0 10px 22px rgba(106, 90, 205, 0.24);
+  box-shadow: 0 7px 16px rgba(106, 90, 205, 0.22);
 }
 
 .survey-period-filter__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   padding-top: 2px;
 }
 
@@ -350,14 +351,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  padding: 0.7rem 1rem;
+  min-height: 32px;
+  padding: 0.48rem 0.7rem;
   color: var(--text-main);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 700;
   background: rgba(248, 250, 252, 0.98);
   border-color: rgba(203, 213, 225, 0.92);
-  border-radius: 12px;
+  border-radius: 9px;
 }
 
 .survey-period-filter__clear-button:disabled {
@@ -367,7 +368,8 @@
 }
 
 .is-hidden-by-date,
-.is-hidden-by-organization {
+.is-hidden-by-organization,
+.is-hidden-by-survey-name {
   display: none !important;
 }
 
