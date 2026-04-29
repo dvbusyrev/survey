@@ -20,7 +20,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     WebRootPath = "Web/wwwroot"
 });
 
-builder.WebHost.UseUrls("http://0.0.0.0:8080");
+ builder.WebHost.UseUrls("http://0.0.0.0:5000");
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 

@@ -176,7 +176,7 @@ option,
   justify-content: space-between;
   gap: calc(12px * var(--platform-ui-scale));
   flex-wrap: wrap;
-  margin-bottom: calc(16px * var(--platform-ui-scale));
+  margin-bottom: 1%;
 }
 
 .back-button {
