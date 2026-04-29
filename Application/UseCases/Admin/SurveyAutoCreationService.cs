@@ -12,7 +12,9 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
 {
     private const int SingletonConfigId = 1;
     private const string DefaultPattern = "1-monday";
-    private const int DefaultBusinessDayOffset = 8;
+    private const int DefaultCreationDayId = 1;
+    private const int DefaultBeginDayId = 1;
+    private const int DefaultWorkingPeriod = 8;
     private const string StorageUnavailableMessage = "Автосоздание анкет недоступно: в базе данных ещё не применена миграция настроек автосоздания.";
 
     private readonly IDbConnectionFactory _connectionFactory;
@@ -40,9 +42,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         {
             CreationPattern = config.CreationPattern,
             StartPattern = config.StartPattern,
-            EndOffsetBusinessDays = config.EndOffsetBusinessDays,
+            EndOffsetBusinessDays = config.WorkingPeriod,
             IsEnabled = config.IsEnabled,
-            LastProcessedScheduleDate = config.LastProcessedScheduleDate,
             SelectedSurveys = selectedSurveys
                 .Select(static survey => new SurveyAutoCreationSelectedSurveyViewModel
                 {
@@ -91,7 +92,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         await connection.ExecuteAsync(
             new CommandDefinition(
                 """
-                UPDATE public.survey_auto_creation_config
+                UPDATE public.auto_creation_config
                 SET is_enabled = FALSE
                 WHERE id_config = @ConfigId;
                 """,
@@ -138,7 +139,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             new CommandDefinition(
                 """
                 SELECT id_survey
-                FROM public.survey_auto_creation_config_survey
+                FROM public.survey_auto_creation_config
                 WHERE id_config = @ConfigId
                 ORDER BY id_survey;
                 """,
@@ -157,18 +158,20 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         }
 
         var today = DateTime.Today;
-        if (!SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(today.Year, today.Month, config.CreationPattern, out var creationDate)
-            || !SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(today.Year, today.Month, config.StartPattern, out var startDate))
+        if (!TryParseDayOfWeek(config.CreationDayName, out var creationDayOfWeek)
+            || !TryParseDayOfWeek(config.BeginDayName, out var beginDayOfWeek)
+            || !SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(today.Year, today.Month, config.CreationWeekNumber, creationDayOfWeek, out var creationDate)
+            || !SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(today.Year, today.Month, config.BeginWeekNumber, beginDayOfWeek, out var startDate))
         {
             await transaction.CommitAsync(cancellationToken);
-            _logger.LogWarning("Конфигурация автосоздания содержит некорректные шаблоны дат.");
+            _logger.LogWarning("Конфигурация автосоздания содержит некорректные дни расписания.");
             return new SurveyAutoCreationRunResult
             {
                 IsEnabled = true
             };
         }
 
-        if (today < creationDate.Date || config.LastProcessedScheduleDate?.Date == creationDate.Date)
+        if (today < creationDate.Date)
         {
             await transaction.CommitAsync(cancellationToken);
             return new SurveyAutoCreationRunResult
@@ -179,28 +182,16 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        var endDate = SurveyAutoCreationScheduleHelper.AddBusinessDays(startDate.Date, config.EndOffsetBusinessDays);
+        var endDate = SurveyAutoCreationScheduleHelper.AddBusinessDays(startDate.Date, config.WorkingPeriod);
         var createdCount = 0;
         foreach (var surveyId in surveyIdArray)
         {
-            await CopySurveyTemplateAsync(connection, transaction, surveyId, startDate.Date, endDate.Date, cancellationToken);
-            createdCount += 1;
+            var created = await CopySurveyTemplateAsync(connection, transaction, surveyId, startDate.Date, endDate.Date, cancellationToken);
+            if (created)
+            {
+                createdCount += 1;
+            }
         }
-
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                UPDATE public.survey_auto_creation_config
-                SET last_processed_schedule_date = @LastProcessedScheduleDate
-                WHERE id_config = @ConfigId;
-                """,
-                new
-                {
-                    ConfigId = SingletonConfigId,
-                    LastProcessedScheduleDate = creationDate.Date
-                },
-                transaction,
-                cancellationToken: cancellationToken));
 
         await transaction.CommitAsync(cancellationToken);
 
@@ -227,7 +218,13 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         bool runImmediately,
         CancellationToken cancellationToken)
     {
-        var normalizeResult = await TryNormalizeRequestAsync(request, cancellationToken);
+        using var connection = _connectionFactory.CreateConnection();
+        if (!await HasStorageAsync(connection, null, cancellationToken))
+        {
+            return BuildStorageUnavailableCommandResult();
+        }
+
+        var normalizeResult = await TryNormalizeRequestAsync(connection, request, cancellationToken);
         if (!normalizeResult.IsValid)
         {
             return new SurveyAutoCreationCommandResult
@@ -238,12 +235,6 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
 
         var normalizedRequest = normalizeResult.NormalizedRequest;
 
-        using var connection = _connectionFactory.CreateConnection();
-        if (!await HasStorageAsync(connection, null, cancellationToken))
-        {
-            return BuildStorageUnavailableCommandResult();
-        }
-
         using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
             var current = await GetOrCreateConfigurationAsync(connection, transaction, cancellationToken, lockRow: true);
@@ -252,40 +243,36 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
-                    INSERT INTO public.survey_auto_creation_config
+                    INSERT INTO public.auto_creation_config
                     (
                         id_config,
-                        creation_pattern,
-                        start_pattern,
-                        end_offset_business_days,
-                        is_enabled,
-                        last_processed_schedule_date
+                        id_creation_day,
+                        id_begin_day,
+                        working_period,
+                        is_enabled
                     )
                     VALUES
                     (
                         @IdConfig,
-                        @CreationPattern,
-                        @StartPattern,
-                        @EndOffsetBusinessDays,
-                        @IsEnabled,
-                        @LastProcessedScheduleDate
+                        @CreationDayId,
+                        @BeginDayId,
+                        @WorkingPeriod,
+                        @IsEnabled
                     )
                     ON CONFLICT (id_config) DO UPDATE
                     SET
-                        creation_pattern = EXCLUDED.creation_pattern,
-                        start_pattern = EXCLUDED.start_pattern,
-                        end_offset_business_days = EXCLUDED.end_offset_business_days,
-                        is_enabled = EXCLUDED.is_enabled,
-                        last_processed_schedule_date = public.survey_auto_creation_config.last_processed_schedule_date;
+                        id_creation_day = EXCLUDED.id_creation_day,
+                        id_begin_day = EXCLUDED.id_begin_day,
+                        working_period = EXCLUDED.working_period,
+                        is_enabled = EXCLUDED.is_enabled;
                     """,
                     new
                     {
                         IdConfig = SingletonConfigId,
-                        normalizedRequest.CreationPattern,
-                        normalizedRequest.StartPattern,
-                        normalizedRequest.EndOffsetBusinessDays,
-                        IsEnabled = isEnabled,
-                        LastProcessedScheduleDate = current.LastProcessedScheduleDate
+                        normalizeResult.CreationDayId,
+                        normalizeResult.BeginDayId,
+                        WorkingPeriod = normalizedRequest.EndOffsetBusinessDays,
+                        IsEnabled = isEnabled
                     },
                     transaction,
                     cancellationToken: cancellationToken));
@@ -293,7 +280,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             await connection.ExecuteAsync(
                 new CommandDefinition(
                     """
-                    DELETE FROM public.survey_auto_creation_config_survey
+                    DELETE FROM public.survey_auto_creation_config
                     WHERE id_config = @ConfigId;
                     """,
                     new { ConfigId = SingletonConfigId },
@@ -305,7 +292,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
                 await connection.ExecuteAsync(
                     new CommandDefinition(
                         """
-                        INSERT INTO public.survey_auto_creation_config_survey (id_config, id_survey)
+                        INSERT INTO public.survey_auto_creation_config (id_config, id_survey)
                         VALUES (@ConfigId, @SurveyId);
                         """,
                         new
@@ -363,6 +350,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
     }
 
     private async Task<NormalizeSurveyAutoCreationRequestResult> TryNormalizeRequestAsync(
+        NpgsqlConnection connection,
         SurveyAutoCreationSettingsRequest? request,
         CancellationToken cancellationToken)
     {
@@ -382,7 +370,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             .OrderBy(static id => id)
             .ToArray();
 
-        if (!SurveyAutoCreationScheduleHelper.IsValidMonthWeekdayPattern(creationPattern))
+        if (!SurveyAutoCreationScheduleHelper.TryParseMonthWeekdayPattern(creationPattern, out var creationWeekNumber, out var creationDayOfWeek))
         {
             return new NormalizeSurveyAutoCreationRequestResult
             {
@@ -390,7 +378,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        if (!SurveyAutoCreationScheduleHelper.IsValidMonthWeekdayPattern(startPattern))
+        if (!SurveyAutoCreationScheduleHelper.TryParseMonthWeekdayPattern(startPattern, out var beginWeekNumber, out var beginDayOfWeek))
         {
             return new NormalizeSurveyAutoCreationRequestResult
             {
@@ -398,11 +386,11 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        if (request.EndOffsetBusinessDays is < 8 or > 20)
+        if (request.EndOffsetBusinessDays <= 0)
         {
             return new NormalizeSurveyAutoCreationRequestResult
             {
-                ValidationError = "Поле «Дата конца» должно быть в диапазоне от +8 до +20 рабочих дней."
+                ValidationError = "Поле «Период действия» должно быть положительным числом рабочих дней."
             };
         }
 
@@ -414,7 +402,16 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        using var connection = _connectionFactory.CreateConnection();
+        var creationDayId = await GetWeekDayIdAsync(connection, creationWeekNumber, creationDayOfWeek, cancellationToken);
+        var beginDayId = await GetWeekDayIdAsync(connection, beginWeekNumber, beginDayOfWeek, cancellationToken);
+        if (creationDayId == null || beginDayId == null)
+        {
+            return new NormalizeSurveyAutoCreationRequestResult
+            {
+                ValidationError = "Дни расписания не найдены в справочнике week_day."
+            };
+        }
+
         var existingSurveyIds = (await connection.QueryAsync<int>(
             new CommandDefinition(
                 """
@@ -442,7 +439,9 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
                 StartPattern = startPattern,
                 EndOffsetBusinessDays = request.EndOffsetBusinessDays,
                 SurveyIds = surveyIds.ToList()
-            }
+            },
+            CreationDayId = creationDayId.Value,
+            BeginDayId = beginDayId.Value
         };
     }
 
@@ -455,20 +454,20 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         await connection.ExecuteAsync(
             new CommandDefinition(
                 """
-                INSERT INTO public.survey_auto_creation_config
+                INSERT INTO public.auto_creation_config
                 (
                     id_config,
-                    creation_pattern,
-                    start_pattern,
-                    end_offset_business_days,
+                    id_creation_day,
+                    id_begin_day,
+                    working_period,
                     is_enabled
                 )
                 VALUES
                 (
                     @ConfigId,
-                    @CreationPattern,
-                    @StartPattern,
-                    @EndOffsetBusinessDays,
+                    @CreationDayId,
+                    @BeginDayId,
+                    @WorkingPeriod,
                     FALSE
                 )
                 ON CONFLICT (id_config) DO NOTHING;
@@ -476,9 +475,9 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
                 new
                 {
                     ConfigId = SingletonConfigId,
-                    CreationPattern = DefaultPattern,
-                    StartPattern = DefaultPattern,
-                    EndOffsetBusinessDays = DefaultBusinessDayOffset
+                    CreationDayId = DefaultCreationDayId,
+                    BeginDayId = DefaultBeginDayId,
+                    WorkingPeriod = DefaultWorkingPeriod
                 },
                 transaction,
                 cancellationToken: cancellationToken));
@@ -488,20 +487,62 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             new CommandDefinition(
                 $"""
                 SELECT
-                    id_config AS IdConfig,
-                    creation_pattern AS CreationPattern,
-                    start_pattern AS StartPattern,
-                    end_offset_business_days AS EndOffsetBusinessDays,
-                    is_enabled AS IsEnabled,
-                    last_processed_schedule_date AS LastProcessedScheduleDate
-                FROM public.survey_auto_creation_config
-                WHERE id_config = @ConfigId
+                    c.id_config AS IdConfig,
+                    c.id_creation_day AS CreationDayId,
+                    c.id_begin_day AS BeginDayId,
+                    c.working_period AS WorkingPeriod,
+                    c.is_enabled AS IsEnabled,
+                    creation_day.en_name_day AS CreationDayName,
+                    creation_day.week_number AS CreationWeekNumber,
+                    begin_day.en_name_day AS BeginDayName,
+                    begin_day.week_number AS BeginWeekNumber,
+                    creation_day.week_number::text || '-' || lower(creation_day.en_name_day) AS CreationPattern,
+                    begin_day.week_number::text || '-' || lower(begin_day.en_name_day) AS StartPattern
+                FROM public.auto_creation_config c
+                INNER JOIN public.week_day creation_day
+                    ON creation_day.id_day = c.id_creation_day
+                INNER JOIN public.week_day begin_day
+                    ON begin_day.id_day = c.id_begin_day
+                WHERE c.id_config = @ConfigId
                 {lockClause};
                 """,
                 new { ConfigId = SingletonConfigId },
                 transaction,
                 cancellationToken: cancellationToken));
     }
+
+    private static async Task<int?> GetWeekDayIdAsync(
+        NpgsqlConnection connection,
+        int weekNumber,
+        DayOfWeek dayOfWeek,
+        CancellationToken cancellationToken)
+    {
+        var dayName = SurveyAutoCreationScheduleHelper.GetPatternWeekdayName(dayOfWeek);
+        if (string.IsNullOrWhiteSpace(dayName))
+        {
+            return null;
+        }
+
+        return await connection.ExecuteScalarAsync<int?>(
+            new CommandDefinition(
+                """
+                SELECT id_day
+                FROM public.week_day
+                WHERE week_number = @WeekNumber
+                  AND lower(en_name_day) = lower(@DayName)
+                LIMIT 1;
+                """,
+                new
+                {
+                    WeekNumber = weekNumber,
+                    DayName = dayName
+                },
+                cancellationToken: cancellationToken));
+    }
+
+    private static bool TryParseDayOfWeek(string? dayName, out DayOfWeek dayOfWeek)
+        => Enum.TryParse(dayName, ignoreCase: true, out dayOfWeek)
+           && dayOfWeek is >= DayOfWeek.Monday and <= DayOfWeek.Friday;
 
     private static Task<IReadOnlyList<SurveySelectionItem>> GetSelectedSurveysAsync(
         NpgsqlConnection connection,
@@ -520,7 +561,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
                 SELECT
                     s.id_survey AS Id,
                     s.name_survey AS Name
-                FROM public.survey_auto_creation_config_survey cs
+                FROM public.survey_auto_creation_config cs
                 INNER JOIN public.survey s
                     ON s.id_survey = cs.id_survey
                 WHERE cs.id_config = @ConfigId
@@ -539,7 +580,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             new CommandDefinition(
                 """
                 SELECT COUNT(*)
-                FROM public.survey_auto_creation_config_survey
+                FROM public.survey_auto_creation_config
                 WHERE id_config = @ConfigId;
                 """,
                 new { ConfigId = SingletonConfigId },
@@ -562,8 +603,9 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             new CommandDefinition(
                 """
                 SELECT
-                    to_regclass('public.survey_auto_creation_config') IS NOT NULL
-                    AND to_regclass('public.survey_auto_creation_config_survey') IS NOT NULL;
+                    to_regclass('public.week_day') IS NOT NULL
+                    AND to_regclass('public.auto_creation_config') IS NOT NULL
+                    AND to_regclass('public.survey_auto_creation_config') IS NOT NULL;
                 """,
                 transaction: transaction,
                 cancellationToken: cancellationToken));
@@ -575,7 +617,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         {
             CreationPattern = DefaultPattern,
             StartPattern = DefaultPattern,
-            EndOffsetBusinessDays = DefaultBusinessDayOffset,
+            EndOffsetBusinessDays = DefaultWorkingPeriod,
             IsEnabled = false
         };
     }
@@ -588,7 +630,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         };
     }
 
-    private static async Task CopySurveyTemplateAsync(
+    private static async Task<bool> CopySurveyTemplateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
@@ -615,6 +657,44 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             throw new InvalidOperationException($"Анкета {surveyId} не найдена для автосоздания.");
         }
 
+        var copyName = $"{originalSurvey.NameSurvey} (Копия)";
+        var alreadyCreated = await connection.ExecuteScalarAsync<bool>(
+            new CommandDefinition(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM public.survey copy
+                    WHERE copy.name_survey = @CopyName
+                      AND (
+                          EXISTS (
+                              SELECT 1
+                              FROM public.organization_survey os
+                              WHERE os.id_survey = copy.id_survey
+                                AND os.date_begin = @StartDate
+                                AND os.date_end = @EndDate
+                          )
+                          OR NOT EXISTS (
+                              SELECT 1
+                              FROM public.organization_survey os
+                              WHERE os.id_survey = copy.id_survey
+                          )
+                      )
+                );
+                """,
+                new
+                {
+                    CopyName = copyName,
+                    StartDate = startDate.Date,
+                    EndDate = endDate.Date
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+        if (alreadyCreated)
+        {
+            return false;
+        }
+
         var newSurveyId = await connection.ExecuteScalarAsync<int>(
             new CommandDefinition(
                 """
@@ -624,7 +704,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
                 """,
                 new
                 {
-                    NameSurvey = $"{originalSurvey.NameSurvey} (Копия)",
+                    NameSurvey = copyName,
                     originalSurvey.Description
                 },
                 transaction,
@@ -682,16 +762,23 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
                     transaction,
                     cancellationToken: cancellationToken));
         }
+
+        return true;
     }
 
     private sealed class SurveyAutoCreationConfigRow
     {
         public int IdConfig { get; init; }
+        public int CreationDayId { get; init; }
+        public int BeginDayId { get; init; }
+        public int WorkingPeriod { get; init; } = DefaultWorkingPeriod;
         public string CreationPattern { get; init; } = DefaultPattern;
         public string StartPattern { get; init; } = DefaultPattern;
-        public int EndOffsetBusinessDays { get; init; } = DefaultBusinessDayOffset;
+        public string CreationDayName { get; init; } = "Monday";
+        public int CreationWeekNumber { get; init; } = 1;
+        public string BeginDayName { get; init; } = "Monday";
+        public int BeginWeekNumber { get; init; } = 1;
         public bool IsEnabled { get; init; }
-        public DateTime? LastProcessedScheduleDate { get; init; }
     }
 
     private sealed class SurveyCopySourceRow
@@ -705,6 +792,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
     {
         public bool IsValid { get; init; }
         public SurveyAutoCreationSettingsRequest NormalizedRequest { get; init; } = new();
+        public int CreationDayId { get; init; }
+        public int BeginDayId { get; init; }
         public string ValidationError { get; init; } = string.Empty;
     }
 }

@@ -27,6 +27,20 @@ public static class SurveyAutoCreationScheduleHelper
     public static bool IsValidMonthWeekdayPattern(string? pattern)
         => TryParsePattern(pattern, out _, out _);
 
+    public static bool TryParseMonthWeekdayPattern(string? pattern, out int weekNumber, out DayOfWeek dayOfWeek)
+        => TryParsePattern(pattern, out weekNumber, out dayOfWeek);
+
+    public static string GetPatternWeekdayName(DayOfWeek dayOfWeek)
+        => dayOfWeek switch
+        {
+            DayOfWeek.Monday => "Monday",
+            DayOfWeek.Tuesday => "Tuesday",
+            DayOfWeek.Wednesday => "Wednesday",
+            DayOfWeek.Thursday => "Thursday",
+            DayOfWeek.Friday => "Friday",
+            _ => string.Empty
+        };
+
     public static bool TryResolveMonthWeekdayDate(int year, int month, string? pattern, out DateTime date)
     {
         date = default;
@@ -43,6 +57,34 @@ public static class SurveyAutoCreationScheduleHelper
             {
                 matches += 1;
                 if (matches == occurrence)
+                {
+                    date = current.Date;
+                    return true;
+                }
+            }
+
+            current = current.AddDays(1);
+        }
+
+        return false;
+    }
+
+    public static bool TryResolveMonthWeekdayDate(int year, int month, int weekNumber, DayOfWeek dayOfWeek, out DateTime date)
+    {
+        date = default;
+        if (weekNumber is < 1 or > 4)
+        {
+            return false;
+        }
+
+        var current = new DateTime(year, month, 1);
+        var matches = 0;
+        while (current.Month == month)
+        {
+            if (current.DayOfWeek == dayOfWeek)
+            {
+                matches += 1;
+                if (matches == weekNumber)
                 {
                     date = current.Date;
                     return true;

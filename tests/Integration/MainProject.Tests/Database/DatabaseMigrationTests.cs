@@ -17,6 +17,8 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 008_convert_dates_and_rename_organization_id.sql", script);
         Assert.Contains(@"\ir 009_derive_survey_schedule_from_assignments.sql", script);
         Assert.Contains(@"\ir 012_add_survey_auto_creation.sql", script);
+        Assert.Contains(@"\ir 013_transform_survey_auto_creation_config.sql", script);
+        Assert.Contains(@"\ir 014_remove_auto_creation_config_metadata.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }

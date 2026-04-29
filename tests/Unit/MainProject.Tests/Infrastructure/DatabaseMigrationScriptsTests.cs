@@ -12,6 +12,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 010_add_email_template_storage.sql", script);
         Assert.Contains(@"\ir 011_add_email_template_audit_log.sql", script);
         Assert.Contains(@"\ir 012_add_survey_auto_creation.sql", script);
+        Assert.Contains(@"\ir 013_transform_survey_auto_creation_config.sql", script);
+        Assert.Contains(@"\ir 014_remove_auto_creation_config_metadata.sql", script);
     }
 
     [Fact]
@@ -58,6 +60,37 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("end_offset_business_days", script);
         Assert.Contains("last_processed_schedule_date", script);
         Assert.Contains("VALUES ('012', 'add_survey_auto_creation')", script);
+    }
+
+    [Fact]
+    public void SurveyAutoCreationTransformMigration_CreatesNormalizedStorage()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "013_transform_survey_auto_creation_config.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.week_day", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.auto_creation_config", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.survey_auto_creation_config", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.l_survey_auto_creation_config", script);
+        Assert.Contains("id_creation_day", script);
+        Assert.Contains("id_begin_day", script);
+        Assert.Contains("working_period", script);
+        Assert.Contains("REFERENCES public.week_day", script);
+        Assert.DoesNotContain("last_processed_schedule_date", script);
+        Assert.DoesNotContain("date_update timestamp", script);
+        Assert.DoesNotContain("user_update integer", script);
+        Assert.Contains("VALUES ('013', 'transform_survey_auto_creation_config')", script);
+    }
+
+    [Fact]
+    public void SurveyAutoCreationMetadataRemovalMigration_DropsAutoCreationMetadataColumns()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "014_remove_auto_creation_config_metadata.sql"));
+
+        Assert.Contains("ALTER TABLE public.auto_creation_config", script);
+        Assert.Contains("DROP COLUMN IF EXISTS last_processed_schedule_date", script);
+        Assert.Contains("DROP COLUMN IF EXISTS date_update", script);
+        Assert.Contains("DROP COLUMN IF EXISTS user_update", script);
+        Assert.Contains("VALUES ('014', 'remove_auto_creation_config_metadata')", script);
     }
 
     private static string GetRepositoryRoot()

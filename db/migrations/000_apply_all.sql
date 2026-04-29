@@ -24,3 +24,5 @@ COMMIT;
 \ir 010_add_email_template_storage.sql
 \ir 011_add_email_template_audit_log.sql
 \ir 012_add_survey_auto_creation.sql
+\ir 013_transform_survey_auto_creation_config.sql
+\ir 014_remove_auto_creation_config_metadata.sql
