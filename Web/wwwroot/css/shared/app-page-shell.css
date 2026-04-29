@@ -1,10 +1,10 @@
 .app-page {
   display: flex;
   flex-direction: column;
-  gap: clamp(16px, 2vw, 24px);
+  gap: 1vw;
   width: min(100%, var(--content-max-width));
   margin: 0 auto;
-  padding: clamp(16px, 2vw, 24px);
+  padding: 1.5vw 0.5vw 0.5vw 0.5vw;
 }
 
 .app-page--narrow {
@@ -20,7 +20,7 @@
 }
 
 .app-page__intro {
-  padding: clamp(20px, 2vw, 28px);
+    padding-left: 1vw;
 }
 
 .app-page__title {

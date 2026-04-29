@@ -1,6 +1,6 @@
 ﻿@model MainProject.Web.ViewModels.UserListPageViewModel
 @{
-    ViewData["Title"] = "Архив пользователей";
+    ViewData["Title"] = "Архивные пользователи";
     ViewData["UserSection"] = "archive";
     var users = Model?.Users ?? Array.Empty<MainProject.Domain.Entities.User>();
     var organizations = Model?.Organizations ?? Array.Empty<MainProject.Application.DTO.SelectionOption>();

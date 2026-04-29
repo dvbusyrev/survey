@@ -5,7 +5,6 @@
   min-height: 0;
   height: 100%;
   margin: 0;
-  padding: clamp(12px, 1.4vw, 18px) clamp(16px, 2vw, 28px) clamp(16px, 2vw, 28px);
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 16px;
