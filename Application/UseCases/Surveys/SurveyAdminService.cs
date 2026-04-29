@@ -246,6 +246,70 @@ public sealed class SurveyAdminService : ISurveyAdminService
         }
     }
 
+    public SurveyCommandResult UpdateActiveSurveysWorkPeriod(SurveyWorkPeriodRequest? request)
+    {
+        if (request == null)
+        {
+            return new SurveyCommandResult
+            {
+                Message = "Неверные данные запроса"
+            };
+        }
+
+        if (!TryValidateDateRange(request.DateBegin, request.DateEnd, out var validationError))
+        {
+            return new SurveyCommandResult
+            {
+                Message = validationError
+            };
+        }
+
+        using var connection = _connectionFactory.CreateConnection();
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            var affectedSurveyCount = connection.ExecuteScalar<int>(
+                @"WITH active_survey AS (
+                      SELECT DISTINCT id_survey
+                      FROM public.organization_survey
+                      WHERE date_end >= CURRENT_DATE
+                  ),
+                  updated AS (
+                      UPDATE public.organization_survey os
+                      SET
+                          date_begin = @DateBegin,
+                          date_end = @DateEnd
+                      FROM active_survey active
+                      WHERE os.id_survey = active.id_survey
+                      RETURNING os.id_survey
+                  )
+                  SELECT COUNT(DISTINCT id_survey)
+                  FROM updated",
+                new
+                {
+                    DateBegin = request.DateBegin.Date,
+                    DateEnd = request.DateEnd.Date
+                },
+                transaction);
+
+            transaction.Commit();
+
+            return new SurveyCommandResult
+            {
+                Success = true,
+                Message = affectedSurveyCount == 0
+                    ? "Активные анкеты не найдены"
+                    : "Период работы активных анкет сохранён"
+            };
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
     public Survey? GetSurveyForCopy(int id)
     {
         using var connection = _connectionFactory.CreateConnection();

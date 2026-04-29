@@ -1,0 +1,53 @@
+<div class="survey-period-filter survey-work-period" data-role="survey-work-period">
+    <button type="button"
+            class="survey-period-filter__trigger"
+            data-role="survey-work-period-trigger"
+            aria-expanded="false"
+            aria-haspopup="dialog">
+        <i class="fas fa-wrench" aria-hidden="true"></i>
+        <span>Период работы</span>
+    </button>
+
+    <div class="survey-period-filter__popover survey-work-period__popover is-hidden"
+         data-role="survey-work-period-popover"
+         role="dialog"
+         aria-label="Период работы активных анкет">
+        <div class="survey-period-filter__header">
+            <div class="survey-period-filter__panel-nav survey-work-period__panel-nav">
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-work-period-prev"
+                        aria-label="Предыдущий месяц">
+                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                </button>
+                <span class="survey-period-filter__panel-title" data-role="survey-work-period-label"></span>
+                <button type="button"
+                        class="survey-period-filter__nav-button"
+                        data-role="survey-work-period-next"
+                        aria-label="Следующий месяц">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <button type="button"
+                    class="survey-period-filter__close-button modal-close"
+                    data-role="survey-work-period-close"
+                    aria-label="Закрыть период работы">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <div class="survey-period-filter__panel">
+            <div class="survey-period-filter__calendars" data-role="survey-work-period-calendar"></div>
+        </div>
+
+        <div class="survey-period-filter__footer">
+            <button type="button"
+                    class="survey-period-filter__save-button"
+                    data-role="survey-work-period-save"
+                    disabled>
+                Сохранить
+            </button>
+        </div>
+    </div>
+</div>

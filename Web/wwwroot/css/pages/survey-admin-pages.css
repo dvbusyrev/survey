@@ -68,6 +68,10 @@
   padding: 12px;
 }
 
+.survey-work-period__popover {
+  width: min(336px, calc(100vw - 32px));
+}
+
 .survey-period-filter__mode-switch {
   display: inline-flex;
   flex-wrap: wrap;
@@ -102,7 +106,8 @@
 .survey-period-filter__year-button,
 .survey-period-filter__month-button,
 .survey-period-filter__day-button,
-.survey-period-filter__clear-button {
+.survey-period-filter__clear-button,
+.survey-period-filter__save-button {
   border: 1px solid transparent;
   cursor: pointer;
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
@@ -163,7 +168,8 @@
 .survey-period-filter__year-button:hover,
 .survey-period-filter__month-button:hover,
 .survey-period-filter__day-button:hover,
-.survey-period-filter__clear-button:hover {
+.survey-period-filter__clear-button:hover,
+.survey-period-filter__save-button:hover {
   transform: translateY(-1px);
 }
 
@@ -271,6 +277,14 @@
   gap: 10px;
 }
 
+.survey-work-period__popover .survey-period-filter__calendars {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.survey-work-period__panel-nav {
+  flex: 1 1 auto;
+}
+
 .survey-period-filter__calendar-card {
   display: flex;
   flex-direction: column;
@@ -362,10 +376,27 @@
   border-radius: 9px;
 }
 
-.survey-period-filter__clear-button:disabled {
+.survey-period-filter__save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0.48rem 0.78rem;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
+  border-color: rgba(106, 90, 205, 0.82);
+  border-radius: 9px;
+  box-shadow: 0 7px 16px rgba(106, 90, 205, 0.22);
+}
+
+.survey-period-filter__clear-button:disabled,
+.survey-period-filter__save-button:disabled {
   opacity: 0.55;
   cursor: default;
   transform: none;
+  box-shadow: none;
 }
 
 .is-hidden-by-date,
@@ -501,6 +532,10 @@
   }
 
   .survey-period-filter__clear-button {
+    width: 100%;
+  }
+
+  .survey-period-filter__save-button {
     width: 100%;
   }
 

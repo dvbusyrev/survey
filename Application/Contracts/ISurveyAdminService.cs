@@ -10,6 +10,7 @@ public interface ISurveyAdminService
     Task<SurveyCommandResult> CreateSurveyAsync(SurveyAddRequest? request);
     SurveyEditPageViewModel? GetSurveyEditPage(int id);
     SurveyCommandResult UpdateSurvey(int id, SurveyUpdateRequest? model);
+    SurveyCommandResult UpdateActiveSurveysWorkPeriod(SurveyWorkPeriodRequest? request);
     Survey? GetSurveyForCopy(int id);
     Task<SurveyCommandResult> CopySurveyAsync(int id, SurveyCopyRequest? request);
     List<Survey>? DeleteSurvey(int surveyId);

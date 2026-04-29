@@ -68,6 +68,7 @@
                         data-click-call="openAddSurveyModal">
                     Добавить анкету
                 </button>
+                @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyWorkPeriodControl.cshtml")
             </div>
 
             @await Html.PartialAsync(
@@ -93,6 +94,7 @@
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyEditorScripts.cshtml")
     <script src="~/js/features/admin/admin-inline-pages.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-work-period.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>
     <script>
         (function () {

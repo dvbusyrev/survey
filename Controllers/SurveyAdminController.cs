@@ -133,6 +133,36 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpPost("surveys/active/work-period")]
+    [ValidateAntiForgeryToken]
+    public IActionResult UpdateActiveSurveysWorkPeriod([FromBody] SurveyWorkPeriodRequest? request)
+    {
+        try
+        {
+            var result = _surveyAdminService.UpdateActiveSurveysWorkPeriod(request);
+            if (!result.Success)
+            {
+                return BadRequest(new { success = false, message = result.Message });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = result.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при обновлении периода работы активных анкет");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "Произошла ошибка при сохранении периода работы",
+                error = ex.Message
+            });
+        }
+    }
+
     [HttpPost("surveys/{id:int}/copy")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CopySurveySubmission(int id, [FromBody] SurveyCopyRequest? request)
