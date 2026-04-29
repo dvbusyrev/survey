@@ -18,7 +18,7 @@ public static class SurveyAutoCreationScheduleHelper
         var options = new List<(int Value, string Label)>();
         for (var value = minInclusive; value <= maxInclusive; value++)
         {
-            options.Add((value, $"+ {value} рабочих дней"));
+            options.Add((value, $"{value} рабочих дней"));
         }
 
         return options;
