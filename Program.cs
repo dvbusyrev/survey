@@ -20,6 +20,8 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     WebRootPath = "Web/wwwroot"
 });
 
+builder.WebHost.UseUrls("http://0.0.0.0:8080");
+
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // Настройка логирования

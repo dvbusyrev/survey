@@ -1087,7 +1087,7 @@
                     setActiveTabAndRefreshNav('get_organization');
                     break;
                 case 'help':
-                    window.open('/help_files/admin_survey_guide.docx', '_blank');
+                    window.open('/help/download', '_blank');
                     await fetchHtmlPage('/help');
                     setActiveTabAndRefreshNav(tab);
                     break;

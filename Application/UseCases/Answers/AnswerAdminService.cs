@@ -8,20 +8,28 @@ namespace MainProject.Application.UseCases.Answers;
 
 public sealed class AnswerAdminService : IAnswerAdminService
 {
-    private static readonly string[] RussianMonthNames =
+    private static readonly string[] ChartBackgroundColors =
     {
-        "Январь",
-        "Февраль",
-        "Март",
-        "Апрель",
-        "Май",
-        "Июнь",
-        "Июль",
-        "Август",
-        "Сентябрь",
-        "Октябрь",
-        "Ноябрь",
-        "Декабрь"
+        "rgba(79, 70, 229, 0.72)",
+        "rgba(14, 165, 233, 0.72)",
+        "rgba(16, 185, 129, 0.72)",
+        "rgba(245, 158, 11, 0.72)",
+        "rgba(239, 68, 68, 0.72)",
+        "rgba(168, 85, 247, 0.72)",
+        "rgba(20, 184, 166, 0.72)",
+        "rgba(244, 114, 182, 0.72)"
+    };
+
+    private static readonly string[] ChartBorderColors =
+    {
+        "rgb(79, 70, 229)",
+        "rgb(14, 165, 233)",
+        "rgb(16, 185, 129)",
+        "rgb(245, 158, 11)",
+        "rgb(239, 68, 68)",
+        "rgb(168, 85, 247)",
+        "rgb(20, 184, 166)",
+        "rgb(244, 114, 182)"
     };
 
     private readonly IDbConnectionFactory _connectionFactory;
@@ -113,115 +121,75 @@ public sealed class AnswerAdminService : IAnswerAdminService
     {
         return new AnswerStatisticsResponse
         {
-            LineChart = BuildLineChart(),
-            PieChart = BuildPieChart(),
-            BarChart = BuildBarChart(),
-            RadarChart = BuildRadarChart(),
-            AvgScoreByOrganizationRadar = BuildAvgScoreByOrganizationRadar()
+            LineChart = BuildAverageScoreByYearChart(),
+            BarChart = BuildAverageScoreByQuarterChart(),
+            AvgScoreByOrganizationRadar = BuildAverageScoreByOrganizationChart()
         };
     }
 
-    private SingleSeriesChartViewModel BuildLineChart()
+    private SingleSeriesChartViewModel BuildAverageScoreByYearChart()
     {
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
             SELECT
-                EXTRACT(YEAR FROM completion_date)::int AS Year,
-                EXTRACT(MONTH FROM completion_date)::int AS Month,
-                COUNT(*)::int AS Count
-            FROM public.answer
-            WHERE completion_date IS NOT NULL
-            GROUP BY 1, 2
-            ORDER BY 1, 2";
-
-        var rows = connection.Query<CompletionByMonthRow>(sql).ToList();
-
-        return new SingleSeriesChartViewModel
-        {
-            Labels = rows.Select(row => FormatMonthYear(row.Year, row.Month)).ToList(),
-            Label = "Количество ответов",
-            Data = rows.Select(row => (double)row.Count).ToList()
-        };
-    }
-
-    private SingleSeriesChartViewModel BuildPieChart()
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        const string sql = @"
-            SELECT
-                COALESCE(s.name_survey, 'Неизвестно') AS Label,
-                COUNT(*)::int AS Count
+                EXTRACT(YEAR FROM ha.completion_date)::int AS Year,
+                AVG(hai.rating::double precision) AS AverageRating
             FROM public.answer ha
-            LEFT JOIN public.survey s
-                ON ha.id_survey = s.id_survey
+            INNER JOIN public.answer_item hai
+                ON hai.id_answer = ha.id_answer
+            WHERE ha.completion_date IS NOT NULL
+              AND hai.rating IS NOT NULL
             GROUP BY 1
             ORDER BY 1";
 
-        var rows = connection.Query<LabelCountRow>(sql).ToList();
-
-        return new SingleSeriesChartViewModel
-        {
-            Labels = rows.Select(row => row.Label ?? "Неизвестно").ToList(),
-            Data = rows.Select(row => (double)row.Count).ToList()
-        };
-    }
-
-    private SingleSeriesChartViewModel BuildBarChart()
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        const string sql = @"
-            SELECT
-                EXTRACT(YEAR FROM completion_date)::int AS Year,
-                COUNT(*)::int AS Count
-            FROM public.answer
-            WHERE completion_date IS NOT NULL
-            GROUP BY 1
-            ORDER BY 1";
-
-        var rows = connection.Query<YearCountRow>(sql).ToList();
+        var rows = connection.Query<AverageByYearRow>(sql).ToList();
 
         return new SingleSeriesChartViewModel
         {
             Labels = rows.Select(row => row.Year.ToString()).ToList(),
-            Label = "Количество ответов",
-            Data = rows.Select(row => (double)row.Count).ToList()
+            Label = "Средняя оценка",
+            Data = rows.Select(row => Math.Round(row.AverageRating, 2)).ToList()
         };
     }
 
-    private DatasetChartViewModel BuildRadarChart()
+    private SingleSeriesChartViewModel BuildAverageScoreByQuarterChart()
     {
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
             SELECT
-                COALESCE(s.name_survey, 'Неизвестно') AS SurveyType,
-                hai.question_text AS QuestionLabel,
-                AVG(hai.rating::double precision) AS AvgRating
+                EXTRACT(QUARTER FROM ha.completion_date)::int AS Quarter,
+                AVG(hai.rating::double precision) AS AverageRating
             FROM public.answer ha
-            LEFT JOIN public.survey s
-                ON ha.id_survey = s.id_survey
             INNER JOIN public.answer_item hai
                 ON hai.id_answer = ha.id_answer
-            WHERE hai.rating IS NOT NULL
-            GROUP BY 1, 2
-            ORDER BY 1, 2";
+            WHERE ha.completion_date IS NOT NULL
+              AND hai.rating IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1";
 
-        var rows = connection.Query<RadarRow>(sql).ToList();
-        return BuildDatasetChart(rows);
+        var averagesByQuarter = connection.Query<AverageByQuarterRow>(sql)
+            .ToDictionary(row => row.Quarter, row => Math.Round(row.AverageRating, 2));
+
+        return new SingleSeriesChartViewModel
+        {
+            Labels = Enumerable.Range(1, 4).Select(quarter => quarter.ToString()).ToList(),
+            Label = "Средняя оценка",
+            Data = Enumerable.Range(1, 4)
+                .Select(quarter => averagesByQuarter.TryGetValue(quarter, out var value) ? value : 0)
+                .ToList()
+        };
     }
 
-    private DatasetChartViewModel BuildAvgScoreByOrganizationRadar()
+    private DatasetChartViewModel BuildAverageScoreByOrganizationChart()
     {
         using var connection = _connectionFactory.CreateConnection();
 
         const string sql = @"
             SELECT
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
-                EXTRACT(YEAR FROM ha.completion_date)::int AS Year,
-                AVG(hai.rating::double precision) AS AvgRating
+                AVG(hai.rating::double precision) AS AverageRating
             FROM public.answer ha
             INNER JOIN public.organization o
                 ON ha.id_organization = o.id_organization
@@ -229,8 +197,8 @@ public sealed class AnswerAdminService : IAnswerAdminService
                 ON hai.id_answer = ha.id_answer
             WHERE ha.completion_date IS NOT NULL
               AND hai.rating IS NOT NULL
-            GROUP BY 1, 2
-            ORDER BY 2, 1";
+            GROUP BY 1
+            ORDER BY 1";
 
         var rows = connection.Query<OrganizationAverageRow>(sql).ToList();
         if (rows.Count == 0)
@@ -238,36 +206,19 @@ public sealed class AnswerAdminService : IAnswerAdminService
             return new DatasetChartViewModel();
         }
 
-        var years = rows
-            .Select(row => row.Year)
-            .Distinct()
-            .OrderByDescending(year => year)
-            .Take(3)
-            .OrderBy(year => year)
-            .ToList();
-
         var labels = rows
             .Select(row => row.OrganizationName ?? "Неизвестно")
-            .Distinct()
-            .OrderBy(name => name)
             .ToList();
 
-        var colors = new[] { "rgba(54,162,235,0.2)", "rgba(255,99,132,0.2)", "rgba(255,206,86,0.2)" };
-        var borderColors = new[] { "rgb(54,162,235)", "rgb(255,99,132)", "rgb(255,206,86)" };
-
-        var datasets = years
-            .Select((year, index) => new ChartDatasetViewModel
+        var datasets = rows
+            .Select((row, index) => new ChartDatasetViewModel
             {
-                Label = year.ToString(),
+                Label = row.OrganizationName ?? "Неизвестно",
                 Data = labels
-                    .Select(label => rows
-                        .Where(row => row.Year == year && (row.OrganizationName ?? "Неизвестно") == label)
-                        .Select(row => row.AvgRating)
-                        .DefaultIfEmpty(0)
-                        .First())
+                    .Select((_, dataIndex) => dataIndex == index ? Math.Round(row.AverageRating, 2) : (double?)null)
                     .ToList(),
-                BackgroundColor = colors[index % colors.Length],
-                BorderColor = borderColors[index % borderColors.Length]
+                BackgroundColor = ChartBackgroundColors[index % ChartBackgroundColors.Length],
+                BorderColor = ChartBorderColors[index % ChartBorderColors.Length]
             })
             .ToList();
 
@@ -276,54 +227,6 @@ public sealed class AnswerAdminService : IAnswerAdminService
             Labels = labels,
             Datasets = datasets
         };
-    }
-
-    private static DatasetChartViewModel BuildDatasetChart(IEnumerable<RadarRow> rows)
-    {
-        var labels = new List<string>();
-        var labelSet = new HashSet<string>(StringComparer.Ordinal);
-        var valuesByGroup = new Dictionary<string, Dictionary<string, double>>(StringComparer.Ordinal);
-
-        foreach (var row in rows)
-        {
-            var group = string.IsNullOrWhiteSpace(row.SurveyType) ? "Неизвестно" : row.SurveyType;
-            var label = string.IsNullOrWhiteSpace(row.QuestionLabel) ? "Без названия" : row.QuestionLabel;
-
-            if (labelSet.Add(label))
-            {
-                labels.Add(label);
-            }
-
-            if (!valuesByGroup.TryGetValue(group, out var values))
-            {
-                values = new Dictionary<string, double>(StringComparer.Ordinal);
-                valuesByGroup[group] = values;
-            }
-
-            values[label] = row.AvgRating;
-        }
-
-        return new DatasetChartViewModel
-        {
-            Labels = labels,
-            Datasets = valuesByGroup.Select(group => new ChartDatasetViewModel
-            {
-                Label = group.Key,
-                Data = labels
-                    .Select(label => group.Value.TryGetValue(label, out var value) ? value : 0)
-                    .ToList()
-            }).ToList()
-        };
-    }
-
-    private static string FormatMonthYear(int year, int month)
-    {
-        if (month < 1 || month > RussianMonthNames.Length)
-        {
-            return year.ToString();
-        }
-
-        return $"{RussianMonthNames[month - 1]} {year}";
     }
 
     private sealed class AnswerListRow
@@ -344,36 +247,21 @@ public sealed class AnswerAdminService : IAnswerAdminService
         public bool IsSigned { get; set; }
     }
 
-    private sealed class CompletionByMonthRow
+    private sealed class AverageByYearRow
     {
         public int Year { get; set; }
-        public int Month { get; set; }
-        public int Count { get; set; }
+        public double AverageRating { get; set; }
     }
 
-    private sealed class LabelCountRow
+    private sealed class AverageByQuarterRow
     {
-        public string? Label { get; set; }
-        public int Count { get; set; }
-    }
-
-    private sealed class YearCountRow
-    {
-        public int Year { get; set; }
-        public int Count { get; set; }
-    }
-
-    private sealed class RadarRow
-    {
-        public string? SurveyType { get; set; }
-        public string? QuestionLabel { get; set; }
-        public double AvgRating { get; set; }
+        public int Quarter { get; set; }
+        public double AverageRating { get; set; }
     }
 
     private sealed class OrganizationAverageRow
     {
         public string? OrganizationName { get; set; }
-        public int Year { get; set; }
-        public double AvgRating { get; set; }
+        public double AverageRating { get; set; }
     }
 }

@@ -201,6 +201,7 @@
           return;
         }
         if (tab === "help") {
+          window.open("/help/download", "_blank");
           window.AppScrollState?.prepareNavigation({ carry: true });
           window.location.href = "/help";
           return;

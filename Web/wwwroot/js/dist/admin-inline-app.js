@@ -201,6 +201,7 @@
           return;
         }
         if (tab === "help") {
+          window.open("/help/download", "_blank");
           window.AppScrollState?.prepareNavigation({ carry: true });
           window.location.href = "/help";
           return;
@@ -627,13 +628,11 @@
       const chartRefs = {
         line: null,
         bar: null,
-        pie: null,
         radar: null
       };
       const chartInstances = {
         line: null,
         bar: null,
-        pie: null,
         radar: null
       };
       const destroyCharts = () => {
@@ -644,7 +643,6 @@
         });
         chartInstances.line = null;
         chartInstances.bar = null;
-        chartInstances.pie = null;
         chartInstances.radar = null;
       };
       const renderCharts = () => {
@@ -657,29 +655,68 @@
           return;
         }
         destroyCharts();
-        const shouldShowLegend = ({ labels = [], datasets = [] } = {}) => {
-          if (datasets.length > 1) {
-            return true;
-          }
-          if (datasets.length === 1) {
-            if ((datasets[0]?.label || "").trim()) {
-              return false;
+        const yearGuideLinePlugin = {
+          id: "adminStatisticsYearGuideLine",
+          beforeDatasetsDraw(chart, _args, options) {
+            const yScale = chart.scales.y;
+            const meta = chart.getDatasetMeta(0);
+            if (!yScale || !meta || meta.hidden) {
+              return;
             }
-            return labels.length > 1;
+            const startY = yScale.getPixelForValue(0);
+            const color = options?.color || "rgba(79, 70, 229, 0.25)";
+            const lineWidth = options?.lineWidth || 2;
+            chart.ctx.save();
+            chart.ctx.strokeStyle = color;
+            chart.ctx.lineWidth = lineWidth;
+            meta.data.forEach((point) => {
+              if (!point || point.skip) {
+                return;
+              }
+              chart.ctx.beginPath();
+              chart.ctx.moveTo(point.x, startY);
+              chart.ctx.lineTo(point.x, point.y);
+              chart.ctx.stroke();
+            });
+            chart.ctx.restore();
           }
-          return labels.length > 1;
         };
-        const commonOptions = {
+        const getScoreScale = () => ({
+          type: "linear",
+          min: 0,
+          max: 5,
+          ticks: {
+            stepSize: 1
+          },
+          title: {
+            display: true,
+            text: "Средняя оценка"
+          }
+        });
+        const buildCommonOptions = (showLegend) => ({
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
             legend: {
+              display: Boolean(showLegend),
               position: "bottom",
               labels: {
-                padding: 20,
+                padding: 14,
                 boxWidth: 12,
                 font: {
                   size: 12
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label(context) {
+                  const value = context.parsed?.y ?? context.parsed?.x ?? context.parsed;
+                  const numericValue = Number(value);
+                  if (Number.isFinite(numericValue)) {
+                    return `${context.dataset.label || "Средняя оценка"}: ${numericValue.toFixed(2)}`;
+                  }
+                  return context.dataset.label || "";
                 }
               }
             }
@@ -687,132 +724,113 @@
           layout: {
             padding: {
               top: 10,
-              bottom: 30
+              bottom: showLegend ? 20 : 10
             }
           }
-        };
+        });
         if (chartRefs.line && chartsData.lineChart) {
+          const yearLabels = chartsData.lineChart.labels || [];
+          const yearData = chartsData.lineChart.data || [];
           chartInstances.line = new Chart(chartRefs.line, {
             type: "line",
             data: {
-              labels: chartsData.lineChart.labels,
+              labels: yearLabels,
               datasets: [{
-                label: chartsData.lineChart.label,
-                data: chartsData.lineChart.data,
-                borderColor: "rgb(75, 192, 192)",
-                backgroundColor: "rgba(75, 192, 192, 0.1)",
-                tension: 0.1,
+                label: chartsData.lineChart.label || "Средняя оценка",
+                data: yearData,
+                borderColor: "rgb(79, 70, 229)",
+                backgroundColor: "rgb(79, 70, 229)",
                 borderWidth: 2,
-                pointRadius: 4
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                tension: 0.2
               }]
             },
             options: {
-              ...commonOptions,
-              plugins: {
-                ...commonOptions.plugins,
-                legend: {
-                  ...commonOptions.plugins.legend,
-                  display: shouldShowLegend({
-                    labels: chartsData.lineChart.labels,
-                    datasets: [{ label: chartsData.lineChart.label }]
-                  })
-                }
-              },
+              ...buildCommonOptions(false),
               scales: {
-                y: {
-                  beginAtZero: true
+                x: {
+                  grid: {
+                    display: false
+                  }
+                },
+                y: getScoreScale()
+              },
+              plugins: {
+                ...buildCommonOptions(false).plugins,
+                adminStatisticsYearGuideLine: {
+                  color: "rgba(79, 70, 229, 0.32)",
+                  lineWidth: 2
                 }
               }
-            }
+            },
+            plugins: [yearGuideLinePlugin]
           });
         }
         if (chartRefs.bar && chartsData.barChart) {
           chartInstances.bar = new Chart(chartRefs.bar, {
             type: "bar",
             data: {
-              labels: chartsData.barChart.labels,
+              labels: chartsData.barChart.labels || [],
               datasets: [{
-                label: chartsData.barChart.label,
-                data: chartsData.barChart.data,
-                backgroundColor: "rgba(54, 162, 235, 0.7)",
-                borderColor: "rgba(54, 162, 235, 1)",
+                label: chartsData.barChart.label || "Средняя оценка",
+                data: chartsData.barChart.data || [],
+                backgroundColor: "rgba(14, 165, 233, 0.72)",
+                borderColor: "rgb(14, 165, 233)",
                 borderWidth: 1
               }]
             },
             options: {
-              ...commonOptions,
-              plugins: {
-                ...commonOptions.plugins,
-                legend: {
-                  ...commonOptions.plugins.legend,
-                  display: shouldShowLegend({
-                    labels: chartsData.barChart.labels,
-                    datasets: [{ label: chartsData.barChart.label }]
-                  })
-                }
-              },
+              ...buildCommonOptions(false),
               scales: {
-                y: {
-                  beginAtZero: true
-                }
-              }
-            }
-          });
-        }
-        if (chartRefs.pie && chartsData.pieChart) {
-          chartInstances.pie = new Chart(chartRefs.pie, {
-            type: "pie",
-            data: {
-              labels: chartsData.pieChart.labels,
-              datasets: [{
-                data: chartsData.pieChart.data,
-                backgroundColor: [
-                  "rgba(255, 99, 132, 0.7)",
-                  "rgba(54, 162, 235, 0.7)",
-                  "rgba(255, 206, 86, 0.7)",
-                  "rgba(75, 192, 192, 0.7)",
-                  "rgba(153, 102, 255, 0.7)"
-                ],
-                borderWidth: 1
-              }]
-            },
-            options: {
-              ...commonOptions,
-              plugins: {
-                legend: {
-                  ...commonOptions.plugins.legend,
-                  display: shouldShowLegend({
-                    labels: chartsData.pieChart.labels,
-                    datasets: [{ label: "" }]
-                  }),
-                  align: "center"
-                }
+                x: {
+                  grid: {
+                    display: false
+                  }
+                },
+                y: getScoreScale()
               }
             }
           });
         }
         if (chartRefs.radar && chartsData.avgScoreByOrganizationRadar) {
           chartInstances.radar = new Chart(chartRefs.radar, {
-            type: "radar",
-            data: chartsData.avgScoreByOrganizationRadar,
+            type: "bar",
+            data: {
+              labels: chartsData.avgScoreByOrganizationRadar.labels || [],
+              datasets: (chartsData.avgScoreByOrganizationRadar.datasets || []).map((dataset) => ({
+                ...dataset,
+                grouped: false,
+                borderWidth: 1,
+                barPercentage: 0.78,
+                categoryPercentage: 0.92
+              }))
+            },
             options: {
-              ...commonOptions,
-              plugins: {
-                ...commonOptions.plugins,
-                legend: {
-                  ...commonOptions.plugins.legend,
-                  display: shouldShowLegend(chartsData.avgScoreByOrganizationRadar)
-                },
-                title: {
-                  display: true,
-                  text: "Средний балл организаций по годам"
-                }
-              },
+              ...buildCommonOptions(true),
               scales: {
-                r: {
-                  beginAtZero: true,
-                  min: 0,
-                  max: 5
+                x: {
+                  ticks: {
+                    display: false
+                  },
+                  grid: {
+                    display: false
+                  }
+                },
+                y: getScoreScale()
+              },
+              plugins: {
+                ...buildCommonOptions(true).plugins,
+                tooltip: {
+                  callbacks: {
+                    title(items) {
+                      return items[0]?.dataset?.label || "";
+                    },
+                    label(context) {
+                      const value = Number(context.parsed?.y || 0);
+                      return `Средняя оценка: ${value.toFixed(2)}`;
+                    }
+                  }
                 }
               }
             }
@@ -845,7 +863,6 @@
         const root = template.content.firstElementChild.cloneNode(true);
         chartRefs.line = root.querySelector('[data-role="line-chart"]');
         chartRefs.bar = root.querySelector('[data-role="bar-chart"]');
-        chartRefs.pie = root.querySelector('[data-role="pie-chart"]');
         chartRefs.radar = root.querySelector('[data-role="radar-chart"]');
         host.appendChild(root);
         renderCharts();
@@ -2053,7 +2070,7 @@
             setActiveTabAndRefreshNav("get_organization");
             break;
           case "help":
-            window.open("/help_files/admin_survey_guide.docx", "_blank");
+            window.open("/help/download", "_blank");
             await fetchHtmlPage("/help");
             setActiveTabAndRefreshNav(tab);
             break;

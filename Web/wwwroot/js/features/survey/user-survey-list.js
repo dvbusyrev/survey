@@ -438,6 +438,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
         options = options || {};
 
         if (tab === 'help') {
+            window.open('/help/download', '_blank');
             window.location.href = '/help';
             return;
         }

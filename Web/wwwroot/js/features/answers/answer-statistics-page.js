@@ -11,11 +11,10 @@
     const charts = {
         line: null,
         bar: null,
-        pie: null,
-        radar: null
+        organization: null
     };
 
-    const ids = ['line', 'bar', 'pie', 'radar'];
+    const ids = ['line', 'bar', 'radar'];
     const hasAllCanvases = ids.every(function (id) {
         return document.getElementById(id + 'Chart');
     });
@@ -46,18 +45,78 @@
         });
     }
 
-    function buildCommonOptions() {
+    const yearGuideLinePlugin = {
+        id: 'answerStatisticsYearGuideLine',
+        beforeDatasetsDraw: function (chart, _args, options) {
+            const yScale = chart.scales.y;
+            const meta = chart.getDatasetMeta(0);
+            if (!yScale || !meta || meta.hidden) {
+                return;
+            }
+
+            const startY = yScale.getPixelForValue(0);
+            const color = options?.color || 'rgba(79, 70, 229, 0.25)';
+            const lineWidth = options?.lineWidth || 2;
+            chart.ctx.save();
+            chart.ctx.strokeStyle = color;
+            chart.ctx.lineWidth = lineWidth;
+
+            meta.data.forEach(function (point) {
+                if (!point || point.skip) {
+                    return;
+                }
+
+                chart.ctx.beginPath();
+                chart.ctx.moveTo(point.x, startY);
+                chart.ctx.lineTo(point.x, point.y);
+                chart.ctx.stroke();
+            });
+
+            chart.ctx.restore();
+        }
+    };
+
+    function getScoreScale() {
+        return {
+            type: 'linear',
+            min: 0,
+            max: 5,
+            ticks: {
+                stepSize: 1
+            },
+            title: {
+                display: true,
+                text: 'Средняя оценка'
+            }
+        };
+    }
+
+    function buildCommonOptions(showLegend) {
         return {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: {
+                    display: Boolean(showLegend),
                     position: 'bottom',
                     labels: {
-                        padding: 20,
+                        padding: 14,
                         boxWidth: 12,
                         font: {
                             size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            const value = context.parsed?.y ?? context.parsed?.x ?? context.parsed;
+                            const numericValue = Number(value);
+                            if (Number.isFinite(numericValue)) {
+                                return `${context.dataset.label || 'Средняя оценка'}: ${numericValue.toFixed(2)}`;
+                            }
+
+                            return context.dataset.label || '';
                         }
                     }
                 }
@@ -65,22 +124,10 @@
             layout: {
                 padding: {
                     top: 10,
-                    bottom: 30
+                    bottom: showLegend ? 20 : 10
                 }
             }
         };
-    }
-
-    function shouldShowLegend(labels, datasets) {
-        if (datasets.length > 1) {
-            return true;
-        }
-
-        if (datasets.length === 1) {
-            return !(datasets[0].label || '').trim() && labels.length > 1;
-        }
-
-        return labels.length > 1;
     }
 
     function destroyCharts() {
@@ -93,126 +140,110 @@
     }
 
     function renderCharts(chartsData) {
-        const commonOptions = buildCommonOptions();
+        const yearLabels = chartsData.lineChart?.labels || [];
+        const yearData = chartsData.lineChart?.data || [];
 
         charts.line = new Chart(document.getElementById('lineChart'), {
             type: 'line',
             data: {
-                labels: chartsData.lineChart.labels,
+                labels: yearLabels,
                 datasets: [{
-                    label: chartsData.lineChart.label,
-                    data: chartsData.lineChart.data,
-                    borderColor: 'rgb(75, 192, 192)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                    tension: 0.1,
+                    label: chartsData.lineChart?.label || 'Средняя оценка',
+                    data: yearData,
+                    borderColor: 'rgb(79, 70, 229)',
+                    backgroundColor: 'rgb(79, 70, 229)',
                     borderWidth: 2,
-                    pointRadius: 4
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.2
                 }]
             },
             options: {
-                ...commonOptions,
-                plugins: {
-                    ...commonOptions.plugins,
-                    legend: {
-                        ...commonOptions.plugins.legend,
-                        display: shouldShowLegend(chartsData.lineChart.labels, [{
-                            label: chartsData.lineChart.label
-                        }])
-                    }
-                },
+                ...buildCommonOptions(false),
                 scales: {
-                    y: {
-                        beginAtZero: true
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: getScoreScale()
+                },
+                plugins: {
+                    ...buildCommonOptions(false).plugins,
+                    answerStatisticsYearGuideLine: {
+                        color: 'rgba(79, 70, 229, 0.32)',
+                        lineWidth: 2
                     }
                 }
-            }
+            },
+            plugins: [yearGuideLinePlugin]
         });
 
         charts.bar = new Chart(document.getElementById('barChart'), {
             type: 'bar',
             data: {
-                labels: chartsData.barChart.labels,
+                labels: chartsData.barChart?.labels || [],
                 datasets: [{
-                    label: chartsData.barChart.label,
-                    data: chartsData.barChart.data,
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
+                    label: chartsData.barChart?.label || 'Средняя оценка',
+                    data: chartsData.barChart?.data || [],
+                    backgroundColor: 'rgba(14, 165, 233, 0.72)',
+                    borderColor: 'rgb(14, 165, 233)',
                     borderWidth: 1
                 }]
             },
             options: {
-                ...commonOptions,
-                plugins: {
-                    ...commonOptions.plugins,
-                    legend: {
-                        ...commonOptions.plugins.legend,
-                        display: shouldShowLegend(chartsData.barChart.labels, [{
-                            label: chartsData.barChart.label
-                        }])
-                    }
-                },
+                ...buildCommonOptions(false),
                 scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-
-        charts.pie = new Chart(document.getElementById('pieChart'), {
-            type: 'pie',
-            data: {
-                labels: chartsData.pieChart.labels,
-                datasets: [{
-                    data: chartsData.pieChart.data,
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.7)',
-                        'rgba(54, 162, 235, 0.7)',
-                        'rgba(255, 206, 86, 0.7)',
-                        'rgba(75, 192, 192, 0.7)',
-                        'rgba(153, 102, 255, 0.7)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                ...commonOptions,
-                plugins: {
-                    legend: {
-                        ...commonOptions.plugins.legend,
-                        display: shouldShowLegend(chartsData.pieChart.labels, [{
-                            label: ''
-                        }]),
-                        align: 'center'
-                    }
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: getScoreScale()
                 }
             }
         });
 
         if (chartsData.avgScoreByOrganizationRadar) {
-            charts.radar = new Chart(document.getElementById('radarChart'), {
-                type: 'radar',
-                data: chartsData.avgScoreByOrganizationRadar,
+            charts.organization = new Chart(document.getElementById('radarChart'), {
+                type: 'bar',
+                data: {
+                    labels: chartsData.avgScoreByOrganizationRadar.labels || [],
+                    datasets: (chartsData.avgScoreByOrganizationRadar.datasets || []).map(function (dataset) {
+                        return {
+                            ...dataset,
+                            grouped: false,
+                            borderWidth: 1,
+                            barPercentage: 0.78,
+                            categoryPercentage: 0.92
+                        };
+                    })
+                },
                 options: {
-                    ...commonOptions,
-                    plugins: {
-                        ...commonOptions.plugins,
-                        legend: {
-                            ...commonOptions.plugins.legend,
-                            display: shouldShowLegend(
-                                chartsData.avgScoreByOrganizationRadar.labels || [],
-                                chartsData.avgScoreByOrganizationRadar.datasets || [])
-                        },
-                        title: {
-                            display: true,
-                            text: 'Средний балл организаций по годам'
-                        }
-                    },
+                    ...buildCommonOptions(true),
                     scales: {
-                        r: {
-                            beginAtZero: true,
-                            min: 0,
-                            max: 5
+                        x: {
+                            ticks: {
+                                display: false
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: getScoreScale()
+                    },
+                    plugins: {
+                        ...buildCommonOptions(true).plugins,
+                        tooltip: {
+                            callbacks: {
+                                title: function (items) {
+                                    return items[0]?.dataset?.label || '';
+                                },
+                                label: function (context) {
+                                    const value = Number(context.parsed?.y || 0);
+                                    return `Средняя оценка: ${value.toFixed(2)}`;
+                                }
+                            }
                         }
                     }
                 }

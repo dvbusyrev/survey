@@ -201,6 +201,7 @@
           return;
         }
         if (tab === "help") {
+          window.open("/help/download", "_blank");
           window.AppScrollState?.prepareNavigation({ carry: true });
           window.location.href = "/help";
           return;
@@ -1272,6 +1273,7 @@
     function handleTabChange(tab, _unused = null, options = {}) {
       options = options || {};
       if (tab === "help") {
+        window.open("/help/download", "_blank");
         window.location.href = "/help";
         return;
       }

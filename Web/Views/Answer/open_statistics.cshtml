@@ -39,13 +39,13 @@
                     new MainProject.Web.ViewModels.PageIntroModel
                     {
                         Title = "Статистика ответов",
-                        Description = "Аналитика по ответам пользователей в разрезе периодов, типов анкет и организаций."
+                        Description = "Аналитика средних оценок по годам, кварталам и организациям."
                     })
 
                 <section class="app-page__section">
                     <div class="answers-page__statistics-grid">
                         <div class="answers-page__statistics-card">
-                            <h3 class="answers-page__statistics-title">Ответы по месяцам</h3>
+                            <h3 class="answers-page__statistics-title">По годам средняя оценка</h3>
                             <div class="answers-page__statistics-wrapper">
                                 <canvas id="lineChart"></canvas>
                                 <div class="answers-page__statistics-loading" id="lineLoading">Загрузка данных...</div>
@@ -53,23 +53,15 @@
                         </div>
 
                         <div class="answers-page__statistics-card">
-                            <h3 class="answers-page__statistics-title">Ответы по годам</h3>
+                            <h3 class="answers-page__statistics-title">По кварталам средняя оценка</h3>
                             <div class="answers-page__statistics-wrapper">
                                 <canvas id="barChart"></canvas>
                                 <div class="answers-page__statistics-loading" id="barLoading">Загрузка данных...</div>
                             </div>
                         </div>
 
-                        <div class="answers-page__statistics-card">
-                            <h3 class="answers-page__statistics-title">Распределение по типам анкет</h3>
-                            <div class="answers-page__statistics-wrapper">
-                                <canvas id="pieChart"></canvas>
-                                <div class="answers-page__statistics-loading" id="pieLoading">Загрузка данных...</div>
-                            </div>
-                        </div>
-
-                        <div class="answers-page__statistics-card">
-                            <h3 class="answers-page__statistics-title">Средние оценки</h3>
+                        <div class="answers-page__statistics-card answers-page__statistics-card--wide">
+                            <h3 class="answers-page__statistics-title">Средняя по организациям</h3>
                             <div class="answers-page__statistics-wrapper">
                                 <canvas id="radarChart"></canvas>
                                 <div class="answers-page__statistics-loading" id="radarLoading">Загрузка данных...</div>

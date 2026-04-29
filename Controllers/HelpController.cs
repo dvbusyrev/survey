@@ -10,6 +10,9 @@ using System.Text;
 [Authorize]
 public class HelpController : Controller
 {
+    private const string HelpDocumentContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private const string HelpDownloadFileName = "АИС Анкетирование. Инструкция пользователя.docx";
+
     private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
 
     [HttpGet("help/files/{type}")]
@@ -31,6 +34,27 @@ public class HelpController : Controller
         {
             return StatusCode(500, $"Произошла ошибка: {ex.Message}");
         }
+    }
+
+    [HttpGet("help/download/{type?}")]
+    public IActionResult DownloadHelpFile(string? type = null)
+    {
+        var documentType = string.IsNullOrWhiteSpace(type)
+            ? GetDefaultHelpDocumentType()
+            : type;
+        var docxFilePath = ResolveHelpDocumentPath(documentType);
+
+        if (string.IsNullOrWhiteSpace(docxFilePath) || !System.IO.File.Exists(docxFilePath))
+        {
+            return NotFound("Файл DOCX не найден.");
+        }
+
+        return PhysicalFile(docxFilePath, HelpDocumentContentType, HelpDownloadFileName);
+    }
+
+    private string GetDefaultHelpDocumentType()
+    {
+        return User.IsInRole(AppRoles.Admin) ? "admin-guide" : "user-guide";
     }
 
     private string? ResolveHelpDocumentPath(string type)
