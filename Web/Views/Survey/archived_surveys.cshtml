@@ -21,7 +21,10 @@
     <link rel="stylesheet" href="~/css/pages/survey-admin-pages.css" asp-append-version="true" />
 }
 
-<div class="app-page" id="default_content" data-page="surveys-archive">
+<div class="app-page"
+     id="default_content"
+     data-page="surveys-archive"
+     data-filter-hide-count-summary="true">
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveySubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",

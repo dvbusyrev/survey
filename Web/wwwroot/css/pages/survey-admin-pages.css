@@ -61,8 +61,8 @@
 
 .survey-organization-filter__popover,
 .survey-name-filter__popover {
-  right: 0;
-  left: auto;
+  right: auto;
+  left: 0;
   width: min(280px, calc(100vw - 32px));
   gap: 8px;
   padding: 12px;
@@ -258,6 +258,7 @@
 
 .survey-period-filter__hint,
 .survey-period-filter__summary {
+  display: none;
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.84rem;
@@ -342,7 +343,7 @@
 .survey-period-filter__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   padding-top: 2px;
 }

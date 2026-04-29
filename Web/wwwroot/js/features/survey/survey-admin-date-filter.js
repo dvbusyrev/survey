@@ -315,6 +315,10 @@
         return page?.dataset?.filterDateSummary || 'у которых дата начала и дата конца попадают';
     }
 
+    function shouldHideCountSummary(page) {
+        return page?.dataset?.filterHideCountSummary === 'true';
+    }
+
     function getCombinedVisibleCount(rows) {
         return rows.filter((row) => (
             !row.classList.contains('is-hidden-by-date')
@@ -393,25 +397,34 @@
         const { state, refs } = instance;
         const itemLabel = getPageItemLabel(instance.page);
         const dateSummary = getPageDateSummary(instance.page);
+        const hideCountSummary = shouldHideCountSummary(instance.page);
         let label = 'Фильтр по периоду';
-        let summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
+        let summary = hideCountSummary ? '' : `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
 
         if (state.activeFilterType === 'year' && Number.isInteger(state.activeYear)) {
             const yearLabel = getYearDescription(state.activeYear);
             label = yearLabel;
-            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в ${yearLabel}.`;
+            if (!hideCountSummary) {
+                summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в ${yearLabel}.`;
+            }
         } else if (state.activeFilterType === 'month' && state.activeMonth) {
             const monthLabel = getMonthDescription(state.activeMonth.year, state.activeMonth.monthIndex);
             label = monthLabel;
-            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в ${monthLabel}.`;
+            if (!hideCountSummary) {
+                summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в ${monthLabel}.`;
+            }
         } else if (state.activeFilterType === 'range' && state.rangeStart && state.rangeEnd) {
             const rangeLabel = getRangeDescription(state.rangeStart, state.rangeEnd);
             label = rangeLabel;
-            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в период ${rangeLabel}.`;
+            if (!hideCountSummary) {
+                summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}, ${dateSummary} в период ${rangeLabel}.`;
+            }
         }
 
         refs.label.textContent = label;
-        refs.summary.textContent = summary;
+        if (refs.summary) {
+            refs.summary.textContent = summary;
+        }
         refs.clearButton.disabled = state.activeFilterType === 'all'
             && !Number.isInteger(state.activeYear)
             && !state.activeMonth
@@ -423,16 +436,23 @@
         const selectedOrganizations = instance.state.selectedOrganizations;
         const label = getOrganizationFilterLabel(selectedOrganizations);
         const itemLabel = getPageItemLabel(instance.page);
-        let summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
+        const hideCountSummary = shouldHideCountSummary(instance.page);
+        let summary = hideCountSummary ? '' : `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
 
         if (selectedOrganizations.length === 1) {
-            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} для организации ${selectedOrganizations[0]}.`;
+            summary = hideCountSummary
+                ? `Организация: ${selectedOrganizations[0]}.`
+                : `Показано ${visibleCount} из ${totalCount} ${itemLabel} для организации ${selectedOrganizations[0]}.`;
         } else if (selectedOrganizations.length > 1) {
-            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} для ${selectedOrganizations.length} организаций.`;
+            summary = hideCountSummary
+                ? `Выбрано организаций: ${selectedOrganizations.length}.`
+                : `Показано ${visibleCount} из ${totalCount} ${itemLabel} для ${selectedOrganizations.length} организаций.`;
         }
 
         instance.refs.label.textContent = label;
-        instance.refs.summary.textContent = summary;
+        if (instance.refs.summary) {
+            instance.refs.summary.textContent = summary;
+        }
         instance.refs.clearButton.disabled = selectedOrganizations.length === 0;
     }
 
@@ -440,16 +460,23 @@
         const selectedSurveyNames = instance.state.selectedSurveyNames;
         const label = getSurveyNameFilterLabel(selectedSurveyNames);
         const itemLabel = getPageItemLabel(instance.page);
-        let summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
+        const hideCountSummary = shouldHideCountSummary(instance.page);
+        let summary = hideCountSummary ? '' : `Показано ${visibleCount} из ${totalCount} ${itemLabel}.`;
 
         if (selectedSurveyNames.length === 1) {
-            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} по анкете ${selectedSurveyNames[0]}.`;
+            summary = hideCountSummary
+                ? `Анкета: ${selectedSurveyNames[0]}.`
+                : `Показано ${visibleCount} из ${totalCount} ${itemLabel} по анкете ${selectedSurveyNames[0]}.`;
         } else if (selectedSurveyNames.length > 1) {
-            summary = `Показано ${visibleCount} из ${totalCount} ${itemLabel} по ${selectedSurveyNames.length} анкетам.`;
+            summary = hideCountSummary
+                ? `Выбрано анкет: ${selectedSurveyNames.length}.`
+                : `Показано ${visibleCount} из ${totalCount} ${itemLabel} по ${selectedSurveyNames.length} анкетам.`;
         }
 
         instance.refs.label.textContent = label;
-        instance.refs.summary.textContent = summary;
+        if (instance.refs.summary) {
+            instance.refs.summary.textContent = summary;
+        }
         instance.refs.clearButton.disabled = selectedSurveyNames.length === 0;
     }
 
@@ -671,16 +698,24 @@
         refs.calendars.appendChild(buildCalendarCard(instance, secondMonth, displayState));
 
         if (state.rangeStart && !state.rangeEnd) {
-            refs.hint.textContent = `Начало диапазона: ${getDisplayDate(state.rangeStart)}. Выберите конечную дату.`;
+            if (refs.hint) {
+                refs.hint.textContent = `Начало диапазона: ${getDisplayDate(state.rangeStart)}. Выберите конечную дату.`;
+            }
             return;
         }
 
         if (state.activeFilterType === 'range' && state.rangeStart && state.rangeEnd) {
-            refs.hint.textContent = `Выбран диапазон: ${getRangeDescription(state.rangeStart, state.rangeEnd)}.`;
+            if (refs.hint) {
+                refs.hint.textContent = shouldHideCountSummary(instance.page)
+                    ? ''
+                    : `Выбран диапазон: ${getRangeDescription(state.rangeStart, state.rangeEnd)}.`;
+            }
             return;
         }
 
-        refs.hint.textContent = 'Выберите начальную и конечную дату периода.';
+        if (refs.hint) {
+            refs.hint.textContent = 'Выберите начальную и конечную дату периода.';
+        }
     }
 
     function renderOrganizationPanel(instance) {

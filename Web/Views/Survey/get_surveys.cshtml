@@ -46,7 +46,10 @@
 <div class="admin-container">
     <div id="chrome-navigation"></div>
     <div id="content_admin">
-        <div class="app-page" id="default_content" data-page="surveys-list">
+        <div class="app-page"
+             id="default_content"
+             data-page="surveys-list"
+             data-filter-hide-count-summary="true">
             @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveySubnav.cshtml")
             @await Html.PartialAsync(
                 "~/Web/Views/Shared/_PageIntro.cshtml",
