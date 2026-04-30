@@ -1,0 +1,24 @@
+@{
+    var activeSection = (ViewData["UtilitySection"] as string ?? string.Empty).ToLowerInvariant();
+    var logsActive = activeSection == "logs";
+    var helpActive = activeSection == "help";
+}
+
+<div class="menu-bar app-page__subnav" role="tablist" aria-label="Служебные разделы">
+    <a
+        href="/event-log"
+        class="menu-tab @(logsActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(logsActive ? "true" : "false")"
+        data-tab-target="get_logs">
+        Журнал событий
+    </a>
+    <a
+        href="/help"
+        class="menu-tab @(helpActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(helpActive ? "true" : "false")"
+        data-tab-target="help">
+        Справка
+    </a>
+</div>

@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Просмотр инструкции";
+    ViewData["UtilitySection"] = "help";
 }
 
 @section PageStyles {
@@ -9,6 +10,7 @@
 }
 
 <div class="app-page help-document-page" id="default_content" data-page="help-document">
+    @await Html.PartialAsync("~/Web/Views/Shared/_UtilitySubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
