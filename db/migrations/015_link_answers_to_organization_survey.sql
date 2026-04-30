@@ -57,27 +57,50 @@ BEGIN
 END;
 $$;
 
-INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
-SELECT DISTINCT
-    a.id_organization,
-    a.id_survey,
-    COALESCE(ss.date_begin, CURRENT_DATE)::date AS date_begin,
-    GREATEST(
-        COALESCE(ss.date_end, (CURRENT_DATE + INTERVAL '1 day')::date)::date,
-        (COALESCE(ss.date_begin, CURRENT_DATE)::date + INTERVAL '1 day')::date
-    ) AS date_end
-FROM public.answer a
-INNER JOIN public.organization o
-    ON o.id_organization = a.id_organization
-INNER JOIN public.survey s
-    ON s.id_survey = a.id_survey
-LEFT JOIN public.organization_survey os
-    ON os.id_organization = a.id_organization
-   AND os.id_survey = a.id_survey
-LEFT JOIN public.survey_schedule ss
-    ON ss.id_survey = a.id_survey
-WHERE os.id_organization IS NULL
-ON CONFLICT (id_organization, id_survey) DO NOTHING;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'answer'
+          AND column_name = 'id_organization'
+    ) AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'answer'
+          AND column_name = 'id_survey'
+    ) THEN
+        INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
+        SELECT DISTINCT
+            a.id_organization,
+            a.id_survey,
+            COALESCE(ss.date_begin, CURRENT_DATE)::date AS date_begin,
+            GREATEST(
+                COALESCE(ss.date_end, (CURRENT_DATE + INTERVAL '1 day')::date)::date,
+                (COALESCE(ss.date_begin, CURRENT_DATE)::date + INTERVAL '1 day')::date
+            ) AS date_end
+        FROM public.answer a
+        INNER JOIN public.organization o
+            ON o.id_organization = a.id_organization
+        INNER JOIN public.survey s
+            ON s.id_survey = a.id_survey
+        LEFT JOIN public.organization_survey os
+            ON os.id_organization = a.id_organization
+           AND os.id_survey = a.id_survey
+        LEFT JOIN public.survey_schedule ss
+            ON ss.id_survey = a.id_survey
+        WHERE os.id_organization IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM public.organization_survey existing
+              WHERE existing.id_organization = a.id_organization
+                AND existing.id_survey = a.id_survey
+          );
+    END IF;
+END;
+$$;
 
 DO $$
 DECLARE
@@ -111,21 +134,59 @@ BEGIN
 END;
 $$;
 
-ALTER TABLE public.organization_survey
-    DROP CONSTRAINT IF EXISTS organization_survey_pkey;
+DO $$
+DECLARE
+    current_primary_key_columns text[];
+BEGIN
+    SELECT array_agg(attr.attname ORDER BY key_columns.ordinality)
+    INTO current_primary_key_columns
+    FROM pg_constraint constraint_row
+    CROSS JOIN LATERAL unnest(constraint_row.conkey) WITH ORDINALITY AS key_columns(attnum, ordinality)
+    INNER JOIN pg_attribute attr
+        ON attr.attrelid = constraint_row.conrelid
+       AND attr.attnum = key_columns.attnum
+    WHERE constraint_row.conrelid = 'public.organization_survey'::regclass
+      AND constraint_row.contype = 'p';
 
-ALTER TABLE public.organization_survey
-    ADD CONSTRAINT organization_survey_pkey PRIMARY KEY (id_organization_survey);
+    IF current_primary_key_columns = ARRAY['id_organization_survey'] THEN
+        RETURN;
+    END IF;
+
+    ALTER TABLE public.organization_survey
+        DROP CONSTRAINT IF EXISTS organization_survey_pkey;
+
+    ALTER TABLE public.organization_survey
+        ADD CONSTRAINT organization_survey_pkey PRIMARY KEY (id_organization_survey);
+END;
+$$;
 
 ALTER TABLE public.answer
     ADD COLUMN IF NOT EXISTS id_organization_survey integer;
 
-UPDATE public.answer a
-SET id_organization_survey = os.id_organization_survey
-FROM public.organization_survey os
-WHERE a.id_organization_survey IS NULL
-  AND os.id_organization = a.id_organization
-  AND os.id_survey = a.id_survey;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'answer'
+          AND column_name = 'id_organization'
+    ) AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'answer'
+          AND column_name = 'id_survey'
+    ) THEN
+        UPDATE public.answer a
+        SET id_organization_survey = os.id_organization_survey
+        FROM public.organization_survey os
+        WHERE a.id_organization_survey IS NULL
+          AND os.id_organization = a.id_organization
+          AND os.id_survey = a.id_survey;
+    END IF;
+END;
+$$;
 
 DO $$
 BEGIN

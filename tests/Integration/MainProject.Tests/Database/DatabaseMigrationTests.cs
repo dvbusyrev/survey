@@ -151,6 +151,9 @@ public sealed class DatabaseMigrationTests
 
         Assert.Contains("ADD COLUMN IF NOT EXISTS id_organization_survey", script);
         Assert.Contains("organization_survey_pkey PRIMARY KEY (id_organization_survey)", script);
+        Assert.Contains("column_name = 'id_organization'", script);
+        Assert.Contains("column_name = 'id_survey'", script);
+        Assert.Contains("current_primary_key_columns = ARRAY['id_organization_survey']", script);
         Assert.Contains("answer_id_organization_survey_fkey", script);
         Assert.Contains("DROP COLUMN IF EXISTS id_organization", script);
         Assert.Contains("DROP COLUMN IF EXISTS id_survey", script);

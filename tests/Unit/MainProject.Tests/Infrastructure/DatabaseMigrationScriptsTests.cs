@@ -100,6 +100,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("start_pattern", script);
         Assert.Contains("end_offset_business_days", script);
         Assert.Contains("last_processed_schedule_date", script);
+        Assert.Contains("has_legacy_config", script);
+        Assert.DoesNotContain("REFERENCES public.survey_auto_creation_config (id_config)", script);
         Assert.Contains("VALUES ('012', 'add_survey_auto_creation')", script);
     }
 
@@ -142,6 +144,9 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("id_organization_survey integer", script);
         Assert.Contains("answer_id_organization_survey_key UNIQUE (id_organization_survey)", script);
         Assert.Contains("REFERENCES public.organization_survey (id_organization_survey)", script);
+        Assert.Contains("column_name = 'id_organization'", script);
+        Assert.Contains("column_name = 'id_survey'", script);
+        Assert.Contains("current_primary_key_columns = ARRAY['id_organization_survey']", script);
         Assert.Contains("DROP COLUMN IF EXISTS id_organization", script);
         Assert.Contains("DROP COLUMN IF EXISTS id_survey", script);
         Assert.Contains("VALUES ('015', 'link_answers_to_organization_survey')", script);
