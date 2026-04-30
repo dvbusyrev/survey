@@ -59,7 +59,6 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
 }
 
 .app-page__toolbar--start {
