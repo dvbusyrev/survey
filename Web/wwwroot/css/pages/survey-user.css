@@ -1680,7 +1680,7 @@
 }
 
 #default_content[data-page="user-surveys"] .count-badge {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
 }
 
 #default_content[data-page="user-surveys"] .menu-tab {
@@ -1694,7 +1694,7 @@
 #default_content[data-page="user-surveys"] .menu-tab .count-badge {
     position: absolute;
     top: -0.35rem;
-    right: -0.35rem;
+    right: -0.75rem;
     display: inline-flex;
     margin-left: 0;
     z-index: 3;

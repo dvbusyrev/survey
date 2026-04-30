@@ -1,7 +1,3 @@
-.logs-page {
-  max-width: 1400px;
-  margin: 0 auto;
-}
 
 .logs-page .surveys-table tbody tr {
   cursor: pointer;

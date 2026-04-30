@@ -366,9 +366,9 @@ nav ul li a,
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0.9rem 1rem;
+  padding: var(--app-button-padding);
   color: #4a5568;
-  font-size: 0.82rem;
+  font-size: var(--app-button-font-size);
   line-height: 1.35;
   text-decoration: none;
   white-space: normal;

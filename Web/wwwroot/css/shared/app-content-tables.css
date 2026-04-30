@@ -98,14 +98,12 @@
 }
 
 .menu-tab .count-badge {
-  position: static;
-  display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  min-width: 1.75rem;
-  height: 1.5rem;
-  padding: 0 0.6rem;
+  min-width: 1.4rem;
+  min-height: 1.4rem;
+  padding: 0.3rem;
   margin-left: 0.1rem;
   color: white;
   font-size: 0.75rem;
@@ -180,7 +178,7 @@
   .help-document-page__content table,
   .modal-content table
 ) :is(th, td) {
-  padding: 0.8em;
+  padding: 0.4em;
   color: #4a5568;
   font-size: var(--app-table-font-size);
   line-height: 1.35;
@@ -280,9 +278,7 @@
   .help-document-page__content table,
   .modal-content table
 ) :is(th.table-col--actions, td.table-col--actions) {
-  width: 6.75rem;
-  min-width: 6.75rem;
-  max-width: 12rem;
+  max-width: 5rem;
   white-space: normal;
   overflow: visible;
 }
@@ -549,17 +545,14 @@
 }
 
 .action-icons {
-  padding-inline: 0.6rem;
+  padding-inline: 0.4rem;
 }
 
 .action-icons__content {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
     justify-content: center;
     gap: 10px;
-    max-width: 6.75rem;
-    margin: 0 auto;
 }
 
 .action-icons__content > * {
