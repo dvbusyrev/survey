@@ -10,12 +10,21 @@
         let organizations = [];
         let loading = true;
         let error = '';
-        let extension = { organizationId: '', extendedUntil: '' };
+        let extension = { organizationIds: [], extendedUntil: '' };
+        let isOrganizationPanelOpen = false;
         const today = window.AppDate?.todayIso?.() || new Date().toISOString().split('T')[0];
+        const minEndDate = (() => {
+            const date = new Date();
+            date.setDate(date.getDate() + 1);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        })();
 
         const isFormValid = () => {
             return Boolean(
-                extension.organizationId
+                extension.organizationIds.length > 0
                 && extension.extendedUntil
                 && window.AppDate?.compare(extension.extendedUntil, today) > 0
             );
@@ -29,8 +38,50 @@
             render();
         };
 
+        const toggleOrganization = (organizationId, isSelected) => {
+            const normalizedId = String(organizationId || '');
+            if (!normalizedId) {
+                return;
+            }
+
+            const currentIds = new Set(extension.organizationIds);
+            if (isSelected) {
+                currentIds.add(normalizedId);
+            } else {
+                currentIds.delete(normalizedId);
+            }
+
+            extension = {
+                ...extension,
+                organizationIds: Array.from(currentIds)
+            };
+            isOrganizationPanelOpen = true;
+            render();
+        };
+
+        const closeOrganizationPanel = () => {
+            if (!isOrganizationPanelOpen || disposed) {
+                return;
+            }
+
+            isOrganizationPanelOpen = false;
+            render();
+        };
+
+        const handleDocumentPointerDown = (event) => {
+            if (!host.contains(event.target)) {
+                closeOrganizationPanel();
+            }
+        };
+
+        const handleDocumentKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                closeOrganizationPanel();
+            }
+        };
+
         const handleSubmit = async () => {
-            if (!extension.organizationId || !extension.extendedUntil) {
+            if (extension.organizationIds.length === 0 || !extension.extendedUntil) {
                 window.siteNotify?.('Пожалуйста, заполните все поля.', 'error');
                 return;
             }
@@ -49,10 +100,10 @@
                     },
                     body: JSON.stringify({
                         surveyId: survey?.id_survey,
-                        extensions: [{
-                            organizationId: parseInt(extension.organizationId, 10),
+                        extensions: extension.organizationIds.map((organizationId) => ({
+                            organizationId: parseInt(organizationId, 10),
                             extendedUntil: extension.extendedUntil
-                        }]
+                        }))
                     })
                 });
 
@@ -137,31 +188,73 @@
 
             if (showRows && rowsContainer) {
                 const row = rowTemplate.content.firstElementChild.cloneNode(true);
-                const orgSelect = row.querySelector('[data-role="org-select"]');
+                const organizationTrigger = row.querySelector('[data-role="organization-trigger"]');
+                const organizationLabel = row.querySelector('[data-role="organization-label"]');
+                const organizationPanel = row.querySelector('[data-role="organization-panel"]');
+                const organizationOptions = row.querySelector('[data-role="organization-options"]');
                 const dateInput = row.querySelector('[data-role="date-input"]');
+                const selectedOrganizationIds = new Set(extension.organizationIds);
 
-                if (orgSelect) {
-                    const defaultOption = document.createElement('option');
-                    defaultOption.value = '';
-                    defaultOption.textContent = '-- Выберите организацию --';
-                    orgSelect.appendChild(defaultOption);
-
-                    organizations.forEach((organization) => {
-                        const option = document.createElement('option');
-                        option.value = organization.organizationId;
-                        option.textContent = organization.organizationName;
-                        if (extension.organizationId === organization.organizationId) {
-                            option.selected = true;
-                        }
-                        orgSelect.appendChild(option);
+                if (organizationTrigger) {
+                    organizationTrigger.setAttribute('aria-expanded', isOrganizationPanelOpen ? 'true' : 'false');
+                    organizationTrigger.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        isOrganizationPanelOpen = !isOrganizationPanelOpen;
+                        render();
                     });
+                }
 
-                    orgSelect.addEventListener('change', (event) => {
-                        handleChange('organizationId', event.target.value);
+                if (organizationLabel) {
+                    const selectedOrganizations = organizations.filter((organization) => (
+                        selectedOrganizationIds.has(organization.organizationId)
+                    ));
+                    organizationLabel.textContent = selectedOrganizations.length === 0
+                        ? 'Выберите организации'
+                        : selectedOrganizations.length === 1
+                            ? selectedOrganizations[0].organizationName
+                            : `Выбрано: ${selectedOrganizations.length}`;
+                }
+
+                if (organizationPanel) {
+                    organizationPanel.classList.toggle('is-hidden', !isOrganizationPanelOpen);
+                }
+
+                if (organizationOptions) {
+                    organizations.forEach((organization) => {
+                        const optionLabel = document.createElement('label');
+                        const checkbox = document.createElement('input');
+                        const labelText = document.createElement('span');
+                        const isSelected = selectedOrganizationIds.has(organization.organizationId);
+
+                        optionLabel.className = 'admin-extension-dropdown__option';
+                        optionLabel.classList.toggle('is-selected', isSelected);
+                        optionLabel.setAttribute('role', 'option');
+                        optionLabel.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'admin-extension-dropdown__checkbox';
+                        checkbox.checked = isSelected;
+                        checkbox.value = organization.organizationId;
+                        checkbox.addEventListener('change', (event) => {
+                            toggleOrganization(organization.organizationId, event.target.checked);
+                        });
+
+                        labelText.className = 'admin-extension-dropdown__name';
+                        labelText.textContent = organization.organizationName;
+
+                        optionLabel.appendChild(checkbox);
+                        optionLabel.appendChild(labelText);
+                        organizationOptions.appendChild(optionLabel);
                     });
                 }
 
                 if (dateInput) {
+                    dateInput.dataset.dateMin = minEndDate;
+                    dateInput.min = minEndDate;
+                    dateInput.value = extension.extendedUntil;
+                    if (window.AppDate?.enhanceDateInputs) {
+                        window.AppDate.enhanceDateInputs(row);
+                    }
                     if (window.AppDate?.setInputValue) {
                         window.AppDate.setInputValue(dateInput, extension.extendedUntil);
                     } else {
@@ -223,11 +316,15 @@
             }
         };
 
+        document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+        document.addEventListener('keydown', handleDocumentKeyDown);
         render();
         fetchOrganizations();
 
         return () => {
             disposed = true;
+            document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+            document.removeEventListener('keydown', handleDocumentKeyDown);
             host.innerHTML = '';
         };
     };
