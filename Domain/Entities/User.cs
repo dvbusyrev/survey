@@ -8,7 +8,7 @@ namespace MainProject.Domain.Entities
         [JsonPropertyName("id_user")]
         public int IdUser { get; set; }
 
-        [JsonPropertyName("name_user")]
+        [JsonPropertyName("login")]
         public string? NameUser { get; set; }
 
         [JsonPropertyName("full_name")]
@@ -17,12 +17,12 @@ namespace MainProject.Domain.Entities
         [JsonPropertyName("organization_name")]
         public string? OrganizationName { get; set; }
 
-        [JsonPropertyName("hash_password")]
+        [JsonPropertyName("password")]
         public required string HashPassword { get; set; }
 
         public string? Email { get; set; }
 
-        [JsonPropertyName("name_role")]
+        [JsonPropertyName("role")]
         public required string NameRole { get; set; }
 
         [JsonPropertyName("id_organization")]

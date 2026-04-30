@@ -20,6 +20,8 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 013_transform_survey_auto_creation_config.sql", script);
         Assert.Contains(@"\ir 014_remove_auto_creation_config_metadata.sql", script);
         Assert.Contains(@"\ir 015_link_answers_to_organization_survey.sql", script);
+        Assert.Contains(@"\ir 016_rename_config_tables.sql", script);
+        Assert.Contains(@"\ir 017_rename_app_user_credentials.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -119,6 +121,34 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("DROP COLUMN IF EXISTS id_survey", script);
         Assert.Contains("write_crud_audit('id_organization_survey')", script);
         Assert.Contains("VALUES ('015', 'link_answers_to_organization_survey')", script);
+    }
+
+    [Fact]
+    public void RenameConfigTablesMigration_UsesFinalConfigTableNames()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "016_rename_config_tables.sql"));
+
+        Assert.Contains("RENAME TO email_config", script);
+        Assert.Contains("RENAME TO email_config_l", script);
+        Assert.Contains("RENAME TO survey_auto_creation_config_l", script);
+        Assert.Contains("RENAME COLUMN id_email_template TO id_config", script);
+        Assert.Contains("DROP COLUMN IF EXISTS template_key", script);
+        Assert.Contains("write_crud_audit('id_config')", script);
+        Assert.Contains("VALUES ('016', 'rename_config_tables')", script);
+    }
+
+    [Fact]
+    public void RenameAppUserCredentialsMigration_UsesFinalCredentialColumnNames()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "017_rename_app_user_credentials.sql"));
+
+        Assert.Contains("RENAME COLUMN name_user TO login", script);
+        Assert.Contains("RENAME COLUMN name_role TO role", script);
+        Assert.Contains("RENAME COLUMN hash_password TO password", script);
+        Assert.Contains("RENAME CONSTRAINT app_user_name_user_key TO app_user_login_key", script);
+        Assert.Contains("RENAME CONSTRAINT chk_app_user_name_role TO chk_app_user_role", script);
+        Assert.Contains("app_user_password_not_null", script);
+        Assert.Contains("VALUES ('017', 'rename_app_user_credentials')", script);
     }
 
     [Fact]

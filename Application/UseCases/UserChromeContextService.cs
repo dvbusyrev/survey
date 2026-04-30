@@ -32,8 +32,8 @@ public sealed class UserChromeContextService : IUserChromeContextService
             """
             SELECT
                 u.id_user AS UserId,
-                u.name_role AS UserRole,
-                u.name_user AS UserName,
+                u.role AS UserRole,
+                u.login AS UserName,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS OrganizationName
             FROM public.app_user u
             LEFT JOIN public.organization o

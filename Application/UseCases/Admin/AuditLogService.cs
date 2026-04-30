@@ -462,7 +462,7 @@ public sealed class AuditLogService : IAuditLogService
     {
         return sourceTable switch
         {
-            "app_user" => FirstNonEmpty(rowData?["full_name"], rowData?["name_user"]) ?? BuildIdLabel(recordPk, "id_user", "ID"),
+            "app_user" => FirstNonEmpty(rowData?["full_name"], rowData?["login"], rowData?["name_user"]) ?? BuildIdLabel(recordPk, "id_user", "ID"),
             "organization" => FirstNonEmpty(rowData?["organization_name"]) ?? BuildIdLabel(recordPk, "id_organization", "ID"),
             "survey" => FirstNonEmpty(rowData?["name_survey"]) ?? BuildIdLabel(recordPk, "id_survey", "ID"),
             "answer" => BuildAnswerTarget(recordPk, rowData),
@@ -632,7 +632,7 @@ public sealed class AuditLogService : IAuditLogService
                 audit_entries.operation AS Operation,
                 audit_entries.changed_at AS ChangedAt,
                 audit_entries.changed_by_user_id AS ChangedByUserId,
-                COALESCE(actor.full_name, actor.name_user) AS ActorName,
+                COALESCE(actor.full_name, actor.login) AS ActorName,
                 audit_entries.record_pk::text AS RecordPkJson,
                 audit_entries.row_data::text AS RowDataJson
             FROM (

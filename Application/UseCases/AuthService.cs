@@ -25,14 +25,14 @@ public sealed class AuthService : IAuthService
             """
             SELECT
                 u.id_user AS UserId,
-                u.name_role AS Role,
-                u.name_user AS UserName,
+                u.role AS Role,
+                u.login AS UserName,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS OrganizationName,
-                u.hash_password AS PasswordHash
+                u.password AS PasswordHash
             FROM public.app_user u
             LEFT JOIN public.organization o
                 ON u.id_organization = o.id_organization
-            WHERE u.name_user = @username;
+            WHERE u.login = @username;
             """,
             new { username });
 
@@ -73,7 +73,7 @@ public sealed class AuthService : IAuthService
             connection.Execute(
                 """
                 UPDATE public.app_user
-                SET hash_password = @hash
+                SET password = @hash
                 WHERE id_user = @id;
                 """,
                 new

@@ -609,7 +609,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                 SELECT
                     COALESCE(
                         NULLIF(TRIM(u.full_name), ''),
-                        NULLIF(TRIM(u.name_user), ''),
+                        NULLIF(TRIM(u.login), ''),
                         'Пользователь #' || u.id_user::text
                     ) AS user_name
                 FROM public.app_user u
@@ -620,7 +620,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                 SELECT
                     COALESCE(
                         NULLIF(TRIM(u.full_name), ''),
-                        NULLIF(TRIM(u.name_user), ''),
+                        NULLIF(TRIM(u.login), ''),
                         NULLIF(TRIM(audit_row.full_name), ''),
                         NULLIF(TRIM(audit_row.user_name), ''),
                         CASE
@@ -642,7 +642,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                             ELSE NULL
                         END AS id_organization,
                         row_data->>'full_name' AS full_name,
-                        row_data->>'name_user' AS user_name
+                        COALESCE(row_data->>'login', row_data->>'name_user') AS user_name
                     FROM public.app_user_l
                 ) audit_row
                 LEFT JOIN public.app_user u

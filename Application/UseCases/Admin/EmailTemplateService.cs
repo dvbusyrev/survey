@@ -10,7 +10,7 @@ namespace MainProject.Application.UseCases.Admin;
 
 public sealed class EmailTemplateService : IEmailTemplateService
 {
-    private const string DefaultTemplateKey = "default";
+    private const int DefaultConfigId = 1;
 
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly IDataProtector _passwordProtector;
@@ -46,11 +46,11 @@ public sealed class EmailTemplateService : IEmailTemplateService
                     smtp_password AS SmtpPasswordEncrypted,
                     from_address AS FromAddress,
                     from_display_name AS FromDisplayName
-                FROM public.email_template
-                WHERE template_key = @templateKey
+                FROM public.email_config
+                WHERE id_config = @configId
                 LIMIT 1;
                 """,
-                new { templateKey = DefaultTemplateKey },
+                new { configId = DefaultConfigId },
                 cancellationToken: cancellationToken));
 
         if (row == null)
@@ -82,9 +82,9 @@ public sealed class EmailTemplateService : IEmailTemplateService
         await connection.ExecuteAsync(
             new CommandDefinition(
                 """
-                INSERT INTO public.email_template
+                INSERT INTO public.email_config
                 (
-                    template_key,
+                    id_config,
                     recipient_emails,
                     subject_text,
                     body_text,
@@ -98,7 +98,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 )
                 VALUES
                 (
-                    @TemplateKey,
+                    @ConfigId,
                     @To,
                     @Subject,
                     @Content,
@@ -110,7 +110,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                     @FromAddress,
                     @FromDisplayName
                 )
-                ON CONFLICT (template_key) DO UPDATE
+                ON CONFLICT (id_config) DO UPDATE
                 SET
                     recipient_emails = EXCLUDED.recipient_emails,
                     subject_text = EXCLUDED.subject_text,
@@ -125,7 +125,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 """,
                 new
                 {
-                    TemplateKey = DefaultTemplateKey,
+                    ConfigId = DefaultConfigId,
                     normalized.To,
                     normalized.Subject,
                     normalized.Content,

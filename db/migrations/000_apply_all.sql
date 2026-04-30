@@ -27,3 +27,5 @@ COMMIT;
 \ir 013_transform_survey_auto_creation_config.sql
 \ir 014_remove_auto_creation_config_metadata.sql
 \ir 015_link_answers_to_organization_survey.sql
+\ir 016_rename_config_tables.sql
+\ir 017_rename_app_user_credentials.sql

@@ -54,14 +54,14 @@ public sealed class UserManagementService : IUserManagementService
             SELECT
                 u.id_user,
                 u.full_name,
-                u.name_user,
+                u.login AS NameUser,
                 u.email,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
                 COALESCE(u.id_organization, 0) AS OrganizationId,
-                u.name_role,
+                u.role AS NameRole,
                 u.date_begin,
                 u.date_end,
-                u.hash_password
+                u.password AS HashPassword
             FROM public.app_user u
             LEFT JOIN public.organization o
                 ON u.id_organization = o.id_organization
@@ -94,10 +94,10 @@ public sealed class UserManagementService : IUserManagementService
             """
             INSERT INTO public.app_user (
                 id_organization,
-                name_user,
+                login,
                 full_name,
-                name_role,
-                hash_password,
+                role,
+                password,
                 email,
                 date_begin,
                 date_end
@@ -151,10 +151,10 @@ public sealed class UserManagementService : IUserManagementService
         var sql = """
             UPDATE public.app_user
             SET
-                name_user = @userName,
+                login = @userName,
                 full_name = @fullName,
                 id_organization = @organizationId,
-                name_role = @role,
+                role = @role,
                 email = @email,
                 date_begin = @dateBegin,
                 date_end = @dateEnd
@@ -162,7 +162,7 @@ public sealed class UserManagementService : IUserManagementService
 
         if (passwordHash != null)
         {
-            sql += ", hash_password = @passwordHash";
+            sql += ", password = @passwordHash";
         }
 
         sql += " WHERE id_user = @id";
@@ -200,7 +200,7 @@ public sealed class UserManagementService : IUserManagementService
             SELECT
                 id_user AS IdUser,
                 full_name AS FullName,
-                name_user AS UserName
+                login AS UserName
             FROM public.app_user
             WHERE id_user = @id;
             """,
@@ -614,9 +614,9 @@ public sealed class UserManagementService : IUserManagementService
             SELECT
                 u.id_user,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
-                u.name_user,
-                u.name_role,
-                u.hash_password,
+                u.login AS NameUser,
+                u.role AS NameRole,
+                u.password AS HashPassword,
                 u.date_begin,
                 u.date_end,
                 u.full_name,
@@ -626,16 +626,16 @@ public sealed class UserManagementService : IUserManagementService
             LEFT JOIN public.organization o
                 ON u.id_organization = o.id_organization
             WHERE u.date_end IS NULL OR u.date_end >= CURRENT_DATE
-            ORDER BY COALESCE(u.full_name, u.name_user), u.id_user;
+            ORDER BY COALESCE(u.full_name, u.login), u.id_user;
             """;
 
         public const string ArchivedUsers = """
             SELECT
                 u.id_user,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
-                u.name_user,
-                u.name_role,
-                u.hash_password,
+                u.login AS NameUser,
+                u.role AS NameRole,
+                u.password AS HashPassword,
                 u.date_begin,
                 u.date_end,
                 u.full_name,
@@ -645,7 +645,7 @@ public sealed class UserManagementService : IUserManagementService
             LEFT JOIN public.organization o
                 ON u.id_organization = o.id_organization
             WHERE u.date_end < CURRENT_DATE
-            ORDER BY COALESCE(u.full_name, u.name_user), u.id_user;
+            ORDER BY COALESCE(u.full_name, u.login), u.id_user;
             """;
     }
 

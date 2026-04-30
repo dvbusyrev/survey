@@ -15,6 +15,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 013_transform_survey_auto_creation_config.sql", script);
         Assert.Contains(@"\ir 014_remove_auto_creation_config_metadata.sql", script);
         Assert.Contains(@"\ir 015_link_answers_to_organization_survey.sql", script);
+        Assert.Contains(@"\ir 016_rename_config_tables.sql", script);
+        Assert.Contains(@"\ir 017_rename_app_user_credentials.sql", script);
     }
 
     [Fact]
@@ -105,6 +107,37 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("DROP COLUMN IF EXISTS id_organization", script);
         Assert.Contains("DROP COLUMN IF EXISTS id_survey", script);
         Assert.Contains("VALUES ('015', 'link_answers_to_organization_survey')", script);
+    }
+
+    [Fact]
+    public void ConfigRenameMigration_RenamesEmailAndAutoCreationAuditTables()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "016_rename_config_tables.sql"));
+
+        Assert.Contains("ALTER TABLE public.email_template RENAME TO email_config", script);
+        Assert.Contains("ALTER TABLE public.email_template_l RENAME TO email_config_l", script);
+        Assert.Contains("ALTER TABLE public.l_survey_auto_creation_config RENAME TO survey_auto_creation_config_l", script);
+        Assert.Contains("RENAME COLUMN id_email_template TO id_config", script);
+        Assert.Contains("DROP COLUMN IF EXISTS template_key", script);
+        Assert.Contains("idx_email_config_l_changed_at", script);
+        Assert.Contains("idx_survey_auto_creation_config_l_changed_at", script);
+        Assert.Contains("VALUES ('016', 'rename_config_tables')", script);
+    }
+
+    [Fact]
+    public void AppUserCredentialsRenameMigration_RenamesColumnsAndConstraints()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "017_rename_app_user_credentials.sql"));
+
+        Assert.Contains("ALTER TABLE public.app_user RENAME COLUMN name_user TO login", script);
+        Assert.Contains("ALTER TABLE public.app_user RENAME COLUMN name_role TO role", script);
+        Assert.Contains("ALTER TABLE public.app_user RENAME COLUMN hash_password TO password", script);
+        Assert.Contains("app_user_login_key", script);
+        Assert.Contains("chk_app_user_role", script);
+        Assert.Contains("app_user_login_not_null", script);
+        Assert.Contains("app_user_role_not_null", script);
+        Assert.Contains("app_user_password_not_null", script);
+        Assert.Contains("VALUES ('017', 'rename_app_user_credentials')", script);
     }
 
     private static string GetRepositoryRoot()
