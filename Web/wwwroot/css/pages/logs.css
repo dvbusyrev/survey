@@ -43,10 +43,6 @@
   line-height: 1.45;
 }
 
-.logs-modal .modal-content {
-  max-width: 920px;
-}
-
 .logs-modal__body {
   display: grid;
   gap: 20px;

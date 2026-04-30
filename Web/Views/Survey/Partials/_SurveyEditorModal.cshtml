@@ -55,9 +55,11 @@
 
                 <div class="form-group">
                     <label for="startDate">Дата начала</label>
-                    <input type="date"
+                    <input type="text"
                            class="form-control"
                            id="startDate"
+                           data-date-format="dd.mm.yyyy"
+                           data-date-label="Дата начала"
                            value="@(isEditMode ? editPage!.Survey.DateBegin.ToString("yyyy-MM-dd") : string.Empty)"
                            required />
                     @if (isEditMode)
@@ -68,9 +70,11 @@
 
                 <div class="form-group">
                     <label for="endDate">Дата конца</label>
-                    <input type="date"
+                    <input type="text"
                            class="form-control"
                            id="endDate"
+                           data-date-format="dd.mm.yyyy"
+                           data-date-label="Дата конца"
                            value="@(isEditMode ? editPage!.Survey.DateEnd.ToString("yyyy-MM-dd") : string.Empty)"
                            required />
                     @if (isEditMode)

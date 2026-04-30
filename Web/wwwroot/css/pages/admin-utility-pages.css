@@ -236,10 +236,6 @@ text-align: center;
   max-width: 100%;
 }
 
-.survey-auto-creation-modal__content {
-  max-width: min(680px, calc(100vw - 32px));
-}
-
 .survey-auto-creation-modal__loading {
   color: var(--text-secondary);
 }

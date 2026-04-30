@@ -17,9 +17,10 @@
 }
 
 .admin-extension-modal-root {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
 }
 
 .admin-extension-modal-title {
@@ -95,53 +96,6 @@
     border: 1px solid rgba(203, 213, 225, 0.92);
     border-radius: 10px;
     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
-}
-
-.admin-extension-dropdown__list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 220px;
-    overflow-y: auto;
-}
-
-.admin-extension-dropdown__option {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 0.55rem 0.65rem;
-    color: var(--text-main);
-    background: rgba(248, 250, 252, 0.98);
-    border: 1px solid rgba(203, 213, 225, 0.92);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-}
-
-.admin-extension-dropdown__option:hover {
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
-}
-
-.admin-extension-dropdown__option.is-selected {
-    background: rgba(141, 132, 255, 0.12);
-    border-color: rgba(106, 90, 205, 0.45);
-    box-shadow: 0 7px 16px rgba(106, 90, 205, 0.12);
-}
-
-.admin-extension-dropdown__checkbox {
-    flex: 0 0 auto;
-    width: 15px;
-    height: 15px;
-    margin-top: 1px;
-    accent-color: #6a5acd;
-}
-
-.admin-extension-dropdown__name {
-    min-width: 0;
-    font-size: 0.84rem;
-    font-weight: 600;
-    line-height: 1.4;
-    overflow-wrap: anywhere;
 }
 
 .admin-extension-remove {

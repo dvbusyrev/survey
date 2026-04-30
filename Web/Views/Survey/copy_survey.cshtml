@@ -30,12 +30,12 @@
 
         <div class="form-group">
             <label for="startDate">Дата начала</label>
-            <input type="date" class="form-control" id="startDate" value="@currentDate" required />
+            <input type="text" class="form-control" id="startDate" data-date-format="dd.mm.yyyy" data-date-label="Дата начала" value="@currentDate" required />
         </div>
 
         <div class="form-group">
             <label for="endDate">Дата конца</label>
-            <input type="date" class="form-control" id="endDate" value="@nextWeekDate" required />
+            <input type="text" class="form-control" id="endDate" data-date-format="dd.mm.yyyy" data-date-label="Дата конца" value="@nextWeekDate" required />
         </div>
 
         <p class="survey-editor-page__note">Примечание: организации и критерии будут скопированы из оригинальной анкеты.</p>

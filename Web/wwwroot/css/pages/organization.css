@@ -54,11 +54,6 @@
   width: 100%;
 }
 
-.organization-modal .modal-content,
-#editOrganizationModal .modal-content {
-  max-width: 640px;
-}
-
 .organization-modal .form-group,
 #editOrganizationModal .form-group {
   margin-bottom: 12px;

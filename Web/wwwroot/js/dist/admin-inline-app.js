@@ -612,18 +612,18 @@
               const checkbox = document.createElement("input");
               const labelText = document.createElement("span");
               const isSelected = selectedOrganizationIds.has(organization.organizationId);
-              optionLabel.className = "admin-extension-dropdown__option";
+              optionLabel.className = "survey-period-filter__organization-option";
               optionLabel.classList.toggle("is-selected", isSelected);
               optionLabel.setAttribute("role", "option");
               optionLabel.setAttribute("aria-selected", isSelected ? "true" : "false");
               checkbox.type = "checkbox";
-              checkbox.className = "admin-extension-dropdown__checkbox";
+              checkbox.className = "survey-period-filter__organization-checkbox";
               checkbox.checked = isSelected;
               checkbox.value = organization.organizationId;
               checkbox.addEventListener("change", (event) => {
                 toggleOrganization(organization.organizationId, event.target.checked);
               });
-              labelText.className = "admin-extension-dropdown__name";
+              labelText.className = "survey-period-filter__organization-name";
               labelText.textContent = organization.organizationName;
               optionLabel.appendChild(checkbox);
               optionLabel.appendChild(labelText);
@@ -1611,6 +1611,7 @@
     const modalIcon = document.createElement("i");
     modalIcon.className = "fas fa-xmark";
     const modalBodyHost = document.createElement("div");
+    modalBodyHost.className = "modal-body";
     modalClose.appendChild(modalIcon);
     modalContent.appendChild(modalClose);
     modalContent.appendChild(modalBodyHost);

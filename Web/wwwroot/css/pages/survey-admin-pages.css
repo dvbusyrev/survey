@@ -207,61 +207,6 @@
   box-shadow: 0 7px 16px rgba(106, 90, 205, 0.22);
 }
 
-.survey-period-filter__organization-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 2px;
-}
-
-.survey-period-filter__organization-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 0.55rem 0.65rem;
-  background: rgba(248, 250, 252, 0.98);
-  border: 1px solid rgba(203, 213, 225, 0.92);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
-}
-
-.survey-period-filter__organization-option:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
-}
-
-.survey-period-filter__organization-option.is-selected {
-  background: rgba(141, 132, 255, 0.12);
-  border-color: rgba(106, 90, 205, 0.45);
-  box-shadow: 0 7px 16px rgba(106, 90, 205, 0.12);
-}
-
-.survey-period-filter__organization-checkbox {
-  flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  margin-top: 1px;
-  accent-color: #6a5acd;
-}
-
-.survey-period-filter__organization-name {
-  color: var(--text-main);
-  font-size: 0.84rem;
-  font-weight: 600;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.survey-period-filter__organization-empty {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.84rem;
-  line-height: 1.5;
-}
-
 .survey-period-filter__hint,
 .survey-period-filter__summary {
   display: none;

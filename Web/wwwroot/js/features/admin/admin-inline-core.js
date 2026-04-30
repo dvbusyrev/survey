@@ -493,6 +493,7 @@
     const modalIcon = document.createElement('i');
     modalIcon.className = 'fas fa-xmark';
     const modalBodyHost = document.createElement('div');
+    modalBodyHost.className = 'modal-body';
     modalClose.appendChild(modalIcon);
     modalContent.appendChild(modalClose);
     modalContent.appendChild(modalBodyHost);

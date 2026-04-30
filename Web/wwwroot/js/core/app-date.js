@@ -8,6 +8,22 @@
     const LEGACY_DATE_FORMAT = 'dd/mm/yyyy';
     const GLOBAL_YEAR_RANGE = 10;
     const DATE_INPUT_SELECTOR = `input[type="date"]:not([data-date-proxy="true"]), input[data-date-format="${ACTIVE_DATE_FORMAT}"], input[data-date-format="${LEGACY_DATE_FORMAT}"]`;
+    const MONTH_NAMES = [
+        'Январь',
+        'Февраль',
+        'Март',
+        'Апрель',
+        'Май',
+        'Июнь',
+        'Июль',
+        'Август',
+        'Сентябрь',
+        'Октябрь',
+        'Ноябрь',
+        'Декабрь'
+    ];
+    const WEEKDAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    let activeCalendarInput = null;
 
     function pad(value) {
         return String(value).padStart(2, '0');
@@ -285,21 +301,291 @@
         return true;
     }
 
+    function applyDateMask(input) {
+        if (!input) {
+            return;
+        }
+
+        const value = normalizeInput(input.value);
+        if (!value) {
+            return;
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            input.value = toDisplay(value);
+            return;
+        }
+
+        const digits = value.replace(/\D/g, '').slice(0, 8);
+        const parts = [];
+
+        if (digits.length > 0) {
+            parts.push(digits.slice(0, 2));
+        }
+
+        if (digits.length > 2) {
+            parts.push(digits.slice(2, 4));
+        }
+
+        if (digits.length > 4) {
+            parts.push(digits.slice(4, 8));
+        }
+
+        input.value = parts.join('.');
+    }
+
+    function getCalendarState(input) {
+        if (!input._appDateCalendarState) {
+            const selectedDate = parseDate(input.value);
+            const today = new Date();
+            const baseDate = selectedDate || today;
+            input._appDateCalendarState = {
+                viewMonth: baseDate.getMonth(),
+                viewYear: baseDate.getFullYear()
+            };
+        }
+
+        return input._appDateCalendarState;
+    }
+
+    function getDaysInMonth(year, monthIndex) {
+        return new Date(year, monthIndex + 1, 0).getDate();
+    }
+
+    function getMonthStartOffset(year, monthIndex) {
+        return (new Date(year, monthIndex, 1).getDay() + 6) % 7;
+    }
+
+    function isMonthOutsideRange(input, year, monthIndex, direction) {
+        const firstDateIso = createIsoString(year, monthIndex + 1, 1);
+        const lastDateIso = createIsoString(year, monthIndex + 1, getDaysInMonth(year, monthIndex));
+        const { min, max } = resolveEffectiveBounds(input);
+
+        if (direction < 0 && min && compare(lastDateIso, min) < 0) {
+            return true;
+        }
+
+        if (direction > 0 && max && compare(firstDateIso, max) > 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function shiftCalendarMonth(input, monthOffset) {
+        const state = getCalendarState(input);
+        const shifted = new Date(state.viewYear, state.viewMonth + monthOffset, 1);
+        state.viewYear = shifted.getFullYear();
+        state.viewMonth = shifted.getMonth();
+        renderCalendar(input);
+        positionCalendar(input);
+    }
+
+    function closeCalendar(input = activeCalendarInput) {
+        if (!input?._appDateCalendar) {
+            activeCalendarInput = null;
+            return;
+        }
+
+        input._appDateCalendar.classList.add('is-hidden');
+        input._appDateCalendar.style.visibility = '';
+        input._appDateCalendar.style.left = '';
+        input._appDateCalendar.style.top = '';
+        input._appDateCalendar.style.width = '';
+        input._appDateButton?.setAttribute('aria-expanded', 'false');
+
+        if (activeCalendarInput === input) {
+            activeCalendarInput = null;
+        }
+    }
+
+    function positionCalendar(input) {
+        const panel = input?._appDateCalendar;
+        if (!panel || panel.classList.contains('is-hidden')) {
+            return;
+        }
+
+        const inputRect = input.getBoundingClientRect();
+        const minViewportGap = 8;
+        const panelWidth = Math.min(
+            Math.max(inputRect.width, 260),
+            window.innerWidth - (minViewportGap * 2)
+        );
+
+        panel.style.width = `${panelWidth}px`;
+
+        const panelRect = panel.getBoundingClientRect();
+        const left = Math.min(
+            Math.max(minViewportGap, inputRect.left),
+            Math.max(minViewportGap, window.innerWidth - panelWidth - minViewportGap)
+        );
+        let top = inputRect.bottom + 6;
+
+        if (top + panelRect.height > window.innerHeight - minViewportGap) {
+            top = inputRect.top - panelRect.height - 6;
+        }
+
+        if (top < minViewportGap) {
+            top = minViewportGap;
+        }
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${top}px`;
+    }
+
+    function selectCalendarDate(input, isoValue) {
+        if (!input || !isoValue || !isIsoWithinRange(input, isoValue)) {
+            return;
+        }
+
+        input.value = toDisplay(isoValue);
+        input.classList.remove('invalid');
+        syncPickerValue(input);
+        closeCalendar(input);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.focus({ preventScroll: true });
+    }
+
+    function appendCalendarButton(parent, className, label, iconClass, onClick) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.setAttribute('aria-label', label);
+
+        const icon = document.createElement('i');
+        icon.className = iconClass;
+        icon.setAttribute('aria-hidden', 'true');
+        button.appendChild(icon);
+        button.addEventListener('click', onClick);
+        parent.appendChild(button);
+        return button;
+    }
+
+    function renderCalendar(input) {
+        const panel = input?._appDateCalendar;
+        if (!panel) {
+            return;
+        }
+
+        const state = getCalendarState(input);
+        const selectedIso = toIso(input.value);
+        const today = todayIso();
+        const previousMonth = new Date(state.viewYear, state.viewMonth - 1, 1);
+        const nextMonth = new Date(state.viewYear, state.viewMonth + 1, 1);
+
+        const header = document.createElement('div');
+        header.className = 'app-date-field__calendar-header';
+
+        const previousButton = appendCalendarButton(
+            header,
+            'app-date-field__calendar-nav',
+            'Предыдущий месяц',
+            'fa-solid fa-chevron-left',
+            () => shiftCalendarMonth(input, -1)
+        );
+        previousButton.disabled = isMonthOutsideRange(input, previousMonth.getFullYear(), previousMonth.getMonth(), -1);
+
+        const title = document.createElement('div');
+        title.className = 'app-date-field__calendar-title';
+        title.textContent = `${MONTH_NAMES[state.viewMonth]} ${state.viewYear}`;
+        header.appendChild(title);
+
+        const nextButton = appendCalendarButton(
+            header,
+            'app-date-field__calendar-nav',
+            'Следующий месяц',
+            'fa-solid fa-chevron-right',
+            () => shiftCalendarMonth(input, 1)
+        );
+        nextButton.disabled = isMonthOutsideRange(input, nextMonth.getFullYear(), nextMonth.getMonth(), 1);
+
+        const weekdays = document.createElement('div');
+        weekdays.className = 'app-date-field__calendar-weekdays';
+        WEEKDAY_NAMES.forEach((weekday) => {
+            const item = document.createElement('span');
+            item.textContent = weekday;
+            weekdays.appendChild(item);
+        });
+
+        const days = document.createElement('div');
+        days.className = 'app-date-field__calendar-days';
+
+        const offset = getMonthStartOffset(state.viewYear, state.viewMonth);
+        for (let index = 0; index < offset; index += 1) {
+            const spacer = document.createElement('span');
+            spacer.className = 'app-date-field__calendar-spacer';
+            days.appendChild(spacer);
+        }
+
+        const daysInMonth = getDaysInMonth(state.viewYear, state.viewMonth);
+        for (let day = 1; day <= daysInMonth; day += 1) {
+            const isoValue = createIsoString(state.viewYear, state.viewMonth + 1, day);
+            const dayButton = document.createElement('button');
+            dayButton.type = 'button';
+            dayButton.className = 'app-date-field__calendar-day';
+            dayButton.textContent = String(day);
+            dayButton.disabled = !isIsoWithinRange(input, isoValue);
+            dayButton.classList.toggle('is-selected', selectedIso === isoValue);
+            dayButton.classList.toggle('is-today', today === isoValue);
+            dayButton.addEventListener('click', () => selectCalendarDate(input, isoValue));
+            days.appendChild(dayButton);
+        }
+
+        panel.replaceChildren(header, weekdays, days);
+    }
+
     function openPicker(input) {
-        const picker = input?._appDatePickerProxy;
-        if (!picker) {
+        const panel = input?._appDateCalendar;
+        if (!panel) {
             return;
         }
 
-        picker.value = toIso(input.value) || '';
+        if (activeCalendarInput && activeCalendarInput !== input) {
+            closeCalendar(activeCalendarInput);
+        }
 
-        if (typeof picker.showPicker === 'function') {
-            picker.showPicker();
+        const selectedDate = parseDate(input.value);
+        const today = new Date();
+        const baseDate = selectedDate || today;
+        input._appDateCalendarState = {
+            viewMonth: baseDate.getMonth(),
+            viewYear: baseDate.getFullYear()
+        };
+
+        activeCalendarInput = input;
+        renderCalendar(input);
+        panel.classList.remove('is-hidden');
+        panel.style.visibility = 'hidden';
+        positionCalendar(input);
+        panel.style.visibility = '';
+        input._appDateButton?.setAttribute('aria-expanded', 'true');
+    }
+
+    function handleCalendarDocumentPointerDown(event) {
+        if (!activeCalendarInput) {
             return;
         }
 
-        picker.focus({ preventScroll: true });
-        picker.click();
+        const wrapper = activeCalendarInput.closest('.app-date-field');
+        if (wrapper?.contains(event.target)) {
+            return;
+        }
+
+        closeCalendar(activeCalendarInput);
+    }
+
+    function handleCalendarDocumentKeyDown(event) {
+        if (event.key === 'Escape' && activeCalendarInput) {
+            closeCalendar(activeCalendarInput);
+            event.stopPropagation();
+        }
+    }
+
+    function handleCalendarViewportChange() {
+        if (activeCalendarInput) {
+            positionCalendar(activeCalendarInput);
+        }
     }
 
     function preserveInputSpacing(input, wrapper) {
@@ -338,6 +624,8 @@
         button.type = 'button';
         button.className = 'app-date-field__button';
         button.setAttribute('aria-label', 'Открыть календарь');
+        button.setAttribute('aria-haspopup', 'dialog');
+        button.setAttribute('aria-expanded', 'false');
         button.appendChild(icon);
 
         const picker = document.createElement('input');
@@ -370,7 +658,14 @@
 
         wrapper.appendChild(button);
         wrapper.appendChild(picker);
+        const calendar = document.createElement('div');
+        calendar.className = 'app-date-field__calendar is-hidden';
+        calendar.setAttribute('role', 'dialog');
+        calendar.setAttribute('aria-label', 'Календарь');
+        wrapper.appendChild(calendar);
         input._appDatePickerProxy = picker;
+        input._appDateButton = button;
+        input._appDateCalendar = calendar;
         return wrapper;
     }
 
@@ -440,9 +735,17 @@
         syncPickerValue(input);
 
         input.addEventListener('input', function () {
+            applyDateMask(input);
             if (!input.value) {
                 input.classList.remove('invalid');
                 syncPickerValue(input);
+                return;
+            }
+
+            syncPickerValue(input);
+            if (activeCalendarInput === input) {
+                renderCalendar(input);
+                positionCalendar(input);
             }
         });
 
@@ -568,6 +871,13 @@
         }, true);
     }
 
+    function observeCalendarEvents() {
+        document.addEventListener('pointerdown', handleCalendarDocumentPointerDown, true);
+        document.addEventListener('keydown', handleCalendarDocumentKeyDown, true);
+        window.addEventListener('scroll', handleCalendarViewportChange, true);
+        window.addEventListener('resize', handleCalendarViewportChange);
+    }
+
     function todayIso() {
         const today = new Date();
         return createIsoString(today.getFullYear(), today.getMonth() + 1, today.getDate());
@@ -593,6 +903,7 @@
             enhanceDateInputs(document);
             observeDateInputs();
             observeDateForms();
+            observeCalendarEvents();
         });
         return;
     }
@@ -600,4 +911,5 @@
     enhanceDateInputs(document);
     observeDateInputs();
     observeDateForms();
+    observeCalendarEvents();
 })();
