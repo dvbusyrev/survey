@@ -20,17 +20,33 @@ What this does:
 - applies `007_rename_schedule_dates_and_remove_legacy_columns`
 - applies `008_convert_dates_and_rename_organization_id`
 - applies `009_derive_survey_schedule_from_assignments`
+- applies `010_add_email_template_storage`
+- applies `011_add_email_template_audit_log`
+- applies `012_add_survey_auto_creation`
+- applies `013_transform_survey_auto_creation_config`
+- applies `014_remove_auto_creation_config_metadata`
+- applies `015_link_answers_to_organization_survey`
+- applies `016_rename_config_tables`
+- applies `017_rename_app_user_credentials`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
 Migration sources:
 
-- `001_unified_schema` uses `recovery/reconstruct_schema.sql`
-- `002_repair_survey_foreign_keys` uses `recovery/repair_live_constraints.sql`
-- `003_add_update_metadata` uses `recovery/update_metadata_support.sql`
+- `001_unified_schema` builds a portable current-schema baseline from `001_current_schema.sql` and records migrations through `017`
+- `002_repair_survey_foreign_keys` is retained as a historical no-op because the repaired constraints are now part of the baseline
+- `003_add_update_metadata` adds `date_update/user_update` support without external recovery scripts
 - `004_add_organization_short_name` adds `organization.organization_short_name`
 - `005_add_organization_survey_schedule` adds assignment-level schedule fields to `organization_survey`
 - `006_move_organization_survey_schedule_sync_to_triggers` moves schedule sync logic into DB triggers and removes legacy schedule columns
 - `007_rename_schedule_dates_and_remove_legacy_columns` renames survey schedule columns to `date_begin/date_end` and removes unused legacy columns
 - `008_convert_dates_and_rename_organization_id` converts all `date_begin/date_end` schedules to `date`, removes `survey_question.created_at`, and renames `organization_id` to `id_organization`
 - `009_derive_survey_schedule_from_assignments` removes persisted schedule columns from `survey`, drops obsolete schedule sync trigger infrastructure, and exposes survey dates through `MIN(date_begin)` / `MAX(date_end)` from `organization_survey`
+- `010_add_email_template_storage` creates email settings storage
+- `011_add_email_template_audit_log` adds email settings audit logging
+- `012_add_survey_auto_creation` creates the first auto-creation configuration storage
+- `013_transform_survey_auto_creation_config` normalizes auto-creation configuration and seeds `week_day`
+- `014_remove_auto_creation_config_metadata` removes obsolete auto-creation metadata columns
+- `015_link_answers_to_organization_survey` links answers to `organization_survey`
+- `016_rename_config_tables` renames email and auto-creation audit/config tables to final names
+- `017_rename_app_user_credentials` renames `app_user` credential columns to `login`, `role`, and `password`

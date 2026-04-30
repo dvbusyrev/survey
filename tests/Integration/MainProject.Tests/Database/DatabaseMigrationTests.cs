@@ -9,6 +9,8 @@ public sealed class DatabaseMigrationTests
     {
         var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "000_apply_all.sql"));
 
+        Assert.Contains(@"\ir 001_unified_schema.sql", script);
+        Assert.Contains(@"\ir 002_repair_survey_foreign_keys.sql", script);
         Assert.Contains(@"\ir 003_add_update_metadata.sql", script);
         Assert.Contains(@"\ir 004_add_organization_short_name.sql", script);
         Assert.Contains(@"\ir 005_add_organization_survey_schedule.sql", script);
@@ -24,6 +26,39 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 017_rename_app_user_credentials.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
+    }
+
+    [Fact]
+    public void UnifiedSchemaMigration_UsesPortableCurrentSchemaBaseline()
+    {
+        var migration = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_unified_schema.sql"));
+        var schema = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_current_schema.sql"));
+
+        Assert.Contains(@"\ir 001_current_schema.sql", migration);
+        Assert.Contains("('017', 'rename_app_user_credentials')", migration);
+        Assert.Contains("INSERT INTO public.week_day", migration);
+        Assert.Contains("CREATE TABLE public.app_user", schema);
+        Assert.Contains("login text NOT NULL", schema);
+        Assert.Contains("role text NOT NULL", schema);
+        Assert.Contains("password text NOT NULL", schema);
+        Assert.Contains("CREATE TABLE public.email_config", schema);
+        Assert.Contains("CREATE TABLE public.survey_auto_creation_config_l", schema);
+        Assert.DoesNotContain("recovery/", migration);
+        Assert.DoesNotContain("\\restrict", schema);
+        Assert.DoesNotContain("transaction_timeout", schema);
+    }
+
+    [Fact]
+    public void UpdateMetadataMigration_IsSelfContained()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "003_add_update_metadata.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS date_update", script);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS user_update", script);
+        Assert.Contains("CREATE OR REPLACE FUNCTION public.set_update_metadata()", script);
+        Assert.Contains("CREATE TRIGGER %I", script);
+        Assert.Contains("BEFORE INSERT OR UPDATE ON %I.%I", script.Replace(Environment.NewLine, " "));
+        Assert.DoesNotContain("recovery/", script);
     }
 
     [Fact]
@@ -149,28 +184,6 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("RENAME CONSTRAINT chk_app_user_name_role TO chk_app_user_role", script);
         Assert.Contains("app_user_password_not_null", script);
         Assert.Contains("VALUES ('017', 'rename_app_user_credentials')", script);
-    }
-
-    [Fact]
-    public void ReconstructSchema_UsesSharedUpdateMetadataSupport()
-    {
-        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "recovery", "reconstruct_schema.sql"));
-
-        Assert.Contains(@"\ir update_metadata_support.sql", script);
-        Assert.Contains("date_update", script);
-        Assert.Contains("user_update", script);
-    }
-
-    [Fact]
-    public void UpdateMetadataSupport_AddsColumnsAndTriggers_ForAllPublicTables()
-    {
-        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "recovery", "update_metadata_support.sql"));
-
-        Assert.Contains("ADD COLUMN IF NOT EXISTS date_update", script);
-        Assert.Contains("ADD COLUMN IF NOT EXISTS user_update", script);
-        Assert.Contains("CREATE OR REPLACE FUNCTION public.set_update_metadata()", script);
-        Assert.Contains("CREATE TRIGGER %I", script);
-        Assert.Contains("BEFORE INSERT OR UPDATE ON public.%I", script.Replace(Environment.NewLine, " "));
     }
 
     private static string GetRepositoryRoot()

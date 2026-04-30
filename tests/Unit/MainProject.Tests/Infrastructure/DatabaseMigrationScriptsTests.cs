@@ -9,6 +9,9 @@ public sealed class DatabaseMigrationScriptsTests
     {
         var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "000_apply_all.sql"));
 
+        Assert.Contains(@"\ir 001_unified_schema.sql", script);
+        Assert.Contains(@"\ir 002_repair_survey_foreign_keys.sql", script);
+        Assert.Contains(@"\ir 003_add_update_metadata.sql", script);
         Assert.Contains(@"\ir 010_add_email_template_storage.sql", script);
         Assert.Contains(@"\ir 011_add_email_template_audit_log.sql", script);
         Assert.Contains(@"\ir 012_add_survey_auto_creation.sql", script);
@@ -17,6 +20,41 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 015_link_answers_to_organization_survey.sql", script);
         Assert.Contains(@"\ir 016_rename_config_tables.sql", script);
         Assert.Contains(@"\ir 017_rename_app_user_credentials.sql", script);
+    }
+
+    [Fact]
+    public void UnifiedSchemaMigration_ContainsPortableCurrentBaseline()
+    {
+        var migration = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_unified_schema.sql"));
+        var schema = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_current_schema.sql"));
+
+        Assert.Contains(@"\ir 001_current_schema.sql", migration);
+        Assert.Contains("('017', 'rename_app_user_credentials')", migration);
+        Assert.Contains("INSERT INTO public.week_day", migration);
+        Assert.Contains("CREATE TABLE public.app_user", schema);
+        Assert.Contains("login text NOT NULL", schema);
+        Assert.Contains("role text NOT NULL", schema);
+        Assert.Contains("password text NOT NULL", schema);
+        Assert.Contains("CREATE TABLE public.email_config", schema);
+        Assert.Contains("CREATE TABLE public.survey_auto_creation_config_l", schema);
+        Assert.DoesNotContain("recovery/", migration);
+        Assert.DoesNotContain("\\restrict", schema);
+        Assert.DoesNotContain("transaction_timeout", schema);
+    }
+
+    [Fact]
+    public void RepairAndMetadataMigrations_DoNotReferenceRecoveryDirectory()
+    {
+        var repairScript = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "002_repair_survey_foreign_keys.sql"));
+        var metadataScript = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "003_add_update_metadata.sql"));
+
+        Assert.DoesNotContain("recovery/", repairScript);
+        Assert.DoesNotContain("recovery/", metadataScript);
+        Assert.Contains("CREATE OR REPLACE FUNCTION public.set_update_metadata()", metadataScript);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS date_update", metadataScript);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS user_update", metadataScript);
+        Assert.Contains("VALUES ('002', 'repair_survey_foreign_keys')", repairScript);
+        Assert.Contains("VALUES ('003', 'add_update_metadata')", metadataScript);
     }
 
     [Fact]
