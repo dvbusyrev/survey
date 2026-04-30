@@ -35,7 +35,7 @@ footer p {
 
 .btn_crit {
   position: relative;
-  width: clamp(2.75rem, 4vw, 3.25rem);
+  width: 3rem;
   min-width: 2.75rem;
   aspect-ratio: 1 / 1;
   padding: 0;

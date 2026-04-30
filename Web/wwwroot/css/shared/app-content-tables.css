@@ -278,7 +278,7 @@
   .help-document-page__content table,
   .modal-content table
 ) :is(th.table-col--actions, td.table-col--actions) {
-  width: clamp(6.75rem, 9vw, 12rem);
+  width: 6.75rem;
   min-width: 6.75rem;
   max-width: 12rem;
   white-space: normal;

@@ -1,5 +1,5 @@
 :root {
-  --platform-ui-scale: 1;
+  font-size: 149.25%;
   --primary: #6366f1;
   --primary-light: #818cf8;
   --primary-dark: #4f46e5;
@@ -23,19 +23,10 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --header-height: calc(31px * var(--platform-ui-scale));
-  --page-gap: calc(8px * var(--platform-ui-scale));
-  --nav-width: clamp(250px, 18vw, 240px);
-  --content-max-width: calc(1600px * var(--platform-ui-scale));
-}
-
-/*
-  Windows browsers render the UI noticeably smaller than macOS in this project.
-  Tune this factor in one place if the parity needs additional calibration later.
-*/
-html.platform-windows {
-  --platform-ui-scale: 1.4925;
-  font-size: 149.25%;
+  --header-height: 1.9375rem;
+  --page-gap: 0.5rem;
+  --nav-width: 10.46875rem;
+  --content-max-width: 100rem;
 }
 
 html,
@@ -45,7 +36,7 @@ body {
 }
 
 html {
-  scroll-padding-top: calc(12px * var(--platform-ui-scale));
+  scroll-padding-top: 0.75rem;
 }
 
 body {
@@ -140,7 +131,7 @@ option,
 .content {
   width: min(100%, var(--content-max-width));
   margin: 0 auto;
-  padding: clamp(16px, 2vw, 24px);
+  padding: 1rem;
 }
 
 .note {
@@ -155,7 +146,7 @@ option,
 .note h2 {
   margin: 0 0 0.5rem;
   color: var(--text-main);
-  font-size: clamp(1.4rem, 1.15rem + 0.8vw, 1.8rem);
+  font-size: 1.8rem;
 }
 
 .note p {
@@ -174,7 +165,7 @@ option,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(12px * var(--platform-ui-scale));
+  gap: 0.75rem;
   flex-wrap: wrap;
   margin-bottom: 1%;
 }
@@ -203,15 +194,15 @@ option,
 .filter-sort {
   display: flex;
   align-items: center;
-  gap: calc(12px * var(--platform-ui-scale));
+  gap: 0.75rem;
   flex-wrap: wrap;
-  margin-bottom: calc(16px * var(--platform-ui-scale));
+  margin-bottom: 1rem;
 }
 
 .filter-select {
-  min-width: calc(220px * var(--platform-ui-scale));
+  min-width: 13.75rem;
   max-width: 100%;
-  padding: calc(10px * var(--platform-ui-scale)) calc(12px * var(--platform-ui-scale));
+  padding: 0.625rem 0.75rem;
   color: var(--text-main);
   background: white;
   border: 1px solid var(--border);
@@ -222,8 +213,8 @@ option,
   width: 100%;
   overflow: visible;
   overflow-y: visible;
-  padding-top: calc(52px * var(--platform-ui-scale));
-  padding-bottom: calc(56px * var(--platform-ui-scale));
+  padding-top: 3.25rem;
+  padding-bottom: 3.5rem;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -258,8 +249,8 @@ option,
 
 .access-denied {
   display: block;
-  max-width: calc(720px * var(--platform-ui-scale));
-  margin: calc(120px * var(--platform-ui-scale)) auto calc(40px * var(--platform-ui-scale));
+  max-width: 45rem;
+  margin: 7.5rem auto 2.5rem;
   padding: 2rem;
   text-align: center;
   background: rgba(255, 255, 255, 0.96);
@@ -327,8 +318,8 @@ option,
   .table-responsive {
     overflow-x: auto;
     overflow-y: visible;
-    padding-top: calc(24px * var(--platform-ui-scale));
-    padding-bottom: calc(24px * var(--platform-ui-scale));
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
   }
 }
 
@@ -347,7 +338,7 @@ option,
   }
 
   .access-denied {
-    margin: calc(100px * var(--platform-ui-scale)) calc(12px * var(--platform-ui-scale)) calc(24px * var(--platform-ui-scale));
+    margin: 6.25rem 0.75rem 1.5rem;
     padding: 1.5rem;
   }
 }

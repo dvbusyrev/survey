@@ -176,7 +176,7 @@
 .organization-surveys-page__survey-list {
   display: grid;
   gap: 10px;
-  padding-left: clamp(8px, 1vw, 16px);
+  padding-left: 0.67rem;
 }
 
 .organization-surveys-page__survey-row {

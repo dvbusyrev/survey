@@ -7,18 +7,6 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-        (function () {
-            const platform = (navigator.userAgentData && navigator.userAgentData.platform)
-                || navigator.platform
-                || navigator.userAgent
-                || "";
-
-            if (/win/i.test(platform)) {
-                document.documentElement.classList.add("platform-windows");
-            }
-        })();
-    </script>
     <title>Авторизация</title>
 
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
