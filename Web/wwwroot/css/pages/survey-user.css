@@ -66,11 +66,13 @@
         }
 
         .submit-button {
-            padding: 0.75rem 1.5rem;
+            min-height: var(--app-button-min-height);
+            padding: var(--app-button-padding);
             background-color: var(--primary);
             color: white;
+            font-size: var(--app-button-font-size);
             border: none;
-            border-radius: 6px;
+            border-radius: var(--app-button-radius);
             font-weight: 600;
             cursor: pointer;
             transition: var(--transition);
@@ -409,10 +411,12 @@
     }
 
     .pagination button {
-        padding: 0.5rem 1rem;
+        min-height: var(--app-button-min-height);
+        padding: var(--app-button-padding);
         background-color: white;
         border: 1px solid var(--border);
-        border-radius: var(--radius-md);
+        border-radius: var(--app-button-radius);
+        font-size: var(--app-button-font-size);
         cursor: pointer;
         transition: var(--transition);
     }
@@ -520,9 +524,10 @@
 
 /* Кнопки */
 .csp-btn {
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 14px;
+    min-height: var(--app-button-min-height);
+    padding: var(--app-button-padding);
+    border-radius: var(--app-button-radius);
+    font-size: var(--app-button-font-size);
     cursor: pointer;
     transition: all 0.2s;
     border: none;
@@ -941,16 +946,16 @@
     .filter-button {
         width: auto;
         margin-left: 1rem;
-         padding: 6px 12px;
+        min-height: var(--app-button-min-height);
+        padding: var(--app-button-padding);
         background-color: var(--primary);
         color: white;
         border: none;
-        border-radius: var(--radius-md);
-        font-size: 0.85rem;
+        border-radius: var(--app-button-radius);
+        font-size: var(--app-button-font-size);
         font-weight: 500;
         cursor: pointer;
         transition: var(--transition);
-        height: 36px; /* Фиксированная высота */
         white-space: nowrap;
     }
     .filter-button:hover {
@@ -976,13 +981,14 @@
     }
 
 .search-button {
-    padding: 8px 16px;
+    min-height: var(--app-button-min-height);
+    padding: var(--app-button-padding);
     background-color: #48bb78;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--app-button-radius);
     cursor: pointer;
-    font-size: 14px;
+    font-size: var(--app-button-font-size);
     transition: all 0.3s ease;
 }
 
@@ -1133,11 +1139,13 @@
         }
 
         .submit-button {
-            padding: 0.75rem 1.5rem;
+            min-height: var(--app-button-min-height);
+            padding: var(--app-button-padding);
             background-color: var(--primary);
             color: white;
+            font-size: var(--app-button-font-size);
             border: none;
-            border-radius: 6px;
+            border-radius: var(--app-button-radius);
             font-weight: 600;
             cursor: pointer;
             transition: var(--transition);
@@ -1212,7 +1220,7 @@
 }
 
 .user-survey-cancel-btn {
-    min-width: 180px;
+    min-width: 0;
 }
 
 @media (max-width: 768px) {
@@ -1660,7 +1668,9 @@
 }
 
 #default_content[data-page="user-surveys"] .menu-tab {
-    font: inherit;
+    font-family: inherit;
+    font-size: var(--app-button-font-size);
+    line-height: 1.2;
 }
 
 #default_content[data-page="user-surveys"] .menu-bar.app-page__subnav {

@@ -17,14 +17,14 @@
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  min-height: 46px;
-  padding: 0.8rem 1.05rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
   color: var(--text-main);
-  font-size: 0.95rem;
+  font-size: var(--app-button-font-size);
   font-weight: 700;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--app-button-radius);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -114,14 +114,14 @@
 }
 
 .survey-period-filter__mode-button {
-  min-height: 30px;
-  padding: 0.42rem 0.62rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: var(--app-button-font-size);
   font-weight: 700;
   background: rgba(241, 245, 249, 0.95);
   border-color: rgba(203, 213, 225, 0.9);
-  border-radius: 999px;
+  border-radius: var(--app-button-radius);
 }
 
 .survey-period-filter__mode-button.is-active {
@@ -366,28 +366,28 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0.48rem 0.7rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
   color: var(--text-main);
-  font-size: 0.82rem;
+  font-size: var(--app-button-font-size);
   font-weight: 700;
   background: rgba(248, 250, 252, 0.98);
   border-color: rgba(203, 213, 225, 0.92);
-  border-radius: 9px;
+  border-radius: var(--app-button-radius);
 }
 
 .survey-period-filter__save-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0.48rem 0.78rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
   color: #fff;
-  font-size: 0.82rem;
+  font-size: var(--app-button-font-size);
   font-weight: 700;
   background: linear-gradient(145deg, #8d84ff 0%, #6a5acd 100%);
   border-color: rgba(106, 90, 205, 0.82);
-  border-radius: 9px;
+  border-radius: var(--app-button-radius);
   box-shadow: 0 7px 16px rgba(106, 90, 205, 0.22);
 }
 

@@ -1,5 +1,9 @@
 :root {
     font-size: 149.25%;
+    --app-button-min-height: 1.26rem;
+    --app-button-padding: 0.45rem 0.9rem;
+    --app-button-font-size: 0.72rem;
+    --app-button-radius: 0.335rem;
 }
 
 * {
@@ -226,13 +230,13 @@ option,
     width: 100%;
     position: relative;
     overflow: hidden;
-    min-height: 2.75rem;
+    min-height: var(--app-button-min-height);
     background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
     border: none;
     color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.625rem;
-    font-size: 1rem;
+    padding: var(--app-button-padding);
+    border-radius: var(--app-button-radius);
+    font-size: var(--app-button-font-size);
     line-height: 1.2;
     font-weight: 700;
     cursor: pointer;
@@ -392,9 +396,10 @@ option,
     background: #667eea;
     color: white;
     border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.375rem;
-    font-size: 1rem;
+    min-height: var(--app-button-min-height);
+    padding: var(--app-button-padding);
+    border-radius: var(--app-button-radius);
+    font-size: var(--app-button-font-size);
     cursor: pointer;
     transition: all 0.2s ease;
 }

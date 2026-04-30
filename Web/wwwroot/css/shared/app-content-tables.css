@@ -66,8 +66,10 @@
   align-items: center;
   gap: 0.55rem;
   max-width: 100%;
-  padding: 0.875rem 1rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
   color: var(--text-secondary);
+  font-size: var(--app-button-font-size);
   font-weight: 500;
   text-decoration: none;
   background-color: rgba(255, 255, 255, 0.7);

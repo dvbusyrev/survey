@@ -27,6 +27,10 @@
   --page-gap: 0.5rem;
   --nav-width: 10.46875rem;
   --content-max-width: 100rem;
+  --app-button-min-height: 1.26rem;
+  --app-button-padding: 0.45rem 0.9rem;
+  --app-button-font-size: 0.72rem;
+  --app-button-radius: 0.335rem;
 }
 
 html,

@@ -148,16 +148,16 @@ body {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  min-height: 30px;
-  padding: 0.45rem 0.9rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
   margin: 0 0 0 2px;
   color: #fff;
-  font-size: 0.72rem;
+  font-size: var(--app-button-font-size);
   font-weight: 700;
   white-space: nowrap;
   background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--app-button-radius);
   cursor: pointer;
   overflow: hidden;
   box-shadow:
@@ -555,9 +555,9 @@ nav ul li.submenu-open > .submenu-list {
   }
 
   .logout-button {
-    min-height: 34px;
-    padding-inline: 0.7rem;
-    font-size: 0.68rem;
+    min-height: var(--app-button-min-height);
+    padding: var(--app-button-padding);
+    font-size: var(--app-button-font-size);
   }
 
   nav {

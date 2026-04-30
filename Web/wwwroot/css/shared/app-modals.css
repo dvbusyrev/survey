@@ -100,10 +100,11 @@
 .modal_btn {
   position: relative;
   overflow: hidden;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
+  font-size: var(--app-button-font-size);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--app-button-radius);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -258,12 +259,13 @@ body.modal-open {
 }
 
 .notification-close {
-  padding: 8px 16px;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
   color: white;
-  font-size: 1rem;
+  font-size: var(--app-button-font-size);
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--app-button-radius);
   cursor: pointer;
   transition: all 0.3s;
 }

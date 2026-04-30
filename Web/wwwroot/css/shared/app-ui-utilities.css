@@ -137,7 +137,7 @@ body {
 }
 
 .pagination-button {
-  min-width: 120px;
+  min-width: 0;
 }
 
 @media (max-width: 600px) {
@@ -147,7 +147,7 @@ body {
 
   .pagination-button {
     min-width: 0;
-    padding: 6px 12px;
-    font-size: 14px;
+    padding: var(--app-button-padding);
+    font-size: var(--app-button-font-size);
   }
 }

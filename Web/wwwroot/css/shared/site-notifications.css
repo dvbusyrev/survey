@@ -142,13 +142,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  padding: 0.7rem 1.1rem;
-  font-size: 0.95rem;
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
+  font-size: var(--app-button-font-size);
   font-weight: 600;
   white-space: nowrap;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--app-button-radius);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
