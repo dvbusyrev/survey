@@ -94,16 +94,15 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
                     COALESCE(os.date_end, ss.date_end) AS date_end,
                     a.completion_date,
                     a.csp,
-                    a.id_organization AS OrganizationId
+                    os.id_organization AS OrganizationId
                 FROM public.survey s
+                INNER JOIN public.organization_survey os
+                    ON os.id_survey = s.id_survey
                 INNER JOIN public.answer a
-                    ON s.id_survey = a.id_survey
-                LEFT JOIN public.organization_survey os
-                    ON os.id_organization = a.id_organization
-                   AND os.id_survey = a.id_survey
+                    ON a.id_organization_survey = os.id_organization_survey
                 LEFT JOIN public.survey_schedule ss
                     ON ss.id_survey = s.id_survey
-                WHERE a.id_organization = @userOrganizationId
+                WHERE os.id_organization = @userOrganizationId
             ) AS archived";
 
         var totalCount = connection.ExecuteScalar<int>(
@@ -181,7 +180,9 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
               AND EXISTS (
                     SELECT 1
                     FROM public.answer a
-                    WHERE a.id_survey = s.id_survey
+                    INNER JOIN public.organization_survey aos
+                        ON aos.id_organization_survey = a.id_organization_survey
+                    WHERE aos.id_survey = s.id_survey
                 )
               AND NOT EXISTS (
                     SELECT 1
@@ -218,7 +219,9 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
                 AND EXISTS (
                     SELECT 1
                     FROM public.answer a
-                    WHERE a.id_survey = s.id_survey
+                    INNER JOIN public.organization_survey aos
+                        ON aos.id_organization_survey = a.id_organization_survey
+                    WHERE aos.id_survey = s.id_survey
                 )
                 AND NOT EXISTS (
                     SELECT 1

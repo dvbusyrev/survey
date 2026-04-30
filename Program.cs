@@ -22,7 +22,7 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 
 var configuredUrls = builder.Configuration["urls"];
 builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls)
-    ? "http://0.0.0.0:8000"
+    ? "http://0.0.0.0:8080"
     : configuredUrls);
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;

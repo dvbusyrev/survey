@@ -264,6 +264,14 @@ public sealed class SurveyAdminService : ISurveyAdminService
             };
         }
 
+        if (request.DateEnd.Date < DateTime.Today)
+        {
+            return new SurveyCommandResult
+            {
+                Message = "Дата конца не может быть раньше сегодняшней даты"
+            };
+        }
+
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 

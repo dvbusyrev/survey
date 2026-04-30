@@ -8,6 +8,9 @@ namespace MainProject.Domain.Entities
         [JsonPropertyName("id_answer")]
         public int IdAnswer { get; set; }
 
+        [JsonPropertyName("id_organization_survey")]
+        public int IdOrganizationSurvey { get; set; }
+
         [JsonPropertyName("id_organization")]
         public int OrganizationId { get; set; }
 

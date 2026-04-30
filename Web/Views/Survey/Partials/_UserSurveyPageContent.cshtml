@@ -43,26 +43,10 @@
     </section>
 
     <section class="app-page__section">
-        <form class="filter-sort" data-role="search-form">
-            <input type="text"
-                   class="form-control"
-                   data-role="search-input"
-                   value="@pageModel.SearchTerm"
-                   placeholder="Поиск по названию анкеты" />
-            <select class="filter-select" data-role="month-filter">
-                <option value="">Все месяцы</option>
-            </select>
-            <select class="filter-select" data-role="year-filter">
-                <option value="">Все годы</option>
-            </select>
-            <label class="@(pageModel.IsArchive ? string.Empty : "u-hidden")" data-role="signed-filter-wrap">
-                <input type="checkbox" data-role="signed-filter-input" @(pageModel.SignedOnly ? "checked" : null) />
-                Только подписанные
-            </label>
-            <button type="submit" class="modal_btn modal_btn-primary">
-                Найти
-            </button>
-        </form>
+        <div class="app-page__toolbar survey-list-toolbar client-surveys-page__filter-toolbar">
+            @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyDateFilter.cshtml")
+            @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyNameFilter.cshtml")
+        </div>
     </section>
 
     <section class="app-page__section u-hidden" data-role="loading">

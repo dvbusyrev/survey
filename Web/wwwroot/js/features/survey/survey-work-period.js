@@ -36,6 +36,10 @@
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     }
 
+    function getTodayIso() {
+        return toIso(new Date());
+    }
+
     function parseIso(isoValue) {
         const match = String(isoValue || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (!match) {
@@ -179,7 +183,12 @@
     }
 
     function isValidSelection(state) {
-        return Boolean(state.rangeStart && state.rangeEnd && compareIso(state.rangeEnd, state.rangeStart) > 0);
+        return Boolean(
+            state.rangeStart
+            && state.rangeEnd
+            && compareIso(state.rangeEnd, state.rangeStart) > 0
+            && compareIso(state.rangeEnd, getTodayIso()) >= 0
+        );
     }
 
     function getDisplayState(state) {
@@ -230,11 +239,6 @@
 
     function buildCalendarCard(instance, monthDate, displayState) {
         const card = createElement('div', 'survey-period-filter__calendar-card');
-        const title = createElement(
-            'h4',
-            'survey-period-filter__calendar-title',
-            getMonthDescription(monthDate.getFullYear(), monthDate.getMonth())
-        );
         const weekdaysRow = buildWeekdayRow();
         const daysGrid = createElement('div', 'survey-period-filter__days-grid');
         const firstDayIndex = (new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay() + 6) % 7;
@@ -249,7 +253,6 @@
             daysGrid.appendChild(buildDayButton(instance, isoValue, displayState));
         }
 
-        card.appendChild(title);
         card.appendChild(weekdaysRow);
         card.appendChild(daysGrid);
         return card;
@@ -318,7 +321,10 @@
     async function saveWorkPeriod(instance) {
         const { state } = instance;
         if (!isValidSelection(state)) {
-            showToast('Выберите дату начала и дату конца периода.', 'error');
+            const message = state.rangeEnd && compareIso(state.rangeEnd, getTodayIso()) < 0
+                ? 'Дата конца не может быть раньше сегодняшней даты.'
+                : 'Выберите дату начала и дату конца периода.';
+            showToast(message, 'error');
             return;
         }
 

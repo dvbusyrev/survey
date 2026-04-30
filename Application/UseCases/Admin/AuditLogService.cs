@@ -474,6 +474,7 @@ public sealed class AuditLogService : IAuditLogService
     private static string BuildAnswerTarget(JObject? recordPk, JObject? rowData)
     {
         var answerId = ExtractValue(recordPk, "id_answer");
+        var assignmentId = ExtractValue(rowData, "id_organization_survey") ?? ExtractValue(recordPk, "id_organization_survey");
         var organizationId = ExtractValue(rowData, "id_organization") ?? ExtractValue(recordPk, "id_organization");
         var surveyId = ExtractValue(rowData, "id_survey") ?? ExtractValue(recordPk, "id_survey");
 
@@ -482,6 +483,11 @@ public sealed class AuditLogService : IAuditLogService
         if (!string.IsNullOrWhiteSpace(answerId))
         {
             parts.Add($"Ответ {answerId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(assignmentId))
+        {
+            parts.Add($"назначение {assignmentId}");
         }
 
         if (!string.IsNullOrWhiteSpace(organizationId))
@@ -499,12 +505,18 @@ public sealed class AuditLogService : IAuditLogService
 
     private static string BuildAssignmentTarget(JObject? recordPk, JObject? rowData)
     {
+        var assignmentId = ExtractValue(recordPk, "id_organization_survey") ?? ExtractValue(rowData, "id_organization_survey");
         var organizationId = ExtractValue(recordPk, "id_organization") ?? ExtractValue(rowData, "id_organization");
         var surveyId = ExtractValue(recordPk, "id_survey") ?? ExtractValue(rowData, "id_survey");
 
         if (!string.IsNullOrWhiteSpace(organizationId) && !string.IsNullOrWhiteSpace(surveyId))
         {
             return $"Организация {organizationId} / анкета {surveyId}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(assignmentId))
+        {
+            return $"Назначение {assignmentId}";
         }
 
         return BuildGenericTarget(recordPk);

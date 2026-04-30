@@ -47,9 +47,11 @@ public sealed class AnswerDataService
         return connection.ExecuteScalar<bool>(
             @"SELECT EXISTS (
                   SELECT 1
-                  FROM public.answer
-                  WHERE id_survey = @surveyId
-                    AND id_organization = @organizationId
+                  FROM public.answer a
+                  INNER JOIN public.organization_survey os
+                      ON os.id_organization_survey = a.id_organization_survey
+                  WHERE os.id_survey = @surveyId
+                    AND os.id_organization = @organizationId
               )",
             new { surveyId, organizationId });
     }
@@ -88,14 +90,17 @@ public sealed class AnswerDataService
 
         var answerRecord = connection.QueryFirstOrDefault<AnswerRecord>(
             @"SELECT
-                  id_answer,
-                  id_organization AS OrganizationId,
-                  id_survey,
-                  completion_date,
-                  csp
-              FROM public.answer
-              WHERE id_survey = @surveyId
-                AND id_organization = @organizationId",
+                  a.id_answer,
+                  a.id_organization_survey AS IdOrganizationSurvey,
+                  os.id_organization AS OrganizationId,
+                  os.id_survey,
+                  a.completion_date,
+                  a.csp
+              FROM public.answer a
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = a.id_organization_survey
+              WHERE os.id_survey = @surveyId
+                AND os.id_organization = @organizationId",
             new { surveyId, organizationId });
 
         if (answerRecord == null)
@@ -116,16 +121,19 @@ public sealed class AnswerDataService
             var answers = connection.Query<AnswerRecord>(
                 @"SELECT
                       ha.id_answer,
-                      ha.id_organization AS OrganizationId,
-                      ha.id_survey,
+                      ha.id_organization_survey AS IdOrganizationSurvey,
+                      os.id_organization AS OrganizationId,
+                      os.id_survey,
                       ha.csp,
                       ha.completion_date,
                       COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
                   FROM public.answer ha
+                  INNER JOIN public.organization_survey os
+                      ON os.id_organization_survey = ha.id_organization_survey
                   LEFT JOIN public.organization o
-                      ON o.id_organization = ha.id_organization
-                  WHERE ha.id_survey = @surveyId
-                    AND ha.id_organization = @organizationId
+                      ON o.id_organization = os.id_organization
+                  WHERE os.id_survey = @surveyId
+                    AND os.id_organization = @organizationId
                   ORDER BY ha.completion_date DESC",
                 new { surveyId, organizationId }).ToList();
 
@@ -136,15 +144,18 @@ public sealed class AnswerDataService
         var allAnswers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
-                  ha.id_organization AS OrganizationId,
-                  ha.id_survey,
+                  ha.id_organization_survey AS IdOrganizationSurvey,
+                  os.id_organization AS OrganizationId,
+                  os.id_survey,
                   ha.csp,
                   ha.completion_date,
                   COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
               FROM public.answer ha
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = ha.id_organization_survey
               LEFT JOIN public.organization o
-                  ON o.id_organization = ha.id_organization
-              WHERE ha.id_survey = @surveyId
+                  ON o.id_organization = os.id_organization
+              WHERE os.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
 
@@ -159,17 +170,17 @@ public sealed class AnswerDataService
 
         var items = BuildNormalizedAnswerItems(connection, answerRecord.IdSurvey, answerRecord.Answers);
 
-        var idAnswer = connection.ExecuteScalar<int>(
+        var idAnswer = connection.ExecuteScalar<int?>(
             @"INSERT INTO public.answer (
-                  id_organization,
-                  id_survey,
+                  id_organization_survey,
                   completion_date
               )
-              VALUES (
-                  @idOrganization,
-                  @idSurvey,
+              SELECT
+                  os.id_organization_survey,
                   @completionDate
-              )
+              FROM public.organization_survey os
+              WHERE os.id_organization = @idOrganization
+                AND os.id_survey = @idSurvey
               RETURNING id_answer",
             new
             {
@@ -179,10 +190,16 @@ public sealed class AnswerDataService
             },
             transaction);
 
-        ReplaceAnswerItems(connection, transaction, idAnswer, items);
+        if (!idAnswer.HasValue)
+        {
+            transaction.Rollback();
+            throw new InvalidOperationException("Назначение анкеты для организации не найдено.");
+        }
+
+        ReplaceAnswerItems(connection, transaction, idAnswer.Value, items);
         transaction.Commit();
 
-        return idAnswer;
+        return idAnswer.Value;
     }
 
     public bool UpdateAnswerRecord(AnswerRecord answerRecord)
@@ -191,10 +208,12 @@ public sealed class AnswerDataService
         using var transaction = connection.BeginTransaction();
 
         var answerId = connection.ExecuteScalar<int?>(
-            @"SELECT id_answer
-              FROM public.answer
-              WHERE id_organization = @idOrganization
-                AND id_survey = @idSurvey",
+            @"SELECT a.id_answer
+              FROM public.answer a
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = a.id_organization_survey
+              WHERE os.id_organization = @idOrganization
+                AND os.id_survey = @idSurvey",
             new
             {
                 idOrganization = answerRecord.OrganizationId,
@@ -213,12 +232,10 @@ public sealed class AnswerDataService
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer
               SET completion_date = @completionDate
-              WHERE id_organization = @idOrganization
-                AND id_survey = @idSurvey",
+              WHERE id_answer = @answerId",
             new
             {
-                idOrganization = answerRecord.OrganizationId,
-                idSurvey = answerRecord.IdSurvey,
+                answerId = answerId.Value,
                 completionDate = DateTime.Now
             },
             transaction);
@@ -240,10 +257,12 @@ public sealed class AnswerDataService
         using var connection = _connectionFactory.CreateConnection();
 
         var rowsAffected = connection.Execute(
-            @"UPDATE public.answer
+            @"UPDATE public.answer a
               SET csp = @signature
-              WHERE id_organization = @organizationId
-                AND id_survey = @surveyId",
+              FROM public.organization_survey os
+              WHERE os.id_organization_survey = a.id_organization_survey
+                AND os.id_organization = @organizationId
+                AND os.id_survey = @surveyId",
             new { signature, organizationId, surveyId });
 
         return rowsAffected > 0;

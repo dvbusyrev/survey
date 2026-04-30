@@ -81,8 +81,10 @@ public sealed class SurveyUserService : ISurveyUserService
                   AND NOT EXISTS (
                       SELECT 1
                       FROM public.answer a
-                      WHERE a.id_organization = @userOrganizationId
-                        AND a.id_survey = s.id_survey
+                      INNER JOIN public.organization_survey aos
+                          ON aos.id_organization_survey = a.id_organization_survey
+                      WHERE aos.id_organization = @userOrganizationId
+                        AND aos.id_survey = s.id_survey
                   )
             ) AS accessible
             WHERE (@hasSearch = FALSE OR accessible.name_survey ILIKE @searchPattern)";

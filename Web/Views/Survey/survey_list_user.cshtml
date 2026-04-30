@@ -39,6 +39,7 @@
 
 @section PageStyles {
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/survey-admin-pages.css" asp-append-version="true" />
 }
 
 @if (!isAuthenticated)
@@ -57,7 +58,10 @@ else
         <div class="admin-container">
             <div id="chrome-navigation"></div>
             <div id="content_admin">
-                <div class="app-page" id="default_content" data-page="user-surveys">
+                <div class="app-page"
+                     id="default_content"
+                     data-page="user-surveys"
+                     data-filter-hide-count-summary="true">
                     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", pageContentModel)
                 </div>
             </div>

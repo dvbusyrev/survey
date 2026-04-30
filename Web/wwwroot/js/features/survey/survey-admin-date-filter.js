@@ -4,7 +4,7 @@
         existingController.destroy();
     }
 
-    const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"], .app-page[data-page="answers-list"]';
+    const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"], .app-page[data-page="answers-list"], .app-page[data-page="user-surveys"]';
     const FILTER_SELECTOR = '[data-role="survey-date-filter"]';
     const ORGANIZATION_FILTER_SELECTOR = '[data-role="survey-organization-filter"]';
     const SURVEY_NAME_FILTER_SELECTOR = '[data-role="survey-name-filter"]';
@@ -248,6 +248,11 @@
         }
 
         const pages = [];
+        const ownerPage = node.closest(PAGE_SELECTOR);
+        if (ownerPage) {
+            pages.push(ownerPage);
+        }
+
         if (node.matches(PAGE_SELECTOR)) {
             pages.push(node);
         }
@@ -256,7 +261,7 @@
             pages.push(page);
         });
 
-        return pages;
+        return Array.from(new Set(pages));
     }
 
     function getDataRowsFromPage(page) {

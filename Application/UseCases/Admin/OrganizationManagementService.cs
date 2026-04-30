@@ -383,8 +383,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                AND NOT EXISTS (
                     SELECT 1
                     FROM public.answer a
-                    WHERE a.id_organization = os.id_organization
-                      AND a.id_survey = os.id_survey
+                    WHERE a.id_organization_survey = os.id_organization_survey
                )
             LEFT JOIN public.survey s
                 ON s.id_survey = os.id_survey
@@ -539,12 +538,14 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                 SELECT
                     COALESCE(
                         NULLIF(TRIM(s.name_survey), ''),
-                        'Анкета #' || a.id_survey::text
+                        'Анкета #' || os.id_survey::text
                     ) AS survey_name
                 FROM public.answer a
+                INNER JOIN public.organization_survey os
+                    ON os.id_organization_survey = a.id_organization_survey
                 LEFT JOIN public.survey s
-                    ON s.id_survey = a.id_survey
-                WHERE a.id_organization = @organizationId
+                    ON s.id_survey = os.id_survey
+                WHERE os.id_organization = @organizationId
 
                 UNION
 
@@ -559,17 +560,29 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                     ) AS survey_name
                 FROM (
                     SELECT DISTINCT
-                        CASE
-                            WHEN COALESCE(record_pk->>'id_organization', row_data->>'id_organization', '') ~ '^[0-9]+$'
-                                THEN COALESCE(record_pk->>'id_organization', row_data->>'id_organization')::integer
-                            ELSE NULL
-                        END AS id_organization,
-                        CASE
-                            WHEN COALESCE(record_pk->>'id_survey', row_data->>'id_survey', '') ~ '^[0-9]+$'
-                                THEN COALESCE(record_pk->>'id_survey', row_data->>'id_survey')::integer
-                            ELSE NULL
-                        END AS survey_id
-                    FROM public.organization_survey_l
+                        COALESCE(audit_raw.id_organization, os.id_organization) AS id_organization,
+                        COALESCE(audit_raw.survey_id, os.id_survey) AS survey_id
+                    FROM (
+                        SELECT
+                            CASE
+                                WHEN COALESCE(record_pk->>'id_organization', row_data->>'id_organization', '') ~ '^[0-9]+$'
+                                    THEN COALESCE(record_pk->>'id_organization', row_data->>'id_organization')::integer
+                                ELSE NULL
+                            END AS id_organization,
+                            CASE
+                                WHEN COALESCE(record_pk->>'id_survey', row_data->>'id_survey', '') ~ '^[0-9]+$'
+                                    THEN COALESCE(record_pk->>'id_survey', row_data->>'id_survey')::integer
+                                ELSE NULL
+                            END AS survey_id,
+                            CASE
+                                WHEN COALESCE(record_pk->>'id_organization_survey', row_data->>'id_organization_survey', '') ~ '^[0-9]+$'
+                                    THEN COALESCE(record_pk->>'id_organization_survey', row_data->>'id_organization_survey')::integer
+                                ELSE NULL
+                            END AS id_organization_survey
+                        FROM public.organization_survey_l
+                    ) audit_raw
+                    LEFT JOIN public.organization_survey os
+                        ON os.id_organization_survey = audit_raw.id_organization_survey
                 ) audit_row
                 LEFT JOIN public.survey s
                     ON s.id_survey = audit_row.survey_id

@@ -42,15 +42,18 @@ public sealed class SurveyAnswersService : ISurveyAnswersService
         var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
-                  ha.id_survey,
-                  ha.id_organization AS OrganizationId,
+                  ha.id_organization_survey AS IdOrganizationSurvey,
+                  os.id_survey,
+                  os.id_organization AS OrganizationId,
                   COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
                   ha.completion_date,
                   ha.csp
               FROM public.answer ha
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = ha.id_organization_survey
               INNER JOIN public.organization o
-                  ON o.id_organization = ha.id_organization
-              WHERE ha.id_survey = @surveyId
+                  ON o.id_organization = os.id_organization
+              WHERE os.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
 
@@ -109,15 +112,18 @@ public sealed class SurveyAnswersService : ISurveyAnswersService
         var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
-                  ha.id_organization AS OrganizationId,
-                  ha.id_survey,
+                  ha.id_organization_survey AS IdOrganizationSurvey,
+                  os.id_organization AS OrganizationId,
+                  os.id_survey,
                   COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
                   ha.csp,
                   ha.completion_date
               FROM public.answer ha
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = ha.id_organization_survey
               INNER JOIN public.organization o
-                  ON ha.id_organization = o.id_organization
-              WHERE ha.id_survey = @surveyId
+                  ON os.id_organization = o.id_organization
+              WHERE os.id_survey = @surveyId
               ORDER BY ha.completion_date DESC",
             new { surveyId }).ToList();
 

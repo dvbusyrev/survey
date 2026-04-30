@@ -763,16 +763,19 @@ public sealed class SurveyReportService : ISurveyReportService
         var answers = connection.Query<AnswerRecord>(
             @"SELECT
                   ha.id_answer,
-                  ha.id_organization AS OrganizationId,
-                  ha.id_survey,
+                  ha.id_organization_survey AS IdOrganizationSurvey,
+                  os.id_organization AS OrganizationId,
+                  os.id_survey,
                   ha.csp,
                   ha.completion_date,
                   COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
               FROM public.answer ha
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = ha.id_organization_survey
               LEFT JOIN public.organization o
-                  ON o.id_organization = ha.id_organization
-              WHERE ha.id_survey = @surveyId
-                AND (@organizationId IS NULL OR ha.id_organization = @organizationId)
+                  ON o.id_organization = os.id_organization
+              WHERE os.id_survey = @surveyId
+                AND (@organizationId IS NULL OR os.id_organization = @organizationId)
                 AND EXISTS (
                     SELECT 1
                     FROM public.answer_item hai
@@ -821,18 +824,21 @@ public sealed class SurveyReportService : ISurveyReportService
 
         var answers = connection.Query<AnswerRecord>(
             @"SELECT
-                  a.id_organization AS OrganizationId,
+                  a.id_organization_survey AS IdOrganizationSurvey,
+                  os.id_organization AS OrganizationId,
                   COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
                   a.csp,
                   a.id_answer,
-                  a.id_survey,
+                  os.id_survey,
                   s.name_survey,
                   a.completion_date
               FROM public.answer a
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = a.id_organization_survey
               LEFT JOIN public.organization o
-                  ON o.id_organization = a.id_organization
+                  ON o.id_organization = os.id_organization
               LEFT JOIN public.survey s
-                  ON s.id_survey = a.id_survey
+                  ON s.id_survey = os.id_survey
               WHERE EXISTS (
                   SELECT 1
                   FROM public.answer_item ai

@@ -8,6 +8,11 @@
     {
         return date == default ? "Не указано" : date.ToString("dd.MM.yyyy");
     }
+
+    string FormatIsoDate(DateTime date)
+    {
+        return date == default ? string.Empty : date.ToString("yyyy-MM-dd");
+    }
 }
 
 <table class="surveys-table" data-role="main-table">
@@ -47,6 +52,10 @@
                 <tr class="@rowClass"
                     data-role="user-survey-row"
                     data-survey-id="@survey.IdSurvey"
+                    data-survey-name="@(string.IsNullOrWhiteSpace(survey.NameSurvey) ? "Без названия" : survey.NameSurvey)"
+                    data-survey-date-begin="@FormatIsoDate(survey.DateBegin)"
+                    data-survey-date-end="@FormatIsoDate(survey.DateEnd)"
+                    data-survey-organizations="[]"
                     data-filter-month="@filterMonth"
                     data-filter-year="@filterYear">
                     <td>@(string.IsNullOrWhiteSpace(survey.NameSurvey) ? "Без названия" : survey.NameSurvey)</td>
@@ -69,6 +78,9 @@
                     </td>
                 </tr>
             }
+            <tr data-role="survey-filter-empty-row" class="is-hidden">
+                <td colspan="5" class="table-empty-cell">Результаты не найдены.</td>
+            </tr>
         }
     </tbody>
 </table>

@@ -26,3 +26,4 @@ COMMIT;
 \ir 012_add_survey_auto_creation.sql
 \ir 013_transform_survey_auto_creation_config.sql
 \ir 014_remove_auto_creation_config_metadata.sql
+\ir 015_link_answers_to_organization_survey.sql

@@ -46,17 +46,19 @@ public sealed class AnswerAdminService : IAnswerAdminService
         const string sql = @"
             SELECT
                 ha.id_answer AS IdAnswer,
-                ha.id_organization AS IdOrganization,
-                ha.id_survey AS IdSurvey,
+                os.id_organization AS IdOrganization,
+                os.id_survey AS IdSurvey,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, 'Нет данных') AS OrganizationName,
                 COALESCE(s.name_survey, 'Нет данных') AS SurveyName,
                 ha.completion_date AS CompletionDate,
                 COALESCE(ha.csp, '') AS Signature
             FROM public.answer ha
+            INNER JOIN public.organization_survey os
+                ON os.id_organization_survey = ha.id_organization_survey
             LEFT JOIN public.organization o
-                ON o.id_organization = ha.id_organization
+                ON o.id_organization = os.id_organization
             LEFT JOIN public.survey s
-                ON s.id_survey = ha.id_survey
+                ON s.id_survey = os.id_survey
             ORDER BY ha.completion_date DESC NULLS LAST, ha.id_answer DESC";
 
         var rows = connection.Query<AnswerListRow>(sql).ToList();
@@ -95,8 +97,7 @@ public sealed class AnswerAdminService : IAnswerAdminService
             INNER JOIN public.organization_survey os
                 ON os.id_organization = o.id_organization
             LEFT JOIN public.answer ha
-                ON o.id_organization = ha.id_organization
-               AND ha.id_survey = @surveyId
+                ON ha.id_organization_survey = os.id_organization_survey
             WHERE os.id_survey = @surveyId
             ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)";
 
@@ -191,8 +192,10 @@ public sealed class AnswerAdminService : IAnswerAdminService
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
                 AVG(hai.rating::double precision) AS AverageRating
             FROM public.answer ha
+            INNER JOIN public.organization_survey os
+                ON os.id_organization_survey = ha.id_organization_survey
             INNER JOIN public.organization o
-                ON ha.id_organization = o.id_organization
+                ON os.id_organization = o.id_organization
             INNER JOIN public.answer_item hai
                 ON hai.id_answer = ha.id_answer
             WHERE ha.completion_date IS NOT NULL

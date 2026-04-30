@@ -528,14 +528,27 @@ public sealed class UserManagementService : IUserManagementService
                 COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
             FROM (
                 SELECT
-                    changed_by_user_id,
-                    CASE
-                        WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
-                            THEN (row_data->>'id_survey')::integer
-                        ELSE NULL
-                    END AS SurveyId,
-                    COALESCE(row_data->>'csp', '') AS SignatureValue
-                FROM public.answer_l
+                    audit_raw.changed_by_user_id,
+                    COALESCE(audit_raw.SurveyId, os.id_survey) AS SurveyId,
+                    audit_raw.SignatureValue
+                FROM (
+                    SELECT
+                        changed_by_user_id,
+                        CASE
+                            WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
+                                THEN (row_data->>'id_survey')::integer
+                            ELSE NULL
+                        END AS SurveyId,
+                        CASE
+                            WHEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey', '') ~ '^[0-9]+$'
+                                THEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey')::integer
+                            ELSE NULL
+                        END AS IdOrganizationSurvey,
+                        COALESCE(row_data->>'csp', '') AS SignatureValue
+                    FROM public.answer_l
+                ) audit_raw
+                LEFT JOIN public.organization_survey os
+                    ON os.id_organization_survey = audit_raw.IdOrganizationSurvey
             ) audit_row
             LEFT JOIN public.survey s
                 ON s.id_survey = audit_row.SurveyId
@@ -560,14 +573,27 @@ public sealed class UserManagementService : IUserManagementService
                 COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
             FROM (
                 SELECT
-                    changed_by_user_id,
-                    CASE
-                        WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
-                            THEN (row_data->>'id_survey')::integer
-                        ELSE NULL
-                    END AS SurveyId,
-                    COALESCE(row_data->>'csp', '') AS SignatureValue
-                FROM public.answer_l
+                    audit_raw.changed_by_user_id,
+                    COALESCE(audit_raw.SurveyId, os.id_survey) AS SurveyId,
+                    audit_raw.SignatureValue
+                FROM (
+                    SELECT
+                        changed_by_user_id,
+                        CASE
+                            WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
+                                THEN (row_data->>'id_survey')::integer
+                            ELSE NULL
+                        END AS SurveyId,
+                        CASE
+                            WHEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey', '') ~ '^[0-9]+$'
+                                THEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey')::integer
+                            ELSE NULL
+                        END AS IdOrganizationSurvey,
+                        COALESCE(row_data->>'csp', '') AS SignatureValue
+                    FROM public.answer_l
+                ) audit_raw
+                LEFT JOIN public.organization_survey os
+                    ON os.id_organization_survey = audit_raw.IdOrganizationSurvey
             ) audit_row
             LEFT JOIN public.survey s
                 ON s.id_survey = audit_row.SurveyId
