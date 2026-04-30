@@ -160,7 +160,7 @@ public static class SurveyAutoCreationScheduleHelper
             ("friday", "пятница")
         };
 
-        var prefixes = new[] { "1-й", "2-й", "3-й", "4-й" };
+        var prefixes = new[] { "1", "2", "3", "4" };
         var options = new List<(string Value, string Label)>();
 
         for (var occurrence = 1; occurrence <= 4; occurrence++)
