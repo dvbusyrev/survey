@@ -92,21 +92,26 @@ public sealed class AnswerAdminService : IAnswerAdminService
             SELECT
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
                 (ha.completion_date IS NOT NULL) AS IsCompleted,
-                (COALESCE(ha.csp, '') <> '') AS IsSigned
+                (COALESCE(ha.csp, '') <> '') AS IsSigned,
+                ha.completion_date AS CompletionDate
             FROM public.organization o
             INNER JOIN public.organization_survey os
                 ON os.id_organization = o.id_organization
             LEFT JOIN public.answer ha
                 ON ha.id_organization_survey = os.id_organization_survey
             WHERE os.id_survey = @surveyId
-            ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)";
+            ORDER BY
+                (ha.completion_date IS NOT NULL) DESC,
+                ha.completion_date ASC NULLS LAST,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)";
 
         var items = connection.Query<SignatureRow>(sql, new { surveyId })
             .Select(row => new SurveySignatureStatusViewModel
             {
                 OrganizationName = row.OrganizationName ?? string.Empty,
                 IsCompleted = row.IsCompleted,
-                IsSigned = row.IsSigned
+                IsSigned = row.IsSigned,
+                CompletionDate = row.CompletionDate
             })
             .ToList();
 
@@ -248,6 +253,7 @@ public sealed class AnswerAdminService : IAnswerAdminService
         public string? OrganizationName { get; set; }
         public bool IsCompleted { get; set; }
         public bool IsSigned { get; set; }
+        public DateTime? CompletionDate { get; set; }
     }
 
     private sealed class AverageByYearRow

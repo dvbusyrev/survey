@@ -1,11 +1,19 @@
 (() => {
     const adminInlineAppPages = window.AdminInlineAppPages || (window.AdminInlineAppPages = {});
 
-    adminInlineAppPages.mountExtensionModal = function mountExtensionModal(host, { survey, onClose }) {
+    adminInlineAppPages.mountExtensionModal = function mountExtensionModal(host, options = {}) {
         if (!host) {
             return null;
         }
 
+        const {
+            survey,
+            onClose,
+            submitButton: externalSubmitButton = null,
+            cancelButton: externalCancelButton = null
+        } = options;
+        const closeModal = typeof onClose === 'function' ? onClose : () => {};
+        const hasExternalActions = Boolean(externalSubmitButton || externalCancelButton);
         let disposed = false;
         let organizations = [];
         let loading = true;
@@ -131,7 +139,7 @@
                     );
                 }
 
-                onClose();
+                closeModal();
                 if (typeof window.handleAdminMutationSuccess === 'function') {
                     await window.handleAdminMutationSuccess({
                         message: responseData.message || 'Доступ успешно продлён.',
@@ -161,14 +169,15 @@
                 return;
             }
 
-            host.innerHTML = '';
+            host.replaceChildren();
             const root = template.content.firstElementChild.cloneNode(true);
+            root.classList.toggle('admin-extension-modal-root--external-actions', hasExternalActions);
             const surveyName = root.querySelector('[data-role="survey-name"]');
             const errorNode = root.querySelector('[data-role="error"]');
             const rowsContainer = root.querySelector('[data-role="rows-container"]');
             const emptyState = root.querySelector('[data-role="empty-state"]');
-            const submitButton = root.querySelector('[data-role="submit"]');
-            const cancelButton = root.querySelector('[data-role="cancel"]');
+            const submitButton = externalSubmitButton || root.querySelector('[data-role="submit"]');
+            const cancelButton = externalCancelButton || root.querySelector('[data-role="cancel"]');
 
             if (surveyName) {
                 surveyName.textContent = `Анкета: "${survey?.name_survey || ''}"`;
@@ -271,13 +280,13 @@
             if (submitButton) {
                 submitButton.disabled = !isFormValid() || loading;
                 submitButton.textContent = loading ? 'Обработка...' : 'Продлить доступ';
-                submitButton.style.backgroundColor = isFormValid() ? '#4caf50' : '#9e9e9e';
+                submitButton.style.removeProperty('background-color');
                 submitButton.style.cursor = isFormValid() ? 'pointer' : 'not-allowed';
                 submitButton.style.opacity = isFormValid() ? '1' : '0.6';
-                submitButton.addEventListener('click', handleSubmit);
+                submitButton.onclick = handleSubmit;
             }
             if (cancelButton) {
-                cancelButton.addEventListener('click', onClose);
+                cancelButton.onclick = closeModal;
             }
 
             host.appendChild(root);
@@ -325,7 +334,17 @@
             disposed = true;
             document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
             document.removeEventListener('keydown', handleDocumentKeyDown);
-            host.innerHTML = '';
+            if (externalSubmitButton) {
+                externalSubmitButton.onclick = null;
+                externalSubmitButton.disabled = true;
+                externalSubmitButton.style.removeProperty('background-color');
+                externalSubmitButton.style.removeProperty('cursor');
+                externalSubmitButton.style.removeProperty('opacity');
+            }
+            if (externalCancelButton) {
+                externalCancelButton.onclick = null;
+            }
+            host.replaceChildren();
         };
     };
 

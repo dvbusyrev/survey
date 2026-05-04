@@ -34,6 +34,77 @@
   box-sizing: border-box;
 }
 
+.survey-signatures-modal__body {
+  display: grid;
+  gap: 16px;
+}
+
+.survey-signatures-modal__body .table-responsive {
+  margin: 0;
+}
+
+.survey-signatures-modal__body .answers-page__signatures {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.survey-signatures-modal__loading,
+.survey-signatures-modal__error {
+  padding: 24px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.survey-signatures-modal__loading {
+  color: var(--text-secondary);
+}
+
+.survey-signatures-modal__error {
+  color: var(--danger);
+}
+
+.completion-rank-medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.18rem;
+  line-height: 1;
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(203, 213, 225, 0.92);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.completion-rank-medal--gold {
+  color: #d99a00;
+  background: rgba(255, 247, 214, 0.98);
+  border-color: rgba(217, 154, 0, 0.32);
+}
+
+.completion-rank-medal--silver {
+  color: #7b8797;
+  background: rgba(241, 245, 249, 0.98);
+  border-color: rgba(123, 135, 151, 0.32);
+}
+
+.completion-rank-medal--bronze {
+  color: #b45309;
+  background: rgba(255, 237, 213, 0.98);
+  border-color: rgba(180, 83, 9, 0.32);
+}
+
+.completion-rank-medal--wood {
+  color: #7c4a21;
+  background: rgba(243, 224, 199, 0.98);
+  border-color: rgba(124, 74, 33, 0.34);
+}
+
 .answers-page__check .table-container,
 .answers-page__view .table-container {
   overflow-x: auto;
@@ -155,8 +226,8 @@
 
 .answers-page__statistics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(49%, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(47%, 1fr));
+  gap: 5%;
 }
 
 .answers-page__statistics-card {

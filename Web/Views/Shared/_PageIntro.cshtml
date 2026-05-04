@@ -1,9 +1,8 @@
 @model MainProject.Web.ViewModels.PageIntroModel
 
-@* <header class="app-page__intro"> *@
-@*     <h1 class="app-page__title">@Model.Title</h1> *@
-@*     @if (!string.IsNullOrWhiteSpace(Model.Description)) *@
-@*     { *@
-@*         <p class="app-page__description">@Model.Description</p> *@
-@*     } *@
-@* </header> *@
+@if (!string.IsNullOrWhiteSpace(Model?.Title))
+{
+    <header class="app-page__intro app-page__intro--title-only">
+        <h1 class="app-page__title">@Model.Title</h1>
+    </header>
+}

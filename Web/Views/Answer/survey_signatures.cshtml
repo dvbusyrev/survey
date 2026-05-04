@@ -1,6 +1,6 @@
 ﻿@model MainProject.Web.ViewModels.SurveySignaturePageViewModel
 @{
-    ViewData["Title"] = "Проверка подписей анкеты";
+    ViewData["Title"] = "Проверка прохождения анкеты";
 }
 
 @section PageStyles {
@@ -12,25 +12,58 @@
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            Title = string.IsNullOrWhiteSpace(Model.SurveyName) ? "Подписи анкеты" : $"Подписи анкеты {Model.SurveyName}",
-            Description = "На этой странице вы можете посмотреть, какие организации прошли и подписали анкету."
+            Title = string.IsNullOrWhiteSpace(Model.SurveyName) ? "Прохождение анкеты" : $"Прохождение анкеты {Model.SurveyName}",
+            Description = "На этой странице вы можете посмотреть, какие организации прошли анкету и когда они это сделали."
         })
 
     <div class="table-responsive">
         <table class="answers-page__signatures-table" data-role="main-table">
             <thead>
                 <tr>
-                    <th class="table-th--start">Организация</th>
-                    <th class="text-center">Статус прохождения</th>
-                    <th class="text-center table-th--end">Статус подписи</th>
+                    <th class="table-th--start text-center">№</th>
+                    <th>Организация</th>
+                    <th class="text-center">Статус</th>
+                    <th class="text-center table-th--end">Дата</th>
                 </tr>
             </thead>
             <tbody>
                 @if (Model.Items.Any())
                 {
-                    @foreach (var item in Model.Items)
+                    var completedPlace = 0;
+                    @for (var index = 0; index < Model.Items.Count; index++)
                     {
+                        var item = Model.Items[index];
+                        string? medalClass = null;
+                        string? medalTitle = null;
+
+                        if (item.IsCompleted)
+                        {
+                            completedPlace++;
+                            (medalClass, medalTitle) = completedPlace switch
+                            {
+                                1 => ("gold", "Золотая медаль"),
+                                2 => ("silver", "Серебряная медаль"),
+                                3 => ("bronze", "Бронзовая медаль"),
+                                4 => ("wood", "Деревянная медаль"),
+                                _ => (null, null)
+                            };
+                        }
+
                         <tr>
+                            <td class="text-center">
+                                @if (!string.IsNullOrEmpty(medalClass) && !string.IsNullOrEmpty(medalTitle))
+                                {
+                                    <span class="completion-rank-medal completion-rank-medal--@medalClass"
+                                          title="@medalTitle"
+                                          aria-label="@medalTitle">
+                                        <i class="fas fa-medal" aria-hidden="true"></i>
+                                    </span>
+                                }
+                                else
+                                {
+                                    @(index + 1)
+                                }
+                            </td>
                             <td>@item.OrganizationName</td>
                             <td class="text-center">
                                 <span class="status-badge @(item.IsCompleted ? "completed" : "not-completed")">
@@ -38,9 +71,7 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                <span class="status-badge @(item.IsSigned ? "signed" : "not-signed")">
-                                    @item.SignatureStatus
-                                </span>
+                                @(item.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss") ?? "—")
                             </td>
                         </tr>
                     }
@@ -48,8 +79,8 @@
                 else
                 {
                     <tr>
-                        <td colspan="3" class="table-empty-cell text-center">
-                            Нет данных о подписях организаций
+                        <td colspan="4" class="table-empty-cell text-center">
+                            Нет данных о прохождении организаций
                         </td>
                     </tr>
                 }

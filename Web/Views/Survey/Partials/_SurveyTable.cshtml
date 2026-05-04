@@ -52,9 +52,14 @@
                         <div class="action-icons__content">
                             <a class="icon-container"
                                href="/surveys/@survey.IdSurvey/signatures"
-                               aria-label="Проверить подпись">
-                                <span aria-hidden="true"><i class="fas fa-check"></i></span>
-                                <span class="icon-tooltip">Проверить подпись</span>
+                               data-survey-id="@survey.IdSurvey"
+                               data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                               data-click-call="openSurveyCompletionModalFromTrigger"
+                               data-click-pass-element="true"
+                               data-fallback-url="/surveys/@survey.IdSurvey/signatures"
+                               aria-label="Проверить прохождение">
+                                <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
+                                <span class="icon-tooltip">Проверить прохождение</span>
                             </a>
                             <button type="button"
                                     class="icon-container"

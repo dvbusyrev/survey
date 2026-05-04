@@ -278,8 +278,10 @@
   .help-document-page__content table,
   .modal-content table
 ) :is(th.table-col--actions, td.table-col--actions) {
-  max-width: 5rem;
-  white-space: normal;
+  width: 1%;
+  min-width: max-content;
+  max-width: none;
+  white-space: nowrap;
   overflow: visible;
 }
 
@@ -546,13 +548,18 @@
 
 .action-icons {
   padding-inline: 0.4rem;
+  width: 1%;
+  white-space: nowrap;
 }
 
 .action-icons__content {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 10px;
+  width: max-content;
+  max-width: none;
+  margin-inline: auto;
 }
 
 .action-icons__content > * {

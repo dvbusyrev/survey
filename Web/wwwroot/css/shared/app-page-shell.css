@@ -23,11 +23,23 @@
     padding-left: 1vw;
 }
 
+.app-page__intro--title-only {
+  padding: 1rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .app-page__title {
   margin: 0 0 0.5rem;
   color: var(--text-main);
   font-size: 1.85rem;
   line-height: 1.15;
+}
+
+.app-page__intro--title-only .app-page__title {
+  margin-bottom: 0;
 }
 
 .app-page__description {

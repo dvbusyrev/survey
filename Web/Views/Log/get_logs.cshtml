@@ -2,7 +2,6 @@
 
 @{
     ViewData["Title"] = "Журнал событий";
-    ViewData["UtilitySection"] = "logs";
     var logs = Model ?? Array.Empty<MainProject.Domain.Entities.Log>();
     var loadErrorMessage = ViewData["LogLoadErrorMessage"] as string;
 }
@@ -12,11 +11,11 @@
 }
 
 <div class="app-page logs-page" id="default_content" data-page="get_logs">
-    @await Html.PartialAsync("~/Web/Views/Shared/_UtilitySubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
+            Title = "Журнал событий",
             Description = "Ниже представлен журнал действий пользователей и системных операций."
         })
 
