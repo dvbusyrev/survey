@@ -117,11 +117,12 @@ public sealed class AuditLogService : IAuditLogService
         var actorName = string.IsNullOrWhiteSpace(log.NameUser) ? "Неизвестно" : log.NameUser!;
         var actorId = log.IdUser?.ToString(CultureInfo.InvariantCulture) ?? "—";
         var targetTable = ExtractValue(details, "source_table_name") ?? log.TargetType ?? "Объект";
+        var sourceTable = ExtractValue(details, "source_table") ?? targetTable;
         var targetId = ExtractValue(details, "target_id") ?? "—";
         var targetName = string.IsNullOrWhiteSpace(log.TargetName) ? targetTable : log.TargetName!;
         var operationVerb = ExtractValue(details, "operation_verb") ?? log.EventType ?? "Изменил";
 
-        var line = $"{log.Date:dd.MM.yyyy HH:mm:ss} {actorPrefix} {actorName} (таблица {actorPrefix}, id = {actorId}) {operationVerb} запись объекта {targetName} (таблица {targetTable}, id = {targetId})";
+        var line = $"{log.Date:dd.MM.yyyy HH:mm:ss} {actorPrefix} {actorName} (id = {actorId}): {BuildDescription(ExtractValue(details, "operation") ?? operationVerb, sourceTable, targetName, new JArray(), null)} ID записи: {targetId}";
 
         if (string.Equals(ExtractValue(details, "operation"), "UPDATE", StringComparison.OrdinalIgnoreCase))
         {
@@ -186,7 +187,7 @@ public sealed class AuditLogService : IAuditLogService
             TargetType = entityName,
             EventType = operationName,
             Date = row.ChangedAt,
-            Description = BuildDescription(operationVerb, targetName, changedFields, changeReason),
+            Description = BuildDescription(row.Operation, row.SourceTable, targetName, changedFields, changeReason),
             ExtraData = BuildDetails(row, entityName, operationVerb, targetName, recordPk, rowData, previousRowData, changedFields, changeReason),
             NameUser = !string.IsNullOrWhiteSpace(row.ActorName)
                 ? row.ActorName
@@ -198,11 +199,20 @@ public sealed class AuditLogService : IAuditLogService
     }
 
     private static string BuildDescription(
-        string operationVerb,
+        string operation,
+        string sourceTable,
         string targetName,
         JArray changedFields,
         string? changeReason)
     {
+        var baseDescription = operation switch
+        {
+            "INSERT" => $"В таблицу {sourceTable} добавили запись {targetName}.",
+            "UPDATE" => $"В таблице {sourceTable} изменили запись {targetName}.",
+            "DELETE" => $"Из таблицы {sourceTable} удалили запись {targetName}.",
+            _ => $"В таблице {sourceTable} изменили запись {targetName}."
+        };
+
         if (changedFields.Count > 0)
         {
             var changedFieldList = string.Join(
@@ -212,15 +222,15 @@ public sealed class AuditLogService : IAuditLogService
                     .Select(change => ExtractValue(change, "field"))
                     .Where(value => !string.IsNullOrWhiteSpace(value)));
 
-            return $"{operationVerb} запись объекта {targetName}. Изменены поля: {changedFieldList}.";
+            return $"{baseDescription} Изменены поля: {changedFieldList}.";
         }
 
         if (!string.IsNullOrWhiteSpace(changeReason))
         {
-            return $"{operationVerb} запись объекта {targetName}. {changeReason}.";
+            return $"{baseDescription} {changeReason}.";
         }
 
-        return $"{operationVerb} запись объекта {targetName}.";
+        return baseDescription;
     }
 
     private static JObject BuildDetails(

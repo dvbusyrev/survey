@@ -4,6 +4,23 @@
     ViewData["Title"] = "Журнал событий";
     var logs = Model ?? Array.Empty<MainProject.Domain.Entities.Log>();
     var loadErrorMessage = ViewData["LogLoadErrorMessage"] as string;
+    var logBootstrapItems = logs.Select(log => new
+    {
+        id = log.IdLog,
+        date = log.Date.ToString("dd.MM.yyyy HH:mm:ss"),
+        user = string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser,
+        eventType = string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType,
+        targetType = log.TargetType ?? string.Empty,
+        targetName = log.TargetName ?? string.Empty,
+        description = log.Description ?? string.Empty,
+        extraDataJson = log.ExtraData switch
+        {
+            Newtonsoft.Json.Linq.JToken token => token.ToString(Newtonsoft.Json.Formatting.None),
+            null => string.Empty,
+            _ => log.ExtraData.ToString() ?? string.Empty
+        }
+    });
+    var logsBootstrapJson = System.Text.Json.JsonSerializer.Serialize(logBootstrapItems);
 }
 
 @section PageStyles {
@@ -34,9 +51,8 @@
         <thead>
             <tr class="table_tr">
                 <th class="table-th--start table-col--date">Дата</th>
-                <th>Клиент</th>
+                <th>Пользователь</th>
                 <th>Событие</th>
-                <th>Объект</th>
                 <th class="table-th--end">Описание</th>
             </tr>
         </thead>
@@ -44,22 +60,31 @@
             @if (!logs.Any())
             {
                 <tr>
-                    <td colspan="5" class="table-empty-cell">События не найдены</td>
+                    <td colspan="4" class="table-empty-cell">События не найдены</td>
                 </tr>
             }
             else
             {
                 foreach (var log in logs)
                 {
-                    <tr>
+                    <tr data-log-id="@log.IdLog" tabindex="0" title="Двойной клик для просмотра события">
                         <td class="table-col--date">@log.Date.ToString("dd.MM.yyyy HH:mm:ss")</td>
                         <td>@(string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser)</td>
                         <td>@(string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType)</td>
-                        <td>@(string.IsNullOrWhiteSpace(log.TargetName) ? log.TargetType ?? "—" : log.TargetName)</td>
                         <td class="logs-table__summary">@(string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description)</td>
                     </tr>
                 }
             }
         </tbody>
     </table>
+
+    <script type="application/json" id="logs-page-bootstrap">
+        @Html.Raw(logsBootstrapJson)
+    </script>
+
+    @await Html.PartialAsync("~/Web/Views/Shared/_LogEntryModal.cshtml")
 </div>
+
+@section Scripts {
+    <script src="~/js/features/admin/admin-logs-page.js" asp-append-version="true"></script>
+}

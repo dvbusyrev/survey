@@ -66,6 +66,10 @@
         }
     }
 
+    function isRecordObject(value) {
+        return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+    }
+
     function formatValue(value) {
         if (value == null) {
             return 'пусто';
@@ -87,52 +91,117 @@
         return String(value);
     }
 
-    function renderChangedFields(modal, extraData) {
-        const section = modal.querySelector('[data-role="log-changes-section"]');
-        const host = modal.querySelector('[data-role="log-changes"]');
-        if (!section || !host) {
+    function getOperation(extraData) {
+        return typeof extraData?.operation === 'string'
+            ? extraData.operation.toUpperCase()
+            : '';
+    }
+
+    function getSourceTable(extraData, entry) {
+        return formatValue(extraData?.source_table || extraData?.source_table_name || entry?.targetType);
+    }
+
+    function getRecordRows(extraData) {
+        const operation = getOperation(extraData);
+        const currentRecord = isRecordObject(extraData?.row_data) ? extraData.row_data : null;
+        const previousRecord = isRecordObject(extraData?.previous_row_data) ? extraData.previous_row_data : null;
+
+        if (operation === 'UPDATE') {
+            return [
+                previousRecord ? { type: 'old', data: previousRecord } : null,
+                currentRecord ? { type: 'new', data: currentRecord } : null
+            ].filter(Boolean);
+        }
+
+        if (operation === 'DELETE') {
+            return currentRecord ? [{ type: 'old', data: currentRecord }] : [];
+        }
+
+        return currentRecord ? [{ type: 'new', data: currentRecord }] : [];
+    }
+
+    function collectColumns(recordRows) {
+        const columns = [];
+        const columnSet = new Set();
+
+        recordRows.forEach((recordRow) => {
+            Object.keys(recordRow.data || {}).forEach((columnName) => {
+                if (columnSet.has(columnName)) {
+                    return;
+                }
+
+                columnSet.add(columnName);
+                columns.push(columnName);
+            });
+        });
+
+        return columns;
+    }
+
+    function appendCell(row, tagName, text) {
+        const cell = document.createElement(tagName);
+        cell.textContent = text;
+        row.appendChild(cell);
+        return cell;
+    }
+
+    function renderEmptyRecordTable(host) {
+        const empty = document.createElement('p');
+        empty.className = 'logs-modal__empty';
+        empty.textContent = 'Данные записи не найдены.';
+        host.appendChild(empty);
+    }
+
+    function renderRecordTable(modal, extraData, entry) {
+        const host = modal.querySelector('[data-role="log-record-table"]');
+        if (!host) {
             return;
         }
 
         host.replaceChildren();
-        const changedFields = Array.isArray(extraData?.changed_fields)
-            ? extraData.changed_fields
-            : [];
+        const sourceTable = getSourceTable(extraData, entry);
 
-        if (changedFields.length === 0) {
-            section.classList.add('u-hidden');
+        const recordRows = getRecordRows(extraData);
+        const columns = collectColumns(recordRows);
+        if (recordRows.length === 0 || columns.length === 0) {
+            renderEmptyRecordTable(host);
             return;
         }
 
-        changedFields.forEach((change) => {
-            const row = document.createElement('div');
-            row.className = 'logs-modal__change-item';
-            row.textContent = `${formatValue(change?.field)}: ${formatValue(change?.new_value)} (старое значение: ${formatValue(change?.old_value)})`;
-            host.appendChild(row);
-        });
+        const table = document.createElement('table');
+        table.className = 'logs-modal__record-table';
 
-        section.classList.remove('u-hidden');
+        const caption = document.createElement('caption');
+        caption.textContent = sourceTable;
+        table.appendChild(caption);
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        columns.forEach((columnName) => appendCell(headerRow, 'th', columnName));
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        recordRows.forEach((recordRow) => {
+            const row = document.createElement('tr');
+            row.className = recordRow.type === 'old'
+                ? 'logs-modal__record-row logs-modal__record-row--old'
+                : 'logs-modal__record-row logs-modal__record-row--new';
+            columns.forEach((columnName) => appendCell(row, 'td', formatValue(recordRow.data?.[columnName])));
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        host.appendChild(table);
     }
 
-    function renderChangeReason(modal, extraData) {
-        const section = modal.querySelector('[data-role="log-reason-section"]');
-        const valueNode = modal.querySelector('[data-role="log-reason"]');
-        if (!section || !valueNode) {
-            return;
-        }
+    function getEventTitle(entry, extraData) {
+        const eventType = typeof extraData?.operation_name === 'string' && extraData.operation_name.trim()
+            ? extraData.operation_name.trim()
+            : entry?.eventType;
 
-        const changeReason = typeof extraData?.change_reason === 'string'
-            ? extraData.change_reason.trim()
-            : '';
-
-        if (!changeReason) {
-            valueNode.textContent = '';
-            section.classList.add('u-hidden');
-            return;
-        }
-
-        valueNode.textContent = changeReason;
-        section.classList.remove('u-hidden');
+        return eventType && eventType !== '—'
+            ? `${eventType} записи`
+            : 'Событие';
     }
 
     function openLogEntryModal(logId) {
@@ -143,25 +212,15 @@
         }
 
         const extraData = parseExtraData(entry);
-        const objectLabel = entry.targetName && entry.targetType && entry.targetName !== entry.targetType
-            ? `${entry.targetName} (${entry.targetType})`
-            : (entry.targetName || entry.targetType || '—');
-        const rawJson = typeof entry.extraDataJson === 'string' && entry.extraDataJson.trim().length > 0
-            ? entry.extraDataJson.trim()
-            : '—';
+        const sourceTable = getSourceTable(extraData, entry);
 
-        setText(modal, 'log-modal-subtitle', `Запись №${entry.id}`);
+        setText(modal, 'log-modal-subtitle', getEventTitle(entry, extraData));
         setText(modal, 'log-date', entry.date);
         setText(modal, 'log-user', entry.user);
         setText(modal, 'log-event', entry.eventType);
-        setText(modal, 'log-object', objectLabel);
-        setText(modal, 'log-table', extraData?.source_table_name || entry.targetType);
         setText(modal, 'log-record-id', extraData?.target_id);
-        setText(modal, 'log-description', entry.description);
-        setText(modal, 'log-json', rawJson);
 
-        renderChangedFields(modal, extraData);
-        renderChangeReason(modal, extraData);
+        renderRecordTable(modal, extraData, entry);
 
         if (typeof window.showSiteModal === 'function') {
             window.showSiteModal(modal);
@@ -177,4 +236,26 @@
         const logId = Number(element?.dataset?.logId || 0);
         openLogEntryModal(logId);
     };
+
+    document.addEventListener('dblclick', (event) => {
+        const row = event.target.closest('.logs-table tbody tr[data-log-id]');
+        if (!row) {
+            return;
+        }
+
+        openLogEntryModal(Number(row.dataset.logId || 0));
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        const row = event.target.closest('.logs-table tbody tr[data-log-id]');
+        if (!row) {
+            return;
+        }
+
+        openLogEntryModal(Number(row.dataset.logId || 0));
+    });
 })();

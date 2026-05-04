@@ -46,6 +46,7 @@ public sealed class AuditLogServiceTests
             {
                 ["operation"] = "UPDATE",
                 ["operation_verb"] = "Изменил",
+                ["source_table"] = "survey",
                 ["source_table_name"] = "Анкета",
                 ["target_id"] = "7",
                 ["changed_fields"] = new JArray
@@ -63,7 +64,7 @@ public sealed class AuditLogServiceTests
         var result = service.GenerateLogText(new[] { log });
 
         Assert.Contains(
-            "20.04.2026 14:30:15 Пользователь Администратор (таблица Пользователь, id = 2) Изменил запись объекта Новая анкета (таблица Анкета, id = 7). Изменил атрибуты: name_survey = \"Новая анкета 2\" (старое значение: \"Новая анкета\").",
+            "20.04.2026 14:30:15 Пользователь Администратор (id = 2): В таблице survey изменили запись Новая анкета. ID записи: 7. Изменил атрибуты: name_survey = \"Новая анкета 2\" (старое значение: \"Новая анкета\").",
             result);
     }
 
@@ -83,6 +84,7 @@ public sealed class AuditLogServiceTests
             {
                 ["operation"] = "UPDATE",
                 ["operation_verb"] = "Изменил",
+                ["source_table"] = "survey",
                 ["source_table_name"] = "Анкета",
                 ["target_id"] = "7",
                 ["changed_fields"] = new JArray(),
