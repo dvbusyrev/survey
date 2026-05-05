@@ -3,6 +3,7 @@
     let confirmOverlay = null;
     let confirmResolver = null;
     const modalOrigins = new WeakMap();
+    const backdropPointerDownTargets = new WeakSet();
     const BODY_SCROLL_LOCK_FLAG = 'modalScrollLock';
     const BODY_SCROLL_LOCK_INLINE_PADDING = 'modalOriginalPaddingRight';
 
@@ -312,6 +313,14 @@
         }));
     }
 
+    function getInteractiveModalFromTarget(target) {
+        return target?.closest?.('.modal.modal--visible, .modal-overlay.active, .notification-overlay.active') || null;
+    }
+
+    function isModalBackdropEvent(modal, event) {
+        return Boolean(modal && event?.target === modal);
+    }
+
     function showSiteModal(target) {
         const modal = resolveModal(target);
         if (!modal) {
@@ -389,6 +398,15 @@
         showToast(normalizedMessage, toastType, { title });
     };
 
+    document.addEventListener('pointerdown', function (event) {
+        const modal = getInteractiveModalFromTarget(event.target);
+        if (isModalBackdropEvent(modal, event)) {
+            backdropPointerDownTargets.add(modal);
+        } else if (modal) {
+            backdropPointerDownTargets.delete(modal);
+        }
+    }, true);
+
     document.addEventListener('click', function (event) {
         const closeButton = event.target.closest('.modal-close');
         if (closeButton) {
@@ -401,9 +419,13 @@
             }
         }
 
-        const modal = event.target.closest('.modal.modal--visible, .modal-overlay.active, .notification-overlay.active');
-        if (modal && event.target === modal) {
+        const modal = getInteractiveModalFromTarget(event.target);
+        if (isModalBackdropEvent(modal, event) && backdropPointerDownTargets.has(modal)) {
             hideSiteModal(modal);
+        }
+
+        if (modal) {
+            backdropPointerDownTargets.delete(modal);
         }
     });
 

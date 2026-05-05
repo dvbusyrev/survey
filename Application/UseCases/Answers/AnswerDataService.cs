@@ -168,38 +168,43 @@ public sealed class AnswerDataService
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
-        var items = BuildNormalizedAnswerItems(connection, answerRecord.IdSurvey, answerRecord.Answers);
+        var items = BuildNormalizedAnswerItems(connection, transaction, answerRecord.IdSurvey, answerRecord.Answers);
 
-        var idAnswer = connection.ExecuteScalar<int?>(
-            @"INSERT INTO public.answer (
-                  id_organization_survey,
-                  completion_date
-              )
-              SELECT
-                  os.id_organization_survey,
-                  @completionDate
-              FROM public.organization_survey os
-              WHERE os.id_organization = @idOrganization
-                AND os.id_survey = @idSurvey
-              RETURNING id_answer",
-            new
-            {
-                idOrganization = answerRecord.OrganizationId,
-                idSurvey = answerRecord.IdSurvey,
-                completionDate = DateTime.Now
-            },
-            transaction);
+        var assignmentId = GetAssignmentIdForUpdate(
+            connection,
+            transaction,
+            answerRecord.IdSurvey,
+            answerRecord.OrganizationId);
 
-        if (!idAnswer.HasValue)
+        if (!assignmentId.HasValue)
         {
             transaction.Rollback();
             throw new InvalidOperationException("Назначение анкеты для организации не найдено.");
         }
 
-        ReplaceAnswerItems(connection, transaction, idAnswer.Value, items);
+        var idAnswer = connection.ExecuteScalar<int>(
+            @"INSERT INTO public.answer (
+                  id_organization_survey,
+                  completion_date
+              )
+              VALUES (
+                  @assignmentId,
+                  @completionDate
+              )
+              ON CONFLICT (id_organization_survey) DO UPDATE
+              SET completion_date = EXCLUDED.completion_date
+              RETURNING id_answer",
+            new
+            {
+                assignmentId = assignmentId.Value,
+                completionDate = DateTime.Now
+            },
+            transaction);
+
+        ReplaceAnswerItems(connection, transaction, idAnswer, items);
         transaction.Commit();
 
-        return idAnswer.Value;
+        return idAnswer;
     }
 
     public bool UpdateAnswerRecord(AnswerRecord answerRecord)
@@ -207,17 +212,26 @@ public sealed class AnswerDataService
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
+        var assignmentId = GetAssignmentIdForUpdate(
+            connection,
+            transaction,
+            answerRecord.IdSurvey,
+            answerRecord.OrganizationId);
+
+        if (!assignmentId.HasValue)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
         var answerId = connection.ExecuteScalar<int?>(
-            @"SELECT a.id_answer
-              FROM public.answer a
-              INNER JOIN public.organization_survey os
-                  ON os.id_organization_survey = a.id_organization_survey
-              WHERE os.id_organization = @idOrganization
-                AND os.id_survey = @idSurvey",
+            @"SELECT id_answer
+              FROM public.answer
+              WHERE id_organization_survey = @assignmentId
+              FOR UPDATE",
             new
             {
-                idOrganization = answerRecord.OrganizationId,
-                idSurvey = answerRecord.IdSurvey
+                assignmentId = assignmentId.Value
             },
             transaction);
 
@@ -227,7 +241,7 @@ public sealed class AnswerDataService
             return false;
         }
 
-        var items = BuildNormalizedAnswerItems(connection, answerRecord.IdSurvey, answerRecord.Answers);
+        var items = BuildNormalizedAnswerItems(connection, transaction, answerRecord.IdSurvey, answerRecord.Answers);
 
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer
@@ -270,6 +284,7 @@ public sealed class AnswerDataService
 
     private static IReadOnlyList<AnswerItemRow> BuildNormalizedAnswerItems(
         global::Npgsql.NpgsqlConnection connection,
+        global::Npgsql.NpgsqlTransaction transaction,
         int surveyId,
         IReadOnlyList<AnswerPayloadItem>? answers)
     {
@@ -284,7 +299,8 @@ public sealed class AnswerDataService
               FROM public.survey_question
               WHERE id_survey = @surveyId
               ORDER BY question_order",
-            new { surveyId })
+            new { surveyId },
+            transaction)
             .ToDictionary(q => q.QuestionOrder, q => q.QuestionText);
 
         var normalizedItems = new List<AnswerItemRow>();
@@ -367,7 +383,11 @@ public sealed class AnswerDataService
         {
             connection.Execute(
                 @"INSERT INTO public.answer_item (id_answer, question_order, question_text, rating, comment)
-                  VALUES (@answerId, @questionOrder, @questionText, @rating, @comment)",
+                  VALUES (@answerId, @questionOrder, @questionText, @rating, @comment)
+                  ON CONFLICT (id_answer, question_order) DO UPDATE
+                  SET question_text = EXCLUDED.question_text,
+                      rating = EXCLUDED.rating,
+                      comment = EXCLUDED.comment",
                 new
                 {
                     answerId,
@@ -378,6 +398,26 @@ public sealed class AnswerDataService
                 },
                 transaction);
         }
+    }
+
+    private static int? GetAssignmentIdForUpdate(
+        global::Npgsql.NpgsqlConnection connection,
+        global::Npgsql.NpgsqlTransaction transaction,
+        int surveyId,
+        int organizationId)
+    {
+        return connection.ExecuteScalar<int?>(
+            @"SELECT id_organization_survey
+              FROM public.organization_survey
+              WHERE id_organization = @organizationId
+                AND id_survey = @surveyId
+              FOR UPDATE",
+            new
+            {
+                organizationId,
+                surveyId
+            },
+            transaction);
     }
 
     private static int ParseQuestionOrder(string? rawQuestionId, int fallbackOrder)

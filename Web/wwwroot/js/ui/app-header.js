@@ -13,9 +13,11 @@
 }
 
 function renderHeader(host, { userRole, displayName, userName, organizationName }) {
+    const normalizedUserRole = String(userRole || '').trim().toLowerCase();
+    const isAdmin = normalizedUserRole === 'admin' || normalizedUserRole === 'administrator' || normalizedUserRole === 'администратор';
     const rawDisplayName = displayName && String(displayName).trim()
         ? String(displayName).trim()
-        : (userRole === 'admin' ? 'Администратор' : 'Клиент');
+        : (isAdmin ? 'Администратор' : 'Клиент');
     const displayNameParts = rawDisplayName.split(':').map(part => part.trim()).filter(Boolean);
     const normalizedUserName = userName && String(userName).trim()
         ? String(userName).trim()
@@ -24,9 +26,9 @@ function renderHeader(host, { userRole, displayName, userName, organizationName 
         ? String(organizationName).trim()
         : (displayNameParts[0] || 'Клиент');
     const headerTopLine = normalizedOrganizationName;
-    const normalizedDisplayName = userRole === 'admin'
+    const normalizedDisplayName = isAdmin
         ? (normalizedUserName || 'Администратор')
-        : (normalizedUserName || rawDisplayName);
+        : normalizedOrganizationName;
 
     const template = document.getElementById('header-template');
     if (!host || !template?.content?.firstElementChild) {
@@ -40,11 +42,13 @@ function renderHeader(host, { userRole, displayName, userName, organizationName 
     const logoutButton = header.querySelector('.logout-button');
 
     if (modeLabel) {
-        modeLabel.textContent = headerTopLine;
+        modeLabel.textContent = isAdmin ? headerTopLine : '';
+        modeLabel.hidden = !isAdmin;
     }
     if (role) {
         role.textContent = normalizedDisplayName;
         role.setAttribute('title', normalizedDisplayName);
+        role.hidden = false;
     }
     if (logoutButton) {
         logoutButton.addEventListener('click', () => {

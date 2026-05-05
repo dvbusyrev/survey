@@ -22,15 +22,7 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             return validationResult;
         }
 
-        var existingAnswer = _answerDataService.GetAnswerRecord(answerRecord.IdSurvey, answerRecord.OrganizationId);
-        if (existingAnswer == null)
-        {
-            _answerDataService.InsertAnswerRecord(answerRecord);
-        }
-        else
-        {
-            _answerDataService.UpdateAnswerRecord(answerRecord);
-        }
+        _answerDataService.InsertAnswerRecord(answerRecord);
 
         var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
         if (model == null)

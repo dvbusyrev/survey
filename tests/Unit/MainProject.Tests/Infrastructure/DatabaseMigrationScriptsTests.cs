@@ -20,6 +20,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 015_link_answers_to_organization_survey.sql", script);
         Assert.Contains(@"\ir 016_rename_config_tables.sql", script);
         Assert.Contains(@"\ir 017_rename_app_user_credentials.sql", script);
+        Assert.Contains(@"\ir 018_add_audit_log_current_tables.sql", script);
+        Assert.Contains(@"\ir 019_store_audit_old_new_rows.sql", script);
     }
 
     [Fact]
@@ -30,6 +32,8 @@ public sealed class DatabaseMigrationScriptsTests
 
         Assert.Contains(@"\ir 001_current_schema.sql", migration);
         Assert.Contains("('017', 'rename_app_user_credentials')", migration);
+        Assert.Contains("('018', 'add_audit_log_current_tables')", migration);
+        Assert.Contains("('019', 'store_audit_old_new_rows')", migration);
         Assert.Contains("INSERT INTO public.week_day", migration);
         Assert.Contains("CREATE TABLE public.app_user", schema);
         Assert.Contains("login text NOT NULL", schema);
@@ -37,6 +41,11 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("password text NOT NULL", schema);
         Assert.Contains("CREATE TABLE public.email_config", schema);
         Assert.Contains("CREATE TABLE public.survey_auto_creation_config_l", schema);
+        Assert.Contains("CREATE TABLE public.survey_question_l", schema);
+        Assert.Contains("CREATE TABLE public.answer_item_l", schema);
+        Assert.Contains("CREATE TABLE public.auto_creation_config_l", schema);
+        Assert.Contains("old_row_data jsonb", schema);
+        Assert.Contains("new_row_data jsonb", schema);
         Assert.DoesNotContain("recovery/", migration);
         Assert.DoesNotContain("\\restrict", schema);
         Assert.DoesNotContain("transaction_timeout", schema);
@@ -181,6 +190,37 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("app_user_role_not_null", script);
         Assert.Contains("app_user_password_not_null", script);
         Assert.Contains("VALUES ('017', 'rename_app_user_credentials')", script);
+    }
+
+    [Fact]
+    public void AuditLogCurrentTablesMigration_AddsMissingAuditTablesAndTriggers()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "018_add_audit_log_current_tables.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.survey_question_l", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.answer_item_l", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.auto_creation_config_l", script);
+        Assert.Contains("CREATE TRIGGER trg_survey_question_crud_audit", script);
+        Assert.Contains("CREATE TRIGGER trg_answer_item_crud_audit", script);
+        Assert.Contains("CREATE TRIGGER trg_auto_creation_config_audit", script);
+        Assert.Contains("write_crud_audit('id_question')", script);
+        Assert.Contains("write_crud_audit('id_item')", script);
+        Assert.Contains("write_crud_audit('id_config')", script);
+        Assert.Contains("VALUES ('018', 'add_audit_log_current_tables')", script);
+    }
+
+    [Fact]
+    public void AuditOldNewRowsMigration_StoresBothAuditVersions()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "019_store_audit_old_new_rows.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS old_row_data jsonb", script);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS new_row_data jsonb", script);
+        Assert.Contains("CREATE OR REPLACE FUNCTION public.write_crud_audit()", script);
+        Assert.Contains("old_row_data, new_row_data", script);
+        Assert.Contains("audit_old_row_data", script);
+        Assert.Contains("audit_new_row_data", script);
+        Assert.Contains("VALUES ('019', 'store_audit_old_new_rows')", script);
     }
 
     private static string GetRepositoryRoot()

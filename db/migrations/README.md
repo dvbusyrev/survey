@@ -28,12 +28,14 @@ What this does:
 - applies `015_link_answers_to_organization_survey`
 - applies `016_rename_config_tables`
 - applies `017_rename_app_user_credentials`
+- applies `018_add_audit_log_current_tables`
+- applies `019_store_audit_old_new_rows`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
 Migration sources:
 
-- `001_unified_schema` builds a portable current-schema baseline from `001_current_schema.sql` and records migrations through `017`
+- `001_unified_schema` builds a portable current-schema baseline from `001_current_schema.sql` and records migrations through `019`
 - `002_repair_survey_foreign_keys` is retained as a historical no-op because the repaired constraints are now part of the baseline
 - `003_add_update_metadata` adds `date_update/user_update` support without external recovery scripts
 - `004_add_organization_short_name` adds `organization.organization_short_name`
@@ -50,3 +52,5 @@ Migration sources:
 - `015_link_answers_to_organization_survey` links answers to `organization_survey`
 - `016_rename_config_tables` renames email and auto-creation audit/config tables to final names
 - `017_rename_app_user_credentials` renames `app_user` credential columns to `login`, `role`, and `password`
+- `018_add_audit_log_current_tables` adds audit logging for current detail/config tables used by chained actions
+- `019_store_audit_old_new_rows` stores `OLD` and `NEW` row snapshots directly in audit tables

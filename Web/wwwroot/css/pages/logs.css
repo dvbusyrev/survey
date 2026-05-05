@@ -44,6 +44,12 @@
   gap: 20px;
 }
 
+.logs-modal .modal-content {
+  width: var(--logs-modal-width, fit-content);
+  min-width: min(720px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+
 .logs-modal__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -87,7 +93,7 @@
 }
 
 .logs-modal__record-table {
-  width: 100%;
+  width: max-content;
   min-width: 100%;
   margin: 0;
   border-collapse: separate;
@@ -111,7 +117,7 @@
   font-size: 0.78rem;
   line-height: 1.35;
   text-align: left;
-  white-space: normal;
+  white-space: nowrap;
   overflow-wrap: anywhere;
 }
 

@@ -84,7 +84,9 @@ VALUES
     ('014', 'remove_auto_creation_config_metadata'),
     ('015', 'link_answers_to_organization_survey'),
     ('016', 'rename_config_tables'),
-    ('017', 'rename_app_user_credentials')
+    ('017', 'rename_app_user_credentials'),
+    ('018', 'add_audit_log_current_tables'),
+    ('019', 'store_audit_old_new_rows')
 ON CONFLICT (version) DO NOTHING;
 
 COMMIT;

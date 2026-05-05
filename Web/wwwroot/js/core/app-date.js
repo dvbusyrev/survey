@@ -7,7 +7,7 @@
     const ACTIVE_DATE_FORMAT = 'dd.mm.yyyy';
     const LEGACY_DATE_FORMAT = 'dd/mm/yyyy';
     const GLOBAL_YEAR_RANGE = 10;
-    const DATE_INPUT_SELECTOR = `input[type="date"]:not([data-date-proxy="true"]), input[data-date-format="${ACTIVE_DATE_FORMAT}"], input[data-date-format="${LEGACY_DATE_FORMAT}"]`;
+    const DATE_INPUT_SELECTOR = `input[type="date"]:not([data-date-proxy="true"]):not([data-date-native="true"]), input[data-date-format="${ACTIVE_DATE_FORMAT}"]:not([data-date-native="true"]), input[data-date-format="${LEGACY_DATE_FORMAT}"]:not([data-date-native="true"])`;
     const MONTH_NAMES = [
         'Январь',
         'Февраль',
@@ -225,6 +225,10 @@
         input._appDatePickerProxy.value = isoValue || '';
     }
 
+    function isNativeDateInput(input) {
+        return input?.dataset?.dateNative === 'true' && input.type === 'date';
+    }
+
     function updateInputValidationState(input) {
         if (!input) {
             return false;
@@ -244,7 +248,7 @@
             return false;
         }
 
-        input.value = toDisplay(isoValue);
+        input.value = isNativeDateInput(input) ? isoValue : toDisplay(isoValue);
         syncPickerValue(input);
 
         if (!isIsoWithinRange(input, isoValue)) {
@@ -275,7 +279,9 @@
 
         const isoValue = toIso(normalizedValue);
         if (!isoValue) {
-            return `Укажите корректную дату в поле «${label}» в формате ДД.ММ.ГГГГ.`;
+            return isNativeDateInput(input)
+                ? `Выберите корректную дату в поле «${label}».`
+                : `Укажите корректную дату в поле «${label}» в формате ДД.ММ.ГГГГ.`;
         }
 
         const { min, max } = resolveEffectiveBounds(input);
@@ -675,7 +681,7 @@
             return false;
         }
 
-        input.value = toDisplay(value);
+        input.value = isNativeDateInput(input) ? toIso(value) : toDisplay(value);
         updateInputValidationState(input);
         return true;
     }

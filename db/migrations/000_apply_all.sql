@@ -29,3 +29,5 @@ COMMIT;
 \ir 015_link_answers_to_organization_survey.sql
 \ir 016_rename_config_tables.sql
 \ir 017_rename_app_user_credentials.sql
+\ir 018_add_audit_log_current_tables.sql
+\ir 019_store_audit_old_new_rows.sql

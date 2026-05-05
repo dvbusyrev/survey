@@ -103,8 +103,15 @@
 
     function getRecordRows(extraData) {
         const operation = getOperation(extraData);
-        const currentRecord = isRecordObject(extraData?.row_data) ? extraData.row_data : null;
-        const previousRecord = isRecordObject(extraData?.previous_row_data) ? extraData.previous_row_data : null;
+        const currentRecord = isRecordObject(extraData?.new_row_data)
+            ? extraData.new_row_data
+            : (isRecordObject(extraData?.row_data) ? extraData.row_data : null);
+        const previousRecord = isRecordObject(extraData?.old_row_data)
+            ? extraData.old_row_data
+            : (isRecordObject(extraData?.previous_row_data) ? extraData.previous_row_data : null);
+        const deletedRecord = isRecordObject(extraData?.old_row_data)
+            ? extraData.old_row_data
+            : (isRecordObject(extraData?.row_data) ? extraData.row_data : null);
 
         if (operation === 'UPDATE') {
             return [
@@ -114,28 +121,137 @@
         }
 
         if (operation === 'DELETE') {
-            return currentRecord ? [{ type: 'old', data: currentRecord }] : [];
+            return deletedRecord ? [{ type: 'old', data: deletedRecord }] : [];
         }
 
         return currentRecord ? [{ type: 'new', data: currentRecord }] : [];
     }
 
-    function collectColumns(recordRows) {
+    function normalizeColumnList(value) {
+        if (!Array.isArray(value)) {
+            return [];
+        }
+
+        const seenColumns = new Set();
+        return value
+            .map((columnName) => String(columnName || '').trim())
+            .filter((columnName) => {
+                const normalizedColumnName = columnName.toLowerCase();
+                if (!columnName || seenColumns.has(normalizedColumnName)) {
+                    return false;
+                }
+
+                seenColumns.add(normalizedColumnName);
+                return true;
+            });
+    }
+
+    function mergeColumnOrder(target, nextColumns) {
+        const knownColumns = new Set(target.map((columnName) => columnName.toLowerCase()));
+        nextColumns.forEach((columnName) => {
+            const normalizedColumnName = columnName.toLowerCase();
+            if (knownColumns.has(normalizedColumnName)) {
+                return;
+            }
+
+            knownColumns.add(normalizedColumnName);
+            target.push(columnName);
+        });
+    }
+
+    function collectColumns(recordRows, columnOrder) {
         const columns = [];
         const columnSet = new Set();
 
+        normalizeColumnList(columnOrder).forEach((columnName) => {
+            columns.push(columnName);
+            columnSet.add(columnName.toLowerCase());
+        });
+
         recordRows.forEach((recordRow) => {
             Object.keys(recordRow.data || {}).forEach((columnName) => {
-                if (columnSet.has(columnName)) {
+                const normalizedColumnName = columnName.toLowerCase();
+                if (columnSet.has(normalizedColumnName)) {
                     return;
                 }
 
-                columnSet.add(columnName);
+                columnSet.add(normalizedColumnName);
                 columns.push(columnName);
             });
         });
 
         return columns;
+    }
+
+    function normalizeRecordForKey(value) {
+        if (Array.isArray(value)) {
+            return value.map(normalizeRecordForKey);
+        }
+
+        if (isRecordObject(value)) {
+            return Object.keys(value)
+                .sort((left, right) => left.localeCompare(right))
+                .reduce((normalized, key) => {
+                    normalized[key] = normalizeRecordForKey(value[key]);
+                    return normalized;
+                }, {});
+        }
+
+        return value ?? null;
+    }
+
+    function getRecordRowKey(recordRow) {
+        return JSON.stringify({
+            type: recordRow.type,
+            data: normalizeRecordForKey(recordRow.data)
+        });
+    }
+
+    function getRecordTableItems(extraData) {
+        if (Array.isArray(extraData?.items) && extraData.items.length > 0) {
+            return extraData.items.filter(isRecordObject);
+        }
+
+        return isRecordObject(extraData) ? [extraData] : [];
+    }
+
+    function buildRecordTableGroups(extraData, entry) {
+        const groups = [];
+        const groupMap = new Map();
+
+        getRecordTableItems(extraData).forEach((item) => {
+            const recordRows = getRecordRows(item);
+            if (recordRows.length === 0) {
+                return;
+            }
+
+            const sourceTable = getSourceTable(item, entry);
+            let group = groupMap.get(sourceTable);
+            if (!group) {
+                group = {
+                    sourceTable,
+                    columnOrder: [],
+                    recordRows: [],
+                    recordRowKeys: new Set()
+                };
+                groupMap.set(sourceTable, group);
+                groups.push(group);
+            }
+
+            mergeColumnOrder(group.columnOrder, normalizeColumnList(item.column_order));
+
+            recordRows.forEach((recordRow) => {
+                const recordRowKey = getRecordRowKey(recordRow);
+                if (group.recordRowKeys.has(recordRowKey)) {
+                    return;
+                }
+
+                group.recordRowKeys.add(recordRowKey);
+                group.recordRows.push(recordRow);
+            });
+        });
+
+        return groups;
     }
 
     function appendCell(row, tagName, text) {
@@ -152,20 +268,10 @@
         host.appendChild(empty);
     }
 
-    function renderRecordTable(modal, extraData, entry) {
-        const host = modal.querySelector('[data-role="log-record-table"]');
-        if (!host) {
-            return;
-        }
-
-        host.replaceChildren();
-        const sourceTable = getSourceTable(extraData, entry);
-
-        const recordRows = getRecordRows(extraData);
-        const columns = collectColumns(recordRows);
+    function appendRecordTable(host, sourceTable, recordRows, columnOrder) {
+        const columns = collectColumns(recordRows, columnOrder);
         if (recordRows.length === 0 || columns.length === 0) {
-            renderEmptyRecordTable(host);
-            return;
+            return false;
         }
 
         const table = document.createElement('table');
@@ -192,6 +298,28 @@
         });
         table.appendChild(tbody);
         host.appendChild(table);
+
+        return true;
+    }
+
+    function renderRecordTable(modal, extraData, entry) {
+        const host = modal.querySelector('[data-role="log-record-table"]');
+        if (!host) {
+            return;
+        }
+
+        host.replaceChildren();
+
+        const renderedCount = buildRecordTableGroups(extraData, entry)
+            .reduce((count, group) => {
+                return appendRecordTable(host, group.sourceTable, group.recordRows, group.columnOrder)
+                    ? count + 1
+                    : count;
+            }, 0);
+
+        if (renderedCount === 0) {
+            renderEmptyRecordTable(host);
+        }
     }
 
     function getEventTitle(entry, extraData) {
@@ -204,6 +332,29 @@
             : 'Событие';
     }
 
+    function resizeLogModal(modal) {
+        const content = modal.querySelector('.modal-content');
+        const body = modal.querySelector('.modal-body');
+        if (!content || !body) {
+            return;
+        }
+
+        const tables = Array.from(modal.querySelectorAll('.logs-modal__record-table'));
+        if (tables.length === 0) {
+            content.style.removeProperty('--logs-modal-width');
+            return;
+        }
+
+        const bodyStyles = window.getComputedStyle(body);
+        const horizontalBodyPadding = (Number.parseFloat(bodyStyles.paddingLeft) || 0)
+            + (Number.parseFloat(bodyStyles.paddingRight) || 0);
+        const preferredTableWidth = Math.max(...tables.map((table) => table.scrollWidth));
+        const preferredWidth = Math.max(720, preferredTableWidth + horizontalBodyPadding + 2);
+        const maxWidth = Math.max(320, window.innerWidth - 32);
+
+        content.style.setProperty('--logs-modal-width', `${Math.min(preferredWidth, maxWidth)}px`);
+    }
+
     function openLogEntryModal(logId) {
         const entry = getLogEntry(logId);
         const modal = document.getElementById('logEntryModal');
@@ -212,7 +363,6 @@
         }
 
         const extraData = parseExtraData(entry);
-        const sourceTable = getSourceTable(extraData, entry);
 
         setText(modal, 'log-modal-subtitle', getEventTitle(entry, extraData));
         setText(modal, 'log-date', entry.date);
@@ -224,6 +374,7 @@
 
         if (typeof window.showSiteModal === 'function') {
             window.showSiteModal(modal);
+            window.requestAnimationFrame(() => resizeLogModal(modal));
         }
     }
 
@@ -257,5 +408,12 @@
         }
 
         openLogEntryModal(Number(row.dataset.logId || 0));
+    });
+
+    window.addEventListener('resize', () => {
+        const modal = document.getElementById('logEntryModal');
+        if (modal?.classList.contains('modal--visible')) {
+            resizeLogModal(modal);
+        }
     });
 })();
