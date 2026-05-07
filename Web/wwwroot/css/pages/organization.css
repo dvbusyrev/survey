@@ -79,6 +79,7 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
+  font-size: 1rem;
   cursor: pointer;
 }
 
@@ -142,28 +143,19 @@
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  cursor: pointer;
-}
-
-.organization-surveys-page__select-all-toggle input[type="checkbox"],
-.organization-surveys-page__organization-toggle input[type="checkbox"],
-.organization-surveys-page__survey-row input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: var(--primary);
+  font-size: 1.05rem;
   cursor: pointer;
 }
 
 .organization-surveys-page__select-all-label {
   color: var(--text-main);
-  font-size: 1rem;
+  font-size: inherit;
   font-weight: 700;
 }
 
 .organization-surveys-page__organization-name {
   color: var(--text-main);
-  font-size: 1.05rem;
+  font-size: inherit;
   font-weight: 700;
 }
 

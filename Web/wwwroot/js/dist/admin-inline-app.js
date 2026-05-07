@@ -512,6 +512,18 @@
           closeOrganizationPanel();
         }
       };
+      const updateCheckboxListHeight = (container) => {
+        const list = container?.querySelector(".app-checkbox-list");
+        if (!list) {
+          return;
+        }
+        const listTop = list.getBoundingClientRect().top;
+        const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
+        list.style.setProperty("--app-checkbox-list-max-height", `${availableHeight}px`);
+      };
+      const scheduleCheckboxListHeightUpdate = (container) => {
+        window.requestAnimationFrame(() => updateCheckboxListHeight(container));
+      };
       const handleSubmit = async () => {
         if (extension.organizationIds.length === 0 || !extension.extendedUntil) {
           window.siteNotify?.("Пожалуйста, заполните все поля.", "error");
@@ -626,18 +638,18 @@
               const checkbox = document.createElement("input");
               const labelText = document.createElement("span");
               const isSelected = selectedOrganizationIds.has(organization.organizationId);
-              optionLabel.className = "survey-period-filter__organization-option";
+              optionLabel.className = "app-checkbox-option survey-period-filter__organization-option";
               optionLabel.classList.toggle("is-selected", isSelected);
               optionLabel.setAttribute("role", "option");
               optionLabel.setAttribute("aria-selected", isSelected ? "true" : "false");
               checkbox.type = "checkbox";
-              checkbox.className = "survey-period-filter__organization-checkbox";
+              checkbox.className = "app-checkbox-input survey-period-filter__organization-checkbox";
               checkbox.checked = isSelected;
               checkbox.value = organization.organizationId;
               checkbox.addEventListener("change", (event) => {
                 toggleOrganization(organization.organizationId, event.target.checked);
               });
-              labelText.className = "survey-period-filter__organization-name";
+              labelText.className = "app-checkbox-text survey-period-filter__organization-name";
               labelText.textContent = organization.organizationName;
               optionLabel.appendChild(checkbox);
               optionLabel.appendChild(labelText);
@@ -674,6 +686,9 @@
           cancelButton.onclick = closeModal;
         }
         host.appendChild(root);
+        if (isOrganizationPanelOpen) {
+          scheduleCheckboxListHeightUpdate(root);
+        }
       };
       const fetchOrganizations = async () => {
         try {
@@ -1841,14 +1856,21 @@
       }
       return responseText;
     };
+    const revealRenderedModal = () => {
+      modalNode.classList.add("modal--visible");
+      modalNode.setAttribute("aria-hidden", "false");
+      window.syncSiteModalBodyState?.();
+    };
     const renderModal = () => {
-      modalNode.className = `modal ${state.modal.isOpen ? "modal--visible" : ""}`;
+      modalNode.className = "modal";
+      modalNode.setAttribute("aria-hidden", "true");
       if (typeof modalCleanup === "function") {
         modalCleanup();
         modalCleanup = null;
       }
       modalBodyHost.innerHTML = "";
       if (!state.modal.isOpen) {
+        window.syncSiteModalBodyState?.();
         return;
       }
       const modalData = state.modal.data;
@@ -1861,6 +1883,7 @@
             msg.textContent = "Модуль продления не загружен.";
             modalBodyHost.appendChild(msg);
           }
+          revealRenderedModal();
           return;
         case "report": {
           const wrap = document.createElement("div");
@@ -1911,6 +1934,7 @@
           actions.appendChild(quarter);
           wrap.appendChild(actions);
           modalBodyHost.appendChild(wrap);
+          revealRenderedModal();
           return;
         }
         case "copy":
@@ -1951,6 +1975,7 @@
           root.appendChild(body);
           root.appendChild(footer);
           modalBodyHost.appendChild(root);
+          revealRenderedModal();
           return;
         }
         case "message": {
@@ -1978,6 +2003,7 @@
           root.appendChild(body);
           root.appendChild(footer);
           modalBodyHost.appendChild(root);
+          revealRenderedModal();
           return;
         }
         default:
@@ -2417,7 +2443,11 @@
     }
   }
   function surveyEditSaveSelectedOrganization() {
-    surveyEditCloseModal("organizationModal");
+    if (typeof window.surveyEditCloseOrganizationDropdown === "function") {
+      window.surveyEditCloseOrganizationDropdown();
+    } else {
+      surveyEditCloseModal("organizationModal");
+    }
     if (typeof window.updateSelectedOrganizationDisplay === "function") {
       window.updateSelectedOrganizationDisplay();
     }

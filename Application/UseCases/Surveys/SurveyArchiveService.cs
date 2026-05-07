@@ -188,7 +188,7 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
                     SELECT 1
                     FROM public.organization_survey os
                     WHERE os.id_survey = s.id_survey
-                      AND os.date_end >= CURRENT_DATE
+                      AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
                 )
             ORDER BY id_survey DESC";
 
@@ -227,7 +227,7 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
                     SELECT 1
                     FROM public.organization_survey os
                     WHERE os.id_survey = s.id_survey
-                      AND os.date_end >= CURRENT_DATE
+                      AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
                 )",
             new { surveyId = request.SurveyId },
             transaction);

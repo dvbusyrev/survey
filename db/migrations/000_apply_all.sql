@@ -31,3 +31,5 @@ COMMIT;
 \ir 017_rename_app_user_credentials.sql
 \ir 018_add_audit_log_current_tables.sql
 \ir 019_store_audit_old_new_rows.sql
+\ir 020_limit_auto_creation_schedule_options.sql
+\ir 021_allow_empty_auto_creation_period.sql

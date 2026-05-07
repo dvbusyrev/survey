@@ -18,7 +18,7 @@ namespace MainProject.Domain.Entities
 
         [JsonPropertyName("date_end")]
         [JsonConverter(typeof(DateOnlyDateTimeJsonConverter))]
-        public DateTime DateEnd { get; set; }
+        public DateTime? DateEnd { get; set; }
 
         public string? Csp { get; set; }
 

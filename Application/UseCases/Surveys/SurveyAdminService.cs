@@ -47,7 +47,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
                 SELECT 1
                 FROM public.organization_survey os
                 WHERE os.id_survey = s.id_survey
-                  AND os.date_end >= CURRENT_DATE
+                  AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
             )
             ORDER BY s.id_survey DESC;";
 
@@ -123,7 +123,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
                 s.id_survey,
                 s.name_survey,
                 COALESCE(ss.date_begin, CURRENT_DATE) AS date_begin,
-                COALESCE(ss.date_end, (CURRENT_DATE + INTERVAL '1 day')::date) AS date_end,
+                ss.date_end AS date_end,
                 s.description
               FROM public.survey s
               LEFT JOIN public.survey_schedule ss
@@ -281,7 +281,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
                 @"WITH active_survey AS (
                       SELECT DISTINCT id_survey
                       FROM public.organization_survey
-                      WHERE date_end >= CURRENT_DATE
+                      WHERE date_end IS NULL OR date_end >= CURRENT_DATE
                   ),
                   updated AS (
                       UPDATE public.organization_survey os
@@ -328,7 +328,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
                   s.name_survey,
                   s.description,
                   COALESCE(ss.date_begin, CURRENT_DATE) AS date_begin,
-                  COALESCE(ss.date_end, (CURRENT_DATE + INTERVAL '1 day')::date) AS date_end
+                  ss.date_end AS date_end
               FROM public.survey s
               LEFT JOIN public.survey_schedule ss
                 ON ss.id_survey = s.id_survey

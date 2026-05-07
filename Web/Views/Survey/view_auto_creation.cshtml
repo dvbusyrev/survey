@@ -79,6 +79,7 @@
                         <div class="reports-page__field">
                             <label for="surveyAutoCreationEndOffset">Период действия</label>
                             <select id="surveyAutoCreationEndOffset" class="form-control reports-page__quarter-select">
+                                <option value="" selected="@(Model?.EndOffsetBusinessDays == null)"></option>
                                 @foreach (var option in endOffsetOptions)
                                 {
                                     <option value="@option.Value" selected="@(Model?.EndOffsetBusinessDays == option.Value)">@option.Label</option>
@@ -93,11 +94,20 @@
                              data-role="survey-auto-creation-selected-list"
                              aria-live="polite"></div>
                         <div class="survey-auto-creation-page__selection-action">
-                            <button type="button"
-                                    class="btn modal_btn modal_btn-primary"
-                                    data-click-call="openSurveyAutoCreationSurveyModal">
-                                Выбрать анкеты
-                            </button>
+                            <div class="app-checkbox-dropdown survey-auto-creation-page__survey-dropdown"
+                                 data-role="survey-auto-creation-dropdown">
+                                <button type="button"
+                                        class="btn modal_btn modal_btn-primary app-checkbox-dropdown__trigger"
+                                        data-click-call="toggleSurveyAutoCreationSurveyDropdown">
+                                    Выбрать анкеты
+                                </button>
+                                <div id="surveyAutoCreationDropdownMenu"
+                                     class="app-checkbox-dropdown__menu is-hidden"
+                                     data-role="survey-auto-creation-dropdown-menu">
+                                    <div id="surveyAutoCreationModalLoading" class="survey-auto-creation-modal__loading u-hidden">Загрузка анкет...</div>
+                                    <div id="surveyAutoCreationModalList" class="app-checkbox-list survey-auto-creation-modal__list"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -129,35 +139,6 @@
         </div>
     </div>
     <div id="chrome-footer"></div>
-</div>
-
-<div id="surveyAutoCreationModal" class="modal survey-auto-creation-modal" aria-hidden="true">
-    <div class="modal-content survey-auto-creation-modal__content">
-        <div class="modal-header">
-            <h2 class="h2_modal">Выбор анкет</h2>
-            <button type="button"
-                    class="modal-close"
-                    data-click-call="closeSurveyAutoCreationSurveyModal">
-                <i class="fas fa-xmark"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div id="surveyAutoCreationModalLoading" class="survey-auto-creation-modal__loading u-hidden">Загрузка анкет...</div>
-            <div id="surveyAutoCreationModalList" class="survey-auto-creation-modal__list"></div>
-        </div>
-        <div class="modal-footer">
-            <button type="button"
-                    class="modal_btn modal_btn-primary"
-                    data-click-call="saveSurveyAutoCreationSurveySelection">
-                Сохранить выбор
-            </button>
-            <button type="button"
-                    class="modal_btn modal_btn-secondary"
-                    data-click-call="closeSurveyAutoCreationSurveyModal">
-                Отмена
-            </button>
-        </div>
-    </div>
 </div>
 
 <script id="survey-auto-creation-bootstrap" type="application/json">

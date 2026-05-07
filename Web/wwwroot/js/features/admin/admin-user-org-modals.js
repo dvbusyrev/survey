@@ -356,7 +356,6 @@ function openEditUserModalFromTrigger(trigger) {
 
 // Функция обновления пользователя
 async function updateUser() {
-
         if (!document.getElementById('editUsername').value)
     {
         showAdminToast('Введите никнейм пользователя!');
@@ -514,9 +513,8 @@ async function createOrganization() {
     return;
 }
 
-
     try {
-        if (!ensureValidDateInput(form.DateBegin, 'Дата начала', { required: true })) {
+        if (!ensureValidDateInput(form.DateBegin, 'Дата начала')) {
             return;
         }
 
@@ -620,8 +618,6 @@ function openEditOrganizationModalFromTrigger(trigger) {
 
 // Функция обновления организации с улучшенной обработкой данных
 async function updateOrganization() {
-
-
     if (!document.getElementById('organizationName').value)
 {
     showAdminToast('Введите название организации!');

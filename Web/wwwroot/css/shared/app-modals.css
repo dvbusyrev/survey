@@ -20,6 +20,12 @@
   display: flex !important;
 }
 
+.modal--preparing {
+  display: flex !important;
+  visibility: hidden !important;
+  pointer-events: none;
+}
+
 .modal::before {
   content: "";
   position: absolute;

@@ -3,6 +3,7 @@
     let confirmOverlay = null;
     let confirmResolver = null;
     const modalOrigins = new WeakMap();
+    const modalShowTokens = new WeakMap();
     const backdropPointerDownTargets = new WeakSet();
     const BODY_SCROLL_LOCK_FLAG = 'modalScrollLock';
     const BODY_SCROLL_LOCK_INLINE_PADDING = 'modalOriginalPaddingRight';
@@ -321,6 +322,103 @@
         return Boolean(modal && event?.target === modal);
     }
 
+    function prepareModalFrame(modal) {
+        if (!modal || modal.classList.contains('modal-overlay') || modal.classList.contains('notification-overlay')) {
+            return;
+        }
+
+        modal.classList.add('modal');
+        modal.setAttribute('role', modal.getAttribute('role') || 'dialog');
+        modal.setAttribute('aria-modal', modal.getAttribute('aria-modal') || 'true');
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.right = '0';
+        modal.style.bottom = '0';
+        modal.style.left = '0';
+    }
+
+    function createSiteModalFrame(options = {}) {
+        const modal = document.createElement('div');
+        modal.id = options.id || '';
+        modal.className = ['modal', options.className || ''].filter(Boolean).join(' ');
+        modal.setAttribute('aria-hidden', 'true');
+
+        const modalContent = document.createElement('div');
+        modalContent.className = ['modal-content', options.contentClassName || ''].filter(Boolean).join(' ');
+
+        const modalHeader = document.createElement('div');
+        modalHeader.className = 'modal-header';
+
+        const title = document.createElement('h2');
+        title.className = options.titleClassName || 'h2_modal';
+        title.textContent = options.title || '';
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'modal-close';
+        closeButton.setAttribute('aria-label', 'Закрыть');
+
+        const closeIcon = document.createElement('i');
+        closeIcon.className = 'fas fa-xmark';
+        closeIcon.setAttribute('aria-hidden', 'true');
+        closeButton.appendChild(closeIcon);
+
+        const body = document.createElement('div');
+        body.className = ['modal-body', options.bodyClassName || ''].filter(Boolean).join(' ');
+
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+
+        const closeModal = () => hideSiteModal(modal);
+        closeButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            (options.onClose || closeModal)();
+        });
+
+        modalHeader.appendChild(title);
+        modalHeader.appendChild(closeButton);
+        modalContent.appendChild(modalHeader);
+        modalContent.appendChild(body);
+
+        if (Array.isArray(options.footerButtons) && options.footerButtons.length > 0) {
+            options.footerButtons.forEach((buttonOptions) => {
+                const button = document.createElement('button');
+                button.type = buttonOptions.type || 'button';
+                button.className = buttonOptions.className || 'modal_btn modal_btn-secondary';
+                button.textContent = buttonOptions.text || '';
+                if (typeof buttonOptions.onClick === 'function') {
+                    button.addEventListener('click', buttonOptions.onClick);
+                }
+                footer.appendChild(button);
+            });
+            modalContent.appendChild(footer);
+        } else if (options.footer !== false) {
+            modalContent.appendChild(footer);
+        }
+
+        modal.appendChild(modalContent);
+
+        return {
+            modal,
+            content: modalContent,
+            header: modalHeader,
+            title,
+            closeButton,
+            body,
+            footer,
+            setTitle(value) {
+                title.textContent = value || '';
+            },
+            show() {
+                return showSiteModal(modal);
+            },
+            hide() {
+                return hideSiteModal(modal);
+            }
+        };
+    }
+
     function showSiteModal(target) {
         const modal = resolveModal(target);
         if (!modal) {
@@ -328,22 +426,38 @@
         }
 
         hoistModal(modal);
+        prepareModalFrame(modal);
 
         if (modal.classList.contains('modal-overlay') || modal.classList.contains('notification-overlay')) {
             modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            syncBodyModalState();
+            dispatchModalEvent(modal, 'site-modal:shown');
+            return true;
         } else {
-            modal.classList.add('modal--visible');
+            const token = Symbol('modal-show');
+            modalShowTokens.set(modal, token);
+            modal.classList.remove('modal--visible');
+            modal.classList.add('modal--preparing');
             modal.style.display = 'flex';
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.right = '0';
-            modal.style.bottom = '0';
-            modal.style.left = '0';
+            modal.style.visibility = 'hidden';
+            modal.setAttribute('aria-hidden', 'false');
+            syncBodyModalState();
+
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
+                    if (modalShowTokens.get(modal) !== token) {
+                        return;
+                    }
+
+                    modal.classList.remove('modal--preparing');
+                    modal.classList.add('modal--visible');
+                    modal.style.removeProperty('visibility');
+                    dispatchModalEvent(modal, 'site-modal:shown');
+                });
+            });
         }
 
-        modal.setAttribute('aria-hidden', 'false');
-        syncBodyModalState();
-        dispatchModalEvent(modal, 'site-modal:shown');
         return true;
     }
 
@@ -356,8 +470,11 @@
         if (modal.classList.contains('modal-overlay') || modal.classList.contains('notification-overlay')) {
             modal.classList.remove('active');
         } else {
+            modalShowTokens.delete(modal);
+            modal.classList.remove('modal--preparing');
             modal.classList.remove('modal--visible');
             modal.style.display = 'none';
+            modal.style.removeProperty('visibility');
         }
 
         modal.setAttribute('aria-hidden', 'true');
@@ -377,6 +494,7 @@
 
     window.showSiteModal = showSiteModal;
     window.hideSiteModal = hideSiteModal;
+    window.createSiteModalFrame = createSiteModalFrame;
     window.syncSiteModalBodyState = syncBodyModalState;
 
     const nativeShowNotification = window.showNotification;

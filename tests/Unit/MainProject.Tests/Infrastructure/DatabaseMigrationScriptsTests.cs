@@ -22,6 +22,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 017_rename_app_user_credentials.sql", script);
         Assert.Contains(@"\ir 018_add_audit_log_current_tables.sql", script);
         Assert.Contains(@"\ir 019_store_audit_old_new_rows.sql", script);
+        Assert.Contains(@"\ir 020_limit_auto_creation_schedule_options.sql", script);
+        Assert.Contains(@"\ir 021_allow_empty_auto_creation_period.sql", script);
     }
 
     [Fact]
@@ -34,6 +36,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("('017', 'rename_app_user_credentials')", migration);
         Assert.Contains("('018', 'add_audit_log_current_tables')", migration);
         Assert.Contains("('019', 'store_audit_old_new_rows')", migration);
+        Assert.Contains("('020', 'limit_auto_creation_schedule_options')", migration);
+        Assert.Contains("('021', 'allow_empty_auto_creation_period')", migration);
         Assert.Contains("INSERT INTO public.week_day", migration);
         Assert.Contains("CREATE TABLE public.app_user", schema);
         Assert.Contains("login text NOT NULL", schema);
@@ -221,6 +225,33 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("audit_old_row_data", script);
         Assert.Contains("audit_new_row_data", script);
         Assert.Contains("VALUES ('019', 'store_audit_old_new_rows')", script);
+    }
+
+    [Fact]
+    public void AutoCreationScheduleLimitMigration_LimitsWorkingPeriod()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "020_limit_auto_creation_schedule_options.sql"));
+
+        Assert.Contains("SET working_period = 14", script);
+        Assert.Contains("current_day.week_number > 3", script);
+        Assert.Contains("DELETE FROM public.week_day", script);
+        Assert.Contains("CHECK (week_number BETWEEN 1 AND 3)", script);
+        Assert.Contains("DROP CONSTRAINT IF EXISTS ck_auto_creation_config_working_period", script);
+        Assert.Contains("CHECK (working_period BETWEEN 1 AND 14)", script);
+        Assert.Contains("VALUES ('020', 'limit_auto_creation_schedule_options')", script);
+    }
+
+    [Fact]
+    public void AutoCreationEmptyPeriodMigration_AllowsOpenEndedAssignments()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "021_allow_empty_auto_creation_period.sql"));
+
+        Assert.Contains("ALTER COLUMN working_period DROP NOT NULL", script);
+        Assert.Contains("ALTER COLUMN working_period DROP DEFAULT", script);
+        Assert.Contains("working_period IS NULL OR working_period BETWEEN 1 AND 14", script);
+        Assert.Contains("ALTER COLUMN date_end DROP NOT NULL", script);
+        Assert.Contains("CREATE OR REPLACE VIEW public.survey_schedule", script);
+        Assert.Contains("VALUES ('021', 'allow_empty_auto_creation_period')", script);
     }
 
     private static string GetRepositoryRoot()

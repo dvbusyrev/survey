@@ -61,34 +61,6 @@
         window.alert(normalizedMessage);
     }
 
-    function showModal(modal) {
-        if (!modal) {
-            return;
-        }
-
-        if (typeof window.showSiteModal === 'function') {
-            window.showSiteModal(modal);
-            return;
-        }
-
-        modal.classList.add('modal--visible');
-        modal.style.display = 'flex';
-    }
-
-    function hideModal(modal) {
-        if (!modal) {
-            return;
-        }
-
-        if (typeof window.hideSiteModal === 'function') {
-            window.hideSiteModal(modal);
-            return;
-        }
-
-        modal.classList.remove('modal--visible');
-        modal.style.display = 'none';
-    }
-
     function renderSelectedSurveys() {
         const host = document.querySelector('[data-role="survey-auto-creation-selected-list"]');
         if (!host) {
@@ -124,17 +96,23 @@
         const selectedIds = new Set(state.selectedSurveys.map((survey) => survey.id));
         (state.availableSurveys || []).forEach((survey) => {
             const item = document.createElement('label');
-            item.className = 'survey-auto-creation-modal__item';
+            const isSelected = selectedIds.has(survey.id);
+            item.className = 'app-checkbox-option survey-auto-creation-modal__item';
+            item.classList.toggle('is-selected', isSelected);
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.checked = selectedIds.has(survey.id);
+            checkbox.className = 'app-checkbox-input';
+            checkbox.checked = isSelected;
             checkbox.dataset.surveyId = String(survey.id);
             checkbox.addEventListener('change', () => {
                 toggleSurveySelection(survey);
+                renderSelectedSurveys();
+                renderSurveyModalList();
             });
 
             const text = document.createElement('span');
+            text.className = 'app-checkbox-text';
             text.textContent = survey.name;
 
             item.appendChild(checkbox);
@@ -165,6 +143,88 @@
         state.selectedSurveys.sort((left, right) => left.name.localeCompare(right.name, 'ru'));
     }
 
+    function getSurveyDropdown() {
+        return document.querySelector('[data-role="survey-auto-creation-dropdown"]');
+    }
+
+    function getSurveyDropdownMenu() {
+        return document.querySelector('[data-role="survey-auto-creation-dropdown-menu"]')
+            || document.getElementById('surveyAutoCreationDropdownMenu');
+    }
+
+    function updateCheckboxListHeight(container) {
+        const list = container?.querySelector('.app-checkbox-list');
+        if (!list) {
+            return;
+        }
+
+        const listTop = list.getBoundingClientRect().top;
+        const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
+        list.style.setProperty('--app-checkbox-list-max-height', `${availableHeight}px`);
+    }
+
+    function scheduleCheckboxListHeightUpdate(container) {
+        window.requestAnimationFrame(() => updateCheckboxListHeight(container));
+    }
+
+    function setSurveyDropdownVisible(isVisible) {
+        const menu = getSurveyDropdownMenu();
+        if (!menu) {
+            return false;
+        }
+
+        getSurveyDropdown()?.classList.toggle('is-open', isVisible);
+        menu.classList.toggle('is-hidden', !isVisible);
+        if (isVisible) {
+            scheduleCheckboxListHeightUpdate(menu);
+        }
+        return true;
+    }
+
+    function closeSurveyDropdown() {
+        setSurveyDropdownVisible(false);
+    }
+
+    async function openSurveyDropdown() {
+        const menu = getSurveyDropdownMenu();
+        if (!menu) {
+            return;
+        }
+
+        setSurveyDropdownVisible(true);
+        if (state.availableSurveys) {
+            renderSurveyModalList();
+            scheduleCheckboxListHeightUpdate(menu);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await loadSurveyOptions();
+            renderSurveyModalList();
+            scheduleCheckboxListHeightUpdate(menu);
+        } catch (error) {
+            closeSurveyDropdown();
+            showToast(error instanceof Error ? error.message : 'Не удалось загрузить список анкет.', 'error', { title: 'Ошибка' });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function toggleSurveyDropdown() {
+        const menu = getSurveyDropdownMenu();
+        if (!menu) {
+            return;
+        }
+
+        if (menu.classList.contains('is-hidden')) {
+            openSurveyDropdown();
+            return;
+        }
+
+        closeSurveyDropdown();
+    }
+
     async function loadSurveyOptions() {
         const response = await fetch('/surveys/data', {
             headers: {
@@ -187,7 +247,8 @@
     function collectRequest() {
         const creationPattern = document.getElementById('surveyAutoCreationPattern')?.value || '';
         const startPattern = document.getElementById('surveyAutoCreationStartPattern')?.value || '';
-        const endOffsetBusinessDays = Number(document.getElementById('surveyAutoCreationEndOffset')?.value || 0);
+        const endOffsetValue = document.getElementById('surveyAutoCreationEndOffset')?.value || '';
+        const endOffsetBusinessDays = endOffsetValue ? Number(endOffsetValue) : null;
 
         return {
             creationPattern,
@@ -250,37 +311,38 @@
         }
     }
 
-    window.openSurveyAutoCreationSurveyModal = async function openSurveyAutoCreationSurveyModal() {
-        const modal = document.getElementById('surveyAutoCreationModal');
-        if (!modal) {
+    document.addEventListener('click', function (event) {
+        const dropdown = getSurveyDropdown();
+        const menu = getSurveyDropdownMenu();
+        if (!dropdown || !menu || menu.classList.contains('is-hidden')) {
             return;
         }
 
-        showModal(modal);
-        if (state.availableSurveys) {
-            renderSurveyModalList();
+        if (dropdown.contains(event.target)) {
             return;
         }
 
-        setLoading(true);
-        try {
-            await loadSurveyOptions();
-            renderSurveyModalList();
-        } catch (error) {
-            hideModal(modal);
-            showToast(error instanceof Error ? error.message : 'Не удалось загрузить список анкет.', 'error', { title: 'Ошибка' });
-        } finally {
-            setLoading(false);
+        closeSurveyDropdown();
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') {
+            return;
         }
-    };
+
+        closeSurveyDropdown();
+    });
+
+    window.openSurveyAutoCreationSurveyModal = openSurveyDropdown;
+    window.toggleSurveyAutoCreationSurveyDropdown = toggleSurveyDropdown;
 
     window.closeSurveyAutoCreationSurveyModal = function closeSurveyAutoCreationSurveyModal() {
-        hideModal(document.getElementById('surveyAutoCreationModal'));
+        closeSurveyDropdown();
     };
 
     window.saveSurveyAutoCreationSurveySelection = function saveSurveyAutoCreationSurveySelection() {
         renderSelectedSurveys();
-        window.closeSurveyAutoCreationSurveyModal();
+        closeSurveyDropdown();
     };
 
     window.saveSurveyAutoCreationSettings = function saveSurveyAutoCreationSettings() {

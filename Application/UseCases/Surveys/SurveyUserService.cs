@@ -36,7 +36,7 @@ public sealed class SurveyUserService : ISurveyUserService
                   WHERE os.id_survey = @surveyId
                     AND os.id_organization = @organizationId
                     AND os.date_begin <= CURRENT_DATE
-                    AND os.date_end >= CURRENT_DATE
+                    AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
               )",
             new { surveyId, organizationId });
     }
@@ -77,7 +77,7 @@ public sealed class SurveyUserService : ISurveyUserService
                     ON os.id_survey = s.id_survey
                 WHERE os.id_organization = @userOrganizationId
                   AND os.date_begin <= CURRENT_DATE
-                  AND os.date_end >= CURRENT_DATE
+                  AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
                   AND NOT EXISTS (
                       SELECT 1
                       FROM public.answer a

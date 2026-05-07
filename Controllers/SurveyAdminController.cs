@@ -308,7 +308,7 @@ public class SurveyAdminController : Controller
                 Title = $"{pageModel.Survey.NameSurvey} (Копия)",
                 Description = pageModel.Survey.Description ?? string.Empty,
                 StartDate = pageModel.Survey.DateBegin.ToString("yyyy-MM-dd"),
-                EndDate = pageModel.Survey.DateEnd.ToString("yyyy-MM-dd"),
+                EndDate = pageModel.Survey.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty,
                 Organizations = organizations,
                 Criteria = pageModel.Criteria
             };

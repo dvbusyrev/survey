@@ -88,6 +88,21 @@
             }
         };
 
+        const updateCheckboxListHeight = (container) => {
+            const list = container?.querySelector('.app-checkbox-list');
+            if (!list) {
+                return;
+            }
+
+            const listTop = list.getBoundingClientRect().top;
+            const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
+            list.style.setProperty('--app-checkbox-list-max-height', `${availableHeight}px`);
+        };
+
+        const scheduleCheckboxListHeightUpdate = (container) => {
+            window.requestAnimationFrame(() => updateCheckboxListHeight(container));
+        };
+
         const handleSubmit = async () => {
             if (extension.organizationIds.length === 0 || !extension.extendedUntil) {
                 window.siteNotify?.('Пожалуйста, заполните все поля.', 'error');
@@ -235,20 +250,20 @@
                         const labelText = document.createElement('span');
                         const isSelected = selectedOrganizationIds.has(organization.organizationId);
 
-                        optionLabel.className = 'survey-period-filter__organization-option';
+                        optionLabel.className = 'app-checkbox-option survey-period-filter__organization-option';
                         optionLabel.classList.toggle('is-selected', isSelected);
                         optionLabel.setAttribute('role', 'option');
                         optionLabel.setAttribute('aria-selected', isSelected ? 'true' : 'false');
 
                         checkbox.type = 'checkbox';
-                        checkbox.className = 'survey-period-filter__organization-checkbox';
+                        checkbox.className = 'app-checkbox-input survey-period-filter__organization-checkbox';
                         checkbox.checked = isSelected;
                         checkbox.value = organization.organizationId;
                         checkbox.addEventListener('change', (event) => {
                             toggleOrganization(organization.organizationId, event.target.checked);
                         });
 
-                        labelText.className = 'survey-period-filter__organization-name';
+                        labelText.className = 'app-checkbox-text survey-period-filter__organization-name';
                         labelText.textContent = organization.organizationName;
 
                         optionLabel.appendChild(checkbox);
@@ -290,6 +305,9 @@
             }
 
             host.appendChild(root);
+            if (isOrganizationPanelOpen) {
+                scheduleCheckboxListHeightUpdate(root);
+            }
         };
 
         const fetchOrganizations = async () => {

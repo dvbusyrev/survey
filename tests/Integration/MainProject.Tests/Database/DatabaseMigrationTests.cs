@@ -26,6 +26,8 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 017_rename_app_user_credentials.sql", script);
         Assert.Contains(@"\ir 018_add_audit_log_current_tables.sql", script);
         Assert.Contains(@"\ir 019_store_audit_old_new_rows.sql", script);
+        Assert.Contains(@"\ir 020_limit_auto_creation_schedule_options.sql", script);
+        Assert.Contains(@"\ir 021_allow_empty_auto_creation_period.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -40,6 +42,8 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("('017', 'rename_app_user_credentials')", migration);
         Assert.Contains("('018', 'add_audit_log_current_tables')", migration);
         Assert.Contains("('019', 'store_audit_old_new_rows')", migration);
+        Assert.Contains("('020', 'limit_auto_creation_schedule_options')", migration);
+        Assert.Contains("('021', 'allow_empty_auto_creation_period')", migration);
         Assert.Contains("INSERT INTO public.week_day", migration);
         Assert.Contains("CREATE TABLE public.app_user", schema);
         Assert.Contains("login text NOT NULL", schema);

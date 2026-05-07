@@ -88,7 +88,7 @@ namespace MainProject.Application.UseCases
                                       SELECT 1
                                       FROM public.organization_survey os
                                       WHERE os.id_survey = s.id_survey
-                                        AND os.date_end >= @CurrentDate::date
+                                        AND (os.date_end IS NULL OR os.date_end >= @CurrentDate::date)
                                   )";
 
                 using (var command = new NpgsqlCommand(query, connection))
@@ -105,7 +105,7 @@ namespace MainProject.Application.UseCases
                                 NameSurvey = reader.GetString(1),
                                 Description = reader.IsDBNull(2) ? null : reader.GetString(2),
                                 DateBegin = reader.GetDateTime(3),
-                                DateEnd = reader.GetDateTime(4)
+                                DateEnd = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
                             });
                         }
                     }

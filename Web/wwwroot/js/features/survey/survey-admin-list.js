@@ -13,6 +13,56 @@
     let signaturesHost = null;
     let signaturesTitle = null;
 
+    function createStandardModalFrame(options) {
+        if (typeof window.createSiteModalFrame === 'function') {
+            const frame = window.createSiteModalFrame(options);
+            if (frame.modal && !frame.modal.parentNode) {
+                document.body.appendChild(frame.modal);
+            }
+            return frame;
+        }
+
+        const modal = document.createElement('div');
+        modal.id = options.id || '';
+        modal.className = ['modal', options.className || ''].filter(Boolean).join(' ');
+        modal.setAttribute('aria-hidden', 'true');
+
+        const modalContent = document.createElement('div');
+        modalContent.className = ['modal-content', options.contentClassName || ''].filter(Boolean).join(' ');
+        const modalHeader = document.createElement('div');
+        modalHeader.className = 'modal-header';
+        const title = document.createElement('h2');
+        title.className = options.titleClassName || 'h2_modal';
+        title.textContent = options.title || '';
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'modal-close';
+        closeButton.setAttribute('aria-label', 'Закрыть');
+        const closeIcon = document.createElement('i');
+        closeIcon.className = 'fas fa-xmark';
+        closeIcon.setAttribute('aria-hidden', 'true');
+        closeButton.appendChild(closeIcon);
+        const body = document.createElement('div');
+        body.className = ['modal-body', options.bodyClassName || ''].filter(Boolean).join(' ');
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+
+        closeButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            options.onClose?.();
+        });
+        modalHeader.appendChild(title);
+        modalHeader.appendChild(closeButton);
+        modalContent.appendChild(modalHeader);
+        modalContent.appendChild(body);
+        modalContent.appendChild(footer);
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+        return { modal, content: modalContent, header: modalHeader, title, closeButton, body, footer };
+    }
+
     function isArchiveSurveyListRoute(path) {
         const currentPath = String(path || window.location.pathname || '').toLowerCase();
         return currentPath === '/surveys/archive' || /\/surveys\/archive\/\d+\/edit$/.test(currentPath);
@@ -351,53 +401,24 @@
             return;
         }
 
-        signaturesModal = document.createElement('div');
-        signaturesModal.id = 'surveySignaturesModal';
-        signaturesModal.className = 'modal survey-signatures-modal';
-        signaturesModal.setAttribute('aria-hidden', 'true');
-
-        const modalContent = document.createElement('div');
-        modalContent.className = 'modal-content';
-
-        const modalHeader = document.createElement('div');
-        modalHeader.className = 'modal-header';
-
-        signaturesTitle = document.createElement('h2');
-        signaturesTitle.className = 'h2_modal';
-        signaturesTitle.textContent = 'Проверка прохождения';
-
-        const closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'modal-close';
-        closeButton.setAttribute('aria-label', 'Закрыть');
-
-        const closeIcon = document.createElement('i');
-        closeIcon.className = 'fas fa-xmark';
-        closeIcon.setAttribute('aria-hidden', 'true');
-        closeButton.appendChild(closeIcon);
-
-        signaturesHost = document.createElement('div');
-        signaturesHost.className = 'modal-body survey-signatures-modal__body';
-
-        const modalFooter = document.createElement('div');
-        modalFooter.className = 'modal-footer';
+        const frame = createStandardModalFrame({
+            id: 'surveySignaturesModal',
+            className: 'survey-signatures-modal',
+            title: 'Проверка прохождения',
+            bodyClassName: 'survey-signatures-modal__body',
+            onClose: closeSurveySignaturesModal
+        });
 
         const footerCloseButton = document.createElement('button');
         footerCloseButton.type = 'button';
         footerCloseButton.className = 'modal_btn modal_btn-secondary';
         footerCloseButton.textContent = 'Закрыть';
-
-        closeButton.addEventListener('click', closeSurveySignaturesModal);
         footerCloseButton.addEventListener('click', closeSurveySignaturesModal);
 
-        modalHeader.appendChild(signaturesTitle);
-        modalHeader.appendChild(closeButton);
-        modalFooter.appendChild(footerCloseButton);
-        modalContent.appendChild(modalHeader);
-        modalContent.appendChild(signaturesHost);
-        modalContent.appendChild(modalFooter);
-        signaturesModal.appendChild(modalContent);
-        document.body.appendChild(signaturesModal);
+        signaturesModal = frame.modal;
+        signaturesHost = frame.body;
+        signaturesTitle = frame.title;
+        frame.footer.appendChild(footerCloseButton);
     }
 
     function closeSurveySignaturesModal() {
@@ -442,20 +463,20 @@
             signaturesTitle.textContent = survey.name_survey
                 ? `Проверка прохождения: ${survey.name_survey}`
                 : 'Проверка прохождения';
-            signaturesHost.replaceChildren(createStatusMessage('Загрузка прохождения...', 'loading'));
+
+            const content = await loadSurveySignaturesContent(survey);
+            signaturesHost.replaceChildren(content);
+            window.mountSortableTables?.(signaturesHost);
 
             if (typeof window.showSiteModal === 'function') {
                 window.showSiteModal(signaturesModal);
             } else {
                 signaturesModal.style.display = 'flex';
             }
-
-            const content = await loadSurveySignaturesContent(survey);
-            signaturesHost.replaceChildren(content);
-            window.mountSortableTables?.(signaturesHost);
         } catch (error) {
             if (signaturesHost) {
-                signaturesHost.replaceChildren(createStatusMessage(error.message || 'Не удалось загрузить прохождение.', 'error'));
+                signaturesHost.replaceChildren();
+                window.siteNotify?.(error.message || 'Не удалось загрузить прохождение.', 'error');
                 return;
             }
 
@@ -468,36 +489,13 @@
             return;
         }
 
-        extensionModal = document.createElement('div');
-        extensionModal.id = 'surveyExtensionModal';
-        extensionModal.className = 'modal admin-extension-modal';
-        extensionModal.setAttribute('aria-hidden', 'true');
-
-        const modalContent = document.createElement('div');
-        modalContent.className = 'modal-content';
-
-        const modalHeader = document.createElement('div');
-        modalHeader.className = 'modal-header';
-
-        const title = document.createElement('h2');
-        title.className = 'h2_modal';
-        title.textContent = 'Продлить доступ';
-
-        const closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'modal-close';
-        closeButton.setAttribute('aria-label', 'Закрыть');
-
-        const closeIcon = document.createElement('i');
-        closeIcon.className = 'fas fa-xmark';
-        closeIcon.setAttribute('aria-hidden', 'true');
-        closeButton.appendChild(closeIcon);
-
-        extensionHost = document.createElement('div');
-        extensionHost.className = 'modal-body admin-extension-modal__body';
-
-        const modalFooter = document.createElement('div');
-        modalFooter.className = 'modal-footer';
+        const frame = createStandardModalFrame({
+            id: 'surveyExtensionModal',
+            className: 'admin-extension-modal',
+            title: 'Продлить доступ',
+            bodyClassName: 'admin-extension-modal__body',
+            onClose: closeSurveyExtensionModal
+        });
 
         extensionSubmitButton = document.createElement('button');
         extensionSubmitButton.type = 'button';
@@ -509,17 +507,10 @@
         extensionCancelButton.className = 'modal_btn modal_btn-secondary';
         extensionCancelButton.textContent = 'Отмена';
 
-        closeButton.addEventListener('click', closeSurveyExtensionModal);
-
-        modalHeader.appendChild(title);
-        modalHeader.appendChild(closeButton);
-        modalFooter.appendChild(extensionSubmitButton);
-        modalFooter.appendChild(extensionCancelButton);
-        modalContent.appendChild(modalHeader);
-        modalContent.appendChild(extensionHost);
-        modalContent.appendChild(modalFooter);
-        extensionModal.appendChild(modalContent);
-        document.body.appendChild(extensionModal);
+        extensionModal = frame.modal;
+        extensionHost = frame.body;
+        frame.footer.appendChild(extensionSubmitButton);
+        frame.footer.appendChild(extensionCancelButton);
     }
 
     function closeSurveyExtensionModal() {

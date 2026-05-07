@@ -4,6 +4,16 @@
 @{
     var surveys = Model?.Surveys ?? Array.Empty<MainProject.Web.ViewModels.SurveyTableRowViewModel>();
     var isArchive = Model?.IsArchive ?? false;
+
+    string FormatDate(DateTime? date)
+    {
+        return date.HasValue && date.Value != default ? date.Value.ToString("dd.MM.yyyy") : string.Empty;
+    }
+
+    string FormatIsoDate(DateTime? date)
+    {
+        return date.HasValue && date.Value != default ? date.Value.ToString("yyyy-MM-dd") : string.Empty;
+    }
 }
 
 <table class="surveys-table" data-role="main-table">
@@ -37,7 +47,7 @@
                     data-survey-id="@survey.IdSurvey"
                     data-survey-name="@(survey.NameSurvey ?? string.Empty)"
                     data-survey-date-begin="@survey.DateBegin.ToString("yyyy-MM-dd")"
-                    data-survey-date-end="@survey.DateEnd.ToString("yyyy-MM-dd")"
+                    data-survey-date-end="@FormatIsoDate(survey.DateEnd)"
                     data-survey-organizations="@organizationNamesJson">
                     <td>
                         @survey.NameSurvey
@@ -46,7 +56,7 @@
                         @survey.DateBegin.ToString("dd.MM.yyyy")
                     </td>
                     <td class="table-col--date">
-                        @survey.DateEnd.ToString("dd.MM.yyyy")
+                        @FormatDate(survey.DateEnd)
                     </td>
                     <td class="action-icons table-col--actions">
                         <div class="action-icons__content">

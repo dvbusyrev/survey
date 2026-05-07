@@ -4,14 +4,14 @@
     var surveys = Model?.Surveys ?? Array.Empty<MainProject.Domain.Entities.Survey>();
     var isArchive = Model?.IsArchive ?? false;
 
-    string FormatDate(DateTime date)
+    string FormatDate(DateTime? date)
     {
-        return date == default ? "Не указано" : date.ToString("dd.MM.yyyy");
+        return !date.HasValue || date.Value == default ? "Не указано" : date.Value.ToString("dd.MM.yyyy");
     }
 
-    string FormatIsoDate(DateTime date)
+    string FormatIsoDate(DateTime? date)
     {
-        return date == default ? string.Empty : date.ToString("yyyy-MM-dd");
+        return !date.HasValue || date.Value == default ? string.Empty : date.Value.ToString("yyyy-MM-dd");
     }
 }
 
@@ -36,11 +36,11 @@
         {
             @foreach (var survey in surveys)
             {
-                var filterDate = isArchive
+                DateTime? filterDate = isArchive
                     ? (survey.CompletionDate != default ? survey.CompletionDate : survey.DateEnd)
                     : survey.DateBegin;
-                var filterMonth = filterDate == default ? string.Empty : filterDate.ToString("MM");
-                var filterYear = filterDate == default ? string.Empty : filterDate.ToString("yyyy");
+                var filterMonth = !filterDate.HasValue || filterDate.Value == default ? string.Empty : filterDate.Value.ToString("MM");
+                var filterYear = !filterDate.HasValue || filterDate.Value == default ? string.Empty : filterDate.Value.ToString("yyyy");
                 var signatureText = isArchive
                     ? (!string.IsNullOrWhiteSpace(survey.Csp) ? "Подписана" : "Не подписана")
                     : "Не подписана";

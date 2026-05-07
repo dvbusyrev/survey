@@ -35,7 +35,7 @@ public sealed class AnswerDataService
                   WHERE os.id_survey = @surveyId
                     AND os.id_organization = @organizationId
                     AND os.date_begin <= CURRENT_DATE
-                    AND os.date_end >= CURRENT_DATE
+                    AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
               )",
             new { surveyId, organizationId });
     }

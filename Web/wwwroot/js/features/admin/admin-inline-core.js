@@ -734,14 +734,22 @@
         return responseText;
     };
 
+    const revealRenderedModal = () => {
+        modalNode.classList.add('modal--visible');
+        modalNode.setAttribute('aria-hidden', 'false');
+        window.syncSiteModalBodyState?.();
+    };
+
     const renderModal = () => {
-        modalNode.className = `modal ${state.modal.isOpen ? 'modal--visible' : ''}`;
+        modalNode.className = 'modal';
+        modalNode.setAttribute('aria-hidden', 'true');
         if (typeof modalCleanup === 'function') {
             modalCleanup();
             modalCleanup = null;
         }
         modalBodyHost.innerHTML = '';
         if (!state.modal.isOpen) {
+            window.syncSiteModalBodyState?.();
             return;
         }
 
@@ -755,6 +763,7 @@
                     msg.textContent = 'Модуль продления не загружен.';
                     modalBodyHost.appendChild(msg);
                 }
+                revealRenderedModal();
                 return;
             case 'report': {
                 const wrap = document.createElement('div');
@@ -805,6 +814,7 @@
                 actions.appendChild(quarter);
                 wrap.appendChild(actions);
                 modalBodyHost.appendChild(wrap);
+                revealRenderedModal();
                 return;
             }
             case 'copy':
@@ -849,6 +859,7 @@
                 root.appendChild(body);
                 root.appendChild(footer);
                 modalBodyHost.appendChild(root);
+                revealRenderedModal();
                 return;
             }
             case 'message': {
@@ -876,6 +887,7 @@
                 root.appendChild(body);
                 root.appendChild(footer);
                 modalBodyHost.appendChild(root);
+                revealRenderedModal();
                 return;
             }
             default:

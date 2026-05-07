@@ -14,12 +14,22 @@ public sealed class SurveyAutoCreationScheduleHelperTests
     }
 
     [Fact]
-    public void TryResolveMonthWeekdayDate_ReturnsExpectedFourthWeekday()
+    public void TryResolveMonthWeekdayDate_RejectsFourthWeekday()
     {
         var success = SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(2026, 5, "4-friday", out var result);
 
-        Assert.True(success);
-        Assert.Equal(new DateTime(2026, 5, 22), result);
+        Assert.False(success);
+        Assert.Equal(default, result);
+    }
+
+    [Fact]
+    public void GetBusinessDayOffsetOptions_ReturnsValuesUpToFourteen()
+    {
+        var options = SurveyAutoCreationScheduleHelper.GetBusinessDayOffsetOptions();
+
+        Assert.Equal(14, options.Count);
+        Assert.Equal(1, options[0].Value);
+        Assert.Equal(14, options[^1].Value);
     }
 
     [Fact]

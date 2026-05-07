@@ -4,8 +4,11 @@ namespace MainProject.Application.UseCases.Surveys;
 
 public static class SurveyAutoCreationScheduleHelper
 {
+    public const int MaxMonthWeekdayOccurrence = 3;
+    public const int MaxBusinessDayOffset = 14;
+
     private static readonly Regex PatternRegex = new(
-        "^(?<occurrence>[1-4])-(?<weekday>monday|tuesday|wednesday|thursday|friday)$",
+        "^(?<occurrence>[1-3])-(?<weekday>monday|tuesday|wednesday|thursday|friday)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private static readonly (string Value, string Label)[] MonthWeekdayOptions = BuildMonthWeekdayOptions();
@@ -13,7 +16,7 @@ public static class SurveyAutoCreationScheduleHelper
     public static IReadOnlyList<(string Value, string Label)> GetMonthWeekdayOptions()
         => MonthWeekdayOptions;
 
-    public static IReadOnlyList<(int Value, string Label)> GetBusinessDayOffsetOptions(int minInclusive = 1, int maxInclusive = 20)
+    public static IReadOnlyList<(int Value, string Label)> GetBusinessDayOffsetOptions(int minInclusive = 1, int maxInclusive = MaxBusinessDayOffset)
     {
         var options = new List<(int Value, string Label)>();
         for (var value = minInclusive; value <= maxInclusive; value++)
@@ -72,7 +75,7 @@ public static class SurveyAutoCreationScheduleHelper
     public static bool TryResolveMonthWeekdayDate(int year, int month, int weekNumber, DayOfWeek dayOfWeek, out DateTime date)
     {
         date = default;
-        if (weekNumber is < 1 or > 4)
+        if (weekNumber is < 1 or > MaxMonthWeekdayOccurrence)
         {
             return false;
         }
@@ -160,10 +163,10 @@ public static class SurveyAutoCreationScheduleHelper
             ("friday", "пятница")
         };
 
-        var prefixes = new[] { "1", "2", "3", "4" };
+        var prefixes = new[] { "1", "2", "3" };
         var options = new List<(string Value, string Label)>();
 
-        for (var occurrence = 1; occurrence <= 4; occurrence++)
+        for (var occurrence = 1; occurrence <= MaxMonthWeekdayOccurrence; occurrence++)
         {
             foreach (var weekday in weekdays)
             {

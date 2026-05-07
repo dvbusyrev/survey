@@ -47,7 +47,7 @@
         <input
             id="organizationSurveySelectAllOrganizations"
             type="checkbox"
-            class="organization-surveys-page__select-all-checkbox"
+            class="app-checkbox-input organization-surveys-page__select-all-checkbox"
             data-select-all-organizations
             @(organizations.Any(item => item.Surveys.Count > 0) ? null : "disabled") />
         <span class="organization-surveys-page__select-all-label">Выбрать все организации</span>
@@ -72,7 +72,7 @@
                     <label class="organization-surveys-page__organization-toggle">
                         <input
                             type="checkbox"
-                            class="organization-surveys-page__organization-checkbox"
+                            class="app-checkbox-input organization-surveys-page__organization-checkbox"
                             data-organization-checkbox
                             @(hasSurveys ? null : "disabled") />
                         <span class="organization-surveys-page__organization-name">@organization.OrganizationName</span>
@@ -97,7 +97,7 @@
                                 <span class="organization-surveys-page__survey-main">
                                     <input
                                         type="checkbox"
-                                        class="organization-surveys-page__survey-checkbox"
+                                        class="app-checkbox-input organization-surveys-page__survey-checkbox"
                                         data-survey-checkbox />
                                     <span class="organization-surveys-page__survey-name">@survey.SurveyName</span>
                                 </span>

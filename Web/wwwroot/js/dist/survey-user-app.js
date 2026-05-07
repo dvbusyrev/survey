@@ -1170,10 +1170,25 @@
     function applyFilter(instance) {
       applyPageFilters(instance.page);
     }
+    function updateCheckboxListHeight(container) {
+      const list = container?.querySelector(".app-checkbox-list");
+      if (!list) {
+        return;
+      }
+      const listTop = list.getBoundingClientRect().top;
+      const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
+      list.style.setProperty("--app-checkbox-list-max-height", `${availableHeight}px`);
+    }
+    function scheduleCheckboxListHeightUpdate(container) {
+      window.requestAnimationFrame(() => updateCheckboxListHeight(container));
+    }
     function setPopoverOpen(instance, isOpen) {
       instance.state.isOpen = Boolean(isOpen);
       instance.refs.trigger.setAttribute("aria-expanded", instance.state.isOpen ? "true" : "false");
       instance.refs.popover.classList.toggle("is-hidden", !instance.state.isOpen);
+      if (instance.state.isOpen) {
+        scheduleCheckboxListHeightUpdate(instance.refs.popover);
+      }
     }
     function closeAllPopovers(exceptRoot = null) {
       cleanupDetachedInstances();
@@ -1318,14 +1333,14 @@
       refs.options.textContent = "";
       if (state.availableOrganizations.length === 0) {
         refs.options.appendChild(
-          createElement("p", "survey-period-filter__organization-empty", "Организации для фильтрации не найдены.")
+          createElement("p", "app-checkbox-empty survey-period-filter__organization-empty", "Организации для фильтрации не найдены.")
         );
         return;
       }
       state.availableOrganizations.forEach((organizationName) => {
-        const optionLabel = createElement("label", "survey-period-filter__organization-option");
-        const checkbox = createElement("input", "survey-period-filter__organization-checkbox");
-        const labelText = createElement("span", "survey-period-filter__organization-name", organizationName);
+        const optionLabel = createElement("label", "app-checkbox-option survey-period-filter__organization-option");
+        const checkbox = createElement("input", "app-checkbox-input survey-period-filter__organization-checkbox");
+        const labelText = createElement("span", "app-checkbox-text survey-period-filter__organization-name", organizationName);
         const isSelected = state.selectedOrganizations.includes(organizationName);
         optionLabel.classList.toggle("is-selected", isSelected);
         checkbox.type = "checkbox";
@@ -1342,14 +1357,14 @@
       refs.options.textContent = "";
       if (state.availableSurveyNames.length === 0) {
         refs.options.appendChild(
-          createElement("p", "survey-period-filter__organization-empty", "Анкеты для фильтрации не найдены.")
+          createElement("p", "app-checkbox-empty survey-period-filter__organization-empty", "Анкеты для фильтрации не найдены.")
         );
         return;
       }
       state.availableSurveyNames.forEach((surveyName) => {
-        const optionLabel = createElement("label", "survey-period-filter__organization-option");
-        const checkbox = createElement("input", "survey-period-filter__organization-checkbox");
-        const labelText = createElement("span", "survey-period-filter__organization-name", surveyName);
+        const optionLabel = createElement("label", "app-checkbox-option survey-period-filter__organization-option");
+        const checkbox = createElement("input", "app-checkbox-input survey-period-filter__organization-checkbox");
+        const labelText = createElement("span", "app-checkbox-text survey-period-filter__organization-name", surveyName);
         const isSelected = state.selectedSurveyNames.includes(surveyName);
         optionLabel.classList.toggle("is-selected", isSelected);
         checkbox.type = "checkbox";
@@ -2006,14 +2021,16 @@
     modalNode.addEventListener("click", () => onClose?.());
     modalContent?.addEventListener("click", (event) => event.stopPropagation());
     closeButton?.addEventListener("click", () => onClose?.());
+    const bodyCleanup = typeof mountBody === "function" && bodyHost ? mountBody(bodyHost) : null;
     host.appendChild(modalNode);
+    modalNode.classList.add("modal--visible");
+    modalNode.setAttribute("aria-hidden", "false");
     if (typeof window.syncSiteModalBodyState === "function") {
       window.syncSiteModalBodyState();
     } else {
       document.body.classList.add("modal-open");
     }
     document.addEventListener("keydown", handleEscape);
-    const bodyCleanup = typeof mountBody === "function" && bodyHost ? mountBody(bodyHost) : null;
     return () => {
       if (typeof bodyCleanup === "function") {
         bodyCleanup();

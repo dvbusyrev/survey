@@ -36,12 +36,7 @@ VALUES
     (12, 'Tuesday', 'Вторник', 3),
     (13, 'Wednesday', 'Среда', 3),
     (14, 'Thursday', 'Четверг', 3),
-    (15, 'Friday', 'Пятница', 3),
-    (16, 'Monday', 'Понедельник', 4),
-    (17, 'Tuesday', 'Вторник', 4),
-    (18, 'Wednesday', 'Среда', 4),
-    (19, 'Thursday', 'Четверг', 4),
-    (20, 'Friday', 'Пятница', 4)
+    (15, 'Friday', 'Пятница', 3)
 ON CONFLICT (id_day) DO UPDATE
 SET
     en_name_day = EXCLUDED.en_name_day,
@@ -61,7 +56,7 @@ VALUES
     1,
     1,
     1,
-    8,
+    NULL,
     false
 )
 ON CONFLICT (id_config) DO NOTHING;
@@ -86,7 +81,9 @@ VALUES
     ('016', 'rename_config_tables'),
     ('017', 'rename_app_user_credentials'),
     ('018', 'add_audit_log_current_tables'),
-    ('019', 'store_audit_old_new_rows')
+    ('019', 'store_audit_old_new_rows'),
+    ('020', 'limit_auto_creation_schedule_options'),
+    ('021', 'allow_empty_auto_creation_period')
 ON CONFLICT (version) DO NOTHING;
 
 COMMIT;

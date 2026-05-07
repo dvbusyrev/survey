@@ -30,12 +30,14 @@ What this does:
 - applies `017_rename_app_user_credentials`
 - applies `018_add_audit_log_current_tables`
 - applies `019_store_audit_old_new_rows`
+- applies `020_limit_auto_creation_schedule_options`
+- applies `021_allow_empty_auto_creation_period`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
 Migration sources:
 
-- `001_unified_schema` builds a portable current-schema baseline from `001_current_schema.sql` and records migrations through `019`
+- `001_unified_schema` builds a portable current-schema baseline from `001_current_schema.sql` and records migrations through `021`
 - `002_repair_survey_foreign_keys` is retained as a historical no-op because the repaired constraints are now part of the baseline
 - `003_add_update_metadata` adds `date_update/user_update` support without external recovery scripts
 - `004_add_organization_short_name` adds `organization.organization_short_name`
@@ -54,3 +56,5 @@ Migration sources:
 - `017_rename_app_user_credentials` renames `app_user` credential columns to `login`, `role`, and `password`
 - `018_add_audit_log_current_tables` adds audit logging for current detail/config tables used by chained actions
 - `019_store_audit_old_new_rows` stores `OLD` and `NEW` row snapshots directly in audit tables
+- `020_limit_auto_creation_schedule_options` limits auto-creation weekday options to the first three weekdays and working period values to 14 days
+- `021_allow_empty_auto_creation_period` allows blank auto-creation period values and open-ended survey assignments

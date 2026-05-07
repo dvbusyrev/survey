@@ -907,6 +907,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    font-size: 14px;
 }
 
 .signed-filter {
@@ -918,15 +919,8 @@
         margin-left: auto;
     }
 
-    .signed-filter input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
-        accent-color: var(--primary);
-        cursor: pointer;
-    }
-
 .filter-group label {
-    font-size: 14px;
+    font-size: inherit;
     color: #4a5568;
 }
 
@@ -936,11 +930,6 @@
     border: 1px solid #e2e8f0;
     border-radius: 4px;
     font-size: 14px;
-}
-
-.filter-group input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
 }
 
     .filter-button {
@@ -1325,10 +1314,6 @@
     background: rgba(255, 255, 255, 0.75);
     border: 1px solid var(--border);
     border-radius: 10px;
-}
-
-.user-surveys-page__signed-filter input {
-    margin: 0;
 }
 
 .user-surveys-page__error-message {

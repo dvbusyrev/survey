@@ -396,7 +396,8 @@ public sealed class SurveyReportService : ISurveyReportService
                     srednee.Add(count > 0 ? sum / count : 0);
                 }
 
-                string surveyTitle = section.Survey.NameSurvey + (section.Survey.DateEnd < DateTime.Today ? " (архивная)" : string.Empty);
+                var isArchived = section.Survey.DateEnd.HasValue && section.Survey.DateEnd.Value < DateTime.Today;
+                string surveyTitle = section.Survey.NameSurvey + (isArchived ? " (архивная)" : string.Empty);
                 body.AppendChild(new Paragraph(
                     new Run(new Text(surveyTitle))
                     {

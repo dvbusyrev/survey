@@ -240,28 +240,6 @@ text-align: center;
   color: var(--text-secondary);
 }
 
-.survey-auto-creation-modal__list {
-  display: grid;
-  gap: 12px;
-  max-height: 420px;
-  overflow: auto;
-}
-
-.survey-auto-creation-modal__item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--line-soft);
-  border-radius: 14px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.survey-auto-creation-modal__item input {
-  margin: 0;
-}
-
 @media (max-width: 900px) {
 .reports-page__grid {
 grid-template-columns: minmax(0, 1fr);

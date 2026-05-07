@@ -122,7 +122,7 @@
 
         const message = byId('message');
 
-        if (!ensureValidDateInput('DateBegin', 'Дата начала', { required: true })) {
+        if (!ensureValidDateInput('DateBegin', 'Дата начала')) {
             return;
         }
 
@@ -138,8 +138,8 @@
             DateEnd: window.AppDate?.getInputIso('DateEnd') || ''
         };
 
-        if (!payload.Name || !payload.Email || !payload.DateBegin) {
-            showMessage(message, 'Заполните все поля.', false);
+        if (!payload.Name) {
+            showMessage(message, 'Введите название организации!', false);
             return;
         }
 
@@ -227,6 +227,11 @@
         const shortName = byId('organizationShortName')?.value?.trim() || '';
         const email = byId('organizationEmail')?.value?.trim() || '';
 
+        if (!name) {
+            window.siteNotify?.('Введите название организации!', 'error');
+            return;
+        }
+
         if (!ensureValidDateInput('organizationDateBegin', 'Дата начала')) {
             return;
         }
@@ -286,6 +291,11 @@
             DateBegin: window.AppDate?.getInputIso('date_begin') || '',
             DateEnd: window.AppDate?.getInputIso('date_end') || ''
         };
+
+        if (!payload.Name) {
+            window.siteNotify?.('Введите название организации!', 'error');
+            return;
+        }
 
         if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
             window.siteNotify?.('Дата конца не может быть раньше даты начала.', 'error');

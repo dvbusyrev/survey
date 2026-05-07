@@ -196,7 +196,13 @@ export function mountSurveyUserModal(host, { mountBody, onClose }) {
     modalNode.addEventListener('click', () => onClose?.());
     modalContent?.addEventListener('click', (event) => event.stopPropagation());
     closeButton?.addEventListener('click', () => onClose?.());
+    const bodyCleanup = typeof mountBody === 'function' && bodyHost
+        ? mountBody(bodyHost)
+        : null;
+
     host.appendChild(modalNode);
+    modalNode.classList.add('modal--visible');
+    modalNode.setAttribute('aria-hidden', 'false');
 
     if (typeof window.syncSiteModalBodyState === 'function') {
         window.syncSiteModalBodyState();
@@ -205,10 +211,6 @@ export function mountSurveyUserModal(host, { mountBody, onClose }) {
     }
 
     document.addEventListener('keydown', handleEscape);
-
-    const bodyCleanup = typeof mountBody === 'function' && bodyHost
-        ? mountBody(bodyHost)
-        : null;
 
     return () => {
         if (typeof bodyCleanup === 'function') {

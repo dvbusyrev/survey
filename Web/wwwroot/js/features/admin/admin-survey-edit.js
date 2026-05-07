@@ -58,12 +58,17 @@ function surveyEditToggleOrganizationSelection(element) {
     }
 }
 
-            function surveyEditSaveSelectedOrganization() {
-                surveyEditCloseModal('organizationModal');
-                if (typeof window.updateSelectedOrganizationDisplay === 'function') {
-                    window.updateSelectedOrganizationDisplay();
-                }
-            }
+function surveyEditSaveSelectedOrganization() {
+    if (typeof window.surveyEditCloseOrganizationDropdown === 'function') {
+        window.surveyEditCloseOrganizationDropdown();
+    } else {
+        surveyEditCloseModal('organizationModal');
+    }
+
+    if (typeof window.updateSelectedOrganizationDisplay === 'function') {
+        window.updateSelectedOrganizationDisplay();
+    }
+}
 
  function surveyEditUpdateSelectedOrganizationDisplay() {
     if (typeof window.updateSelectedOrganizationDisplay === 'function') {

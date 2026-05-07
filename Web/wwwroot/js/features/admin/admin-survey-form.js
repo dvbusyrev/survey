@@ -96,19 +96,82 @@
         });
     }
 
-    function openOrganizationModal() {
-        const modal = safeGetElement('organizationModal');
-        if (!modal) {
+    function getOrganizationDropdown() {
+        return getElementByRole('organization-dropdown');
+    }
+
+    function getOrganizationDropdownMenu() {
+        return getElementByRole('organization-dropdown-menu') || document.getElementById('organizationDropdownMenu');
+    }
+
+    function updateCheckboxListHeight(container) {
+        const list = container?.querySelector('.app-checkbox-list');
+        if (!list) {
             return;
         }
 
-        setModalVisible(modal, true);
+        const listTop = list.getBoundingClientRect().top;
+        const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
+        list.style.setProperty('--app-checkbox-list-max-height', `${availableHeight}px`);
+    }
+
+    function scheduleCheckboxListHeightUpdate(container) {
+        window.requestAnimationFrame(() => updateCheckboxListHeight(container));
+    }
+
+    function setOrganizationDropdownVisible(isVisible) {
+        const menu = getOrganizationDropdownMenu();
+        if (!menu) {
+            return false;
+        }
+
+        const dropdown = getOrganizationDropdown();
+        menu.classList.toggle('is-hidden', !isVisible);
+        dropdown?.classList.toggle('is-open', isVisible);
+        window.surveyEditModalOpen = isVisible;
+        if (isVisible) {
+            scheduleCheckboxListHeightUpdate(menu);
+        }
+        return true;
+    }
+
+    function closeOrganizationDropdown() {
+        setOrganizationDropdownVisible(false);
+    }
+
+    function openOrganizationModal() {
+        const menu = getOrganizationDropdownMenu();
+        if (!menu) {
+            return;
+        }
+
+        setOrganizationDropdownVisible(true);
         if (allOrganizations.length > 0) {
             renderOrganizationsList();
             return;
         }
 
+        const organizationList = document.getElementById('organizationList');
+        if (organizationList?.querySelector('.organization-item')) {
+            syncOrganizationListSelectionFromState();
+            return;
+        }
+
         loadOrganizations();
+    }
+
+    function toggleOrganizationDropdown() {
+        const menu = getOrganizationDropdownMenu();
+        if (!menu) {
+            return;
+        }
+
+        if (menu.classList.contains('is-hidden')) {
+            openOrganizationModal();
+            return;
+        }
+
+        closeOrganizationDropdown();
     }
 
     function closeModal(modalId) {
@@ -170,13 +233,14 @@
         allOrganizations.forEach((organization) => {
             const isSelected = selectedOrganization.some((item) => item.id === organization.id);
             const organizationItem = document.createElement('div');
-            organizationItem.className = `organization-item ${isSelected ? 'selected' : ''}`;
+            organizationItem.className = `app-checkbox-option organization-item ${isSelected ? 'selected' : ''}`;
             organizationItem.dataset.id = String(organization.id);
             organizationItem.dataset.name = organization.name;
             organizationItem.dataset.selected = isSelected ? 'true' : 'false';
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
+            checkbox.className = 'app-checkbox-input';
             checkbox.id = `org-${organization.id}`;
             checkbox.checked = isSelected;
             checkbox.addEventListener('change', function () {
@@ -184,6 +248,7 @@
             });
 
             const label = document.createElement('label');
+            label.className = 'app-checkbox-text';
             label.htmlFor = checkbox.id;
             label.textContent = organization.name;
 
@@ -193,6 +258,7 @@
         });
 
         syncOrganizationListSelectionFromState();
+        scheduleCheckboxListHeightUpdate(getOrganizationDropdownMenu());
     }
 
     function loadOrganizations() {
@@ -204,7 +270,7 @@
         }
 
         loadingElement.classList.remove('u-hidden');
-        loadingElement.style.display = 'block';
+        loadingElement.style.display = '';
         organizationList.classList.add('u-hidden');
         organizationList.style.display = 'none';
 
@@ -243,7 +309,8 @@
                 loadingElement.style.display = 'none';
                 loadingElement.classList.add('u-hidden');
                 organizationList.classList.remove('u-hidden');
-                organizationList.style.display = 'block';
+                organizationList.style.display = '';
+                scheduleCheckboxListHeightUpdate(getOrganizationDropdownMenu());
             });
     }
 
@@ -259,10 +326,11 @@
 
         setSelectedOrganizations(nextSelection);
         syncOrganizationListSelectionFromState();
+        updateSelectedOrganizationDisplay();
     }
 
     function saveSelectedOrganization() {
-        closeModal('organizationModal');
+        closeOrganizationDropdown();
         updateSelectedOrganizationDisplay();
     }
 
@@ -522,7 +590,7 @@
         }
 
         updateSelectedOrganizationDisplay();
-        closeModal('organizationModal');
+        closeOrganizationDropdown();
         setModalVisible('loadingOverlay', false);
     }
 
@@ -594,7 +662,7 @@
     function validateForm() {
         let isValid = true;
 
-        ['surveyTitle', 'surveyDescription', 'startDate', 'endDate'].forEach((id) => {
+        ['surveyTitle', 'startDate', 'endDate'].forEach((id) => {
             const element = safeGetElement(id);
             if (!element) {
                 isValid = false;
@@ -609,6 +677,7 @@
 
             element.classList.remove('invalid');
         });
+        safeGetElement('surveyDescription')?.classList.remove('invalid');
 
         const startDateIso = window.AppDate?.getInputIso('startDate') || '';
         const endDateIso = window.AppDate?.getInputIso('endDate') || '';
@@ -762,18 +831,44 @@
 
     function surveyEditOpenOrganizationModal() {
         syncOrganizationListSelectionFromState();
-
-        setModalVisible('organizationModal', true);
-
-        window.surveyEditModalOpen = true;
+        openOrganizationModal();
     }
 
     function surveyEditCloseModal(modalId) {
+        if (modalId === 'organizationModal') {
+            closeOrganizationDropdown();
+            return;
+        }
+
         closeModal(modalId);
         window.surveyEditModalOpen = false;
     }
 
+    document.addEventListener('click', function (event) {
+        const dropdown = getOrganizationDropdown();
+        const menu = getOrganizationDropdownMenu();
+        if (!dropdown || !menu || menu.classList.contains('is-hidden')) {
+            return;
+        }
+
+        if (dropdown.contains(event.target)) {
+            return;
+        }
+
+        closeOrganizationDropdown();
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        closeOrganizationDropdown();
+    });
+
     window.openOrganizationModal = openOrganizationModal;
+    window.toggleOrganizationDropdown = toggleOrganizationDropdown;
+    window.closeOrganizationDropdown = closeOrganizationDropdown;
     window.closeModal = closeModal;
     window.loadOrganizations = loadOrganizations;
     window.toggleOrganizationSelection = toggleOrganizationSelection;
@@ -798,6 +893,7 @@
     window.surveyEditInit = surveyEditInit;
     window.surveyEditOpenOrganizationModal = surveyEditOpenOrganizationModal;
     window.surveyEditCloseModal = surveyEditCloseModal;
+    window.surveyEditCloseOrganizationDropdown = closeOrganizationDropdown;
 
     window.safeGetElement = safeGetElement;
     window.safeGetValue = safeGetValue;
