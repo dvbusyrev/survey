@@ -57,12 +57,15 @@ public sealed class AnswerExportService : IAnswerExportService
             return null;
         }
 
-        var pdfBytes = AnswerPdfDocumentBuilder.BuildPdfContent(survey, answers);
+        var signedAnswer = answers.FirstOrDefault(answer => !string.IsNullOrWhiteSpace(answer.Csp));
+        var pdfBytes = signedAnswer?.SignedContent is { Length: > 0 } signedPdfContent
+            ? signedPdfContent
+            : AnswerPdfDocumentBuilder.BuildPdfContent(survey, answers);
         var cleanName = CleanFileName(survey.NameSurvey ?? "Анкета");
         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var pdfFileName = $"{cleanName}_ответы_{timestamp}.pdf";
         var zipFileName = $"{cleanName}_с_подписью_{timestamp}.zip";
-        var signature = answers.FirstOrDefault(answer => !string.IsNullOrWhiteSpace(answer.Csp))?.Csp;
+        var signature = signedAnswer?.Csp;
 
         using var memoryStream = new MemoryStream();
         using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))

@@ -1,7 +1,7 @@
-﻿using System.Text.Json;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
+using MainProject.Application.DTO;
 
 [Authorize]
 public class AnswerSigningController : Controller
@@ -41,7 +41,7 @@ public class AnswerSigningController : Controller
     }
 
     [HttpPost("signatures/{id}/{idOrganization}")]
-    public IActionResult CspAnswer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] JsonElement request)
+    public IActionResult CspAnswer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] AnswerSignatureSaveRequest request)
     {
         var accessResult = EnsureAnswerRecordAccess(id, idOrganization);
         if (accessResult != null)
@@ -51,18 +51,21 @@ public class AnswerSigningController : Controller
 
         try
         {
-            var signature = ExtractSignature(request);
-            if (string.IsNullOrWhiteSpace(signature))
+            if (string.IsNullOrWhiteSpace(request.Signature))
             {
                 return BadRequest("Signature не может быть пустым.");
             }
 
-            if (!_answerSigningService.SaveSignature(id, idOrganization, signature))
+            if (!_answerSigningService.SaveSignature(id, idOrganization, request))
             {
                 return NotFound("Запись для обновления не найдена.");
             }
 
             return Ok("Запись успешно обновлена.");
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
@@ -81,23 +84,6 @@ public class AnswerSigningController : Controller
         if (!_answerAccessService.CanAccessAnswerRecord(surveyId, requestedOrganizationId))
         {
             return Forbid();
-        }
-
-        return null;
-    }
-
-    private static string? ExtractSignature(JsonElement request)
-    {
-        if (request.ValueKind == JsonValueKind.String)
-        {
-            return request.GetString();
-        }
-
-        if (request.ValueKind == JsonValueKind.Object
-            && request.TryGetProperty("signature", out var signatureElement)
-            && signatureElement.ValueKind == JsonValueKind.String)
-        {
-            return signatureElement.GetString();
         }
 
         return null;

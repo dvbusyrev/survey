@@ -33,3 +33,4 @@ COMMIT;
 \ir 019_store_audit_old_new_rows.sql
 \ir 020_limit_auto_creation_schedule_options.sql
 \ir 021_allow_empty_auto_creation_period.sql
+\ir 022_store_signed_answer_content.sql

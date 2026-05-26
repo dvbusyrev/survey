@@ -95,7 +95,8 @@ public sealed class AnswerDataService
                   os.id_organization AS OrganizationId,
                   os.id_survey,
                   a.completion_date,
-                  a.csp
+                  a.csp,
+                  a.signed_content AS SignedContent
               FROM public.answer a
               INNER JOIN public.organization_survey os
                   ON os.id_organization_survey = a.id_organization_survey
@@ -125,6 +126,7 @@ public sealed class AnswerDataService
                       os.id_organization AS OrganizationId,
                       os.id_survey,
                       ha.csp,
+                      ha.signed_content AS SignedContent,
                       ha.completion_date,
                       COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
                   FROM public.answer ha
@@ -148,6 +150,7 @@ public sealed class AnswerDataService
                   os.id_organization AS OrganizationId,
                   os.id_survey,
                   ha.csp,
+                  ha.signed_content AS SignedContent,
                   ha.completion_date,
                   COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
               FROM public.answer ha
@@ -192,7 +195,9 @@ public sealed class AnswerDataService
                   @completionDate
               )
               ON CONFLICT (id_organization_survey) DO UPDATE
-              SET completion_date = EXCLUDED.completion_date
+              SET completion_date = EXCLUDED.completion_date,
+                  csp = NULL,
+                  signed_content = NULL
               RETURNING id_answer",
             new
             {
@@ -245,7 +250,9 @@ public sealed class AnswerDataService
 
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer
-              SET completion_date = @completionDate
+              SET completion_date = @completionDate,
+                  csp = NULL,
+                  signed_content = NULL
               WHERE id_answer = @answerId",
             new
             {
@@ -266,18 +273,19 @@ public sealed class AnswerDataService
         return true;
     }
 
-    public bool UpdateSignature(int surveyId, int organizationId, string signature)
+    public bool UpdateSignature(int surveyId, int organizationId, string signature, byte[]? signedContent)
     {
         using var connection = _connectionFactory.CreateConnection();
 
         var rowsAffected = connection.Execute(
             @"UPDATE public.answer a
-              SET csp = @signature
+              SET csp = @signature,
+                  signed_content = @signedContent
               FROM public.organization_survey os
               WHERE os.id_organization_survey = a.id_organization_survey
                 AND os.id_organization = @organizationId
                 AND os.id_survey = @surveyId",
-            new { signature, organizationId, surveyId });
+            new { signature, signedContent, organizationId, surveyId });
 
         return rowsAffected > 0;
     }

@@ -21,6 +21,7 @@ namespace MainProject.Domain.Entities
         public string? OrganizationName { get; set; }
 
         public string Csp { get; set; } = string.Empty;
+        public byte[]? SignedContent { get; set; }
 
         [JsonPropertyName("name_survey")]
         public string? NameSurvey { get; set; }

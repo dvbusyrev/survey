@@ -32,6 +32,7 @@ What this does:
 - applies `019_store_audit_old_new_rows`
 - applies `020_limit_auto_creation_schedule_options`
 - applies `021_allow_empty_auto_creation_period`
+- applies `022_store_signed_answer_content`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -58,3 +59,4 @@ Migration sources:
 - `019_store_audit_old_new_rows` stores `OLD` and `NEW` row snapshots directly in audit tables
 - `020_limit_auto_creation_schedule_options` limits auto-creation weekday options to the first three weekdays and working period values to 14 days
 - `021_allow_empty_auto_creation_period` allows blank auto-creation period values and open-ended survey assignments
+- `022_store_signed_answer_content` stores the exact signed PDF bytes so detached signatures are archived with the same content that was signed

@@ -154,7 +154,7 @@ async function CSP(id, organizationId) {
         
         const signature = await createDigitalSignature(dataToSign);
         
-        await sendSignatureToServer(id, organizationId, signature);
+        await sendSignatureToServer(id, organizationId, signature, dataToSign);
         
         updateUISuccess();
         if (typeof window.refreshSurveyUserPageData === 'function') {
@@ -388,11 +388,19 @@ async function getCertificateInfo(cert) {
 }
 
 
-async function sendSignatureToServer(id, organizationId, signature) {
+async function sendSignatureToServer(id, organizationId, signature, dataToSign) {
+    const request = { signature };
+
+    if (dataToSign && typeof dataToSign === 'object') {
+        request.signedContent = dataToSign.content || '';
+        request.contentEncoding = dataToSign.contentEncoding || 'utf8';
+        request.detached = Boolean(dataToSign.detached);
+    }
+
     const response = await fetch(`/signatures/${id}/${organizationId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signature })
+        body: JSON.stringify(request)
     });
     
     if (!response.ok) {

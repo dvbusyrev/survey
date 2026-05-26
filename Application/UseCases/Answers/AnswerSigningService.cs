@@ -33,8 +33,48 @@ public sealed class AnswerSigningService : IAnswerSigningService
         };
     }
 
-    public bool SaveSignature(int surveyId, int organizationId, string signature)
+    public bool SaveSignature(int surveyId, int organizationId, AnswerSignatureSaveRequest request)
     {
-        return _answerDataService.UpdateSignature(surveyId, organizationId, signature);
+        var signature = NormalizeBase64Payload(request.Signature);
+        if (string.IsNullOrWhiteSpace(signature))
+        {
+            throw new ArgumentException("Подпись не может быть пустой.", nameof(request));
+        }
+
+        byte[]? signedContent = null;
+        if (request.Detached && string.Equals(request.ContentEncoding, "base64", StringComparison.OrdinalIgnoreCase))
+        {
+            signedContent = DecodeBase64Payload(request.SignedContent, "подписанный PDF");
+        }
+
+        return _answerDataService.UpdateSignature(surveyId, organizationId, signature, signedContent);
+    }
+
+    private static string NormalizeBase64Payload(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return string.Empty;
+        }
+
+        return string.Concat(payload.Where(character => !char.IsWhiteSpace(character)));
+    }
+
+    private static byte[] DecodeBase64Payload(string? payload, string fieldName)
+    {
+        var normalized = NormalizeBase64Payload(payload);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            throw new ArgumentException($"Не передано содержимое для поля \"{fieldName}\".");
+        }
+
+        try
+        {
+            return Convert.FromBase64String(normalized);
+        }
+        catch (FormatException exception)
+        {
+            throw new ArgumentException($"Поле \"{fieldName}\" содержит некорректный base64.", exception);
+        }
     }
 }
