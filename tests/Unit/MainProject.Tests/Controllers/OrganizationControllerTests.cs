@@ -51,7 +51,17 @@ public sealed class OrganizationControllerTests
             _archiveResult = archiveResult;
         }
 
-        public OrganizationListPageViewModel GetActiveOrganizationsPage(bool openAddOrganizationModal = false)
+        public OrganizationListPageViewModel GetActiveOrganizationsPage(
+            int currentPage,
+            string? sortBy,
+            string? sortDirection,
+            bool openAddOrganizationModal = false)
+            => new();
+
+        public OrganizationListPageViewModel GetArchivedOrganizationsPage(
+            int currentPage,
+            string? sortBy,
+            string? sortDirection)
             => new();
 
         public OrganizationSurveyAssignmentsPageViewModel GetOrganizationSurveyAssignmentsPage()

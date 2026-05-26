@@ -4,6 +4,97 @@ const CADESCOM_CADES_BES = 1;
 
 let cadesPluginLoadPromise = null;
 
+function isEmbeddedBrowserEnvironment() {
+    const userAgent = String(window.navigator.userAgent || '');
+    const vendor = String(window.navigator.vendor || '');
+
+    return /Electron|WebView|; wv\)|QtWebEngine|QtWebKit|Slack|Teams/i.test(userAgent)
+        || (userAgent.includes('Macintosh') && vendor === 'Apple Computer, Inc.' && !/Safari\//i.test(userAgent));
+}
+
+function getCryptoProUnavailableMessage() {
+    if (isEmbeddedBrowserEnvironment()) {
+        return 'Подпись через CryptoPro Browser plug-in не поддерживается во встроенном браузере. Откройте систему в Chrome, Edge, Яндекс.Браузере или Safari с установленным CryptoPro Browser plug-in.';
+    }
+
+    return 'CryptoPro Browser plug-in недоступен. Проверьте, что расширение и КриптоПРО CSP установлены в поддерживаемом браузере.';
+}
+
+function extractErrorMessage(error) {
+    if (typeof error === 'string') {
+        return error.trim();
+    }
+
+    if (error instanceof Error) {
+        return String(error.message || '').trim();
+    }
+
+    if (error && typeof error === 'object' && 'message' in error) {
+        return String(error.message || '').trim();
+    }
+
+    return '';
+}
+
+function normalizeCryptoProError(error) {
+    const rawMessage = extractErrorMessage(error);
+    const message = rawMessage || 'Ошибка при работе с CryptoPro Browser plug-in.';
+
+    if (isEmbeddedBrowserEnvironment()) {
+        return {
+            message: getCryptoProUnavailableMessage(),
+            showInstallHelp: true
+        };
+    }
+
+    if (/нет доступных сертификатов/i.test(message)) {
+        return {
+            message: 'Не найдено ни одного доступного сертификата для подписи.',
+            showInstallHelp: false
+        };
+    }
+
+    if (/сертификат не выбран/i.test(message)) {
+        return {
+            message: 'Сертификат для подписи не выбран.',
+            showInstallHelp: false
+        };
+    }
+
+    if (/истекло время ожидания загрузки плагина/i.test(message)) {
+        return {
+            message: 'CryptoPro Browser plug-in не ответил. Обычно это означает, что расширение не установлено, выключено в браузере или страница открыта во встроенном браузере/вебвью, где CryptoPro не работает.',
+            showInstallHelp: true
+        };
+    }
+
+    if (/плагин недоступен|ошибка при загрузке плагина|chrome-extension:\/\/invalid/i.test(message)) {
+        return {
+            message: 'CryptoPro Browser plug-in не установлен, отключен или не может загрузиться в текущем браузере. Проверьте расширение, КриптоПРО CSP и откройте страницу во внешнем поддерживаемом браузере.',
+            showInstallHelp: true
+        };
+    }
+
+    if (/не удалось загрузить скрипт/i.test(message)) {
+        return {
+            message: 'Не удалось загрузить модуль подписи CryptoPro со страницы приложения.',
+            showInstallHelp: false
+        };
+    }
+
+    if (/CAdESCOM|CreateObjectAsync|объект/i.test(message)) {
+        return {
+            message: 'CryptoPro установлен, но браузер не смог создать объекты плагина. Проверьте версию КриптоПРО CSP, расширение и перезапустите браузер.',
+            showInstallHelp: true
+        };
+    }
+
+    return {
+        message,
+        showInstallHelp: false
+    };
+}
+
 function loadScriptOnce(src) {
     return new Promise((resolve, reject) => {
         const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
@@ -31,6 +122,10 @@ function loadScriptOnce(src) {
 }
 
 async function ensureCadesPluginLoaded() {
+    if (isEmbeddedBrowserEnvironment()) {
+        throw new Error(getCryptoProUnavailableMessage());
+    }
+
     if (typeof window.cadesplugin !== 'undefined') {
         await window.cadesplugin;
         return window.cadesplugin;
@@ -39,7 +134,7 @@ async function ensureCadesPluginLoaded() {
     if (!cadesPluginLoadPromise) {
         cadesPluginLoadPromise = loadScriptOnce('/js/cadesplugin_api.js').then(async () => {
             if (typeof window.cadesplugin === 'undefined') {
-                throw new Error('CAdESCOM плагин не загружен! Установите КриптоПРО ЭЦП Browser plug-in.');
+                throw new Error(getCryptoProUnavailableMessage());
             }
             await window.cadesplugin;
             return window.cadesplugin;
@@ -52,12 +147,7 @@ async function ensureCadesPluginLoaded() {
 async function CSP(id, organizationId) {
     try {
         await ensureCadesPluginLoaded();
-
-        if (!await checkCSPAvailable()) {
-            console.error("CSP не доступен");
-            showCSPInstallInstructions();
-            return;
-        }
+        await checkCSPAvailable();
 
         const dataToSign = await getDataForSignature(id, organizationId);
         
@@ -71,9 +161,12 @@ async function CSP(id, organizationId) {
         }
     } catch (error) {
         console.error("Ошибка в CSP:", error);
-        showError(error.message);
+        const normalizedError = normalizeCryptoProError(error);
+        showError(normalizedError.message);
     }
 }
+
+window.CSP = CSP;
 
 async function listAllCertificates() {
     try {
@@ -113,20 +206,11 @@ async function listAllCertificates() {
 }
 
 async function checkCSPAvailable() {
-    try {
-        await ensureCadesPluginLoaded();
-        console.log
-        ("1. Плагин обнаружен, версия:", await cadesplugin.version);
-
-        const about = await cadesplugin.CreateObjectAsync("CAdESCOM.About");
-
-        const store = await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
-
-        return true;
-    } catch (error) {
-        console.error("❌ Ошибка при проверке CSP:", error);
-        return false;
-    }
+    await ensureCadesPluginLoaded();
+    await cadesplugin.version;
+    await cadesplugin.CreateObjectAsync("CAdESCOM.About");
+    await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
+    return true;
 }
 
 
@@ -298,38 +382,62 @@ async function sendSignatureToServer(id, organizationId, signature) {
     }
 }
 
-function showCSPInstallInstructions() {
+function showCSPInstallInstructions(reasonMessage = '') {
     const modal = document.createElement('div');
     modal.className = 'csp-modal';
     const content = document.createElement('div');
     content.className = 'csp-modal-content';
     const title = document.createElement('h3');
-    title.textContent = 'Требуется установка КриптоПРО';
+    title.textContent = 'Подпись недоступна';
     const body = document.createElement('div');
     body.className = 'csp-modal-body';
     const intro = document.createElement('p');
-    intro.textContent = 'Для подписи документов необходимо:';
+    intro.textContent = reasonMessage || getCryptoProUnavailableMessage();
     const steps = document.createElement('ol');
-    const step1 = document.createElement('li');
-    const link1 = document.createElement('a');
-    link1.href = 'https://www.cryptopro.ru/products/cades/plugin';
-    link1.target = '_blank';
-    link1.textContent = 'КриптоПРО ЭЦП Browser plug-in';
-    step1.appendChild(document.createTextNode('Установить '));
-    step1.appendChild(link1);
-    const step2 = document.createElement('li');
-    const link2 = document.createElement('a');
-    link2.href = 'https://www.cryptopro.ru/products/csp';
-    link2.target = '_blank';
-    link2.textContent = 'КриптоПРО CSP';
-    step2.appendChild(document.createTextNode('Установить '));
-    step2.appendChild(link2);
-    step2.appendChild(document.createTextNode(' (версия 4.0+)'));
-    const step3 = document.createElement('li');
-    step3.textContent = 'Обновить страницу после установки';
-    steps.appendChild(step1);
-    steps.appendChild(step2);
-    steps.appendChild(step3);
+
+    if (isEmbeddedBrowserEnvironment()) {
+        const step1 = document.createElement('li');
+        step1.textContent = 'Откройте систему во внешнем браузере: Chrome, Edge, Яндекс.Браузер или Safari.';
+        const step2 = document.createElement('li');
+        const link1 = document.createElement('a');
+        link1.href = 'https://www.cryptopro.ru/products/cades/plugin';
+        link1.target = '_blank';
+        link1.textContent = 'CryptoPro Browser plug-in';
+        step2.appendChild(document.createTextNode('Проверьте установку '));
+        step2.appendChild(link1);
+        const step3 = document.createElement('li');
+        const link2 = document.createElement('a');
+        link2.href = 'https://www.cryptopro.ru/products/csp';
+        link2.target = '_blank';
+        link2.textContent = 'КриптоПРО CSP';
+        step3.appendChild(document.createTextNode('Проверьте установку '));
+        step3.appendChild(link2);
+        steps.appendChild(step1);
+        steps.appendChild(step2);
+        steps.appendChild(step3);
+    } else {
+        const step1 = document.createElement('li');
+        const link1 = document.createElement('a');
+        link1.href = 'https://www.cryptopro.ru/products/cades/plugin';
+        link1.target = '_blank';
+        link1.textContent = 'CryptoPro Browser plug-in';
+        step1.appendChild(document.createTextNode('Установите '));
+        step1.appendChild(link1);
+        const step2 = document.createElement('li');
+        const link2 = document.createElement('a');
+        link2.href = 'https://www.cryptopro.ru/products/csp';
+        link2.target = '_blank';
+        link2.textContent = 'КриптоПРО CSP';
+        step2.appendChild(document.createTextNode('Установите '));
+        step2.appendChild(link2);
+        step2.appendChild(document.createTextNode(' версии 4.0 и выше.'));
+        const step3 = document.createElement('li');
+        step3.textContent = 'Перезапустите браузер и обновите страницу.';
+        steps.appendChild(step1);
+        steps.appendChild(step2);
+        steps.appendChild(step3);
+    }
+
     body.appendChild(intro);
     body.appendChild(steps);
     const footer = document.createElement('div');
@@ -430,14 +538,7 @@ async function showCertConfirmDialog(certInfo) {
 
 
 function updateUISuccess() {
-    const signActions = document.querySelector('[data-role="sign-actions"]');
-    const signedActions = document.querySelector('[data-role="signed-actions"]');
-    if (signActions) {
-        signActions.style.display = "none";
-    }
-    if (signedActions) {
-        signedActions.style.display = "block";
-    }
+    applySignedState(document, true);
     
     const notification = document.createElement('div');
     notification.className = 'csp-notification success';
@@ -458,7 +559,68 @@ function updateUISuccess() {
     }, 5000);
 }
 
+window.createAnswerReport = function createAnswerReport(idSurvey, organizationId, type) {
+    window.AppScrollState?.prepareNavigation({ carry: true });
+    window.location.assign(`/answers/${idSurvey}/${organizationId}/report/${type}`);
+};
+
+function getAnswersPageContainer(source) {
+    if (source instanceof Element) {
+        const closestPage = source.closest('[data-role="survey-answers-page"], [data-page="answers-check"]');
+        if (closestPage) {
+            return closestPage;
+        }
+    }
+
+    if (source && typeof source.querySelector === 'function') {
+        const nestedPage = source.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
+        if (nestedPage) {
+            return nestedPage;
+        }
+    }
+
+    return document.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
+}
+
+function applySignedState(source, isSigned) {
+    const page = getAnswersPageContainer(source);
+    if (!page) {
+        return;
+    }
+
+    page.dataset.isSigned = isSigned ? 'true' : 'false';
+
+    const signatureInfo = page.querySelector('[data-role="signature-info"]');
+    const signatureStatus = page.querySelector('[data-role="signature-status"]');
+    if (signatureInfo) {
+        signatureInfo.classList.toggle('u-hidden', !isSigned);
+        signatureInfo.classList.toggle('is-hidden', !isSigned);
+    }
+
+    if (signatureStatus) {
+        signatureStatus.textContent = isSigned ? 'подписано' : 'не подписано';
+        signatureStatus.classList.toggle('signed', isSigned);
+        signatureStatus.classList.toggle('not-signed', !isSigned);
+    }
+}
+
+window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organizationId, triggerElement) {
+    const page = getAnswersPageContainer(triggerElement);
+    const isSigned = page?.dataset.isSigned === 'true';
+
+    if (isSigned) {
+        return window.downloadSignedArchive(surveyId, organizationId);
+    }
+
+    return window.createPdfReport(surveyId, organizationId);
+};
+
 function showError(message) {
+    if (typeof window.siteNotify === 'function') {
+        window.siteNotify(message, 'error', { title: 'Ошибка' });
+        return;
+    }
+
     const notification = document.createElement('div');
     notification.className = 'csp-notification error';
     const icon = document.createElement('span');
@@ -876,8 +1038,25 @@ window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, or
 
     let destroyed = false;
     function bindPage() {
-        const pdfButton = host.querySelector('[data-role="pdf-btn"]');
-        pdfButton?.addEventListener('click', () => createPdfReport(survey.id_survey, organizationId));
+        const page = host.querySelector('[data-role="survey-answers-page"]');
+        const surveyId = Number(page?.dataset.surveyId || survey?.id_survey || survey?.idSurvey || survey?.Id || 0);
+        const currentOrganizationId = Number(page?.dataset.organizationId || organizationId || 0);
+        const downloadButton = host.querySelector('[data-role="download-btn"]');
+        const signButton = host.querySelector('[data-role="sign-actions"] button');
+
+        downloadButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (surveyId > 0 && currentOrganizationId > 0) {
+                window.downloadAnswerDocument(surveyId, currentOrganizationId, downloadButton);
+            }
+        });
+
+        signButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (surveyId > 0 && currentOrganizationId > 0) {
+                CSP(surveyId, currentOrganizationId);
+            }
+        });
     }
 
     const loadAnswersContent = async () => {

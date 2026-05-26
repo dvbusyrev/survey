@@ -19,21 +19,45 @@ public class SurveyAdminController : Controller
     }
 
     private SurveyListPageViewModel BuildSurveyListPage(
+        int currentPage = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null,
         bool openAddSurveyModal = false,
         SurveyEditPageViewModel? editSurveyPage = null)
     {
+        var pageModel = _surveyAdminService.GetSurveysPage(
+            currentPage,
+            sortBy,
+            sortDirection,
+            organizationIds);
+
         return new SurveyListPageViewModel
         {
-            Surveys = _surveyAdminService.GetSurveys(),
+            SurveyRows = pageModel.SurveyRows,
+            CurrentPage = pageModel.CurrentPage,
+            TotalPages = pageModel.TotalPages,
+            TotalCount = pageModel.TotalCount,
+            PageSize = pageModel.PageSize,
+            HasExplicitSort = pageModel.HasExplicitSort,
+            SortBy = pageModel.SortBy,
+            SortDirection = pageModel.SortDirection,
+            FilterState = pageModel.FilterState,
             OpenAddSurveyModal = openAddSurveyModal,
             EditSurveyPage = editSurveyPage
         };
     }
 
     [HttpGet("surveys")]
-    public IActionResult GetSurveys()
+    public IActionResult GetSurveys(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null)
     {
-        return View("~/Web/Views/Survey/get_surveys.cshtml", BuildSurveyListPage());
+        return View(
+            "~/Web/Views/Survey/get_surveys.cshtml",
+            BuildSurveyListPage(page, sortBy, sortDirection, organizationIds));
     }
 
     [HttpGet("surveys/data")]
@@ -53,9 +77,15 @@ public class SurveyAdminController : Controller
     }
 
     [HttpGet("surveys/create")]
-    public IActionResult AddSurvey()
+    public IActionResult AddSurvey(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null)
     {
-        return View("~/Web/Views/Survey/get_surveys.cshtml", BuildSurveyListPage(openAddSurveyModal: true));
+        return View(
+            "~/Web/Views/Survey/get_surveys.cshtml",
+            BuildSurveyListPage(page, sortBy, sortDirection, organizationIds, openAddSurveyModal: true));
     }
 
     [HttpPost("surveys/create")]

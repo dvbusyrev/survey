@@ -3,6 +3,7 @@ using System.Text;
 using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.Support;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
@@ -18,12 +19,32 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
         _connectionFactory = connectionFactory;
     }
 
-    public OrganizationListPageViewModel GetActiveOrganizationsPage(bool openAddOrganizationModal = false)
+    public OrganizationListPageViewModel GetActiveOrganizationsPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        bool openAddOrganizationModal = false)
     {
+        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
+        var normalizedSortBy = NormalizeOrganizationSortField(hasExplicitSort ? sortBy : null);
+        var normalizedSortDirection = hasExplicitSort
+            ? AppSortState.NormalizeExplicitDirection(sortDirection)
+            : NormalizeOrganizationSortDirection(null, normalizedSortBy);
+        var organizations = SortOrganizations(GetOrganizations(includeArchived: false), sortBy, sortDirection);
+        var pageSlice = AppListPaging.Slice(organizations, currentPage);
+
         return new OrganizationListPageViewModel
         {
-            Organizations = GetOrganizations(includeArchived: false),
-            OpenAddOrganizationModal = openAddOrganizationModal
+            Organizations = pageSlice.Items,
+            OpenAddOrganizationModal = openAddOrganizationModal,
+            CurrentPage = pageSlice.CurrentPage,
+            TotalPages = pageSlice.TotalPages,
+            TotalCount = pageSlice.TotalCount,
+            PageSize = pageSlice.PageSize,
+            HasExplicitSort = hasExplicitSort,
+            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
+            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
+            ViewModeIsArchive = false
         };
     }
 
@@ -49,6 +70,33 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                         .ToList()
                 })
                 .ToList()
+        };
+    }
+
+    public OrganizationListPageViewModel GetArchivedOrganizationsPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection)
+    {
+        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
+        var normalizedSortBy = NormalizeOrganizationSortField(hasExplicitSort ? sortBy : null);
+        var normalizedSortDirection = hasExplicitSort
+            ? AppSortState.NormalizeExplicitDirection(sortDirection)
+            : NormalizeOrganizationSortDirection(null, normalizedSortBy);
+        var organizations = SortOrganizations(GetOrganizations(includeArchived: true), sortBy, sortDirection);
+        var pageSlice = AppListPaging.Slice(organizations, currentPage);
+
+        return new OrganizationListPageViewModel
+        {
+            Organizations = pageSlice.Items,
+            CurrentPage = pageSlice.CurrentPage,
+            TotalPages = pageSlice.TotalPages,
+            TotalCount = pageSlice.TotalCount,
+            PageSize = pageSlice.PageSize,
+            HasExplicitSort = hasExplicitSort,
+            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
+            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
+            ViewModeIsArchive = true
         };
     }
 
@@ -418,6 +466,63 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
             EffectiveEndDateIso = effectiveEndDate.ToString("yyyy-MM-dd"),
             RemainingText = FormatRemainingText(effectiveEndDate),
             IsExpired = effectiveEndDate.Date < DateTime.Today
+        };
+    }
+
+    private static List<Organization> SortOrganizations(
+        IEnumerable<Organization> organizations,
+        string? sortBy,
+        string? sortDirection)
+    {
+        var normalizedSortBy = NormalizeOrganizationSortField(sortBy);
+        var normalizedSortDirection = NormalizeOrganizationSortDirection(sortDirection, normalizedSortBy);
+        var descending = string.Equals(normalizedSortDirection, "desc", StringComparison.Ordinal);
+
+        IOrderedEnumerable<Organization> orderedOrganizations = normalizedSortBy switch
+        {
+            OrganizationListSortFields.DateBegin => descending
+                ? organizations.OrderByDescending(organization => organization.DateBegin ?? DateTime.MinValue)
+                : organizations.OrderBy(organization => organization.DateBegin ?? DateTime.MaxValue),
+            OrganizationListSortFields.DateEnd => descending
+                ? organizations.OrderByDescending(organization => organization.DateEnd ?? DateTime.MinValue)
+                : organizations.OrderBy(organization => organization.DateEnd ?? DateTime.MaxValue),
+            _ => descending
+                ? organizations.OrderByDescending(organization => organization.OrganizationName, AppListPaging.RuStringComparer)
+                : organizations.OrderBy(organization => organization.OrganizationName, AppListPaging.RuStringComparer)
+        };
+
+        return orderedOrganizations
+            .ThenBy(organization => organization.OrganizationId)
+            .ToList();
+    }
+
+    private static string NormalizeOrganizationSortField(string? sortBy)
+    {
+        return sortBy?.Trim() switch
+        {
+            OrganizationListSortFields.DateBegin => OrganizationListSortFields.DateBegin,
+            OrganizationListSortFields.DateEnd => OrganizationListSortFields.DateEnd,
+            _ => OrganizationListSortFields.Name
+        };
+    }
+
+    private static string NormalizeOrganizationSortDirection(string? sortDirection, string sortField)
+    {
+        if (string.Equals(sortDirection?.Trim(), "asc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "asc";
+        }
+
+        if (string.Equals(sortDirection?.Trim(), "desc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "desc";
+        }
+
+        return sortField switch
+        {
+            OrganizationListSortFields.DateBegin => "desc",
+            OrganizationListSortFields.DateEnd => "desc",
+            _ => "asc"
         };
     }
 

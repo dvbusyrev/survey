@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Журнал оценок";
     ViewData["SurveySection"] = "answers";
+    var pageModel = Model ?? new MainProject.Web.ViewModels.AnswerListPageViewModel();
 }
 
 @section PageStyles {
@@ -13,6 +14,9 @@
 <div class="app-page answers-page"
      id="default_content"
      data-page="answers-list"
+     data-total-count="@pageModel.TotalCount"
+     data-visible-count="@pageModel.Answers.Count"
+     data-table-scroll-target="#answers-table-top"
      data-filter-item-label="ответов"
      data-filter-date-summary="у которых дата ответа попадает"
      data-filter-hide-count-summary="true">
@@ -31,18 +35,36 @@
         @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyNameFilter.cshtml")
     </div>
 
-    <table data-role="main-table">
+    <table id="answers-table-top"
+           data-role="main-table"
+           data-disable-column-sort="true">
         <thead>
             <tr class="table_tr">
-                <th class="table-th--start">Организация</th>
-                <th>Анкета</th>
-                <th class="table-col--date">Дата</th>
-                <th class="text-center">Подпись</th>
+                <th class="table-th--start table-sortable @(string.IsNullOrWhiteSpace(pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Organization)) ? string.Empty : "is-sorted")"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Organization)"
+                    aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Organization)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(MainProject.Web.ViewModels.AnswerListSortFields.Organization)">Организация</a>
+                </th>
+                <th class="table-sortable @(string.IsNullOrWhiteSpace(pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Survey)) ? string.Empty : "is-sorted")"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Survey)"
+                    aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Survey)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(MainProject.Web.ViewModels.AnswerListSortFields.Survey)">Анкета</a>
+                </th>
+                <th class="table-col--date table-sortable @(string.IsNullOrWhiteSpace(pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Date)) ? string.Empty : "is-sorted")"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Date)"
+                    aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Date)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(MainProject.Web.ViewModels.AnswerListSortFields.Date)">Дата</a>
+                </th>
+                <th class="text-center table-sortable @(string.IsNullOrWhiteSpace(pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Signed)) ? string.Empty : "is-sorted")"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Signed)"
+                    aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Signed)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(MainProject.Web.ViewModels.AnswerListSortFields.Signed)">Подпись</a>
+                </th>
                 <th class="table-th--end table-col--actions text-center">Действия</th>
             </tr>
         </thead>
         <tbody>
-            @if (!Model.Answers.Any())
+            @if (!pageModel.Answers.Any())
             {
                 <tr>
                     <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
@@ -56,7 +78,7 @@
                     <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
                 </tr>
 
-                foreach (var answer in Model.Answers)
+                foreach (var answer in pageModel.Answers)
                 {
                     var completionDateIso = answer.CompletionDate?.ToString("yyyy-MM-dd") ?? string.Empty;
                     var organizationNamesJson = JsonSerializer.Serialize(string.IsNullOrWhiteSpace(answer.OrganizationName)
@@ -97,6 +119,12 @@
             }
         </tbody>
     </table>
+
+    @await Html.PartialAsync("~/Web/Views/Shared/_AppPagination.cshtml", pageModel.Pagination)
+
+    <script type="application/json" data-role="server-filter-bootstrap">
+        @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pageModel.FilterState))
+    </script>
 
     @await Html.PartialAsync("~/Web/Views/Shared/_AnswersModal.cshtml")
 </div>

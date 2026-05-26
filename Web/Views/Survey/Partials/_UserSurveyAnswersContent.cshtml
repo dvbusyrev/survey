@@ -10,10 +10,11 @@
 <div class="app-page app-page--narrow survey-editor-page"
      data-role="survey-answers-page"
      data-survey-id="@survey.Id"
-     data-organization-id="@pageModel.OrganizationId">
+     data-organization-id="@pageModel.OrganizationId"
+     data-is-signed="@(isSigned ? "true" : "false")">
     <header class="app-page__intro">
         <h1 class="app-page__title">Ответы на анкету: @(!string.IsNullOrWhiteSpace(survey.Name) ? survey.Name : "Анкета")</h1>
-        <p class="app-page__description">Ниже вы можете посмотреть заполненные ответы и скачать PDF анкеты.</p>
+        <p class="app-page__description">Ниже вы можете посмотреть заполненные ответы и скачать файл анкеты.</p>
     </header>
 
     <section class="app-page__section @(isSigned ? string.Empty : "u-hidden")" data-role="signature-info">
@@ -64,7 +65,11 @@
         </div>
     }
     
-    <div class="button-container">
-        <button type="button" class="modal_btn modal_btn-primary" data-role="pdf-btn">Скачать PDF с анкетой</button>
+    <div class="button-container survey-user-answer-actions">
+        <div data-role="sign-actions">
+            <button type="button"
+                    class="modal_btn modal_btn-primary">Подписать</button>
+        </div>
+        <button type="button" class="modal_btn modal_btn-primary" data-role="download-btn">Скачать файл с анкетой</button>
     </div>
 </div>

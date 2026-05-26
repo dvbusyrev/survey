@@ -1641,6 +1641,15 @@
     margin-top: 1rem;
 }
 
+.survey-user-answer-actions {
+    justify-content: center;
+}
+
+.survey-user-answer-actions > [data-role="sign-actions"],
+.survey-user-answer-actions > [data-role="signed-actions"] {
+    display: flex;
+}
+
 .app-page[data-page="user-surveys"],
 #default_content[data-page="user-surveys"] {
     font-size: inherit;

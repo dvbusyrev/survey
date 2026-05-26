@@ -28,13 +28,42 @@ public class SurveyArchiveController : Controller
         _logger = logger;
     }
 
-    private IActionResult RenderAdminArchivePage(SurveyEditPageViewModel? editSurveyPage = null)
+    private IActionResult RenderAdminArchivePage(
+        int currentPage = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null,
+        string? surveyIds = null,
+        string? year = null,
+        string? month = null,
+        string? dateFrom = null,
+        string? dateTo = null,
+        SurveyEditPageViewModel? editSurveyPage = null)
     {
+        var pageModel = _surveyArchiveService.GetAdminArchivedSurveysPage(
+            currentPage,
+            sortBy,
+            sortDirection,
+            organizationIds,
+            surveyIds,
+            year,
+            month,
+            dateFrom,
+            dateTo);
+
         return View(
             "~/Web/Views/Survey/archived_surveys.cshtml",
             new MainProject.Web.ViewModels.SurveyArchivePageViewModel
             {
-                Surveys = _surveyArchiveService.GetAdminArchivedSurveys(),
+                SurveyRows = pageModel.SurveyRows,
+                CurrentPage = pageModel.CurrentPage,
+                TotalPages = pageModel.TotalPages,
+                TotalCount = pageModel.TotalCount,
+                PageSize = pageModel.PageSize,
+                HasExplicitSort = pageModel.HasExplicitSort,
+                SortBy = pageModel.SortBy,
+                SortDirection = pageModel.SortDirection,
+                FilterState = pageModel.FilterState,
                 EditSurveyPage = editSurveyPage
             });
     }
@@ -66,14 +95,42 @@ public class SurveyArchiveController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("surveys/archive")]
-    public IActionResult ArchivedSurveys()
+    public IActionResult ArchivedSurveys(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null,
+        string? surveyIds = null,
+        string? year = null,
+        string? month = null,
+        string? dateFrom = null,
+        string? dateTo = null)
     {
-        return RenderAdminArchivePage();
+        return RenderAdminArchivePage(
+            page,
+            sortBy,
+            sortDirection,
+            organizationIds,
+            surveyIds,
+            year,
+            month,
+            dateFrom,
+            dateTo);
     }
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("surveys/archive/{id:int}/edit")]
-    public IActionResult ArchivedSurveyEdit(int id)
+    public IActionResult ArchivedSurveyEdit(
+        int id,
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null,
+        string? surveyIds = null,
+        string? year = null,
+        string? month = null,
+        string? dateFrom = null,
+        string? dateTo = null)
     {
         try
         {
@@ -82,8 +139,17 @@ public class SurveyArchiveController : Controller
             {
                 return NotFound("Анкета не найдена");
             }
-
-            return RenderAdminArchivePage(pageModel);
+            return RenderAdminArchivePage(
+                page,
+                sortBy,
+                sortDirection,
+                organizationIds,
+                surveyIds,
+                year,
+                month,
+                dateFrom,
+                dateTo,
+                pageModel);
         }
         catch (Exception ex)
         {

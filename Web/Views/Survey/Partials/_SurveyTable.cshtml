@@ -16,12 +16,27 @@
     }
 }
 
-<table class="surveys-table" data-role="main-table">
+<table id="@Model?.TableId"
+       class="surveys-table"
+       data-role="main-table"
+       data-disable-column-sort="true">
     <thead>
         <tr class="table_tr">
-            <th class="table-th--start">Название</th>
-            <th class="table-col--date">Дата начала</th>
-            <th class="table-col--date">Дата конца</th>
+            <th class="table-th--start table-sortable @(string.IsNullOrWhiteSpace(Model?.NameSortDirection) ? string.Empty : "is-sorted")"
+                data-sort-direction="@Model?.NameSortDirection"
+                aria-sort="@Model?.NameAriaSort">
+                <a class="logs-table__sort-link" href="@Model?.NameSortUrl">Название</a>
+            </th>
+            <th class="table-col--date table-sortable @(string.IsNullOrWhiteSpace(Model?.DateBeginSortDirection) ? string.Empty : "is-sorted")"
+                data-sort-direction="@Model?.DateBeginSortDirection"
+                aria-sort="@Model?.DateBeginAriaSort">
+                <a class="logs-table__sort-link" href="@Model?.DateBeginSortUrl">Дата начала</a>
+            </th>
+            <th class="table-col--date table-sortable @(string.IsNullOrWhiteSpace(Model?.DateEndSortDirection) ? string.Empty : "is-sorted")"
+                data-sort-direction="@Model?.DateEndSortDirection"
+                aria-sort="@Model?.DateEndAriaSort">
+                <a class="logs-table__sort-link" href="@Model?.DateEndSortUrl">Дата конца</a>
+            </th>
             <th class="table-th--end table-col--actions">Действия</th>
         </tr>
     </thead>

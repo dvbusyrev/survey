@@ -21,7 +21,17 @@ public sealed class UserSurveyPageContentViewModel
         ? "Ниже вы можете открыть ранее завершённые анкеты и посмотреть отправленные ответы."
         : "Ниже вы можете открыть доступные анкеты и сразу перейти к заполнению.";
 
-    public bool ShowPagination => !IsArchive && TotalPages > 1 && Surveys.Count > 0;
-
-    public string PageLabel => $"Страница {CurrentPage} из {TotalPages}";
+    public AppPaginationViewModel Pagination => Surveys.Count == 0
+        ? new AppPaginationViewModel
+        {
+            AriaLabel = IsArchive
+                ? "Навигация по страницам архива анкет"
+                : "Навигация по страницам доступных анкет"
+        }
+        : AppPaginationViewModel.Create(
+            CurrentPage,
+            TotalPages,
+            IsArchive
+                ? "Навигация по страницам архива анкет"
+                : "Навигация по страницам доступных анкет");
 }

@@ -5,13 +5,14 @@
     var survey = Model.Survey;
     var answers = Model.Answers;
     var idOrganization = Model.IdOrganization;
+    var isSigned = !string.IsNullOrWhiteSpace(survey?.Csp);
 }
 
 @section PageStyles {
     <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 }
 
-<div class="app-page app-page--narrow answers-page__check" id="default_content" data-page="answers-check">
+<div class="app-page app-page--narrow answers-page__check" id="default_content" data-page="answers-check" data-is-signed="@(isSigned ? "true" : "false")">
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
@@ -71,22 +72,20 @@
         <section class="app-page__section">
             <div class="answers-page__actions">
                 <button type="button" class="answers-page__action-button"
+                        data-role="sign-actions"
                         data-click-call="CSP"
                         data-click-args='[@survey.IdSurvey, @idOrganization]'>Подписать</button>
                 <button type="button" class="answers-page__action-button"
-                        data-click-call="createAnswerReport"
-                        data-click-args='[@survey.IdSurvey, @idOrganization, "file"]'>Скачать файл с анкетой</button>
-            </div>
-
-            <div class="answers-page__download-actions is-hidden" data-role="csp-download-actions">
-                <button type="button" class="answers-page__action-button"
-                        data-click-call="createAnswerReport"
-                        data-click-args='[@survey.IdSurvey, @idOrganization, "archive"]'>Скачать файл с анкетой и подписью</button>
+                        data-role="download-btn"
+                        data-click-call="downloadAnswerDocument"
+                        data-click-args='[@survey.IdSurvey, @idOrganization]'
+                        data-click-pass-element="true">Скачать файл с анкетой</button>
             </div>
         </section>
     }
 </div>
 
 @section Scripts {
+    <script src="~/js/features/survey/user-survey-flow.js" asp-append-version="true"></script>
     <script src="~/js/features/answers/check-answers-page.js" asp-append-version="true"></script>
 }

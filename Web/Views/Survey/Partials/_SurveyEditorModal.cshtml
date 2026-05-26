@@ -112,13 +112,14 @@
                              data-role="organization-dropdown-menu">
                             @if (isEditMode)
                             {
-                                <div class="app-checkbox-list organization-list" id="organizationList">
+                                <div class="app-checkbox-list" id="organizationList">
                                     @foreach (var organization in editPage!.AllOrganization)
                                     {
                                         var isSelected = editPage.SelectedOrganizationIds.Contains(organization.Id);
-                                        <div class="app-checkbox-option organization-item@(isSelected ? " selected" : string.Empty)"
+                                        <div class="app-checkbox-option@(isSelected ? " selected" : string.Empty)"
                                              data-click-call="surveyEditToggleOrganizationSelection"
                                              data-click-pass-element="true"
+                                             data-role="organization-option"
                                              data-id="@organization.Id"
                                              data-name="@organization.Name"
                                              data-selected="@(isSelected ? "true" : "false")">
@@ -137,7 +138,7 @@
                                     <div class="spinner"></div>
                                     <p class="survey-loading-label">Загрузка организаций...</p>
                                 </div>
-                                <div id="organizationList" class="app-checkbox-list organization-list u-hidden"></div>
+                                <div id="organizationList" class="app-checkbox-list u-hidden"></div>
                             }
                         </div>
                     </div>

@@ -2,8 +2,10 @@ using System.Globalization;
 using System.Text;
 using Dapper;
 using MainProject.Application.Contracts;
+using MainProject.Application.Support;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Persistence;
+using MainProject.Web.ViewModels;
 using Newtonsoft.Json.Linq;
 
 namespace MainProject.Application.UseCases.Admin;
@@ -11,6 +13,7 @@ namespace MainProject.Application.UseCases.Admin;
 public sealed class AuditLogService : IAuditLogService
 {
     private const string RedactedValue = "[REDACTED]";
+    private static readonly StringComparer AuditLogStringComparer = StringComparer.Create(new CultureInfo("ru-RU"), true);
     private static readonly AuditSourceDefinition[] AuditSources =
     [
         new("app_user", "app_user_l"),
@@ -67,6 +70,38 @@ public sealed class AuditLogService : IAuditLogService
     public AuditLogService(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
+    }
+
+    public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
+    {
+        var normalizedPageSize = pageSize > 0 ? pageSize : 25;
+        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
+        var normalizedSortBy = NormalizeSortField(hasExplicitSort ? sortBy : null);
+        var normalizedSortDirection = hasExplicitSort
+            ? AppSortState.NormalizeExplicitDirection(sortDirection)
+            : NormalizeSortDirection(null, normalizedSortBy);
+        var allLogs = SortLogsForPage(GetLogs(), normalizedSortBy, normalizedSortDirection);
+        var totalCount = allLogs.Count;
+        var totalPages = totalCount == 0
+            ? 1
+            : (int)Math.Ceiling((double)totalCount / normalizedPageSize);
+        var normalizedPage = Math.Clamp(currentPage, 1, totalPages);
+        var pageLogs = allLogs
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToList();
+
+        return new AuditLogPageViewModel
+        {
+            Logs = pageLogs,
+            CurrentPage = normalizedPage,
+            TotalPages = totalPages,
+            TotalCount = totalCount,
+            PageSize = normalizedPageSize,
+            HasExplicitSort = hasExplicitSort,
+            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
+            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty
+        };
     }
 
     public IReadOnlyList<Log> GetLogs()
@@ -148,50 +183,250 @@ public sealed class AuditLogService : IAuditLogService
 
     public string GenerateLogText(IEnumerable<Log> logs)
     {
+        var orderedLogs = logs
+            .OrderByDescending(item => item.Date)
+            .ThenByDescending(item => item.IdLog)
+            .ToList();
         var sb = new StringBuilder();
 
-        foreach (var log in logs.OrderByDescending(item => item.Date).ThenByDescending(item => item.IdLog))
+        sb.AppendLine("АИС Анкетирование. Журнал событий");
+        sb.AppendLine($"Количество событий: {orderedLogs.Count}");
+        sb.AppendLine();
+
+        for (var index = 0; index < orderedLogs.Count; index++)
         {
-            sb.AppendLine(BuildExportLine(log));
-            sb.AppendLine();
+            if (index > 0)
+            {
+                sb.AppendLine();
+            }
+
+            AppendExportBlock(sb, orderedLogs[index], index + 1);
         }
 
         return sb.ToString();
     }
 
-    private static string BuildExportLine(Log log)
+    private static List<Log> SortLogsForPage(IReadOnlyList<Log> logs, string sortBy, string sortDirection)
+    {
+        var descending = string.Equals(sortDirection, "desc", StringComparison.Ordinal);
+        IOrderedEnumerable<Log> orderedLogs = sortBy switch
+        {
+            AuditLogSortFields.User => descending
+                ? logs.OrderByDescending(log => GetUserValue(log), AuditLogStringComparer)
+                : logs.OrderBy(log => GetUserValue(log), AuditLogStringComparer),
+            AuditLogSortFields.Event => descending
+                ? logs.OrderByDescending(log => GetEventValue(log), AuditLogStringComparer)
+                : logs.OrderBy(log => GetEventValue(log), AuditLogStringComparer),
+            AuditLogSortFields.Description => descending
+                ? logs.OrderByDescending(log => GetDescriptionValue(log), AuditLogStringComparer)
+                : logs.OrderBy(log => GetDescriptionValue(log), AuditLogStringComparer),
+            _ => descending
+                ? logs.OrderByDescending(log => log.Date)
+                : logs.OrderBy(log => log.Date)
+        };
+
+        orderedLogs = descending
+            ? orderedLogs.ThenByDescending(log => log.IdLog)
+            : orderedLogs.ThenBy(log => log.IdLog);
+
+        if (!string.Equals(sortBy, AuditLogSortFields.Date, StringComparison.Ordinal))
+        {
+            orderedLogs = orderedLogs.ThenByDescending(log => log.Date).ThenByDescending(log => log.IdLog);
+        }
+
+        return orderedLogs.ToList();
+    }
+
+    private static string NormalizeSortField(string? sortBy)
+    {
+        return sortBy?.Trim().ToLowerInvariant() switch
+        {
+            AuditLogSortFields.User => AuditLogSortFields.User,
+            AuditLogSortFields.Event => AuditLogSortFields.Event,
+            AuditLogSortFields.Description => AuditLogSortFields.Description,
+            _ => AuditLogSortFields.Date
+        };
+    }
+
+    private static string NormalizeSortDirection(string? sortDirection, string sortBy)
+    {
+        if (string.Equals(sortDirection?.Trim(), "asc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "asc";
+        }
+
+        if (string.Equals(sortDirection?.Trim(), "desc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "desc";
+        }
+
+        return string.Equals(sortBy, AuditLogSortFields.Date, StringComparison.Ordinal)
+            ? "desc"
+            : "asc";
+    }
+
+    private static string GetUserValue(Log log) => string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser!;
+
+    private static string GetEventValue(Log log) => string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType!;
+
+    private static string GetDescriptionValue(Log log) => string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description!;
+
+    private static void AppendExportBlock(StringBuilder sb, Log log, int ordinal)
     {
         if (log.ExtraData is not JObject details)
         {
-            return $"{log.Date:dd.MM.yyyy HH:mm:ss} {log.Description ?? "Событие без описания."}";
+            sb.AppendLine($"Событие {ordinal}");
+            sb.AppendLine(new string('=', 72));
+            AppendExportField(sb, "Дата", log.Date.ToString("dd.MM.yyyy HH:mm:ss"));
+            AppendExportField(sb, "Пользователь", BuildActorLabel(log));
+            AppendExportField(sb, "Событие", string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType!);
+            AppendExportField(sb, "Описание", string.IsNullOrWhiteSpace(log.Description) ? "Событие без описания." : log.Description!);
+            return;
         }
 
-        var actorPrefix = log.IdUser.HasValue ? "Пользователь" : "Система";
-        var actorName = string.IsNullOrWhiteSpace(log.NameUser) ? "Неизвестно" : log.NameUser!;
-        var actorId = log.IdUser?.ToString(CultureInfo.InvariantCulture) ?? "—";
         var targetTable = ExtractValue(details, "source_table_name") ?? log.TargetType ?? "Объект";
         var sourceTable = ExtractValue(details, "source_table") ?? targetTable;
         var targetId = ExtractValue(details, "target_id") ?? "—";
         var targetName = string.IsNullOrWhiteSpace(log.TargetName) ? targetTable : log.TargetName!;
-        var operationVerb = ExtractValue(details, "operation_verb") ?? log.EventType ?? "Изменил";
+        var operationName = ExtractValue(details, "operation_name") ?? log.EventType ?? "Изменение";
+        var description = !string.IsNullOrWhiteSpace(log.Description)
+            ? log.Description!
+            : BuildDescription(ExtractValue(details, "operation") ?? operationName, sourceTable, targetName, new JArray(), null);
+
+        sb.AppendLine($"Событие {ordinal}");
+        sb.AppendLine(new string('=', 72));
+        AppendExportField(sb, "Дата", log.Date.ToString("dd.MM.yyyy HH:mm:ss"));
+        AppendExportField(sb, "Пользователь", BuildActorLabel(log));
+        AppendExportField(sb, "Событие", operationName);
+        AppendExportField(sb, "Описание", description);
 
         if (details.Value<bool?>("is_chain") == true)
         {
-            return $"{log.Date:dd.MM.yyyy HH:mm:ss} {actorPrefix} {actorName} (id = {actorId}): {log.Description ?? "Связанное событие журнала."} ID записи: {targetId}.";
+            var chainTables = ExtractChainTables(details);
+            AppendExportField(sb, chainTables.Count <= 1 ? "Таблица" : "Таблицы", string.Join(", ", chainTables));
+            AppendExportField(sb, "Запись", targetName);
+            AppendExportField(sb, "ID записи", targetId);
+            AppendChainItems(sb, details);
+            return;
         }
 
-        var line = $"{log.Date:dd.MM.yyyy HH:mm:ss} {actorPrefix} {actorName} (id = {actorId}): {BuildDescription(ExtractValue(details, "operation") ?? operationVerb, sourceTable, targetName, new JArray(), null)} ID записи: {targetId}";
+        AppendExportField(sb, "Таблица", sourceTable);
+        AppendExportField(sb, "Запись", targetName);
+        AppendExportField(sb, "ID записи", targetId);
 
         if (string.Equals(ExtractValue(details, "operation"), "UPDATE", StringComparison.OrdinalIgnoreCase))
         {
-            line += ". " + BuildUpdateDetailsText(details);
+            AppendChangedFields(sb, details);
         }
-        else
+    }
+
+    private static void AppendExportField(StringBuilder sb, string label, string value)
+    {
+        sb.Append(label);
+        sb.Append(": ");
+        sb.AppendLine(string.IsNullOrWhiteSpace(value) ? "—" : value);
+    }
+
+    private static string BuildActorLabel(Log log)
+    {
+        if (!log.IdUser.HasValue)
         {
-            line += ".";
+            return "Система";
         }
 
-        return line;
+        var actorName = string.IsNullOrWhiteSpace(log.NameUser) ? "Неизвестно" : log.NameUser!;
+        return $"{actorName} (ID = {log.IdUser.Value.ToString(CultureInfo.InvariantCulture)})";
+    }
+
+    private static List<string> ExtractChainTables(JObject details)
+    {
+        var tables = (details["items"] as JArray)?
+            .OfType<JObject>()
+            .Select(item => ExtractValue(item, "source_table"))
+            .Where(table => !string.IsNullOrWhiteSpace(table))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(table => GetAuditSourceOrder(table))
+            .ThenBy(table => table, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (tables is { Count: > 0 })
+        {
+            return tables!;
+        }
+
+        var sourceTable = ExtractValue(details, "source_table");
+        return [string.IsNullOrWhiteSpace(sourceTable) ? "неопределённая таблица" : sourceTable];
+    }
+
+    private static void AppendChainItems(StringBuilder sb, JObject details)
+    {
+        if (details["items"] is not JArray items || items.Count == 0)
+        {
+            return;
+        }
+
+        sb.AppendLine("Связанные записи:");
+
+        var relatedItems = items
+            .OfType<JObject>()
+            .Select(item => new
+            {
+                SourceTable = ExtractValue(item, "source_table") ?? "неопределённая таблица",
+                TargetName = ExtractValue(item, "target_name") ?? "Нет данных",
+                TargetId = ExtractValue(item, "target_id") ?? BuildRecordIdentifier(item["record_pk"] as JObject)
+            })
+            .GroupBy(
+                item => string.Join("\u001f", item.SourceTable, item.TargetName, item.TargetId),
+                StringComparer.Ordinal)
+            .Select(group => group.First());
+
+        foreach (var item in relatedItems)
+        {
+            sb.Append("- ");
+            sb.Append(item.SourceTable);
+            sb.Append(": ");
+            sb.Append(item.TargetName);
+
+            if (!string.IsNullOrWhiteSpace(item.TargetId) && !string.Equals(item.TargetId, "—", StringComparison.Ordinal))
+            {
+                sb.Append(" (ID: ");
+                sb.Append(item.TargetId);
+                sb.Append(')');
+            }
+
+            sb.AppendLine();
+        }
+    }
+
+    private static void AppendChangedFields(StringBuilder sb, JObject details)
+    {
+        sb.AppendLine("Изменения:");
+
+        if (details["changed_fields"] is JArray changedFields && changedFields.Count > 0)
+        {
+            foreach (var change in changedFields.OfType<JObject>())
+            {
+                var fieldName = ExtractValue(change, "field") ?? "unknown";
+                var newValue = FormatTokenValue(change["new_value"]);
+                var oldValue = FormatTokenValue(change["old_value"]);
+                sb.Append("- ");
+                sb.Append(fieldName);
+                sb.Append(": ");
+                sb.Append(oldValue);
+                sb.Append(" -> ");
+                sb.Append(newValue);
+                sb.AppendLine();
+            }
+
+            return;
+        }
+
+        var changeReason = ExtractValue(details, "change_reason");
+        sb.Append("- ");
+        sb.Append(string.IsNullOrWhiteSpace(changeReason)
+            ? "не определены."
+            : $"не определены: {changeReason}.");
+        sb.AppendLine();
     }
 
     private static string BuildUpdateDetailsText(JObject details)
@@ -407,64 +642,22 @@ public sealed class AuditLogService : IAuditLogService
 
     private static string BuildRelatedDescription(IReadOnlyList<Log> orderedLogs, string groupKind, string targetName)
     {
-        var summaries = orderedLogs
-            .GroupBy(log =>
-            {
-                var details = log.ExtraData as JObject;
-                return new AuditLogSourceSummaryKey(
-                    ExtractValue(details, "source_table") ?? "unknown",
-                    ExtractValue(details, "operation")?.ToUpperInvariant() ?? "UPDATE");
-            })
-            .OrderBy(group => GetAuditSourceOrder(group.First()))
-            .ThenBy(group => GetAuditId(group.First()))
-            .Select(group => BuildSourceSummary(group.Key.SourceTable, group.Key.Operation, group.ToList()))
-            .Where(summary => !string.IsNullOrWhiteSpace(summary));
+        var tables = orderedLogs
+            .Select(log => ExtractValue(log.ExtraData as JObject, "source_table"))
+            .Where(table => !string.IsNullOrWhiteSpace(table))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(table => GetAuditSourceOrder(table))
+            .ThenBy(table => table, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        return $"{BuildRelatedDescriptionPrefix(groupKind, targetName)}: {string.Join("; ", summaries)}.";
-    }
-
-    private static string BuildSourceSummary(string sourceTable, string operation, IReadOnlyList<Log> sourceLogs)
-    {
-        var count = sourceLogs.Count;
-        var recordText = count == 1
-            ? $"запись {sourceLogs[0].TargetName ?? "Нет данных"}"
-            : $"{count} {GetRecordWord(count)}";
-
-        return operation switch
+        if (tables.Count == 0)
         {
-            "INSERT" => $"в таблицу {sourceTable} добавили {recordText}",
-            "UPDATE" => $"в таблице {sourceTable} изменили {recordText}",
-            "DELETE" => $"из таблицы {sourceTable} удалили {recordText}",
-            _ => $"в таблице {sourceTable} изменили {recordText}"
-        };
-    }
-
-    private static string BuildRelatedDescriptionPrefix(string groupKind, string targetName)
-    {
-        return groupKind switch
-        {
-            "survey" => $"Для анкеты {targetName}",
-            "answer" => $"Для ответа {targetName}",
-            "auto_creation_config" => $"Для настройки автосоздания {targetName}",
-            "email_config" => $"Для почтовой настройки {targetName}",
-            _ => $"Для записи {targetName}"
-        };
-    }
-
-    private static string GetRecordWord(int count)
-    {
-        var lastTwoDigits = count % 100;
-        if (lastTwoDigits is >= 11 and <= 14)
-        {
-            return "записей";
+            return "записей из неопределённых таблиц";
         }
 
-        return (count % 10) switch
-        {
-            1 => "запись",
-            >= 2 and <= 4 => "записи",
-            _ => "записей"
-        };
+        return tables.Count == 1
+            ? $"записей из таблицы {tables[0]}"
+            : $"записей из таблиц {string.Join(", ", tables)}";
     }
 
     private static AuditLogGroupKey? BuildRelatedGroupKey(Log log)
@@ -629,6 +822,14 @@ public sealed class AuditLogService : IAuditLogService
             : int.MaxValue;
     }
 
+    private static int GetAuditSourceOrder(string? sourceTable)
+    {
+        return !string.IsNullOrWhiteSpace(sourceTable)
+               && AuditSourceOrder.TryGetValue(sourceTable, out var tableOrder)
+            ? tableOrder
+            : int.MaxValue;
+    }
+
     private static long GetAuditId(Log log)
     {
         if (log.ExtraData is not JObject details)
@@ -658,32 +859,9 @@ public sealed class AuditLogService : IAuditLogService
         JArray changedFields,
         string? changeReason)
     {
-        var baseDescription = operation switch
-        {
-            "INSERT" => $"В таблицу {sourceTable} добавили запись {targetName}.",
-            "UPDATE" => $"В таблице {sourceTable} изменили запись {targetName}.",
-            "DELETE" => $"Из таблицы {sourceTable} удалили запись {targetName}.",
-            _ => $"В таблице {sourceTable} изменили запись {targetName}."
-        };
-
-        if (changedFields.Count > 0)
-        {
-            var changedFieldList = string.Join(
-                ", ",
-                changedFields
-                    .OfType<JObject>()
-                    .Select(change => ExtractValue(change, "field"))
-                    .Where(value => !string.IsNullOrWhiteSpace(value)));
-
-            return $"{baseDescription} Изменены поля: {changedFieldList}.";
-        }
-
-        if (!string.IsNullOrWhiteSpace(changeReason))
-        {
-            return $"{baseDescription} {changeReason}.";
-        }
-
-        return baseDescription;
+        return string.IsNullOrWhiteSpace(sourceTable)
+            ? "записи из неопределённой таблицы"
+            : $"записи из таблицы {sourceTable}";
     }
 
     private static JObject BuildDetails(
@@ -896,7 +1074,7 @@ public sealed class AuditLogService : IAuditLogService
 
         return string.Join(
             ", ",
-            properties.Select(property => $"{property.Name}={FormatTokenValue(property.Value)}"));
+            properties.Select(property => $"{NormalizeAuditPropertyName(property.Name)}={FormatTokenValue(property.Value)}"));
     }
 
     private static string FormatTokenValue(JToken? token)
@@ -1035,7 +1213,7 @@ public sealed class AuditLogService : IAuditLogService
     {
         var answerId = ExtractValue(recordPk, "id_answer");
         var assignmentId = ExtractValue(rowData, "id_organization_survey") ?? ExtractValue(recordPk, "id_organization_survey");
-        var organizationId = ExtractValue(rowData, "id_organization") ?? ExtractValue(recordPk, "id_organization");
+        var organizationId = ExtractOrganizationId(rowData, recordPk);
         var surveyId = ExtractValue(rowData, "id_survey") ?? ExtractValue(recordPk, "id_survey");
 
         var parts = new List<string>();
@@ -1079,7 +1257,7 @@ public sealed class AuditLogService : IAuditLogService
     private static string BuildAssignmentTarget(JObject? recordPk, JObject? rowData)
     {
         var assignmentId = ExtractValue(recordPk, "id_organization_survey") ?? ExtractValue(rowData, "id_organization_survey");
-        var organizationId = ExtractValue(recordPk, "id_organization") ?? ExtractValue(rowData, "id_organization");
+        var organizationId = ExtractOrganizationId(recordPk, rowData);
         var surveyId = ExtractValue(recordPk, "id_survey") ?? ExtractValue(rowData, "id_survey");
 
         if (!string.IsNullOrWhiteSpace(organizationId) && !string.IsNullOrWhiteSpace(surveyId))
@@ -1115,7 +1293,17 @@ public sealed class AuditLogService : IAuditLogService
             return "Нет данных";
         }
 
-        return string.Join(", ", recordPk.Properties().Select(property => $"{property.Name}={property.Value}"));
+        return string.Join(
+            ", ",
+            recordPk.Properties().Select(property => $"{NormalizeAuditPropertyName(property.Name)}={FormatTokenValue(property.Value)}"));
+    }
+
+    private static string? ExtractOrganizationId(JObject? primarySource, JObject? secondarySource)
+    {
+        return ExtractValue(primarySource, "id_organization")
+            ?? ExtractValue(primarySource, "id_omsu")
+            ?? ExtractValue(secondarySource, "id_organization")
+            ?? ExtractValue(secondarySource, "id_omsu");
     }
 
     private static string GetEntityName(string sourceTable)
@@ -1198,6 +1386,15 @@ public sealed class AuditLogService : IAuditLogService
         return obj.TryGetValue(propertyName, StringComparison.OrdinalIgnoreCase, out var token)
             ? token?.ToString()
             : null;
+    }
+
+    private static string NormalizeAuditPropertyName(string propertyName)
+    {
+        return propertyName switch
+        {
+            "id_omsu" => "id_organization",
+            _ => propertyName
+        };
     }
 
     private static string? BuildAuditSql(IReadOnlyCollection<string> availableAuditTables)

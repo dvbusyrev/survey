@@ -7,6 +7,11 @@ namespace MainProject.Application.Contracts;
 public interface ISurveyAdminService
 {
     List<Survey> GetSurveys();
+    SurveyListPageViewModel GetSurveysPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds);
     Task<SurveyCommandResult> CreateSurveyAsync(SurveyAddRequest? request);
     SurveyEditPageViewModel? GetSurveyEditPage(int id);
     SurveyCommandResult UpdateSurvey(int id, SurveyUpdateRequest? model);

@@ -4,21 +4,10 @@
 @{
     ViewData["Title"] = "Анкеты";
     ViewData["SurveySection"] = "list";
-    var surveys = Model?.Surveys ?? Array.Empty<MainProject.Domain.Entities.Survey>();
+    var pageModel = Model ?? new MainProject.Web.ViewModels.SurveyListPageViewModel();
     var openAddSurveyModal = Model?.OpenAddSurveyModal ?? false;
     var editSurveyPage = Model?.EditSurveyPage;
-    var surveyRows = surveys
-        .Select(survey => new MainProject.Web.ViewModels.SurveyTableRowViewModel
-        {
-            IdSurvey = survey.IdSurvey,
-            NameSurvey = survey.NameSurvey,
-            DateBegin = survey.DateBegin,
-            DateEnd = survey.DateEnd,
-            OrganizationNames = (survey.OrganizationName ?? string.Empty)
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .ToArray()
-        })
-        .ToList();
+    var surveyRows = pageModel.SurveyRows;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
@@ -49,6 +38,9 @@
         <div class="app-page"
              id="default_content"
              data-page="surveys-list"
+             data-total-count="@pageModel.TotalCount"
+             data-visible-count="@surveyRows.Count"
+             data-table-scroll-target="#surveys-table-top"
              data-filter-hide-count-summary="true">
             @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveySubnav.cshtml")
             @await Html.PartialAsync(
@@ -75,8 +67,24 @@
                 new MainProject.Web.ViewModels.SurveyTableViewModel
                 {
                     Surveys = surveyRows,
-                    IsArchive = false
+                    IsArchive = false,
+                    TableId = "surveys-table-top",
+                    NameSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyListSortFields.Name),
+                    NameSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyListSortFields.Name),
+                    NameAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.SurveyListSortFields.Name),
+                    DateBeginSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyListSortFields.DateBegin),
+                    DateBeginSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyListSortFields.DateBegin),
+                    DateBeginAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.SurveyListSortFields.DateBegin),
+                    DateEndSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyListSortFields.DateEnd),
+                    DateEndSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyListSortFields.DateEnd),
+                    DateEndAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.SurveyListSortFields.DateEnd)
                 })
+
+            @await Html.PartialAsync("~/Web/Views/Shared/_AppPagination.cshtml", pageModel.Pagination)
+
+            <script type="application/json" data-role="server-filter-bootstrap">
+                @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pageModel.FilterState))
+            </script>
         </div>
     </div>
 </div>

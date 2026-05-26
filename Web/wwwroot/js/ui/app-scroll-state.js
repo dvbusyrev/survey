@@ -121,6 +121,11 @@
         const preferCarry = options.preferCarry === true;
         const normalizedPath = normalizePath(path);
 
+        if (window.location.hash) {
+            takeCarryPosition();
+            return null;
+        }
+
         let targetScrollTop = null;
         if (preferCarry) {
             targetScrollTop = takeCarryPosition();
@@ -187,6 +192,11 @@
 
         const targetPath = normalizePath(`${targetUrl.pathname}${targetUrl.search}`);
         if (targetPath === getCurrentPath() && !targetUrl.hash) {
+            return;
+        }
+
+        if (link.dataset.scrollAnchor === 'true') {
+            saveCurrentPosition();
             return;
         }
 

@@ -97,7 +97,7 @@
         (state.availableSurveys || []).forEach((survey) => {
             const item = document.createElement('label');
             const isSelected = selectedIds.has(survey.id);
-            item.className = 'app-checkbox-option survey-auto-creation-modal__item';
+            item.className = 'app-checkbox-option';
             item.classList.toggle('is-selected', isSelected);
 
             const checkbox = document.createElement('input');

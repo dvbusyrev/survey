@@ -14,6 +14,16 @@ public interface ISurveyArchiveService
         string? dateFrom,
         string? dateTo,
         bool signedOnly);
+    SurveyArchivePageViewModel GetAdminArchivedSurveysPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds,
+        string? surveyIds,
+        string? year,
+        string? month,
+        string? dateFrom,
+        string? dateTo);
     IReadOnlyList<ArchivedSurvey> GetAdminArchivedSurveys();
     Task<int> CopyArchiveSurveyAsync(ArchiveSurveyCopyRequest request);
 }

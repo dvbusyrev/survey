@@ -444,16 +444,11 @@ a.btn:focus,
   font-weight: 500;
 }
 
-.app-checkbox-dropdown,
-.admin-extension-dropdown {
+.app-checkbox-dropdown {
   position: relative;
   display: inline-block;
   width: min(18rem, 100%);
   max-width: 100%;
-}
-
-.admin-extension-dropdown {
-  width: 100%;
 }
 
 .app-checkbox-dropdown--inline {
@@ -462,7 +457,20 @@ a.btn:focus,
 }
 
 .app-checkbox-dropdown__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  text-align: left;
+  cursor: pointer;
   max-width: 100%;
+}
+
+.app-checkbox-dropdown__trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-checkbox-dropdown__menu {

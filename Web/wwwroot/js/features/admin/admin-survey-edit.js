@@ -1,6 +1,6 @@
 function surveyEditGetOrganizationItems() {
     const organizationList = document.getElementById('organizationList');
-    return organizationList ? organizationList.querySelectorAll('.organization-item') : [];
+    return organizationList ? organizationList.querySelectorAll('[data-role="organization-option"]') : [];
 }
 
 function surveyEditNotify(message, type = 'error', options = {}) {

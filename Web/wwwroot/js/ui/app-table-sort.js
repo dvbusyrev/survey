@@ -173,13 +173,53 @@ function compareValues(leftValue, rightValue, type) {
 
 function updateHeaderStates(table, activeHeader, direction) {
     table.querySelectorAll('thead th.table-sortable').forEach((header) => {
-        const isActive = header === activeHeader;
+        const isActive = header === activeHeader && Boolean(direction);
         header.dataset.sortDirection = isActive ? direction : '';
         header.setAttribute('aria-sort', isActive
             ? (direction === 'asc' ? 'ascending' : 'descending')
             : 'none');
         header.classList.toggle('is-sorted', isActive);
     });
+}
+
+function ensureOriginalRowOrder(table, rows) {
+    if (!table || !Array.isArray(rows)) {
+        return;
+    }
+
+    let nextIndex = Number.parseInt(table.dataset.originalSortOrderSize || '0', 10);
+    if (!Number.isFinite(nextIndex) || nextIndex < 0) {
+        nextIndex = 0;
+    }
+
+    rows.forEach((row) => {
+        if (!row.dataset.originalSortIndex) {
+            row.dataset.originalSortIndex = String(nextIndex);
+            nextIndex += 1;
+        }
+    });
+
+    table.dataset.originalSortOrderSize = String(nextIndex);
+}
+
+function restoreOriginalOrder(table) {
+    const tbody = table.tBodies[0];
+    if (!tbody) {
+        return;
+    }
+
+    const rows = Array.from(tbody.rows);
+    ensureOriginalRowOrder(table, rows);
+
+    rows.sort((left, right) => {
+        const leftIndex = Number.parseInt(left.dataset.originalSortIndex || '0', 10);
+        const rightIndex = Number.parseInt(right.dataset.originalSortIndex || '0', 10);
+        return leftIndex - rightIndex;
+    });
+
+    const fragment = document.createDocumentFragment();
+    rows.forEach((row) => fragment.appendChild(row));
+    tbody.appendChild(fragment);
 }
 
 function sortTable(table, header) {
@@ -190,6 +230,7 @@ function sortTable(table, header) {
     }
 
     const rows = Array.from(tbody.rows);
+    ensureOriginalRowOrder(table, rows);
     const stickyRows = [];
     const sortableRows = [];
 
@@ -210,7 +251,17 @@ function sortTable(table, header) {
         return;
     }
 
-    const direction = header.dataset.sortDirection === 'asc' ? 'desc' : 'asc';
+    const currentDirection = header.dataset.sortDirection || '';
+    const direction = currentDirection === ''
+        ? 'asc'
+        : (currentDirection === 'asc' ? 'desc' : '');
+
+    if (!direction) {
+        restoreOriginalOrder(table);
+        updateHeaderStates(table, null, '');
+        return;
+    }
+
     const multiplier = direction === 'asc' ? 1 : -1;
     const sortType = resolveColumnSortType(sortableRows.map((item) => item.row), columnIndex);
 
@@ -239,8 +290,46 @@ function bindHeader(table, header) {
     header.dataset.sortReady = 'true';
     header.classList.add('table-sortable');
     header.tabIndex = 0;
-    header.setAttribute('role', 'button');
     header.setAttribute('aria-sort', 'none');
+
+    const serverSortLink = header.querySelector('a[href]');
+    if (serverSortLink) {
+        header.setAttribute('role', 'link');
+
+        const activateLink = () => {
+            const handledByPage = !serverSortLink.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                button: 0
+            }));
+
+            if (!handledByPage) {
+                window.location.assign(serverSortLink.href);
+            }
+        };
+
+        header.addEventListener('click', (event) => {
+            if (event.target.closest('a[href], button, input, select, textarea, label')) {
+                return;
+            }
+
+            event.preventDefault();
+            activateLink();
+        });
+
+        header.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+
+            event.preventDefault();
+            activateLink();
+        });
+        return;
+    }
+
+    header.setAttribute('role', 'button');
 
     const activateSort = () => sortTable(table, header);
 

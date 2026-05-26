@@ -1,0 +1,97 @@
+@model MainProject.Web.ViewModels.AppPaginationViewModel
+
+@{
+    var paginationModel = Model ?? new MainProject.Web.ViewModels.AppPaginationViewModel();
+    var scrollAnchorSuffix = string.IsNullOrWhiteSpace(paginationModel.ScrollAnchorId)
+        ? string.Empty
+        : $"#{paginationModel.ScrollAnchorId}";
+    var scrollTargetSelector = string.IsNullOrWhiteSpace(paginationModel.ScrollAnchorId)
+        ? string.Empty
+        : $"#{paginationModel.ScrollAnchorId}";
+}
+
+@if (paginationModel.ShowPagination)
+{
+    <div class="app-pagination" data-role="pagination">
+        <nav class="app-pagination__nav" aria-label="@paginationModel.AriaLabel">
+            @if (paginationModel.FirstShortcut is not null)
+            {
+                if (string.IsNullOrWhiteSpace(paginationModel.FirstShortcut.Url))
+                {
+                    <button type="button"
+                            class="app-pagination__action"
+                            data-role="pagination-page"
+                            data-page="@paginationModel.FirstShortcut.Page">
+                        @paginationModel.FirstShortcut.Label
+                    </button>
+                }
+                else
+                {
+                    <a class="app-pagination__action"
+                       href="@($"{paginationModel.FirstShortcut.Url}{scrollAnchorSuffix}")"
+                       data-scroll-anchor="@(string.IsNullOrWhiteSpace(scrollTargetSelector) ? null : "true")"
+                       data-scroll-target-selector="@scrollTargetSelector"
+                       data-role="pagination-page"
+                       data-page="@paginationModel.FirstShortcut.Page">
+                        @paginationModel.FirstShortcut.Label
+                    </a>
+                }
+            }
+
+            @foreach (var item in paginationModel.VisiblePages)
+            {
+                if (item.IsCurrent)
+                {
+                    <span class="app-pagination__page-link app-pagination__page-link--current"
+                          aria-current="page">
+                        @item.Label
+                    </span>
+                }
+                else if (string.IsNullOrWhiteSpace(item.Url))
+                {
+                    <button type="button"
+                            class="app-pagination__page-link"
+                            data-role="pagination-page"
+                            data-page="@item.Page">
+                        @item.Label
+                    </button>
+                }
+                else
+                {
+                    <a class="app-pagination__page-link"
+                       href="@($"{item.Url}{scrollAnchorSuffix}")"
+                       data-scroll-anchor="@(string.IsNullOrWhiteSpace(scrollTargetSelector) ? null : "true")"
+                       data-scroll-target-selector="@scrollTargetSelector"
+                       data-role="pagination-page"
+                       data-page="@item.Page">
+                        @item.Label
+                    </a>
+                }
+            }
+
+            @if (paginationModel.NextShortcut is not null)
+            {
+                if (string.IsNullOrWhiteSpace(paginationModel.NextShortcut.Url))
+                {
+                    <button type="button"
+                            class="app-pagination__action"
+                            data-role="pagination-page"
+                            data-page="@paginationModel.NextShortcut.Page">
+                        @paginationModel.NextShortcut.Label
+                    </button>
+                }
+                else
+                {
+                    <a class="app-pagination__action"
+                       href="@($"{paginationModel.NextShortcut.Url}{scrollAnchorSuffix}")"
+                       data-scroll-anchor="@(string.IsNullOrWhiteSpace(scrollTargetSelector) ? null : "true")"
+                       data-scroll-target-selector="@scrollTargetSelector"
+                       data-role="pagination-page"
+                       data-page="@paginationModel.NextShortcut.Page">
+                        @paginationModel.NextShortcut.Label
+                    </a>
+                }
+            }
+        </nav>
+    </div>
+}

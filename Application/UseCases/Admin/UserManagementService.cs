@@ -3,6 +3,7 @@ using System.Text;
 using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.Support;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.Security;
 using MainProject.Domain.Entities;
@@ -21,13 +22,33 @@ public sealed class UserManagementService : IUserManagementService
         _connectionFactory = connectionFactory;
     }
 
-    public UserListPageViewModel GetActiveUsersPage(bool openAddUserModal = false)
+    public UserListPageViewModel GetActiveUsersPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        bool openAddUserModal = false)
     {
+        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
+        var normalizedSortBy = NormalizeUserSortField(hasExplicitSort ? sortBy : null);
+        var normalizedSortDirection = hasExplicitSort
+            ? AppSortState.NormalizeExplicitDirection(sortDirection)
+            : NormalizeUserSortDirection(null, normalizedSortBy);
+        var users = SortUsers(GetUsers(includeArchived: false), sortBy, sortDirection);
+        var pageSlice = AppListPaging.Slice(users, currentPage);
+
         return new UserListPageViewModel
         {
-            Users = GetUsers(includeArchived: false),
+            Users = pageSlice.Items,
             Organizations = GetOrganizationOptions(),
-            OpenAddUserModal = openAddUserModal
+            OpenAddUserModal = openAddUserModal,
+            CurrentPage = pageSlice.CurrentPage,
+            TotalPages = pageSlice.TotalPages,
+            TotalCount = pageSlice.TotalCount,
+            PageSize = pageSlice.PageSize,
+            HasExplicitSort = hasExplicitSort,
+            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
+            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
+            ViewModeIsArchive = false
         };
     }
 
@@ -36,12 +57,31 @@ public sealed class UserManagementService : IUserManagementService
         return GetUsers(includeArchived: true);
     }
 
-    public UserListPageViewModel GetArchivedUsersPage()
+    public UserListPageViewModel GetArchivedUsersPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection)
     {
+        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
+        var normalizedSortBy = NormalizeUserSortField(hasExplicitSort ? sortBy : null);
+        var normalizedSortDirection = hasExplicitSort
+            ? AppSortState.NormalizeExplicitDirection(sortDirection)
+            : NormalizeUserSortDirection(null, normalizedSortBy);
+        var users = SortUsers(GetUsers(includeArchived: true), sortBy, sortDirection);
+        var pageSlice = AppListPaging.Slice(users, currentPage);
+
         return new UserListPageViewModel
         {
-            Users = GetUsers(includeArchived: true),
-            Organizations = GetOrganizationOptions()
+            Users = pageSlice.Items,
+            Organizations = GetOrganizationOptions(),
+            CurrentPage = pageSlice.CurrentPage,
+            TotalPages = pageSlice.TotalPages,
+            TotalCount = pageSlice.TotalCount,
+            PageSize = pageSlice.PageSize,
+            HasExplicitSort = hasExplicitSort,
+            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
+            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
+            ViewModeIsArchive = true
         };
     }
 
@@ -267,6 +307,68 @@ public sealed class UserManagementService : IUserManagementService
                OR date_end >= CURRENT_DATE
             ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name);
             """).ToList();
+    }
+
+    private static List<User> SortUsers(IEnumerable<User> users, string? sortBy, string? sortDirection)
+    {
+        var normalizedSortBy = NormalizeUserSortField(sortBy);
+        var normalizedSortDirection = NormalizeUserSortDirection(sortDirection, normalizedSortBy);
+        var descending = string.Equals(normalizedSortDirection, "desc", StringComparison.Ordinal);
+
+        IOrderedEnumerable<User> orderedUsers = normalizedSortBy switch
+        {
+            UserListSortFields.Organization => descending
+                ? users.OrderByDescending(user => user.OrganizationName ?? string.Empty, AppListPaging.RuStringComparer)
+                : users.OrderBy(user => user.OrganizationName ?? string.Empty, AppListPaging.RuStringComparer),
+            UserListSortFields.Role => descending
+                ? users.OrderByDescending(user => AppRoles.GetDisplayName(user.NameRole), AppListPaging.RuStringComparer)
+                : users.OrderBy(user => AppRoles.GetDisplayName(user.NameRole), AppListPaging.RuStringComparer),
+            UserListSortFields.DateBegin => descending
+                ? users.OrderByDescending(user => user.DateBegin ?? DateTime.MinValue)
+                : users.OrderBy(user => user.DateBegin ?? DateTime.MaxValue),
+            UserListSortFields.DateEnd => descending
+                ? users.OrderByDescending(user => user.DateEnd ?? DateTime.MinValue)
+                : users.OrderBy(user => user.DateEnd ?? DateTime.MaxValue),
+            _ => descending
+                ? users.OrderByDescending(user => user.FullName ?? user.NameUser ?? string.Empty, AppListPaging.RuStringComparer)
+                : users.OrderBy(user => user.FullName ?? user.NameUser ?? string.Empty, AppListPaging.RuStringComparer)
+        };
+
+        return orderedUsers
+            .ThenBy(user => user.IdUser)
+            .ToList();
+    }
+
+    private static string NormalizeUserSortField(string? sortBy)
+    {
+        return sortBy?.Trim() switch
+        {
+            UserListSortFields.Organization => UserListSortFields.Organization,
+            UserListSortFields.Role => UserListSortFields.Role,
+            UserListSortFields.DateBegin => UserListSortFields.DateBegin,
+            UserListSortFields.DateEnd => UserListSortFields.DateEnd,
+            _ => UserListSortFields.Name
+        };
+    }
+
+    private static string NormalizeUserSortDirection(string? sortDirection, string sortField)
+    {
+        if (string.Equals(sortDirection?.Trim(), "asc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "asc";
+        }
+
+        if (string.Equals(sortDirection?.Trim(), "desc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "desc";
+        }
+
+        return sortField switch
+        {
+            UserListSortFields.DateBegin => "desc",
+            UserListSortFields.DateEnd => "desc",
+            _ => "asc"
+        };
     }
 
     private static bool TryValidateUserCreateRequest(

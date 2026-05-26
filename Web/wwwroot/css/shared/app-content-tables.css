@@ -402,6 +402,22 @@
   user-select: none;
 }
 
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable > a {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: -0.4em -2.2rem -0.4em -0.4em;
+  padding: 0.4em 2.2rem 0.4em 0.4em;
+  color: inherit;
+  text-decoration: none;
+}
+
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable > a:hover,
+:where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable > a:focus-visible {
+  color: inherit;
+  text-decoration: none;
+}
+
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable::before,
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable::after {
   content: "";
@@ -426,12 +442,12 @@
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:hover::before,
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible::before {
-  border-bottom-color: rgba(91, 95, 199, 0.9);
+  border-bottom-color: rgba(76, 84, 104, 0.5);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:hover::after,
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible::after {
-  border-top-color: rgba(91, 95, 199, 0.9);
+  border-top-color: rgba(76, 84, 104, 0.5);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="asc"]::before {

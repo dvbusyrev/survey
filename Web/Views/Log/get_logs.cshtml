@@ -1,8 +1,10 @@
-@model IReadOnlyList<MainProject.Domain.Entities.Log>
+@model MainProject.Web.ViewModels.AuditLogPageViewModel
 
 @{
     ViewData["Title"] = "Журнал событий";
-    var logs = Model ?? Array.Empty<MainProject.Domain.Entities.Log>();
+    var pageModel = Model ?? new MainProject.Web.ViewModels.AuditLogPageViewModel();
+    var logs = pageModel.Logs ?? Array.Empty<MainProject.Domain.Entities.Log>();
+    var paginationModel = pageModel.Pagination;
     var loadErrorMessage = ViewData["LogLoadErrorMessage"] as string;
     var logBootstrapItems = logs.Select(log => new
     {
@@ -47,13 +49,29 @@
         </div>
     }
 
-    <table class="surveys-table logs-table" data-role="main-table">
+    <table id="logs-table-top" class="surveys-table logs-table" data-role="main-table" data-disable-column-sort="true" data-disable-table-pagination="true">
         <thead>
             <tr class="table_tr">
-                <th class="table-th--start table-col--date">Дата</th>
-                <th>Пользователь</th>
-                <th>Событие</th>
-                <th class="table-th--end">Описание</th>
+                <th class="table-th--start table-col--date table-sortable @(pageModel.IsSortedBy(AuditLogSortFields.Date) ? "is-sorted" : string.Empty)"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(AuditLogSortFields.Date)"
+                    aria-sort="@pageModel.GetAriaSort(AuditLogSortFields.Date)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(AuditLogSortFields.Date)">Дата</a>
+                </th>
+                <th class="table-col--user table-sortable @(pageModel.IsSortedBy(AuditLogSortFields.User) ? "is-sorted" : string.Empty)"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(AuditLogSortFields.User)"
+                    aria-sort="@pageModel.GetAriaSort(AuditLogSortFields.User)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(AuditLogSortFields.User)">Пользователь</a>
+                </th>
+                <th class="table-col--event table-sortable @(pageModel.IsSortedBy(AuditLogSortFields.Event) ? "is-sorted" : string.Empty)"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(AuditLogSortFields.Event)"
+                    aria-sort="@pageModel.GetAriaSort(AuditLogSortFields.Event)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(AuditLogSortFields.Event)">Событие</a>
+                </th>
+                <th class="table-th--end table-col--description table-sortable @(pageModel.IsSortedBy(AuditLogSortFields.Description) ? "is-sorted" : string.Empty)"
+                    data-sort-direction="@pageModel.GetHeaderSortDirection(AuditLogSortFields.Description)"
+                    aria-sort="@pageModel.GetAriaSort(AuditLogSortFields.Description)">
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(AuditLogSortFields.Description)">Описание</a>
+                </th>
             </tr>
         </thead>
         <tbody>
@@ -69,14 +87,16 @@
                 {
                     <tr data-log-id="@log.IdLog" tabindex="0" title="Двойной клик для просмотра события">
                         <td class="table-col--date">@log.Date.ToString("dd.MM.yyyy HH:mm:ss")</td>
-                        <td>@(string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser)</td>
-                        <td>@(string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType)</td>
-                        <td class="logs-table__summary">@(string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description)</td>
+                        <td class="table-col--user">@(string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser)</td>
+                        <td class="table-col--event">@(string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType)</td>
+                        <td class="table-col--description logs-table__summary">@(string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description)</td>
                     </tr>
                 }
             }
         </tbody>
     </table>
+
+    @await Html.PartialAsync("~/Web/Views/Shared/_AppPagination.cshtml", paginationModel)
 
     <script type="application/json" id="logs-page-bootstrap">
         @Html.Raw(logsBootstrapJson)

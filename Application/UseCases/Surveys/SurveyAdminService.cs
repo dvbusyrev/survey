@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.Support;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
@@ -15,6 +16,83 @@ public sealed class SurveyAdminService : ISurveyAdminService
     public SurveyAdminService(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
+    }
+
+    public SurveyListPageViewModel GetSurveysPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        const string sql = @"
+            SELECT
+                s.id_survey AS IdSurvey,
+                s.name_survey AS NameSurvey,
+                ss.date_begin AS DateBegin,
+                ss.date_end AS DateEnd,
+                o.id_organization AS OrganizationId,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName
+            FROM public.survey s
+            LEFT JOIN public.survey_schedule ss
+                ON ss.id_survey = s.id_survey
+            LEFT JOIN public.organization_survey os
+                ON os.id_survey = s.id_survey
+            LEFT JOIN public.organization o
+                ON o.id_organization = os.id_organization
+            WHERE EXISTS (
+                SELECT 1
+                FROM public.organization_survey active_os
+                WHERE active_os.id_survey = s.id_survey
+                  AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
+            )
+            ORDER BY s.id_survey DESC, COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name);";
+
+        var assignmentRows = connection.Query<SurveyAssignmentListRow>(sql).ToList();
+        var groupedRows = BuildSurveyTableRows(assignmentRows);
+        var organizationOptions = BuildSelectionOptions(
+            assignmentRows
+                .Where(row => row.OrganizationId > 0 && !string.IsNullOrWhiteSpace(row.OrganizationName))
+                .Select(row => new SelectionOption
+                {
+                    Id = row.OrganizationId,
+                    Name = row.OrganizationName!.Trim()
+                }));
+
+        var selectedOrganizationIds = ParseSelectedIds(organizationIds);
+        var filteredRows = selectedOrganizationIds.Count == 0
+            ? groupedRows
+            : groupedRows
+                .Where(row => row.OrganizationIds.Any(selectedOrganizationIds.Contains))
+                .ToList();
+
+        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
+        var normalizedSortBy = NormalizeSurveySortField(hasExplicitSort ? sortBy : null);
+        var normalizedSortDirection = hasExplicitSort
+            ? AppSortState.NormalizeExplicitDirection(sortDirection)
+            : NormalizeSurveySortDirection(null, normalizedSortBy);
+        var sortedRows = SortSurveyRows(filteredRows, normalizedSortBy, normalizedSortDirection);
+        var pageSlice = AppListPaging.Slice(sortedRows, currentPage);
+
+        return new SurveyListPageViewModel
+        {
+            SurveyRows = pageSlice.Items,
+            CurrentPage = pageSlice.CurrentPage,
+            TotalPages = pageSlice.TotalPages,
+            TotalCount = pageSlice.TotalCount,
+            PageSize = pageSlice.PageSize,
+            HasExplicitSort = hasExplicitSort,
+            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
+            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
+            FilterState = new ServerTableFilterStateViewModel
+            {
+                BasePath = "/surveys",
+                EnableOrganizationFilter = true,
+                OrganizationOptions = organizationOptions,
+                SelectedOrganizationIds = selectedOrganizationIds
+            }
+        };
     }
 
     public List<Survey> GetSurveys()
@@ -770,11 +848,132 @@ public sealed class SurveyAdminService : ISurveyAdminService
         }
     }
 
+    private static List<SurveyTableRowViewModel> BuildSurveyTableRows(IEnumerable<SurveyAssignmentListRow> rows)
+    {
+        return rows
+            .GroupBy(row => new
+            {
+                row.IdSurvey,
+                row.NameSurvey,
+                row.DateBegin,
+                row.DateEnd
+            })
+            .Select(group => new SurveyTableRowViewModel
+            {
+                IdSurvey = group.Key.IdSurvey,
+                NameSurvey = group.Key.NameSurvey ?? string.Empty,
+                DateBegin = group.Key.DateBegin,
+                DateEnd = group.Key.DateEnd,
+                OrganizationIds = group
+                    .Where(row => row.OrganizationId > 0)
+                    .Select(row => row.OrganizationId)
+                    .Distinct()
+                    .OrderBy(id => id)
+                    .ToArray(),
+                OrganizationNames = group
+                    .Where(row => !string.IsNullOrWhiteSpace(row.OrganizationName))
+                    .Select(row => row.OrganizationName!.Trim())
+                    .Distinct(AppListPaging.RuStringComparer)
+                    .OrderBy(name => name, AppListPaging.RuStringComparer)
+                    .ToArray()
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<int> ParseSelectedIds(string? rawValue)
+    {
+        return string.IsNullOrWhiteSpace(rawValue)
+            ? Array.Empty<int>()
+            : rawValue
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(value => int.TryParse(value, out var id) ? id : 0)
+                .Where(id => id > 0)
+                .Distinct()
+                .OrderBy(id => id)
+                .ToArray();
+    }
+
+    private static IReadOnlyList<SelectionOption> BuildSelectionOptions(IEnumerable<SelectionOption> options)
+    {
+        return options
+            .Where(option => option.Id > 0 && !string.IsNullOrWhiteSpace(option.Name))
+            .GroupBy(option => option.Id)
+            .Select(group => group.First())
+            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
+            .ThenBy(option => option.Id)
+            .ToList();
+    }
+
+    private static string NormalizeSurveySortField(string? sortBy)
+    {
+        return sortBy?.Trim() switch
+        {
+            SurveyListSortFields.Name => SurveyListSortFields.Name,
+            SurveyListSortFields.DateBegin => SurveyListSortFields.DateBegin,
+            SurveyListSortFields.DateEnd => SurveyListSortFields.DateEnd,
+            _ => SurveyListSortFields.Default
+        };
+    }
+
+    private static string NormalizeSurveySortDirection(string? sortDirection, string sortField)
+    {
+        if (string.Equals(sortDirection?.Trim(), "asc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "asc";
+        }
+
+        if (string.Equals(sortDirection?.Trim(), "desc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "desc";
+        }
+
+        return sortField switch
+        {
+            SurveyListSortFields.Name => "asc",
+            _ => "desc"
+        };
+    }
+
+    private static List<SurveyTableRowViewModel> SortSurveyRows(
+        IEnumerable<SurveyTableRowViewModel> rows,
+        string sortBy,
+        string sortDirection)
+    {
+        var descending = string.Equals(sortDirection, "desc", StringComparison.Ordinal);
+        IOrderedEnumerable<SurveyTableRowViewModel> orderedRows = sortBy switch
+        {
+            SurveyListSortFields.Name => descending
+                ? rows.OrderByDescending(row => row.NameSurvey, AppListPaging.RuStringComparer)
+                : rows.OrderBy(row => row.NameSurvey, AppListPaging.RuStringComparer),
+            SurveyListSortFields.DateBegin => descending
+                ? rows.OrderByDescending(row => row.DateBegin)
+                : rows.OrderBy(row => row.DateBegin),
+            SurveyListSortFields.DateEnd => descending
+                ? rows.OrderByDescending(row => row.DateEnd ?? DateTime.MinValue)
+                : rows.OrderBy(row => row.DateEnd ?? DateTime.MaxValue),
+            _ => rows.OrderByDescending(row => row.IdSurvey)
+        };
+
+        return orderedRows
+            .ThenByDescending(row => row.IdSurvey)
+            .ToList();
+    }
+
     private sealed class SurveyQuestionLookupRow
     {
         public int IdSurvey { get; init; }
         public int QuestionOrder { get; init; }
         public string QuestionText { get; init; } = string.Empty;
+    }
+
+    private sealed class SurveyAssignmentListRow
+    {
+        public int IdSurvey { get; init; }
+        public string? NameSurvey { get; init; }
+        public DateTime DateBegin { get; init; }
+        public DateTime? DateEnd { get; init; }
+        public int OrganizationId { get; init; }
+        public string? OrganizationName { get; init; }
     }
 
     private static async Task ReplaceSurveyQuestionsAsync(

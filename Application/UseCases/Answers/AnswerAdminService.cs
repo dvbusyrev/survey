@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.Support;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Web.ViewModels;
 
@@ -39,7 +40,16 @@ public sealed class AnswerAdminService : IAnswerAdminService
         _connectionFactory = connectionFactory;
     }
 
-    public AnswerListPageViewModel GetAnswersPage()
+    public AnswerListPageViewModel GetAnswersPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds,
+        string? surveyIds,
+        string? year,
+        string? month,
+        string? dateFrom,
+        string? dateTo)
     {
         using var connection = _connectionFactory.CreateConnection();
 
@@ -62,10 +72,43 @@ public sealed class AnswerAdminService : IAnswerAdminService
             ORDER BY ha.completion_date DESC NULLS LAST, ha.id_answer DESC";
 
         var rows = connection.Query<AnswerListRow>(sql).ToList();
+        var organizationOptions = rows
+            .Where(row => row.IdOrganization > 0 && !string.IsNullOrWhiteSpace(row.OrganizationName))
+            .GroupBy(row => row.IdOrganization)
+            .Select(group => new SelectionOption
+            {
+                Id = group.Key,
+                Name = group.First().OrganizationName!.Trim()
+            })
+            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
+            .ThenBy(option => option.Id)
+            .ToList();
+        var surveyOptions = rows
+            .Where(row => row.IdSurvey > 0 && !string.IsNullOrWhiteSpace(row.SurveyName))
+            .GroupBy(row => row.IdSurvey)
+            .Select(group => new SelectionOption
+            {
+                Id = group.Key,
+                Name = group.First().SurveyName!.Trim()
+            })
+            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
+            .ThenBy(option => option.Id)
+            .ToList();
 
-        return new AnswerListPageViewModel
-        {
-            Answers = rows.Select(row => new AnswerListItemViewModel
+        var selectedOrganizationIds = ParseSelectedIds(organizationIds);
+        var selectedSurveyIds = ParseSelectedIds(surveyIds);
+        var bounds = ResolveDateBounds(year, month, dateFrom, dateTo);
+        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
+        var normalizedSortBy = NormalizeAnswerSortField(hasExplicitSort ? sortBy : null);
+        var normalizedSortDirection = hasExplicitSort
+            ? AppSortState.NormalizeExplicitDirection(sortDirection)
+            : NormalizeAnswerSortDirection(null, normalizedSortBy);
+
+        var filteredRows = rows
+            .Where(row => selectedOrganizationIds.Count == 0 || selectedOrganizationIds.Contains(row.IdOrganization))
+            .Where(row => selectedSurveyIds.Count == 0 || selectedSurveyIds.Contains(row.IdSurvey))
+            .Where(row => MatchesDateBounds(row.CompletionDate, bounds.Start, bounds.End))
+            .Select(row => new AnswerListItemViewModel
             {
                 IdAnswer = row.IdAnswer,
                 IdOrganization = row.IdOrganization,
@@ -74,7 +117,37 @@ public sealed class AnswerAdminService : IAnswerAdminService
                 SurveyName = row.SurveyName ?? "Нет данных",
                 CompletionDate = row.CompletionDate,
                 IsSigned = !string.IsNullOrWhiteSpace(row.Signature)
-            }).ToList()
+            })
+            .ToList();
+
+        var sortedRows = SortAnswerRows(filteredRows, normalizedSortBy, normalizedSortDirection);
+        var pageSlice = AppListPaging.Slice(sortedRows, currentPage);
+
+        return new AnswerListPageViewModel
+        {
+            Answers = pageSlice.Items,
+            CurrentPage = pageSlice.CurrentPage,
+            TotalPages = pageSlice.TotalPages,
+            TotalCount = pageSlice.TotalCount,
+            PageSize = pageSlice.PageSize,
+            HasExplicitSort = hasExplicitSort,
+            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
+            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
+            FilterState = new ServerTableFilterStateViewModel
+            {
+                BasePath = "/surveys/answers",
+                EnableDateFilter = true,
+                EnableOrganizationFilter = true,
+                EnableSurveyFilter = true,
+                OrganizationOptions = organizationOptions,
+                SelectedOrganizationIds = selectedOrganizationIds,
+                SurveyOptions = surveyOptions,
+                SelectedSurveyIds = selectedSurveyIds,
+                Year = bounds.FilterType == AnswerDateFilterType.Year ? bounds.Year : null,
+                Month = bounds.FilterType == AnswerDateFilterType.Month ? bounds.Month : string.Empty,
+                DateFrom = bounds.FilterType == AnswerDateFilterType.Range ? bounds.Start?.ToString("yyyy-MM-dd") ?? string.Empty : string.Empty,
+                DateTo = bounds.FilterType == AnswerDateFilterType.Range ? bounds.End?.ToString("yyyy-MM-dd") ?? string.Empty : string.Empty
+            }
         };
     }
 
@@ -235,6 +308,144 @@ public sealed class AnswerAdminService : IAnswerAdminService
             Labels = labels,
             Datasets = datasets
         };
+    }
+
+    private static IReadOnlyList<int> ParseSelectedIds(string? rawValue)
+    {
+        return string.IsNullOrWhiteSpace(rawValue)
+            ? Array.Empty<int>()
+            : rawValue
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(value => int.TryParse(value, out var id) ? id : 0)
+                .Where(id => id > 0)
+                .Distinct()
+                .OrderBy(id => id)
+                .ToArray();
+    }
+
+    private static (AnswerDateFilterType FilterType, int? Year, string Month, DateTime? Start, DateTime? End) ResolveDateBounds(
+        string? year,
+        string? month,
+        string? dateFrom,
+        string? dateTo)
+    {
+        if (int.TryParse(year, out var parsedYear) && parsedYear >= 1900 && parsedYear <= 3000)
+        {
+            return (
+                AnswerDateFilterType.Year,
+                parsedYear,
+                string.Empty,
+                new DateTime(parsedYear, 1, 1),
+                new DateTime(parsedYear, 12, 31, 23, 59, 59));
+        }
+
+        if (!string.IsNullOrWhiteSpace(month)
+            && DateTime.TryParseExact(
+                $"{month}-01",
+                "yyyy-MM-dd",
+                null,
+                System.Globalization.DateTimeStyles.None,
+                out var parsedMonth))
+        {
+            var monthEndDay = DateTime.DaysInMonth(parsedMonth.Year, parsedMonth.Month);
+            return (
+                AnswerDateFilterType.Month,
+                null,
+                month.Trim(),
+                new DateTime(parsedMonth.Year, parsedMonth.Month, 1),
+                new DateTime(parsedMonth.Year, parsedMonth.Month, monthEndDay, 23, 59, 59));
+        }
+
+        if (DateTime.TryParse(dateFrom, out var parsedDateFrom)
+            && DateTime.TryParse(dateTo, out var parsedDateTo))
+        {
+            return (
+                AnswerDateFilterType.Range,
+                null,
+                string.Empty,
+                parsedDateFrom.Date,
+                parsedDateTo.Date.AddDays(1).AddTicks(-1));
+        }
+
+        return (AnswerDateFilterType.None, null, string.Empty, null, null);
+    }
+
+    private static bool MatchesDateBounds(DateTime? completionDate, DateTime? startDate, DateTime? endDate)
+    {
+        if (!startDate.HasValue || !endDate.HasValue)
+        {
+            return true;
+        }
+
+        return completionDate.HasValue
+            && completionDate.Value >= startDate.Value
+            && completionDate.Value <= endDate.Value;
+    }
+
+    private static string NormalizeAnswerSortField(string? sortBy)
+    {
+        return sortBy?.Trim() switch
+        {
+            AnswerListSortFields.Organization => AnswerListSortFields.Organization,
+            AnswerListSortFields.Survey => AnswerListSortFields.Survey,
+            AnswerListSortFields.Signed => AnswerListSortFields.Signed,
+            _ => AnswerListSortFields.Date
+        };
+    }
+
+    private static string NormalizeAnswerSortDirection(string? sortDirection, string sortField)
+    {
+        if (string.Equals(sortDirection?.Trim(), "asc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "asc";
+        }
+
+        if (string.Equals(sortDirection?.Trim(), "desc", StringComparison.OrdinalIgnoreCase))
+        {
+            return "desc";
+        }
+
+        return sortField switch
+        {
+            AnswerListSortFields.Date => "desc",
+            AnswerListSortFields.Signed => "desc",
+            _ => "asc"
+        };
+    }
+
+    private static List<AnswerListItemViewModel> SortAnswerRows(
+        IEnumerable<AnswerListItemViewModel> rows,
+        string sortBy,
+        string sortDirection)
+    {
+        var descending = string.Equals(sortDirection, "desc", StringComparison.Ordinal);
+        IOrderedEnumerable<AnswerListItemViewModel> orderedRows = sortBy switch
+        {
+            AnswerListSortFields.Organization => descending
+                ? rows.OrderByDescending(row => row.OrganizationName, AppListPaging.RuStringComparer)
+                : rows.OrderBy(row => row.OrganizationName, AppListPaging.RuStringComparer),
+            AnswerListSortFields.Survey => descending
+                ? rows.OrderByDescending(row => row.SurveyName, AppListPaging.RuStringComparer)
+                : rows.OrderBy(row => row.SurveyName, AppListPaging.RuStringComparer),
+            AnswerListSortFields.Signed => descending
+                ? rows.OrderByDescending(row => row.IsSigned)
+                : rows.OrderBy(row => row.IsSigned),
+            _ => descending
+                ? rows.OrderByDescending(row => row.CompletionDate ?? DateTime.MinValue)
+                : rows.OrderBy(row => row.CompletionDate ?? DateTime.MaxValue)
+        };
+
+        return orderedRows
+            .ThenByDescending(row => row.IdAnswer)
+            .ToList();
+    }
+
+    private enum AnswerDateFilterType
+    {
+        None,
+        Year,
+        Month,
+        Range
     }
 
     private sealed class AnswerListRow

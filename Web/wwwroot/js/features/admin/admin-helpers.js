@@ -191,7 +191,7 @@
         window.siteNotify?.(message, isSuccess ? 'success' : 'error');
     }
 
-    function refreshAdminUi({ tabName, id = null, fallbackUrl, options } = {}) {
+    function refreshAdminUi({ tabName, id = undefined, fallbackUrl, options } = {}) {
         const resolvedTabName = tabName || resolveCurrentAdminTab();
         const resolvedOptions = options && typeof options === 'object'
             ? options

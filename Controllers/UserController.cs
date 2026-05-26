@@ -13,11 +13,14 @@ public class UserController : Controller
     }
 
     [HttpGet("users")]
-    public IActionResult GetUsers()
+    public IActionResult GetUsers(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         try
         {
-            return View("get_users", _userManagementService.GetActiveUsersPage());
+            return View("get_users", _userManagementService.GetActiveUsersPage(page, sortBy, sortDirection));
         }
         catch (Exception ex)
         {
@@ -26,11 +29,16 @@ public class UserController : Controller
     }
 
     [HttpGet("users/create")]
-    public IActionResult AddUser()
+    public IActionResult AddUser(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         try
         {
-            return View("get_users", _userManagementService.GetActiveUsersPage(openAddUserModal: true));
+            return View(
+                "get_users",
+                _userManagementService.GetActiveUsersPage(page, sortBy, sortDirection, openAddUserModal: true));
         }
         catch (Exception ex)
         {
@@ -130,11 +138,14 @@ public class UserController : Controller
     }
 
     [HttpGet("users/archive")]
-    public IActionResult ArchiveListUsers()
+    public IActionResult ArchiveListUsers(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         try
         {
-            return View("archived_users", _userManagementService.GetArchivedUsersPage());
+            return View("archived_users", _userManagementService.GetArchivedUsersPage(page, sortBy, sortDirection));
         }
         catch (Exception ex)
         {

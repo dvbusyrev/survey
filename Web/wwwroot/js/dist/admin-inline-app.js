@@ -70,18 +70,26 @@
     window.__appNavigationLoaded = true;
     const NAV_SUBMENU_SUPPRESS_STORAGE_KEY = "app-nav-submenu-suppressed";
     const MOBILE_NAV_OPEN_CLASS = "mobile-nav-open";
+    const COMPACT_NAVIGATION_CLASS = "compact-nav-mode";
+    const NAVIGATION_LAYOUT_SYNC_CLASS = "nav-layout-sync";
     const MOBILE_NAV_MEDIA_QUERY = "(max-width: 900px)";
+    const COMPACT_NAVIGATION_BREAKPOINT_PX = 1220;
+    let navigationLayoutFrameId = 0;
+    let navigationLayoutSyncFrameId = 0;
+    let visualViewportResizeHandler = null;
     function isMobileNavigationViewport() {
-      return typeof window.matchMedia === "function" ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches : window.innerWidth <= 900;
+      return typeof window.matchMedia === "function" ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches || document.body.classList.contains(COMPACT_NAVIGATION_CLASS) : window.innerWidth <= 900;
     }
     function isMobileNavigationOpen() {
       return document.body.classList.contains(MOBILE_NAV_OPEN_CLASS);
     }
     function syncMobileNavigationToggleButtons() {
       const isOpen = isMobileNavigationOpen();
+      const isCompact = isMobileNavigationViewport();
       document.querySelectorAll(".header-menu-toggle").forEach((button) => {
         button.setAttribute("aria-expanded", isOpen ? "true" : "false");
         button.setAttribute("aria-label", isOpen ? "Закрыть навигацию" : "Открыть навигацию");
+        button.hidden = !isCompact;
       });
     }
     function setMobileNavigationOpen(nextOpen) {
@@ -94,6 +102,76 @@
     }
     function toggleMobileNavigation() {
       setMobileNavigationOpen(!isMobileNavigationOpen());
+    }
+    function getViewportWidth() {
+      if (window.visualViewport?.width) {
+        return window.visualViewport.width;
+      }
+      return window.innerWidth || document.documentElement.clientWidth || 0;
+    }
+    function measureCompactNavigationNeed() {
+      return getViewportWidth() <= COMPACT_NAVIGATION_BREAKPOINT_PX;
+    }
+    function syncNavigationLayoutWithoutAnimation() {
+      if (!document.body) {
+        return;
+      }
+      document.body.classList.add(NAVIGATION_LAYOUT_SYNC_CLASS);
+      if (navigationLayoutSyncFrameId) {
+        window.cancelAnimationFrame(navigationLayoutSyncFrameId);
+      }
+      navigationLayoutSyncFrameId = window.requestAnimationFrame(() => {
+        navigationLayoutSyncFrameId = window.requestAnimationFrame(() => {
+          navigationLayoutSyncFrameId = 0;
+          document.body?.classList.remove(NAVIGATION_LAYOUT_SYNC_CLASS);
+        });
+      });
+    }
+    function evaluateNavigationLayout() {
+      if (!document.body) {
+        return;
+      }
+      const wasCompact = document.body.classList.contains(COMPACT_NAVIGATION_CLASS);
+      const isNarrowViewport = typeof window.matchMedia === "function" ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches : window.innerWidth <= 900;
+      if (isNarrowViewport) {
+        if (wasCompact) {
+          syncNavigationLayoutWithoutAnimation();
+        }
+        document.body.classList.remove(COMPACT_NAVIGATION_CLASS);
+        syncMobileNavigationToggleButtons();
+        return;
+      }
+      if (wasCompact) {
+        document.body.classList.remove(COMPACT_NAVIGATION_CLASS);
+      }
+      const shouldCompact = measureCompactNavigationNeed();
+      if (shouldCompact !== wasCompact) {
+        syncNavigationLayoutWithoutAnimation();
+      }
+      document.body.classList.toggle(COMPACT_NAVIGATION_CLASS, shouldCompact);
+      if (!shouldCompact && isMobileNavigationOpen()) {
+        closeMobileNavigation();
+      }
+      syncMobileNavigationToggleButtons();
+    }
+    function queueNavigationLayoutEvaluation() {
+      if (navigationLayoutFrameId) {
+        window.cancelAnimationFrame(navigationLayoutFrameId);
+      }
+      navigationLayoutFrameId = window.requestAnimationFrame(() => {
+        navigationLayoutFrameId = 0;
+        evaluateNavigationLayout();
+      });
+    }
+    function attachViewportObservers(onResize) {
+      if (!window.visualViewport) {
+        return;
+      }
+      visualViewportResizeHandler = () => {
+        onResize();
+      };
+      window.visualViewport.addEventListener("resize", visualViewportResizeHandler);
+      window.visualViewport.addEventListener("scroll", visualViewportResizeHandler);
     }
     function getNavigationSuppressedTab() {
       try {
@@ -140,6 +218,7 @@
     window.releaseNavigationSubmenuSuppression = releaseNavigationSubmenuSuppression;
     window.closeMobileNavigation = closeMobileNavigation;
     window.toggleMobileNavigation = toggleMobileNavigation;
+    window.queueNavigationLayoutEvaluation = queueNavigationLayoutEvaluation;
     function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
       const isAdmin = userRole === "admin";
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -262,6 +341,7 @@
       if (!host || !template?.content?.firstElementChild) {
         return null;
       }
+      evaluateNavigationLayout();
       host.innerHTML = "";
       const nav = template.content.firstElementChild.cloneNode(true);
       host.appendChild(nav);
@@ -398,8 +478,10 @@
           closeSubmenus();
         }
         syncMobileNavigationToggleButtons();
+        queueNavigationLayoutEvaluation();
       };
       window.addEventListener("resize", onResize);
+      attachViewportObservers(onResize);
       return () => {
         if (menuToggleButton) {
           menuToggleButton.removeEventListener("click", menuToggleHandler);
@@ -408,6 +490,11 @@
         document.removeEventListener("keydown", onEscape);
         document.removeEventListener("pointerdown", onPointerDown);
         window.removeEventListener("resize", onResize);
+        if (visualViewportResizeHandler && window.visualViewport) {
+          window.visualViewport.removeEventListener("resize", visualViewportResizeHandler);
+          window.visualViewport.removeEventListener("scroll", visualViewportResizeHandler);
+          visualViewportResizeHandler = null;
+        }
         nav.removeEventListener("mouseleave", navLeaveHandler);
         closeMobileNavigation();
         host.innerHTML = "";
@@ -416,6 +503,9 @@
     window.mountNavigation = function mountNavigation(host, props) {
       return renderNavigation(host, props || {});
     };
+    window.addEventListener("load", () => {
+      queueNavigationLayoutEvaluation();
+    });
   })();
 
   // Web/wwwroot/js/ui/app-footer.js
@@ -638,18 +728,18 @@
               const checkbox = document.createElement("input");
               const labelText = document.createElement("span");
               const isSelected = selectedOrganizationIds.has(organization.organizationId);
-              optionLabel.className = "app-checkbox-option survey-period-filter__organization-option";
+              optionLabel.className = "app-checkbox-option";
               optionLabel.classList.toggle("is-selected", isSelected);
               optionLabel.setAttribute("role", "option");
               optionLabel.setAttribute("aria-selected", isSelected ? "true" : "false");
               checkbox.type = "checkbox";
-              checkbox.className = "app-checkbox-input survey-period-filter__organization-checkbox";
+              checkbox.className = "app-checkbox-input";
               checkbox.checked = isSelected;
               checkbox.value = organization.organizationId;
               checkbox.addEventListener("change", (event) => {
                 toggleOrganization(organization.organizationId, event.target.checked);
               });
-              labelText.className = "app-checkbox-text survey-period-filter__organization-name";
+              labelText.className = "app-checkbox-text";
               labelText.textContent = organization.organizationName;
               optionLabel.appendChild(checkbox);
               optionLabel.appendChild(labelText);
@@ -1254,17 +1344,47 @@
       }
       return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
     }
-    function buildAdminHistoryEntry(tab, id = null, modalData = null) {
+    function normalizeLocationUrl(pathname, search = "") {
+      const normalizedPath = normalizePathname(pathname);
+      return `${normalizedPath}${search || ""}`;
+    }
+    function normalizeLogsHistoryId(value) {
+      const rawValue = String(value || "").trim();
+      if (!rawValue) {
+        return null;
+      }
+      const normalizedValue = rawValue.startsWith("?") ? rawValue.slice(1) : rawValue;
+      return normalizedValue.length > 0 ? normalizedValue : null;
+    }
+    function resolveQueryHistoryId(pathname, value, preserveCurrentWhenMissing = false) {
+      if (value === void 0) {
+        return preserveCurrentWhenMissing && normalizePathname(window.location.pathname) === normalizePathname(pathname) ? normalizeLogsHistoryId(window.location.search) : null;
+      }
+      return normalizeLogsHistoryId(value);
+    }
+    function buildQueryHistoryEntry(tab, pathname, value, options = {}) {
+      const query = resolveQueryHistoryId(
+        pathname,
+        value,
+        options.preserveCurrentWhenMissing === true
+      );
+      return {
+        tab,
+        id: query,
+        url: query ? `${pathname}?${query}` : pathname
+      };
+    }
+    function buildAdminHistoryEntry(tab, id = void 0, modalData = null) {
       const surveyId = id ?? modalData?.id_survey ?? null;
       const userId = id ?? modalData?.id_user ?? null;
       const organizationId = id ?? modalData?.id_organization ?? modalData?.organizationId ?? null;
       switch (tab) {
         case "get_surveys":
-          return { tab, id: null, url: "/surveys" };
+          return buildQueryHistoryEntry(tab, "/surveys", id, { preserveCurrentWhenMissing: id === void 0 });
         case "list_answers_users":
-          return { tab, id: null, url: "/surveys/answers" };
+          return buildQueryHistoryEntry(tab, "/surveys/answers", id, { preserveCurrentWhenMissing: id === void 0 });
         case "archived_surveys":
-          return { tab, id: null, url: "/surveys/archive" };
+          return buildQueryHistoryEntry(tab, "/surveys/archive", id, { preserveCurrentWhenMissing: id === void 0 });
         case "get_survey_signatures":
           return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/signatures` } : null;
         case "add_survey":
@@ -1278,16 +1398,16 @@
         case "open_statistics":
           return { tab, id: null, url: "/statistics" };
         case "get_users":
-          return { tab, id: null, url: "/users" };
+          return buildQueryHistoryEntry(tab, "/users", id, { preserveCurrentWhenMissing: id === void 0 });
         case "add_user":
           return { tab, id: null, url: "/users/create" };
         case "update_user":
           return userId ? { tab, id: userId, url: `/users/${userId}/edit` } : null;
         case "archived_users":
         case "archive_list_users":
-          return { tab, id: null, url: "/users/archive" };
+          return buildQueryHistoryEntry("archived_users", "/users/archive", id, { preserveCurrentWhenMissing: id === void 0 });
         case "get_organization":
-          return { tab, id: null, url: "/organizations" };
+          return buildQueryHistoryEntry(tab, "/organizations", id, { preserveCurrentWhenMissing: id === void 0 });
         case "organization_surveys":
           return { tab, id: null, url: "/organizations/surveys" };
         case "add_organization":
@@ -1295,13 +1415,13 @@
         case "update_organization":
           return organizationId ? { tab, id: organizationId, url: `/organizations/${organizationId}/edit` } : null;
         case "archive_list_organizations":
-          return { tab, id: null, url: "/organizations/archive" };
+          return buildQueryHistoryEntry(tab, "/organizations/archive", id, { preserveCurrentWhenMissing: id === void 0 });
         case "reports":
           return { tab, id: null, url: "/reports" };
         case "survey_auto_creation":
           return { tab, id: null, url: "/survey-auto-creation" };
         case "get_logs":
-          return { tab, id: null, url: "/event-log" };
+          return buildQueryHistoryEntry(tab, "/event-log", id, { preserveCurrentWhenMissing: id === void 0 });
         case "email":
         case "email_new":
           return { tab: tab === "email" ? "email_new" : tab, id: null, url: "/mail" };
@@ -1313,16 +1433,16 @@
           return null;
       }
     }
-    function getAdminHistoryEntryFromLocation(pathname) {
+    function getAdminHistoryEntryFromLocation(pathname, search = "") {
       const normalizedPath = normalizePathname(pathname);
       if (normalizedPath === "/surveys") {
-        return buildAdminHistoryEntry("get_surveys");
+        return buildAdminHistoryEntry("get_surveys", search || "");
       }
       if (normalizedPath === "/surveys/answers") {
-        return buildAdminHistoryEntry("list_answers_users");
+        return buildAdminHistoryEntry("list_answers_users", search || "");
       }
       if (normalizedPath === "/surveys/archive") {
-        return buildAdminHistoryEntry("archived_surveys");
+        return buildAdminHistoryEntry("archived_surveys", search || "");
       }
       if (normalizedPath === "/surveys/create") {
         return buildAdminHistoryEntry("add_survey");
@@ -1331,16 +1451,16 @@
         return buildAdminHistoryEntry("open_statistics");
       }
       if (normalizedPath === "/users") {
-        return buildAdminHistoryEntry("get_users");
+        return buildAdminHistoryEntry("get_users", search || "");
       }
       if (normalizedPath === "/users/create") {
         return buildAdminHistoryEntry("add_user");
       }
       if (normalizedPath === "/users/archive") {
-        return buildAdminHistoryEntry("archived_users");
+        return buildAdminHistoryEntry("archived_users", search || "");
       }
       if (normalizedPath === "/organizations") {
-        return buildAdminHistoryEntry("get_organization");
+        return buildAdminHistoryEntry("get_organization", search || "");
       }
       if (normalizedPath === "/organizations/surveys") {
         return buildAdminHistoryEntry("organization_surveys");
@@ -1349,7 +1469,7 @@
         return buildAdminHistoryEntry("add_organization");
       }
       if (normalizedPath === "/organizations/archive") {
-        return buildAdminHistoryEntry("archive_list_organizations");
+        return buildAdminHistoryEntry("archive_list_organizations", search || "");
       }
       if (normalizedPath === "/reports") {
         return buildAdminHistoryEntry("reports");
@@ -1358,7 +1478,7 @@
         return buildAdminHistoryEntry("survey_auto_creation");
       }
       if (normalizedPath === "/event-log") {
-        return buildAdminHistoryEntry("get_logs");
+        return buildAdminHistoryEntry("get_logs", search || "");
       }
       if (normalizedPath === "/mail" || normalizedPath === "/mail/new") {
         return buildAdminHistoryEntry("email_new");
@@ -1573,7 +1693,7 @@
       organizationName: layoutContextNode?.dataset?.organizationName || "",
       ...window.__adminBootstrap || {}
     };
-    const initialHistoryEntry = getAdminHistoryEntryFromLocation(window.location.pathname) || buildAdminHistoryEntry("get_surveys");
+    const initialHistoryEntry = getAdminHistoryEntryFromLocation(window.location.pathname, window.location.search) || buildAdminHistoryEntry("get_surveys");
     const userRole = initialData.userRole || "";
     const hasAccess = Boolean(userRole);
     const availablePages = window.AdminInlineAppPages || {};
@@ -1664,7 +1784,7 @@
         tab: historyEntry.tab,
         id: historyEntry.id ?? null
       };
-      const currentUrl = normalizePathname(window.location.pathname);
+      const currentUrl = normalizeLocationUrl(window.location.pathname, window.location.search);
       if (mode === "replace") {
         window.history.replaceState(nextState, "", historyEntry.url);
         return;
@@ -1704,28 +1824,12 @@
         window.clearTimeout(loaderTimer);
         loaderTimer = null;
       }
-      if (isLoading) {
-        loaderTimer = window.setTimeout(() => {
-          state.showLoader = true;
-          renderLoader();
-        }, 180);
-      } else {
-        state.showLoader = false;
-        renderLoader();
-      }
+      state.showLoader = false;
+      renderLoader();
     };
     const renderLoader = () => {
       const existing = contentAdmin.querySelector(".loading-overlay");
-      if (state.showLoader) {
-        if (!existing) {
-          const overlay = document.createElement("div");
-          overlay.className = "loading-overlay";
-          const text = document.createElement("div");
-          text.textContent = "Загрузка...";
-          overlay.appendChild(text);
-          contentAdmin.appendChild(overlay);
-        }
-      } else if (existing) {
+      if (existing) {
         existing.remove();
       }
     };
@@ -2035,10 +2139,30 @@
         }
       }, 50);
     };
-    const openTab = async (tab, id = null, options = {}) => {
+    function scrollToSelector(selector) {
+      if (!selector) {
+        return false;
+      }
+      const target = document.querySelector(selector);
+      if (!target) {
+        return false;
+      }
+      target.scrollIntoView({
+        block: "start",
+        behavior: "auto"
+      });
+      return true;
+    }
+    function buildListRequestUrl(pathname, queryId = null) {
+      const normalizedPath = normalizePathname(pathname);
+      const normalizedQuery = normalizeLogsHistoryId(queryId);
+      return normalizedQuery ? `${normalizedPath}?${normalizedQuery}` : normalizedPath;
+    }
+    const openTab = async (tab, id = void 0, options = {}) => {
       const historyMode = options.historyMode ?? "push";
       const force = options.force === true;
       const scrollMode = options.scrollMode ?? "restore";
+      const scrollTargetSelector = String(options.scrollTargetSelector || "").trim();
       const historyEntry = buildAdminHistoryEntry(tab, id, state.modal.data);
       const resolvedId = historyEntry?.id ?? id ?? null;
       if (!force && state.activeTab === tab && resolvedId === (window.history.state?.id ?? null)) {
@@ -2050,12 +2174,14 @@
         window.AppScrollState?.saveCurrentPosition();
       }
       if (tab === "get_surveys") {
-        await fetchHtmlPage("/surveys");
+        await fetchHtmlPage(buildListRequestUrl("/surveys", resolvedId));
         setActiveTabAndRefreshNav(tab);
         if (historyMode !== "none") {
           syncBrowserHistory(historyEntry, historyMode);
         }
-        window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === "carry" });
+        if (!scrollToSelector(scrollTargetSelector)) {
+          window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === "carry" });
+        }
         return;
       }
       setLoading(true);
@@ -2066,11 +2192,11 @@
             setActiveTabAndRefreshNav(tab);
             break;
           case "list_answers_users":
-            await fetchHtmlPage("/surveys/answers");
+            await fetchHtmlPage(buildListRequestUrl("/surveys/answers", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "archived_surveys":
-            await fetchHtmlPage("/surveys/archive");
+            await fetchHtmlPage(buildListRequestUrl("/surveys/archive", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "get_survey_signatures":
@@ -2086,7 +2212,7 @@
             openModalWhenReady("surveyEditorModal", window.openAddSurveyModal);
             break;
           case "get_logs":
-            await fetchHtmlPage("/event-log");
+            await fetchHtmlPage(buildListRequestUrl("/event-log", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "download_logs": {
@@ -2106,11 +2232,11 @@
             break;
           }
           case "get_users":
-            await fetchHtmlPage("/users");
+            await fetchHtmlPage(buildListRequestUrl("/users", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "get_organization":
-            await fetchHtmlPage("/organizations");
+            await fetchHtmlPage(buildListRequestUrl("/organizations", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "organization_surveys":
@@ -2162,12 +2288,12 @@
             break;
           }
           case "archive_list_organizations":
-            await fetchHtmlPage("/organizations/archive");
+            await fetchHtmlPage(buildListRequestUrl("/organizations/archive", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "archived_users":
           case "archive_list_users":
-            await fetchHtmlPage("/users/archive");
+            await fetchHtmlPage(buildListRequestUrl("/users/archive", resolvedId));
             setActiveTabAndRefreshNav("archived_users");
             break;
           case "add_organization":
@@ -2243,7 +2369,9 @@
           syncBrowserHistory(nextHistory, ["delete_survey", "delete_user", "delete_organization"].includes(tab) ? "replace" : historyMode);
         }
         if (tab !== "download_logs") {
-          window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === "carry" });
+          if (!scrollToSelector(scrollTargetSelector)) {
+            window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === "carry" });
+          }
         }
       } catch (error) {
         console.error("Ошибка переключения вкладки:", error);
@@ -2282,7 +2410,7 @@
       const resolvedOptions = options && typeof options === "object" ? options : {};
       return openTab(tabName, null, { scrollMode: "carry", ...resolvedOptions });
     };
-    window.refreshAdminTab = (tabName, id = null, options = {}) => {
+    window.refreshAdminTab = (tabName, id = void 0, options = {}) => {
       const resolvedOptions = options && typeof options === "object" ? options : {};
       return openTab(tabName, id, { force: true, scrollMode: "restore", ...resolvedOptions });
     };
@@ -2357,16 +2485,20 @@
       if (targetUrl.origin !== window.location.origin) {
         return;
       }
-      const nextHistoryEntry = getAdminHistoryEntryFromLocation(targetUrl.pathname);
+      const nextHistoryEntry = getAdminHistoryEntryFromLocation(targetUrl.pathname, targetUrl.search);
       if (!nextHistoryEntry) {
         return;
       }
       event.preventDefault();
-      openTab(nextHistoryEntry.tab, nextHistoryEntry.id, { scrollMode: "carry" });
+      const scrollTargetSelector = link.dataset.scrollTargetSelector || "";
+      openTab(nextHistoryEntry.tab, nextHistoryEntry.id, {
+        scrollMode: scrollTargetSelector ? "restore" : "carry",
+        scrollTargetSelector
+      });
     });
     syncBrowserHistory(initialHistoryEntry, "replace");
     window.addEventListener("popstate", () => {
-      const nextHistoryEntry = window.history.state?.tab ? buildAdminHistoryEntry(window.history.state.tab, window.history.state.id) : getAdminHistoryEntryFromLocation(window.location.pathname);
+      const nextHistoryEntry = window.history.state?.tab ? buildAdminHistoryEntry(window.history.state.tab, window.history.state.id) : getAdminHistoryEntryFromLocation(window.location.pathname, window.location.search);
       if (nextHistoryEntry) {
         openTab(nextHistoryEntry.tab, nextHistoryEntry.id, {
           historyMode: "none",
@@ -2406,7 +2538,7 @@
       }, 0);
       return;
     }
-    openTab("get_surveys", null, { historyMode: "replace", force: true, scrollMode: "restore" });
+    openTab("get_surveys", initialHistoryEntry?.id ?? null, { historyMode: "replace", force: true, scrollMode: "restore" });
   })();
 
   // Web/wwwroot/js/features/admin/admin-survey-edit.js

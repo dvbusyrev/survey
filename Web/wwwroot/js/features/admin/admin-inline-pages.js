@@ -250,20 +250,20 @@
                         const labelText = document.createElement('span');
                         const isSelected = selectedOrganizationIds.has(organization.organizationId);
 
-                        optionLabel.className = 'app-checkbox-option survey-period-filter__organization-option';
+                        optionLabel.className = 'app-checkbox-option';
                         optionLabel.classList.toggle('is-selected', isSelected);
                         optionLabel.setAttribute('role', 'option');
                         optionLabel.setAttribute('aria-selected', isSelected ? 'true' : 'false');
 
                         checkbox.type = 'checkbox';
-                        checkbox.className = 'app-checkbox-input survey-period-filter__organization-checkbox';
+                        checkbox.className = 'app-checkbox-input';
                         checkbox.checked = isSelected;
                         checkbox.value = organization.organizationId;
                         checkbox.addEventListener('change', (event) => {
                             toggleOrganization(organization.organizationId, event.target.checked);
                         });
 
-                        labelText.className = 'app-checkbox-text survey-period-filter__organization-name';
+                        labelText.className = 'app-checkbox-text';
                         labelText.textContent = organization.organizationName;
 
                         optionLabel.appendChild(checkbox);

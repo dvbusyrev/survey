@@ -564,13 +564,12 @@ nav ul li.submenu-open > .submenu-list {
     position: static;
     width: min(320px, calc(100vw - 40px));
     max-width: 100%;
-    height: 100%;
-    max-height: none;
+    height: calc(100% - var(--header-height) - var(--page-gap));
+    max-height: calc(100% - var(--header-height) - var(--page-gap));
     overflow-y: auto;
     border-radius: 18px;
     box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
     transform: translateX(calc(-100% - 20px));
-    transition: transform 0.22s ease;
   }
 
   body.mobile-nav-open #chrome-navigation nav {
@@ -603,6 +602,88 @@ nav ul li.submenu-open > .submenu-list {
   .chart-grid {
     grid-template-columns: 1fr;
   }
+}
+
+body.compact-nav-mode .app-header {
+  --header-side-slot: auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  padding-inline: 8px;
+}
+
+body.compact-nav-mode .header-menu-toggle {
+  display: inline-flex;
+}
+
+body.compact-nav-mode .header-left img {
+  width: 44px;
+  max-height: 30px;
+}
+
+body.compact-nav-mode .app-header h1 {
+  font-size: 0.9rem;
+}
+
+body.compact-nav-mode .header-right {
+  gap: 5px;
+}
+
+body.compact-nav-mode .header-mode-label {
+  font-size: 0.45rem;
+}
+
+body.compact-nav-mode .header-user-name {
+  font-size: 0.54rem;
+}
+
+body.compact-nav-mode .logout-button {
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
+  font-size: var(--app-button-font-size);
+}
+
+body.compact-nav-mode nav {
+  position: static;
+  width: min(320px, calc(100vw - 40px));
+  max-width: 100%;
+  height: calc(100% - var(--header-height) - var(--page-gap));
+  max-height: calc(100% - var(--header-height) - var(--page-gap));
+  overflow-y: auto;
+  border-radius: 18px;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
+  transform: translateX(calc(-100% - 20px));
+}
+
+body.mobile-nav-open.compact-nav-mode #chrome-navigation nav {
+  transform: translateX(0);
+}
+
+body.compact-nav-mode .submenu-list {
+  position: static;
+  display: none;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.compact-nav-mode .submenu-list li a {
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  padding-left: 2.25rem;
+  font-size: 0.92rem;
+  white-space: normal;
+}
+
+body.compact-nav-mode .nav-item.submenu-open > .submenu-list {
+  display: block;
+}
+
+body.nav-layout-sync #chrome-navigation,
+body.nav-layout-sync #chrome-navigation nav {
+  transition: none !important;
 }
 
 @media (max-width: 640px) {

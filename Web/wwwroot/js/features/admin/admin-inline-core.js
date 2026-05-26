@@ -11,18 +11,62 @@
             : pathname;
     }
 
-    function buildAdminHistoryEntry(tab, id = null, modalData = null) {
+    function normalizeLocationUrl(pathname, search = '') {
+        const normalizedPath = normalizePathname(pathname);
+        return `${normalizedPath}${search || ''}`;
+    }
+
+    function normalizeLogsHistoryId(value) {
+        const rawValue = String(value || '').trim();
+        if (!rawValue) {
+            return null;
+        }
+
+        const normalizedValue = rawValue.startsWith('?')
+            ? rawValue.slice(1)
+            : rawValue;
+
+        return normalizedValue.length > 0
+            ? normalizedValue
+            : null;
+    }
+
+    function resolveQueryHistoryId(pathname, value, preserveCurrentWhenMissing = false) {
+        if (value === undefined) {
+            return preserveCurrentWhenMissing
+                && normalizePathname(window.location.pathname) === normalizePathname(pathname)
+                ? normalizeLogsHistoryId(window.location.search)
+                : null;
+        }
+
+        return normalizeLogsHistoryId(value);
+    }
+
+    function buildQueryHistoryEntry(tab, pathname, value, options = {}) {
+        const query = resolveQueryHistoryId(
+            pathname,
+            value,
+            options.preserveCurrentWhenMissing === true
+        );
+        return {
+            tab,
+            id: query,
+            url: query ? `${pathname}?${query}` : pathname
+        };
+    }
+
+    function buildAdminHistoryEntry(tab, id = undefined, modalData = null) {
         const surveyId = id ?? modalData?.id_survey ?? null;
         const userId = id ?? modalData?.id_user ?? null;
         const organizationId = id ?? modalData?.id_organization ?? modalData?.organizationId ?? null;
 
         switch (tab) {
             case 'get_surveys':
-                return { tab, id: null, url: '/surveys' };
+                return buildQueryHistoryEntry(tab, '/surveys', id, { preserveCurrentWhenMissing: id === undefined });
             case 'list_answers_users':
-                return { tab, id: null, url: '/surveys/answers' };
+                return buildQueryHistoryEntry(tab, '/surveys/answers', id, { preserveCurrentWhenMissing: id === undefined });
             case 'archived_surveys':
-                return { tab, id: null, url: '/surveys/archive' };
+                return buildQueryHistoryEntry(tab, '/surveys/archive', id, { preserveCurrentWhenMissing: id === undefined });
             case 'get_survey_signatures':
                 return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/signatures` } : null;
             case 'add_survey':
@@ -36,16 +80,16 @@
             case 'open_statistics':
                 return { tab, id: null, url: '/statistics' };
             case 'get_users':
-                return { tab, id: null, url: '/users' };
+                return buildQueryHistoryEntry(tab, '/users', id, { preserveCurrentWhenMissing: id === undefined });
             case 'add_user':
                 return { tab, id: null, url: '/users/create' };
             case 'update_user':
                 return userId ? { tab, id: userId, url: `/users/${userId}/edit` } : null;
             case 'archived_users':
             case 'archive_list_users':
-                return { tab, id: null, url: '/users/archive' };
+                return buildQueryHistoryEntry('archived_users', '/users/archive', id, { preserveCurrentWhenMissing: id === undefined });
             case 'get_organization':
-                return { tab, id: null, url: '/organizations' };
+                return buildQueryHistoryEntry(tab, '/organizations', id, { preserveCurrentWhenMissing: id === undefined });
             case 'organization_surveys':
                 return { tab, id: null, url: '/organizations/surveys' };
             case 'add_organization':
@@ -53,13 +97,13 @@
             case 'update_organization':
                 return organizationId ? { tab, id: organizationId, url: `/organizations/${organizationId}/edit` } : null;
             case 'archive_list_organizations':
-                return { tab, id: null, url: '/organizations/archive' };
+                return buildQueryHistoryEntry(tab, '/organizations/archive', id, { preserveCurrentWhenMissing: id === undefined });
             case 'reports':
                 return { tab, id: null, url: '/reports' };
             case 'survey_auto_creation':
                 return { tab, id: null, url: '/survey-auto-creation' };
             case 'get_logs':
-                return { tab, id: null, url: '/event-log' };
+                return buildQueryHistoryEntry(tab, '/event-log', id, { preserveCurrentWhenMissing: id === undefined });
             case 'email':
             case 'email_new':
                 return { tab: tab === 'email' ? 'email_new' : tab, id: null, url: '/mail' };
@@ -72,19 +116,19 @@
         }
     }
 
-    function getAdminHistoryEntryFromLocation(pathname) {
+    function getAdminHistoryEntryFromLocation(pathname, search = '') {
         const normalizedPath = normalizePathname(pathname);
 
         if (normalizedPath === '/surveys') {
-            return buildAdminHistoryEntry('get_surveys');
+            return buildAdminHistoryEntry('get_surveys', search || '');
         }
 
         if (normalizedPath === '/surveys/answers') {
-            return buildAdminHistoryEntry('list_answers_users');
+            return buildAdminHistoryEntry('list_answers_users', search || '');
         }
 
         if (normalizedPath === '/surveys/archive') {
-            return buildAdminHistoryEntry('archived_surveys');
+            return buildAdminHistoryEntry('archived_surveys', search || '');
         }
 
         if (normalizedPath === '/surveys/create') {
@@ -96,7 +140,7 @@
         }
 
         if (normalizedPath === '/users') {
-            return buildAdminHistoryEntry('get_users');
+            return buildAdminHistoryEntry('get_users', search || '');
         }
 
         if (normalizedPath === '/users/create') {
@@ -104,11 +148,11 @@
         }
 
         if (normalizedPath === '/users/archive') {
-            return buildAdminHistoryEntry('archived_users');
+            return buildAdminHistoryEntry('archived_users', search || '');
         }
 
         if (normalizedPath === '/organizations') {
-            return buildAdminHistoryEntry('get_organization');
+            return buildAdminHistoryEntry('get_organization', search || '');
         }
 
         if (normalizedPath === '/organizations/surveys') {
@@ -120,7 +164,7 @@
         }
 
         if (normalizedPath === '/organizations/archive') {
-            return buildAdminHistoryEntry('archive_list_organizations');
+            return buildAdminHistoryEntry('archive_list_organizations', search || '');
         }
 
         if (normalizedPath === '/reports') {
@@ -132,7 +176,7 @@
         }
 
         if (normalizedPath === '/event-log') {
-            return buildAdminHistoryEntry('get_logs');
+            return buildAdminHistoryEntry('get_logs', search || '');
         }
 
         if (normalizedPath === '/mail'
@@ -409,7 +453,8 @@
         ...(window.__adminBootstrap || {})
     };
 
-    const initialHistoryEntry = getAdminHistoryEntryFromLocation(window.location.pathname) || buildAdminHistoryEntry('get_surveys');
+    const initialHistoryEntry = getAdminHistoryEntryFromLocation(window.location.pathname, window.location.search)
+        || buildAdminHistoryEntry('get_surveys');
     const userRole = initialData.userRole || '';
     const hasAccess = Boolean(userRole);
     const availablePages = window.AdminInlineAppPages || {};
@@ -509,7 +554,7 @@
             tab: historyEntry.tab,
             id: historyEntry.id ?? null
         };
-        const currentUrl = normalizePathname(window.location.pathname);
+        const currentUrl = normalizeLocationUrl(window.location.pathname, window.location.search);
 
         if (mode === 'replace') {
             window.history.replaceState(nextState, '', historyEntry.url);
@@ -562,29 +607,13 @@
             window.clearTimeout(loaderTimer);
             loaderTimer = null;
         }
-        if (isLoading) {
-            loaderTimer = window.setTimeout(() => {
-                state.showLoader = true;
-                renderLoader();
-            }, 180);
-        } else {
-            state.showLoader = false;
-            renderLoader();
-        }
+        state.showLoader = false;
+        renderLoader();
     };
 
     const renderLoader = () => {
         const existing = contentAdmin.querySelector('.loading-overlay');
-        if (state.showLoader) {
-            if (!existing) {
-                const overlay = document.createElement('div');
-                overlay.className = 'loading-overlay';
-                const text = document.createElement('div');
-                text.textContent = 'Загрузка...';
-                overlay.appendChild(text);
-                contentAdmin.appendChild(overlay);
-            }
-        } else if (existing) {
+        if (existing) {
             existing.remove();
         }
     };
@@ -925,10 +954,37 @@
         }, 50);
     };
 
-    const openTab = async (tab, id = null, options = {}) => {
+    function scrollToSelector(selector) {
+        if (!selector) {
+            return false;
+        }
+
+        const target = document.querySelector(selector);
+        if (!target) {
+            return false;
+        }
+
+        target.scrollIntoView({
+            block: 'start',
+            behavior: 'auto'
+        });
+
+        return true;
+    }
+
+    function buildListRequestUrl(pathname, queryId = null) {
+        const normalizedPath = normalizePathname(pathname);
+        const normalizedQuery = normalizeLogsHistoryId(queryId);
+        return normalizedQuery
+            ? `${normalizedPath}?${normalizedQuery}`
+            : normalizedPath;
+    }
+
+    const openTab = async (tab, id = undefined, options = {}) => {
         const historyMode = options.historyMode ?? 'push';
         const force = options.force === true;
         const scrollMode = options.scrollMode ?? 'restore';
+        const scrollTargetSelector = String(options.scrollTargetSelector || '').trim();
         const historyEntry = buildAdminHistoryEntry(tab, id, state.modal.data);
         const resolvedId = historyEntry?.id ?? id ?? null;
 
@@ -943,12 +999,14 @@
         }
 
         if (tab === 'get_surveys') {
-            await fetchHtmlPage('/surveys');
+            await fetchHtmlPage(buildListRequestUrl('/surveys', resolvedId));
             setActiveTabAndRefreshNav(tab);
             if (historyMode !== 'none') {
                 syncBrowserHistory(historyEntry, historyMode);
             }
-            window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === 'carry' });
+            if (!scrollToSelector(scrollTargetSelector)) {
+                window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === 'carry' });
+            }
             return;
         }
 
@@ -961,11 +1019,11 @@
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'list_answers_users':
-                    await fetchHtmlPage('/surveys/answers');
+                    await fetchHtmlPage(buildListRequestUrl('/surveys/answers', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'archived_surveys':
-                    await fetchHtmlPage('/surveys/archive');
+                    await fetchHtmlPage(buildListRequestUrl('/surveys/archive', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'get_survey_signatures':
@@ -983,7 +1041,7 @@
                     openModalWhenReady('surveyEditorModal', window.openAddSurveyModal);
                     break;
                 case 'get_logs':
-                    await fetchHtmlPage('/event-log');
+                    await fetchHtmlPage(buildListRequestUrl('/event-log', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'download_logs': {
@@ -1005,11 +1063,11 @@
                     break;
                 }
                 case 'get_users':
-                    await fetchHtmlPage('/users');
+                    await fetchHtmlPage(buildListRequestUrl('/users', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'get_organization':
-                    await fetchHtmlPage('/organizations');
+                    await fetchHtmlPage(buildListRequestUrl('/organizations', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'organization_surveys':
@@ -1061,12 +1119,12 @@
                     break;
                 }
                 case 'archive_list_organizations':
-                    await fetchHtmlPage('/organizations/archive');
+                    await fetchHtmlPage(buildListRequestUrl('/organizations/archive', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'archived_users':
                 case 'archive_list_users':
-                    await fetchHtmlPage('/users/archive');
+                    await fetchHtmlPage(buildListRequestUrl('/users/archive', resolvedId));
                     setActiveTabAndRefreshNav('archived_users');
                     break;
                 case 'add_organization':
@@ -1161,7 +1219,9 @@
             }
 
             if (tab !== 'download_logs') {
-                window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === 'carry' });
+                if (!scrollToSelector(scrollTargetSelector)) {
+                    window.AppScrollState?.restoreCurrentPosition({ preferCarry: scrollMode === 'carry' });
+                }
             }
         } catch (error) {
             console.error('Ошибка переключения вкладки:', error);
@@ -1204,7 +1264,7 @@
         return openTab(tabName, null, { scrollMode: 'carry', ...resolvedOptions });
     };
 
-    window.refreshAdminTab = (tabName, id = null, options = {}) => {
+    window.refreshAdminTab = (tabName, id = undefined, options = {}) => {
         const resolvedOptions = options && typeof options === 'object' ? options : {};
         return openTab(tabName, id, { force: true, scrollMode: 'restore', ...resolvedOptions });
     };
@@ -1300,20 +1360,24 @@
             return;
         }
 
-        const nextHistoryEntry = getAdminHistoryEntryFromLocation(targetUrl.pathname);
+        const nextHistoryEntry = getAdminHistoryEntryFromLocation(targetUrl.pathname, targetUrl.search);
         if (!nextHistoryEntry) {
             return;
         }
 
         event.preventDefault();
-        openTab(nextHistoryEntry.tab, nextHistoryEntry.id, { scrollMode: 'carry' });
+        const scrollTargetSelector = link.dataset.scrollTargetSelector || '';
+        openTab(nextHistoryEntry.tab, nextHistoryEntry.id, {
+            scrollMode: scrollTargetSelector ? 'restore' : 'carry',
+            scrollTargetSelector
+        });
     });
 
     syncBrowserHistory(initialHistoryEntry, 'replace');
     window.addEventListener('popstate', () => {
         const nextHistoryEntry = window.history.state?.tab
             ? buildAdminHistoryEntry(window.history.state.tab, window.history.state.id)
-            : getAdminHistoryEntryFromLocation(window.location.pathname);
+            : getAdminHistoryEntryFromLocation(window.location.pathname, window.location.search);
         if (nextHistoryEntry) {
             openTab(nextHistoryEntry.tab, nextHistoryEntry.id, {
                 historyMode: 'none',
@@ -1357,5 +1421,5 @@
         return;
     }
 
-    openTab('get_surveys', null, { historyMode: 'replace', force: true, scrollMode: 'restore' });
+    openTab('get_surveys', initialHistoryEntry?.id ?? null, { historyMode: 'replace', force: true, scrollMode: 'restore' });
 })();

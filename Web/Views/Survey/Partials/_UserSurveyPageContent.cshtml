@@ -4,6 +4,7 @@
 @{
     var pageModel = Model ?? new MainProject.Web.ViewModels.UserSurveyPageContentViewModel();
     var surveysJson = JsonSerializer.Serialize(pageModel.Surveys);
+    var paginationModel = pageModel.Pagination;
 }
 
 <div class="client-surveys-page__content"
@@ -63,23 +64,7 @@
             })
     </div>
 
-    <div class="@(pageModel.ShowPagination ? string.Empty : "u-hidden")" data-role="pagination">
-        <div class="pagination-container">
-            <button type="button"
-                    class="pagination-button"
-                    data-role="prev-page"
-                    @(pageModel.CurrentPage <= 1 ? "disabled" : null)>
-                Назад
-            </button>
-            <span data-role="page-label">@pageModel.PageLabel</span>
-            <button type="button"
-                    class="pagination-button"
-                    data-role="next-page"
-                    @(pageModel.CurrentPage >= pageModel.TotalPages ? "disabled" : null)>
-                Вперед
-            </button>
-        </div>
-    </div>
+    @await Html.PartialAsync("~/Web/Views/Shared/_AppPagination.cshtml", paginationModel)
 
     <script type="application/json" data-role="survey-user-items">@Html.Raw(surveysJson)</script>
 </div>

@@ -90,7 +90,7 @@
 
     function syncOrganizationListSelectionFromState() {
         const selectedIds = new Set(selectedOrganization.map((organization) => organization.id));
-        document.querySelectorAll('#organizationList .organization-item').forEach((item) => {
+        document.querySelectorAll('#organizationList [data-role="organization-option"]').forEach((item) => {
             const id = Number.parseInt(item.dataset.id || '', 10);
             syncOrganizationItemSelection(item, Number.isFinite(id) && selectedIds.has(id));
         });
@@ -152,7 +152,7 @@
         }
 
         const organizationList = document.getElementById('organizationList');
-        if (organizationList?.querySelector('.organization-item')) {
+        if (organizationList?.querySelector('[data-role="organization-option"]')) {
             syncOrganizationListSelectionFromState();
             return;
         }
@@ -233,7 +233,8 @@
         allOrganizations.forEach((organization) => {
             const isSelected = selectedOrganization.some((item) => item.id === organization.id);
             const organizationItem = document.createElement('div');
-            organizationItem.className = `app-checkbox-option organization-item ${isSelected ? 'selected' : ''}`;
+            organizationItem.className = `app-checkbox-option ${isSelected ? 'selected' : ''}`;
+            organizationItem.dataset.role = 'organization-option';
             organizationItem.dataset.id = String(organization.id);
             organizationItem.dataset.name = organization.name;
             organizationItem.dataset.selected = isSelected ? 'true' : 'false';
@@ -798,7 +799,7 @@
             var resolvedName = selectedNames[index];
             if (!resolvedName) {
                 var organizationElement = document.querySelector(
-                    '#organizationList .organization-item[data-id="' + parsedId + '"]'
+                    '#organizationList [data-role="organization-option"][data-id="' + parsedId + '"]'
                 );
                 resolvedName = organizationElement ? organizationElement.dataset.name : '';
             }
@@ -812,7 +813,7 @@
         });
 
         if (nextSelection.length === 0) {
-            document.querySelectorAll('#organizationList .organization-item[data-selected="true"]').forEach(function (item) {
+            document.querySelectorAll('#organizationList [data-role="organization-option"][data-selected="true"]').forEach(function (item) {
                 var parsedId = parseInt(item.dataset.id, 10);
                 if (!Number.isNaN(parsedId)) {
                     nextSelection.push({

@@ -27,6 +27,7 @@
     const instances = new Map();
     const organizationInstances = new Map();
     const surveyNameInstances = new Map();
+    const serverFilterConfigs = new WeakMap();
     let observer = null;
 
     function pad(value) {
@@ -320,6 +321,251 @@
         return page?.dataset?.filterDateSummary || 'у которых дата начала и дата конца попадают';
     }
 
+    function parseIntegerList(values) {
+        if (!Array.isArray(values)) {
+            return [];
+        }
+
+        return values
+            .map((value) => Number.parseInt(String(value), 10))
+            .filter((value, index, array) => Number.isInteger(value) && array.indexOf(value) === index);
+    }
+
+    function getServerFilterConfig(page) {
+        if (!(page instanceof Element)) {
+            return null;
+        }
+
+        if (serverFilterConfigs.has(page)) {
+            return serverFilterConfigs.get(page);
+        }
+
+        const bootstrapNode = page.querySelector('script[data-role="server-filter-bootstrap"]');
+        if (!bootstrapNode) {
+            serverFilterConfigs.set(page, null);
+            return null;
+        }
+
+        try {
+            const parsed = JSON.parse(bootstrapNode.textContent || '{}');
+            const config = {
+                basePath: String(parsed?.BasePath || parsed?.basePath || '').trim(),
+                enableDateFilter: Boolean(parsed?.EnableDateFilter ?? parsed?.enableDateFilter),
+                enableOrganizationFilter: Boolean(parsed?.EnableOrganizationFilter ?? parsed?.enableOrganizationFilter),
+                enableSurveyFilter: Boolean(parsed?.EnableSurveyFilter ?? parsed?.enableSurveyFilter),
+                organizationOptions: Array.isArray(parsed?.OrganizationOptions ?? parsed?.organizationOptions)
+                    ? (parsed.OrganizationOptions ?? parsed.organizationOptions).map((option) => ({
+                        id: Number.parseInt(String(option?.Id ?? option?.id ?? ''), 10),
+                        name: String(option?.Name ?? option?.name ?? '').trim()
+                    })).filter((option) => Number.isInteger(option.id) && option.name)
+                    : [],
+                selectedOrganizationIds: parseIntegerList(parsed?.SelectedOrganizationIds ?? parsed?.selectedOrganizationIds),
+                surveyOptions: Array.isArray(parsed?.SurveyOptions ?? parsed?.surveyOptions)
+                    ? (parsed.SurveyOptions ?? parsed.surveyOptions).map((option) => ({
+                        id: Number.parseInt(String(option?.Id ?? option?.id ?? ''), 10),
+                        name: String(option?.Name ?? option?.name ?? '').trim()
+                    })).filter((option) => Number.isInteger(option.id) && option.name)
+                    : [],
+                selectedSurveyIds: parseIntegerList(parsed?.SelectedSurveyIds ?? parsed?.selectedSurveyIds),
+                year: Number.isInteger(parsed?.Year) ? parsed.Year : Number.parseInt(String(parsed?.Year ?? parsed?.year ?? ''), 10),
+                month: String(parsed?.Month ?? parsed?.month ?? '').trim(),
+                dateFrom: String(parsed?.DateFrom ?? parsed?.dateFrom ?? '').trim(),
+                dateTo: String(parsed?.DateTo ?? parsed?.dateTo ?? '').trim()
+            };
+
+            if (!Number.isInteger(config.year)) {
+                config.year = null;
+            }
+
+            serverFilterConfigs.set(page, config);
+            return config;
+        } catch (error) {
+            serverFilterConfigs.set(page, null);
+            return null;
+        }
+    }
+
+    function isServerFilterPage(page) {
+        const config = getServerFilterConfig(page);
+        return Boolean(config?.basePath);
+    }
+
+    function getServerFilterTabName(page) {
+        switch (page?.dataset?.page) {
+            case 'surveys-list':
+                return 'get_surveys';
+            case 'surveys-archive':
+                return 'archived_surveys';
+            case 'answers-list':
+                return 'list_answers_users';
+            default:
+                return '';
+        }
+    }
+
+    function getSelectedOptionNames(options, selectedIds) {
+        const selectedIdSet = new Set(parseIntegerList(selectedIds));
+        return options
+            .filter((option) => selectedIdSet.has(option.id))
+            .map((option) => option.name)
+            .sort((left, right) => left.localeCompare(right, 'ru'));
+    }
+
+    function buildServerFilterUrl(page) {
+        const config = getServerFilterConfig(page);
+        if (!config?.basePath) {
+            return '';
+        }
+
+        const currentPath = normalizeCurrentPath(window.location.pathname);
+        const basePath = normalizeCurrentPath(config.basePath);
+        const params = currentPath === basePath
+            ? new URLSearchParams(window.location.search)
+            : new URLSearchParams();
+
+        ['page', 'organizationIds', 'surveyIds', 'year', 'month', 'dateFrom', 'dateTo'].forEach((key) => {
+            params.delete(key);
+        });
+
+        if (config.selectedOrganizationIds.length > 0) {
+            params.set('organizationIds', config.selectedOrganizationIds.join(','));
+        }
+
+        if (config.selectedSurveyIds.length > 0) {
+            params.set('surveyIds', config.selectedSurveyIds.join(','));
+        }
+
+        if (Number.isInteger(config.year)) {
+            params.set('year', String(config.year));
+        } else if (config.month) {
+            params.set('month', config.month);
+        } else {
+            if (config.dateFrom) {
+                params.set('dateFrom', config.dateFrom);
+            }
+
+            if (config.dateTo) {
+                params.set('dateTo', config.dateTo);
+            }
+        }
+
+        const queryString = params.toString();
+        return queryString
+            ? `${config.basePath}?${queryString}`
+            : config.basePath;
+    }
+
+    function normalizeCurrentPath(pathname) {
+        if (!pathname) {
+            return '/';
+        }
+
+        return pathname.length > 1 && pathname.endsWith('/')
+            ? pathname.slice(0, -1)
+            : pathname;
+    }
+
+    function navigateServerFilterPage(page) {
+        const url = buildServerFilterUrl(page);
+        if (!url) {
+            return;
+        }
+
+        const config = getServerFilterConfig(page);
+        const queryIndex = url.indexOf('?');
+        const queryString = queryIndex >= 0 ? url.slice(queryIndex + 1) : '';
+        const tabName = getServerFilterTabName(page);
+        const scrollTargetSelector = page?.dataset?.tableScrollTarget || '';
+
+        if (typeof window.refreshAdminTab === 'function' && tabName) {
+            window.refreshAdminTab(tabName, queryString || null, {
+                scrollTargetSelector
+            });
+            return;
+        }
+
+        window.location.assign(url);
+    }
+
+    function syncServerDateFilterState(instance) {
+        const config = getServerFilterConfig(instance?.page);
+        if (!config) {
+            return;
+        }
+
+        config.year = null;
+        config.month = '';
+        config.dateFrom = '';
+        config.dateTo = '';
+
+        if (instance.state.activeFilterType === 'year' && Number.isInteger(instance.state.activeYear)) {
+            config.year = instance.state.activeYear;
+            return;
+        }
+
+        if (instance.state.activeFilterType === 'month' && instance.state.activeMonth) {
+            config.month = `${instance.state.activeMonth.year}-${pad(instance.state.activeMonth.monthIndex + 1)}`;
+            return;
+        }
+
+        if (instance.state.activeFilterType === 'range' && instance.state.rangeStart && instance.state.rangeEnd) {
+            config.dateFrom = instance.state.rangeStart;
+            config.dateTo = instance.state.rangeEnd;
+        }
+    }
+
+    function getInitialDateState(page, today) {
+        const state = {
+            isOpen: false,
+            mode: 'month',
+            monthViewYear: today.getFullYear(),
+            yearViewStart: getDecadeStart(today.getFullYear()),
+            rangeViewDate: new Date(today.getFullYear(), today.getMonth(), 1),
+            activeFilterType: 'all',
+            activeYear: null,
+            activeMonth: null,
+            rangeStart: '',
+            rangeEnd: ''
+        };
+        const config = getServerFilterConfig(page);
+        if (!config?.enableDateFilter) {
+            return state;
+        }
+
+        if (Number.isInteger(config.year)) {
+            state.activeFilterType = 'year';
+            state.activeYear = config.year;
+            state.monthViewYear = config.year;
+            state.yearViewStart = getDecadeStart(config.year);
+            return state;
+        }
+
+        const monthMatch = config.month.match(/^(\d{4})-(\d{2})$/);
+        if (monthMatch) {
+            const year = Number.parseInt(monthMatch[1], 10);
+            const monthIndex = Number.parseInt(monthMatch[2], 10) - 1;
+            if (Number.isInteger(year) && Number.isInteger(monthIndex) && monthIndex >= 0 && monthIndex < 12) {
+                state.activeFilterType = 'month';
+                state.activeMonth = { year, monthIndex };
+                state.monthViewYear = year;
+                state.yearViewStart = getDecadeStart(year);
+                return state;
+            }
+        }
+
+        if (config.dateFrom && config.dateTo) {
+            state.activeFilterType = 'range';
+            state.rangeStart = config.dateFrom;
+            state.rangeEnd = config.dateTo;
+            const rangeDate = parseIso(config.dateFrom);
+            if (rangeDate) {
+                state.rangeViewDate = new Date(rangeDate.getFullYear(), rangeDate.getMonth(), 1);
+            }
+        }
+
+        return state;
+    }
+
     function shouldHideCountSummary(page) {
         return page?.dataset?.filterHideCountSummary === 'true';
     }
@@ -438,7 +684,9 @@
     }
 
     function updateOrganizationFilterSummary(instance, visibleCount, totalCount) {
-        const selectedOrganizations = instance.state.selectedOrganizations;
+        const selectedOrganizations = instance.state.serverMode
+            ? getSelectedOptionNames(instance.state.availableOrganizationOptions, instance.state.selectedOrganizationIds)
+            : instance.state.selectedOrganizations;
         const label = getOrganizationFilterLabel(selectedOrganizations);
         const itemLabel = getPageItemLabel(instance.page);
         const hideCountSummary = shouldHideCountSummary(instance.page);
@@ -458,11 +706,15 @@
         if (instance.refs.summary) {
             instance.refs.summary.textContent = summary;
         }
-        instance.refs.clearButton.disabled = selectedOrganizations.length === 0;
+        instance.refs.clearButton.disabled = instance.state.serverMode
+            ? instance.state.selectedOrganizationIds.length === 0
+            : selectedOrganizations.length === 0;
     }
 
     function updateSurveyNameFilterSummary(instance, visibleCount, totalCount) {
-        const selectedSurveyNames = instance.state.selectedSurveyNames;
+        const selectedSurveyNames = instance.state.serverMode
+            ? getSelectedOptionNames(instance.state.availableSurveyOptions, instance.state.selectedSurveyIds)
+            : instance.state.selectedSurveyNames;
         const label = getSurveyNameFilterLabel(selectedSurveyNames);
         const itemLabel = getPageItemLabel(instance.page);
         const hideCountSummary = shouldHideCountSummary(instance.page);
@@ -482,7 +734,9 @@
         if (instance.refs.summary) {
             instance.refs.summary.textContent = summary;
         }
-        instance.refs.clearButton.disabled = selectedSurveyNames.length === 0;
+        instance.refs.clearButton.disabled = instance.state.serverMode
+            ? instance.state.selectedSurveyIds.length === 0
+            : selectedSurveyNames.length === 0;
     }
 
     function updatePageSummaries(page, visibleCount, totalCount) {
@@ -505,6 +759,16 @@
 
     function applyPageFilters(page) {
         const rows = getDataRowsFromPage(page);
+        if (isServerFilterPage(page)) {
+            updatePageSummaries(
+                page,
+                rows.length,
+                Number.parseInt(String(page?.dataset?.totalCount || rows.length), 10) || rows.length
+            );
+            syncEmptyRow(page, rows, rows.length);
+            return;
+        }
+
         const totalCount = rows.length;
         const dateInstance = getDateInstanceForPage(page);
         const organizationInstance = getOrganizationInstanceForPage(page);
@@ -745,23 +1009,38 @@
         const { state, refs } = instance;
         refs.options.textContent = '';
 
-        if (state.availableOrganizations.length === 0) {
+        const hasOptions = state.serverMode
+            ? state.availableOrganizationOptions.length > 0
+            : state.availableOrganizations.length > 0;
+
+        if (!hasOptions) {
             refs.options.appendChild(
-                createElement('p', 'app-checkbox-empty survey-period-filter__organization-empty', 'Организации для фильтрации не найдены.')
+                createElement('p', 'app-checkbox-empty', 'Организации для фильтрации не найдены.')
             );
             return;
         }
 
-        state.availableOrganizations.forEach((organizationName) => {
-            const optionLabel = createElement('label', 'app-checkbox-option survey-period-filter__organization-option');
-            const checkbox = createElement('input', 'app-checkbox-input survey-period-filter__organization-checkbox');
-            const labelText = createElement('span', 'app-checkbox-text survey-period-filter__organization-name', organizationName);
-            const isSelected = state.selectedOrganizations.includes(organizationName);
+        const options = state.serverMode
+            ? state.availableOrganizationOptions
+            : state.availableOrganizations;
+
+        options.forEach((option) => {
+            const organizationId = state.serverMode ? option.id : null;
+            const organizationName = state.serverMode ? option.name : option;
+            const optionLabel = createElement('label', 'app-checkbox-option');
+            const checkbox = createElement('input', 'app-checkbox-input');
+            const labelText = createElement('span', 'app-checkbox-text', organizationName);
+            const isSelected = state.serverMode
+                ? state.selectedOrganizationIds.includes(organizationId)
+                : state.selectedOrganizations.includes(organizationName);
 
             optionLabel.classList.toggle('is-selected', isSelected);
             checkbox.type = 'checkbox';
             checkbox.dataset.role = 'survey-organization-filter-option';
             checkbox.dataset.organizationName = organizationName;
+            if (state.serverMode) {
+                checkbox.dataset.organizationId = String(organizationId);
+            }
             checkbox.checked = isSelected;
 
             optionLabel.appendChild(checkbox);
@@ -774,23 +1053,38 @@
         const { state, refs } = instance;
         refs.options.textContent = '';
 
-        if (state.availableSurveyNames.length === 0) {
+        const hasOptions = state.serverMode
+            ? state.availableSurveyOptions.length > 0
+            : state.availableSurveyNames.length > 0;
+
+        if (!hasOptions) {
             refs.options.appendChild(
-                createElement('p', 'app-checkbox-empty survey-period-filter__organization-empty', 'Анкеты для фильтрации не найдены.')
+                createElement('p', 'app-checkbox-empty', 'Анкеты для фильтрации не найдены.')
             );
             return;
         }
 
-        state.availableSurveyNames.forEach((surveyName) => {
-            const optionLabel = createElement('label', 'app-checkbox-option survey-period-filter__organization-option');
-            const checkbox = createElement('input', 'app-checkbox-input survey-period-filter__organization-checkbox');
-            const labelText = createElement('span', 'app-checkbox-text survey-period-filter__organization-name', surveyName);
-            const isSelected = state.selectedSurveyNames.includes(surveyName);
+        const options = state.serverMode
+            ? state.availableSurveyOptions
+            : state.availableSurveyNames;
+
+        options.forEach((option) => {
+            const surveyId = state.serverMode ? option.id : null;
+            const surveyName = state.serverMode ? option.name : option;
+            const optionLabel = createElement('label', 'app-checkbox-option');
+            const checkbox = createElement('input', 'app-checkbox-input');
+            const labelText = createElement('span', 'app-checkbox-text', surveyName);
+            const isSelected = state.serverMode
+                ? state.selectedSurveyIds.includes(surveyId)
+                : state.selectedSurveyNames.includes(surveyName);
 
             optionLabel.classList.toggle('is-selected', isSelected);
             checkbox.type = 'checkbox';
             checkbox.dataset.role = 'survey-name-filter-option';
             checkbox.dataset.surveyName = surveyName;
+            if (state.serverMode) {
+                checkbox.dataset.surveyId = String(surveyId);
+            }
             checkbox.checked = isSelected;
 
             optionLabel.appendChild(checkbox);
@@ -813,6 +1107,12 @@
         instance.state.rangeStart = '';
         instance.state.rangeEnd = '';
         render(instance);
+        if (isServerFilterPage(instance.page)) {
+            syncServerDateFilterState(instance);
+            navigateServerFilterPage(instance.page);
+            return;
+        }
+
         applyFilter(instance);
     }
 
@@ -830,6 +1130,11 @@
         state.monthViewYear = year;
         state.yearViewStart = getDecadeStart(year);
         render(instance);
+        if (isServerFilterPage(instance.page)) {
+            syncServerDateFilterState(instance);
+            navigateServerFilterPage(instance.page);
+            return;
+        }
         applyFilter(instance);
     }
 
@@ -852,6 +1157,11 @@
             monthIndex
         };
         render(instance);
+        if (isServerFilterPage(instance.page)) {
+            syncServerDateFilterState(instance);
+            navigateServerFilterPage(instance.page);
+            return;
+        }
         applyFilter(instance);
     }
 
@@ -863,6 +1173,9 @@
             state.rangeEnd = '';
             state.activeFilterType = 'all';
             render(instance);
+            if (isServerFilterPage(instance.page)) {
+                return;
+            }
             applyFilter(instance);
             return;
         }
@@ -877,6 +1190,11 @@
         state.activeFilterType = 'range';
         state.activeYear = null;
         render(instance);
+        if (isServerFilterPage(instance.page)) {
+            syncServerDateFilterState(instance);
+            navigateServerFilterPage(instance.page);
+            return;
+        }
         applyFilter(instance);
     }
 
@@ -907,6 +1225,27 @@
         applyPageFilters(instance.page);
     }
 
+    function toggleOrganizationIdSelection(instance, organizationId, isSelected) {
+        if (!Number.isInteger(organizationId)) {
+            return;
+        }
+
+        const nextSelectedOrganizationIds = new Set(instance.state.selectedOrganizationIds);
+        if (isSelected) {
+            nextSelectedOrganizationIds.add(organizationId);
+        } else {
+            nextSelectedOrganizationIds.delete(organizationId);
+        }
+
+        instance.state.selectedOrganizationIds = Array.from(nextSelectedOrganizationIds).sort((left, right) => left - right);
+        const config = getServerFilterConfig(instance.page);
+        if (config) {
+            config.selectedOrganizationIds = [...instance.state.selectedOrganizationIds];
+        }
+        renderOrganization(instance);
+        navigateServerFilterPage(instance.page);
+    }
+
     function toggleSurveyNameSelection(instance, surveyName, isSelected) {
         const normalizedName = String(surveyName || '').trim();
         if (!normalizedName) {
@@ -926,6 +1265,27 @@
         applyPageFilters(instance.page);
     }
 
+    function toggleSurveyIdSelection(instance, surveyId, isSelected) {
+        if (!Number.isInteger(surveyId)) {
+            return;
+        }
+
+        const nextSelectedSurveyIds = new Set(instance.state.selectedSurveyIds);
+        if (isSelected) {
+            nextSelectedSurveyIds.add(surveyId);
+        } else {
+            nextSelectedSurveyIds.delete(surveyId);
+        }
+
+        instance.state.selectedSurveyIds = Array.from(nextSelectedSurveyIds).sort((left, right) => left - right);
+        const config = getServerFilterConfig(instance.page);
+        if (config) {
+            config.selectedSurveyIds = [...instance.state.selectedSurveyIds];
+        }
+        renderSurveyName(instance);
+        navigateServerFilterPage(instance.page);
+    }
+
     function bindInstance(root) {
         if (!(root instanceof Element) || instances.has(root)) {
             return;
@@ -943,18 +1303,7 @@
         const instance = {
             root,
             page,
-            state: {
-                isOpen: false,
-                mode: 'month',
-                monthViewYear: today.getFullYear(),
-                yearViewStart: getDecadeStart(today.getFullYear()),
-                rangeViewDate: new Date(today.getFullYear(), today.getMonth(), 1),
-                activeFilterType: 'all',
-                activeYear: null,
-                activeMonth: null,
-                rangeStart: '',
-                rangeEnd: ''
-            },
+            state: getInitialDateState(page, today),
             refs: {
                 trigger: root.querySelector('[data-role="survey-date-filter-trigger"]'),
                 label: root.querySelector('[data-role="survey-date-filter-label"]'),
@@ -1109,8 +1458,11 @@
             page,
             state: {
                 isOpen: false,
+                serverMode: isServerFilterPage(page),
                 availableOrganizations: collectAvailableOrganizations(page),
-                selectedOrganizations: []
+                availableOrganizationOptions: getServerFilterConfig(page)?.organizationOptions || [],
+                selectedOrganizations: [],
+                selectedOrganizationIds: [...(getServerFilterConfig(page)?.selectedOrganizationIds || [])]
             },
             refs: {
                 trigger: root.querySelector('[data-role="survey-organization-filter-trigger"]'),
@@ -1143,6 +1495,17 @@
 
             if (event.target.closest('[data-role="survey-organization-filter-clear"]')) {
                 event.preventDefault();
+                if (instance.state.serverMode) {
+                    instance.state.selectedOrganizationIds = [];
+                    const config = getServerFilterConfig(instance.page);
+                    if (config) {
+                        config.selectedOrganizationIds = [];
+                    }
+                    renderOrganization(instance);
+                    navigateServerFilterPage(instance.page);
+                    return;
+                }
+
                 instance.state.selectedOrganizations = [];
                 renderOrganization(instance);
                 applyPageFilters(instance.page);
@@ -1155,11 +1518,16 @@
                 return;
             }
 
-            toggleOrganizationSelection(
-                instance,
-                option.dataset.organizationName || '',
-                Boolean(option.checked)
-            );
+            if (instance.state.serverMode) {
+                toggleOrganizationIdSelection(
+                    instance,
+                    Number.parseInt(option.dataset.organizationId || '', 10),
+                    Boolean(option.checked)
+                );
+                return;
+            }
+
+            toggleOrganizationSelection(instance, option.dataset.organizationName || '', Boolean(option.checked));
         };
 
         root.addEventListener('click', instance.handlers.click);
@@ -1186,8 +1554,11 @@
             page,
             state: {
                 isOpen: false,
+                serverMode: isServerFilterPage(page),
                 availableSurveyNames: collectAvailableSurveyNames(page),
-                selectedSurveyNames: []
+                availableSurveyOptions: getServerFilterConfig(page)?.surveyOptions || [],
+                selectedSurveyNames: [],
+                selectedSurveyIds: [...(getServerFilterConfig(page)?.selectedSurveyIds || [])]
             },
             refs: {
                 trigger: root.querySelector('[data-role="survey-name-filter-trigger"]'),
@@ -1220,6 +1591,17 @@
 
             if (event.target.closest('[data-role="survey-name-filter-clear"]')) {
                 event.preventDefault();
+                if (instance.state.serverMode) {
+                    instance.state.selectedSurveyIds = [];
+                    const config = getServerFilterConfig(instance.page);
+                    if (config) {
+                        config.selectedSurveyIds = [];
+                    }
+                    renderSurveyName(instance);
+                    navigateServerFilterPage(instance.page);
+                    return;
+                }
+
                 instance.state.selectedSurveyNames = [];
                 renderSurveyName(instance);
                 applyPageFilters(instance.page);
@@ -1232,11 +1614,16 @@
                 return;
             }
 
-            toggleSurveyNameSelection(
-                instance,
-                option.dataset.surveyName || '',
-                Boolean(option.checked)
-            );
+            if (instance.state.serverMode) {
+                toggleSurveyIdSelection(
+                    instance,
+                    Number.parseInt(option.dataset.surveyId || '', 10),
+                    Boolean(option.checked)
+                );
+                return;
+            }
+
+            toggleSurveyNameSelection(instance, option.dataset.surveyName || '', Boolean(option.checked));
         };
 
         root.addEventListener('click', instance.handlers.click);
@@ -1336,6 +1723,8 @@
             observer.disconnect();
             observer = null;
         }
+
+        serverFilterConfigs.clear?.();
 
         document.removeEventListener('click', handleDocumentClick);
         document.removeEventListener('keydown', handleDocumentKeydown);

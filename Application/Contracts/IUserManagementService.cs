@@ -6,8 +6,15 @@ namespace MainProject.Application.Contracts;
 
 public interface IUserManagementService
 {
-    UserListPageViewModel GetActiveUsersPage(bool openAddUserModal = false);
-    UserListPageViewModel GetArchivedUsersPage();
+    UserListPageViewModel GetActiveUsersPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        bool openAddUserModal = false);
+    UserListPageViewModel GetArchivedUsersPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection);
     IReadOnlyList<User> GetArchivedUsers();
     User? GetUserById(int id);
     OperationResult CreateUser(UserSaveRequest request);

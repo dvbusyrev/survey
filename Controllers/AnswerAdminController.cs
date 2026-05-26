@@ -16,11 +16,31 @@ public class AnswerAdminController : Controller
     }
 
     [HttpGet("surveys/answers")]
-    public IActionResult GetListAnswers()
+    public IActionResult GetListAnswers(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null,
+        string? surveyIds = null,
+        string? year = null,
+        string? month = null,
+        string? dateFrom = null,
+        string? dateTo = null)
     {
         try
         {
-            return View("~/Web/Views/Answer/get_list_answers.cshtml", _answerAdminService.GetAnswersPage());
+            return View(
+                "~/Web/Views/Answer/get_list_answers.cshtml",
+                _answerAdminService.GetAnswersPage(
+                    page,
+                    sortBy,
+                    sortDirection,
+                    organizationIds,
+                    surveyIds,
+                    year,
+                    month,
+                    dateFrom,
+                    dateTo));
         }
         catch (Exception ex)
         {

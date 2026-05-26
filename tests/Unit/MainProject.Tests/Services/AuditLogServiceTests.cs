@@ -4,6 +4,7 @@ using MainProject.Infrastructure.Persistence;
 using Newtonsoft.Json.Linq;
 using Npgsql;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace MainProject.Tests.Services;
 
@@ -82,7 +83,7 @@ public sealed class AuditLogServiceTests
 
         var groupedLog = Assert.Single(result);
         Assert.Equal("Добавление", groupedLog.EventType);
-        Assert.Contains("Для анкеты Новая анкета", groupedLog.Description);
+        Assert.Equal("записей из таблиц survey, survey_question, organization_survey", groupedLog.Description);
         var details = Assert.IsType<JObject>(groupedLog.ExtraData);
         Assert.True(details.Value<bool>("is_chain"));
         Assert.Equal(3, Assert.IsType<JArray>(details["items"]).Count);
@@ -121,9 +122,18 @@ public sealed class AuditLogServiceTests
 
         var result = service.GenerateLogText(new[] { log });
 
-        Assert.Contains(
-            "20.04.2026 14:30:15 Пользователь Администратор (id = 2): В таблице survey изменили запись Новая анкета. ID записи: 7. Изменил атрибуты: name_survey = \"Новая анкета 2\" (старое значение: \"Новая анкета\").",
-            result);
+        Assert.Contains("АИС Анкетирование. Журнал событий", result);
+        Assert.Contains("Количество событий: 1", result);
+        Assert.Contains("Событие 1", result);
+        Assert.Contains("Дата: 20.04.2026 14:30:15", result);
+        Assert.Contains("Пользователь: Администратор (ID = 2)", result);
+        Assert.Contains("Событие: Изменение", result);
+        Assert.Contains("Описание: записи из таблицы survey", result);
+        Assert.Contains("Таблица: survey", result);
+        Assert.Contains("Запись: Новая анкета", result);
+        Assert.Contains("ID записи: 7", result);
+        Assert.Contains("Изменения:", result);
+        Assert.Contains("- name_survey: \"Новая анкета\" -> \"Новая анкета 2\"", result);
     }
 
     [Fact]
@@ -152,9 +162,83 @@ public sealed class AuditLogServiceTests
 
         var result = service.GenerateLogText(new[] { log });
 
-        Assert.Contains(
-            "Изменённые атрибуты не определены: предыдущая версия записи не найдена в журнале.",
-            result);
+        Assert.Contains("Изменения:", result);
+        Assert.Contains("- не определены: предыдущая версия записи не найдена в журнале.", result);
+    }
+
+    [Fact]
+    public void GenerateLogText_FormatsChainEntryAsStructuredBlock()
+    {
+        var service = new AuditLogService(new ThrowingDbConnectionFactory());
+        var logs = new List<Log>
+        {
+            BuildAuditLog(1, "survey", "INSERT", new DateTime(2026, 4, 20, 14, 30, 15), "7", new JObject
+            {
+                ["id_survey"] = 7,
+                ["name_survey"] = "Новая анкета"
+            }),
+            BuildAuditLog(2, "survey_question", "INSERT", new DateTime(2026, 4, 20, 14, 30, 15), "12", new JObject
+            {
+                ["id_question"] = 12,
+                ["id_survey"] = 7,
+                ["question_order"] = 1,
+                ["question_text"] = "Качество услуг"
+            })
+        };
+
+        var groupedLog = Assert.Single(InvokeGroupRelatedLogs(logs));
+
+        var result = service.GenerateLogText(new[] { groupedLog });
+
+        Assert.Contains("Событие: Добавление", result);
+        Assert.Contains("Описание: записей из таблиц survey, survey_question", result);
+        Assert.Contains("Таблицы: survey, survey_question", result);
+        Assert.Contains("Запись: Новая анкета", result);
+        Assert.Contains("Связанные записи:", result);
+        Assert.Contains("- survey: Новая анкета (ID: 7)", result);
+        Assert.Contains("- survey_question: Качество услуг (ID: 12)", result);
+    }
+
+    [Fact]
+    public void GenerateLogText_NormalizesLegacyOrganizationIdentifiersAndDeduplicatesChainItems()
+    {
+        var changedAt = new DateTime(2026, 4, 20, 14, 30, 15);
+        var service = new AuditLogService(new ThrowingDbConnectionFactory());
+        var logs = new List<Log>
+        {
+            BuildAuditLog(1, "survey", "UPDATE", changedAt, "3", new JObject
+            {
+                ["id_survey"] = 3,
+                ["name_survey"] = "Первая анкета"
+            }),
+            BuildAuditLog(2, "organization_survey", "UPDATE", changedAt, "2", new JObject
+            {
+                ["id_omsu"] = 2,
+                ["id_survey"] = 3
+            }, new JObject
+            {
+                ["id_omsu"] = 2,
+                ["id_survey"] = 3
+            }),
+            BuildAuditLog(3, "organization_survey", "UPDATE", changedAt, "2", new JObject
+            {
+                ["id_omsu"] = 2,
+                ["id_survey"] = 3
+            }, new JObject
+            {
+                ["id_omsu"] = 2,
+                ["id_survey"] = 3
+            })
+        };
+
+        var groupedLog = Assert.Single(InvokeGroupRelatedLogs(logs));
+
+        var result = service.GenerateLogText(new[] { groupedLog });
+
+        Assert.DoesNotContain("id_omsu", result);
+        Assert.Contains("ID записи: id_organization=2, id_survey=3", result);
+        Assert.Contains("- organization_survey: Организация 2 / анкета 3 (ID: id_organization=2, id_survey=3)", result);
+        Assert.Equal(1, Regex.Matches(result, "- organization_survey: Организация 2 / анкета 3 \\(ID: id_organization=2, id_survey=3\\)").Count);
     }
 
     private sealed class ThrowingDbConnectionFactory : IDbConnectionFactory
@@ -181,7 +265,7 @@ public sealed class AuditLogServiceTests
         return Assert.IsType<List<Log>>(method!.Invoke(null, [logs]));
     }
 
-    private static Log BuildAuditLog(long idLog, string sourceTable, string operation, DateTime changedAt, string targetId, JObject rowData)
+    private static Log BuildAuditLog(long idLog, string sourceTable, string operation, DateTime changedAt, string targetId, JObject rowData, JObject? recordPk = null)
     {
         var targetName = rowData.Value<string>("name_survey")
             ?? rowData.Value<string>("question_text")
@@ -208,9 +292,17 @@ public sealed class AuditLogServiceTests
                     _ => 99
                 },
                 ["operation"] = operation,
+                ["operation_name"] = operation switch
+                {
+                    "INSERT" => "Добавление",
+                    "UPDATE" => "Изменение",
+                    "DELETE" => "Удаление",
+                    _ => operation
+                },
                 ["source_table"] = sourceTable,
+                ["target_name"] = targetName,
                 ["target_id"] = targetId,
-                ["record_pk"] = new JObject { ["id"] = targetId },
+                ["record_pk"] = recordPk ?? new JObject { ["id"] = targetId },
                 ["row_data"] = rowData
             }
         };

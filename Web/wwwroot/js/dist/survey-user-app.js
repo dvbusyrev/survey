@@ -70,18 +70,26 @@
     window.__appNavigationLoaded = true;
     const NAV_SUBMENU_SUPPRESS_STORAGE_KEY = "app-nav-submenu-suppressed";
     const MOBILE_NAV_OPEN_CLASS = "mobile-nav-open";
+    const COMPACT_NAVIGATION_CLASS = "compact-nav-mode";
+    const NAVIGATION_LAYOUT_SYNC_CLASS = "nav-layout-sync";
     const MOBILE_NAV_MEDIA_QUERY = "(max-width: 900px)";
+    const COMPACT_NAVIGATION_BREAKPOINT_PX = 1220;
+    let navigationLayoutFrameId = 0;
+    let navigationLayoutSyncFrameId = 0;
+    let visualViewportResizeHandler = null;
     function isMobileNavigationViewport() {
-      return typeof window.matchMedia === "function" ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches : window.innerWidth <= 900;
+      return typeof window.matchMedia === "function" ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches || document.body.classList.contains(COMPACT_NAVIGATION_CLASS) : window.innerWidth <= 900;
     }
     function isMobileNavigationOpen() {
       return document.body.classList.contains(MOBILE_NAV_OPEN_CLASS);
     }
     function syncMobileNavigationToggleButtons() {
       const isOpen = isMobileNavigationOpen();
+      const isCompact = isMobileNavigationViewport();
       document.querySelectorAll(".header-menu-toggle").forEach((button) => {
         button.setAttribute("aria-expanded", isOpen ? "true" : "false");
         button.setAttribute("aria-label", isOpen ? "Закрыть навигацию" : "Открыть навигацию");
+        button.hidden = !isCompact;
       });
     }
     function setMobileNavigationOpen(nextOpen) {
@@ -94,6 +102,76 @@
     }
     function toggleMobileNavigation() {
       setMobileNavigationOpen(!isMobileNavigationOpen());
+    }
+    function getViewportWidth() {
+      if (window.visualViewport?.width) {
+        return window.visualViewport.width;
+      }
+      return window.innerWidth || document.documentElement.clientWidth || 0;
+    }
+    function measureCompactNavigationNeed() {
+      return getViewportWidth() <= COMPACT_NAVIGATION_BREAKPOINT_PX;
+    }
+    function syncNavigationLayoutWithoutAnimation() {
+      if (!document.body) {
+        return;
+      }
+      document.body.classList.add(NAVIGATION_LAYOUT_SYNC_CLASS);
+      if (navigationLayoutSyncFrameId) {
+        window.cancelAnimationFrame(navigationLayoutSyncFrameId);
+      }
+      navigationLayoutSyncFrameId = window.requestAnimationFrame(() => {
+        navigationLayoutSyncFrameId = window.requestAnimationFrame(() => {
+          navigationLayoutSyncFrameId = 0;
+          document.body?.classList.remove(NAVIGATION_LAYOUT_SYNC_CLASS);
+        });
+      });
+    }
+    function evaluateNavigationLayout() {
+      if (!document.body) {
+        return;
+      }
+      const wasCompact = document.body.classList.contains(COMPACT_NAVIGATION_CLASS);
+      const isNarrowViewport = typeof window.matchMedia === "function" ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches : window.innerWidth <= 900;
+      if (isNarrowViewport) {
+        if (wasCompact) {
+          syncNavigationLayoutWithoutAnimation();
+        }
+        document.body.classList.remove(COMPACT_NAVIGATION_CLASS);
+        syncMobileNavigationToggleButtons();
+        return;
+      }
+      if (wasCompact) {
+        document.body.classList.remove(COMPACT_NAVIGATION_CLASS);
+      }
+      const shouldCompact = measureCompactNavigationNeed();
+      if (shouldCompact !== wasCompact) {
+        syncNavigationLayoutWithoutAnimation();
+      }
+      document.body.classList.toggle(COMPACT_NAVIGATION_CLASS, shouldCompact);
+      if (!shouldCompact && isMobileNavigationOpen()) {
+        closeMobileNavigation();
+      }
+      syncMobileNavigationToggleButtons();
+    }
+    function queueNavigationLayoutEvaluation() {
+      if (navigationLayoutFrameId) {
+        window.cancelAnimationFrame(navigationLayoutFrameId);
+      }
+      navigationLayoutFrameId = window.requestAnimationFrame(() => {
+        navigationLayoutFrameId = 0;
+        evaluateNavigationLayout();
+      });
+    }
+    function attachViewportObservers(onResize) {
+      if (!window.visualViewport) {
+        return;
+      }
+      visualViewportResizeHandler = () => {
+        onResize();
+      };
+      window.visualViewport.addEventListener("resize", visualViewportResizeHandler);
+      window.visualViewport.addEventListener("scroll", visualViewportResizeHandler);
     }
     function getNavigationSuppressedTab() {
       try {
@@ -140,6 +218,7 @@
     window.releaseNavigationSubmenuSuppression = releaseNavigationSubmenuSuppression;
     window.closeMobileNavigation = closeMobileNavigation;
     window.toggleMobileNavigation = toggleMobileNavigation;
+    window.queueNavigationLayoutEvaluation = queueNavigationLayoutEvaluation;
     function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
       const isAdmin = userRole === "admin";
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -262,6 +341,7 @@
       if (!host || !template?.content?.firstElementChild) {
         return null;
       }
+      evaluateNavigationLayout();
       host.innerHTML = "";
       const nav = template.content.firstElementChild.cloneNode(true);
       host.appendChild(nav);
@@ -398,8 +478,10 @@
           closeSubmenus();
         }
         syncMobileNavigationToggleButtons();
+        queueNavigationLayoutEvaluation();
       };
       window.addEventListener("resize", onResize);
+      attachViewportObservers(onResize);
       return () => {
         if (menuToggleButton) {
           menuToggleButton.removeEventListener("click", menuToggleHandler);
@@ -408,6 +490,11 @@
         document.removeEventListener("keydown", onEscape);
         document.removeEventListener("pointerdown", onPointerDown);
         window.removeEventListener("resize", onResize);
+        if (visualViewportResizeHandler && window.visualViewport) {
+          window.visualViewport.removeEventListener("resize", visualViewportResizeHandler);
+          window.visualViewport.removeEventListener("scroll", visualViewportResizeHandler);
+          visualViewportResizeHandler = null;
+        }
         nav.removeEventListener("mouseleave", navLeaveHandler);
         closeMobileNavigation();
         host.innerHTML = "";
@@ -416,6 +503,9 @@
     window.mountNavigation = function mountNavigation(host, props) {
       return renderNavigation(host, props || {});
     };
+    window.addEventListener("load", () => {
+      queueNavigationLayoutEvaluation();
+    });
   })();
 
   // Web/wwwroot/js/ui/app-footer.js
@@ -435,7 +525,368 @@
   };
 
   // Web/wwwroot/js/features/survey/user-survey-flow.js
+  var CADESCOM_CONTAINER_STORE = 100;
+  var CAPICOM_STORE_OPEN_READ_ONLY = 0;
+  var CADESCOM_CADES_BES = 1;
+  var cadesPluginLoadPromise = null;
+  function isEmbeddedBrowserEnvironment() {
+    const userAgent = String(window.navigator.userAgent || "");
+    const vendor = String(window.navigator.vendor || "");
+    return /Electron|WebView|; wv\)|QtWebEngine|QtWebKit|Slack|Teams/i.test(userAgent) || userAgent.includes("Macintosh") && vendor === "Apple Computer, Inc." && !/Safari\//i.test(userAgent);
+  }
+  function getCryptoProUnavailableMessage() {
+    if (isEmbeddedBrowserEnvironment()) {
+      return "Подпись через CryptoPro Browser plug-in не поддерживается во встроенном браузере. Откройте систему в Chrome, Edge, Яндекс.Браузере или Safari с установленным CryptoPro Browser plug-in.";
+    }
+    return "CryptoPro Browser plug-in недоступен. Проверьте, что расширение и КриптоПРО CSP установлены в поддерживаемом браузере.";
+  }
+  function extractErrorMessage(error) {
+    if (typeof error === "string") {
+      return error.trim();
+    }
+    if (error instanceof Error) {
+      return String(error.message || "").trim();
+    }
+    if (error && typeof error === "object" && "message" in error) {
+      return String(error.message || "").trim();
+    }
+    return "";
+  }
+  function normalizeCryptoProError(error) {
+    const rawMessage = extractErrorMessage(error);
+    const message = rawMessage || "Ошибка при работе с CryptoPro Browser plug-in.";
+    if (isEmbeddedBrowserEnvironment()) {
+      return {
+        message: getCryptoProUnavailableMessage(),
+        showInstallHelp: true
+      };
+    }
+    if (/нет доступных сертификатов/i.test(message)) {
+      return {
+        message: "Не найдено ни одного доступного сертификата для подписи.",
+        showInstallHelp: false
+      };
+    }
+    if (/сертификат не выбран/i.test(message)) {
+      return {
+        message: "Сертификат для подписи не выбран.",
+        showInstallHelp: false
+      };
+    }
+    if (/истекло время ожидания загрузки плагина/i.test(message)) {
+      return {
+        message: "CryptoPro Browser plug-in не ответил. Обычно это означает, что расширение не установлено, выключено в браузере или страница открыта во встроенном браузере/вебвью, где CryptoPro не работает.",
+        showInstallHelp: true
+      };
+    }
+    if (/плагин недоступен|ошибка при загрузке плагина|chrome-extension:\/\/invalid/i.test(message)) {
+      return {
+        message: "CryptoPro Browser plug-in не установлен, отключен или не может загрузиться в текущем браузере. Проверьте расширение, КриптоПРО CSP и откройте страницу во внешнем поддерживаемом браузере.",
+        showInstallHelp: true
+      };
+    }
+    if (/не удалось загрузить скрипт/i.test(message)) {
+      return {
+        message: "Не удалось загрузить модуль подписи CryptoPro со страницы приложения.",
+        showInstallHelp: false
+      };
+    }
+    if (/CAdESCOM|CreateObjectAsync|объект/i.test(message)) {
+      return {
+        message: "CryptoPro установлен, но браузер не смог создать объекты плагина. Проверьте версию КриптоПРО CSP, расширение и перезапустите браузер.",
+        showInstallHelp: true
+      };
+    }
+    return {
+      message,
+      showInstallHelp: false
+    };
+  }
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[data-dynamic-src="${src}"]`);
+      if (existing) {
+        if (existing.dataset.loaded === "true") {
+          resolve();
+          return;
+        }
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error(`Не удалось загрузить скрипт ${src}`)), { once: true });
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.dataset.dynamicSrc = src;
+      script.onload = () => {
+        script.dataset.loaded = "true";
+        resolve();
+      };
+      script.onerror = () => reject(new Error(`Не удалось загрузить скрипт ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+  async function ensureCadesPluginLoaded() {
+    if (isEmbeddedBrowserEnvironment()) {
+      throw new Error(getCryptoProUnavailableMessage());
+    }
+    if (typeof window.cadesplugin !== "undefined") {
+      await window.cadesplugin;
+      return window.cadesplugin;
+    }
+    if (!cadesPluginLoadPromise) {
+      cadesPluginLoadPromise = loadScriptOnce("/js/cadesplugin_api.js").then(async () => {
+        if (typeof window.cadesplugin === "undefined") {
+          throw new Error(getCryptoProUnavailableMessage());
+        }
+        await window.cadesplugin;
+        return window.cadesplugin;
+      });
+    }
+    return cadesPluginLoadPromise;
+  }
+  async function CSP(id, organizationId) {
+    try {
+      await ensureCadesPluginLoaded();
+      await checkCSPAvailable();
+      const dataToSign = await getDataForSignature(id, organizationId);
+      const signature = await createDigitalSignature(dataToSign);
+      await sendSignatureToServer(id, organizationId, signature);
+      updateUISuccess();
+      if (typeof window.refreshSurveyUserPageData === "function") {
+        await window.refreshSurveyUserPageData({ preserveFilters: true });
+      }
+    } catch (error) {
+      console.error("Ошибка в CSP:", error);
+      const normalizedError = normalizeCryptoProError(error);
+      showError(normalizedError.message);
+    }
+  }
+  window.CSP = CSP;
+  async function listAllCertificates() {
+    try {
+      const store = await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
+      await store.Open(CADESCOM_CONTAINER_STORE, "My", CAPICOM_STORE_OPEN_READ_ONLY);
+      const certs = await store.Certificates;
+      const count = await certs.Count;
+      const certificates = [];
+      for (let i = 1; i <= count; i++) {
+        const cert = await certs.Item(i);
+        const subj = await cert.SubjectName;
+        const issuer = await cert.IssuerName;
+        const validFrom = await cert.ValidFromDate;
+        const validTo = await cert.ValidToDate;
+        const thumbprint = await cert.Thumbprint;
+        certificates.push({
+          index: i,
+          subject: subj,
+          issuer,
+          validFrom,
+          validTo,
+          thumbprint,
+          certificate: cert
+        });
+      }
+      return certificates;
+    } catch (error) {
+      console.error("Ошибка при перечислении сертификатов:", error);
+      throw error;
+    }
+  }
+  async function checkCSPAvailable() {
+    await ensureCadesPluginLoaded();
+    await cadesplugin.version;
+    await cadesplugin.CreateObjectAsync("CAdESCOM.About");
+    await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
+    return true;
+  }
+  async function getDataForSignature(id, organizationId) {
+    const response = await fetch(`/signatures/${id}/${organizationId}`);
+    if (!response.ok) throw new Error("Ошибка получения данных");
+    return await response.text();
+  }
+  async function showCertificateSelectionDialog(certificates) {
+    return new Promise((resolve) => {
+      const modal = document.createElement("div");
+      modal.className = "csp-modal";
+      const content = document.createElement("div");
+      content.className = "csp-modal-content";
+      const title = document.createElement("h3");
+      title.textContent = "Выберите сертификат для подписи";
+      content.appendChild(title);
+      const body = document.createElement("div");
+      body.className = "csp-modal-body";
+      const listContainer = document.createElement("div");
+      listContainer.className = "cert-list-container";
+      const certList = document.createElement("div");
+      certList.className = "cert-list";
+      certificates.forEach((cert) => {
+        const certItem = document.createElement("div");
+        certItem.className = "cert-item";
+        certItem.dataset.index = String(cert.index);
+        const subject = document.createElement("div");
+        subject.className = "cert-subject";
+        subject.textContent = cert.subject;
+        const details = document.createElement("div");
+        details.className = "cert-details";
+        const issuerRow = document.createElement("div");
+        const issuerLabel = document.createElement("strong");
+        issuerLabel.textContent = "Издатель:";
+        issuerRow.appendChild(issuerLabel);
+        issuerRow.appendChild(document.createTextNode(` ${cert.issuer}`));
+        const validityRow = document.createElement("div");
+        const validityLabel = document.createElement("strong");
+        validityLabel.textContent = "Действителен:";
+        validityRow.appendChild(validityLabel);
+        validityRow.appendChild(
+          document.createTextNode(
+            ` ${new Date(cert.validFrom).toLocaleDateString()} - ${new Date(cert.validTo).toLocaleDateString()}`
+          )
+        );
+        const thumbprintRow = document.createElement("div");
+        const thumbprintLabel = document.createElement("strong");
+        thumbprintLabel.textContent = "Отпечаток:";
+        thumbprintRow.appendChild(thumbprintLabel);
+        thumbprintRow.appendChild(document.createTextNode(` ${cert.thumbprint}`));
+        details.appendChild(issuerRow);
+        details.appendChild(validityRow);
+        details.appendChild(thumbprintRow);
+        certItem.appendChild(subject);
+        certItem.appendChild(details);
+        certList.appendChild(certItem);
+      });
+      listContainer.appendChild(certList);
+      body.appendChild(listContainer);
+      content.appendChild(body);
+      const footer = document.createElement("div");
+      footer.className = "csp-modal-footer";
+      const cancelButton = document.createElement("button");
+      cancelButton.className = "csp-btn csp-btn-secondary";
+      cancelButton.id = "cert-cancel";
+      cancelButton.textContent = "Отмена";
+      footer.appendChild(cancelButton);
+      content.appendChild(footer);
+      modal.appendChild(content);
+      modal.querySelectorAll(".cert-item").forEach((item) => {
+        item.addEventListener("click", () => {
+          const index = parseInt(item.getAttribute("data-index"));
+          const selectedCert = certificates.find((c) => c.index === index);
+          document.body.removeChild(modal);
+          resolve(selectedCert);
+        });
+        item.addEventListener("mouseenter", () => {
+          item.style.backgroundColor = "#f0f7ff";
+        });
+        item.addEventListener("mouseleave", () => {
+          item.style.backgroundColor = "";
+        });
+      });
+      modal.querySelector("#cert-cancel").addEventListener("click", () => {
+        document.body.removeChild(modal);
+        resolve(null);
+      });
+      document.body.appendChild(modal);
+    });
+  }
+  async function createDigitalSignature(data) {
+    try {
+      const certificates = await listAllCertificates();
+      if (certificates.length === 0) {
+        throw new Error("Нет доступных сертификатов");
+      }
+      const selectedCert = await showCertificateSelectionDialog(certificates);
+      if (!selectedCert) {
+        throw new Error("Сертификат не выбран");
+      }
+      const signer = await cadesplugin.CreateObjectAsync("CAdESCOM.CPSigner");
+      await signer.propset_Certificate(selectedCert.certificate);
+      const signedData = await cadesplugin.CreateObjectAsync("CAdESCOM.CadesSignedData");
+      await signedData.propset_Content(data);
+      return await signedData.SignCades(signer, CADESCOM_CADES_BES);
+    } catch (error) {
+      console.error("Ошибка при создании подписи:", error);
+      throw error;
+    }
+  }
+  async function sendSignatureToServer(id, organizationId, signature) {
+    const response = await fetch(`/signatures/${id}/${organizationId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signature })
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || "Ошибка сервера");
+    }
+  }
+  function updateUISuccess() {
+    applySignedState(document, true);
+    const notification = document.createElement("div");
+    notification.className = "csp-notification success";
+    const icon = document.createElement("span");
+    icon.className = "csp-notification-icon";
+    icon.textContent = "✓";
+    const text = document.createElement("span");
+    text.className = "csp-notification-text";
+    text.textContent = "Документ успешно подписан";
+    notification.appendChild(icon);
+    notification.appendChild(text);
+    document.body.appendChild(notification);
+    setTimeout(() => {
+      notification.classList.add("fade-out");
+      setTimeout(() => notification.remove(), 300);
+    }, 5e3);
+  }
+  window.createAnswerReport = function createAnswerReport(idSurvey, organizationId, type) {
+    window.AppScrollState?.prepareNavigation({ carry: true });
+    window.location.assign(`/answers/${idSurvey}/${organizationId}/report/${type}`);
+  };
+  function getAnswersPageContainer(source) {
+    if (source instanceof Element) {
+      const closestPage = source.closest('[data-role="survey-answers-page"], [data-page="answers-check"]');
+      if (closestPage) {
+        return closestPage;
+      }
+    }
+    if (source && typeof source.querySelector === "function") {
+      const nestedPage = source.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
+      if (nestedPage) {
+        return nestedPage;
+      }
+    }
+    return document.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
+  }
+  function applySignedState(source, isSigned) {
+    const page = getAnswersPageContainer(source);
+    if (!page) {
+      return;
+    }
+    page.dataset.isSigned = isSigned ? "true" : "false";
+    const signatureInfo = page.querySelector('[data-role="signature-info"]');
+    const signatureStatus = page.querySelector('[data-role="signature-status"]');
+    if (signatureInfo) {
+      signatureInfo.classList.toggle("u-hidden", !isSigned);
+      signatureInfo.classList.toggle("is-hidden", !isSigned);
+    }
+    if (signatureStatus) {
+      signatureStatus.textContent = isSigned ? "подписано" : "не подписано";
+      signatureStatus.classList.toggle("signed", isSigned);
+      signatureStatus.classList.toggle("not-signed", !isSigned);
+    }
+  }
+  window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organizationId, triggerElement) {
+    const page = getAnswersPageContainer(triggerElement);
+    const isSigned = page?.dataset.isSigned === "true";
+    if (isSigned) {
+      return window.downloadSignedArchive(surveyId, organizationId);
+    }
+    return window.createPdfReport(surveyId, organizationId);
+  };
   function showError(message) {
+    if (typeof window.siteNotify === "function") {
+      window.siteNotify(message, "error", { title: "Ошибка" });
+      return;
+    }
     const notification = document.createElement("div");
     notification.className = "csp-notification error";
     const icon = document.createElement("span");
@@ -726,8 +1177,23 @@
     }
     let destroyed = false;
     function bindPage() {
-      const pdfButton = host.querySelector('[data-role="pdf-btn"]');
-      pdfButton?.addEventListener("click", () => createPdfReport(survey.id_survey, organizationId));
+      const page = host.querySelector('[data-role="survey-answers-page"]');
+      const surveyId = Number(page?.dataset.surveyId || survey?.id_survey || survey?.idSurvey || survey?.Id || 0);
+      const currentOrganizationId = Number(page?.dataset.organizationId || organizationId || 0);
+      const downloadButton = host.querySelector('[data-role="download-btn"]');
+      const signButton = host.querySelector('[data-role="sign-actions"] button');
+      downloadButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (surveyId > 0 && currentOrganizationId > 0) {
+          window.downloadAnswerDocument(surveyId, currentOrganizationId, downloadButton);
+        }
+      });
+      signButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (surveyId > 0 && currentOrganizationId > 0) {
+          CSP(surveyId, currentOrganizationId);
+        }
+      });
     }
     const loadAnswersContent = async () => {
       try {
@@ -781,6 +1247,7 @@
     const instances = /* @__PURE__ */ new Map();
     const organizationInstances = /* @__PURE__ */ new Map();
     const surveyNameInstances = /* @__PURE__ */ new Map();
+    const serverFilterConfigs = /* @__PURE__ */ new WeakMap();
     let observer = null;
     function pad(value) {
       return String(value).padStart(2, "0");
@@ -1004,6 +1471,201 @@
     function getPageDateSummary(page) {
       return page?.dataset?.filterDateSummary || "у которых дата начала и дата конца попадают";
     }
+    function parseIntegerList(values) {
+      if (!Array.isArray(values)) {
+        return [];
+      }
+      return values.map((value) => Number.parseInt(String(value), 10)).filter((value, index, array) => Number.isInteger(value) && array.indexOf(value) === index);
+    }
+    function getServerFilterConfig(page) {
+      if (!(page instanceof Element)) {
+        return null;
+      }
+      if (serverFilterConfigs.has(page)) {
+        return serverFilterConfigs.get(page);
+      }
+      const bootstrapNode = page.querySelector('script[data-role="server-filter-bootstrap"]');
+      if (!bootstrapNode) {
+        serverFilterConfigs.set(page, null);
+        return null;
+      }
+      try {
+        const parsed = JSON.parse(bootstrapNode.textContent || "{}");
+        const config = {
+          basePath: String(parsed?.BasePath || parsed?.basePath || "").trim(),
+          enableDateFilter: Boolean(parsed?.EnableDateFilter ?? parsed?.enableDateFilter),
+          enableOrganizationFilter: Boolean(parsed?.EnableOrganizationFilter ?? parsed?.enableOrganizationFilter),
+          enableSurveyFilter: Boolean(parsed?.EnableSurveyFilter ?? parsed?.enableSurveyFilter),
+          organizationOptions: Array.isArray(parsed?.OrganizationOptions ?? parsed?.organizationOptions) ? (parsed.OrganizationOptions ?? parsed.organizationOptions).map((option) => ({
+            id: Number.parseInt(String(option?.Id ?? option?.id ?? ""), 10),
+            name: String(option?.Name ?? option?.name ?? "").trim()
+          })).filter((option) => Number.isInteger(option.id) && option.name) : [],
+          selectedOrganizationIds: parseIntegerList(parsed?.SelectedOrganizationIds ?? parsed?.selectedOrganizationIds),
+          surveyOptions: Array.isArray(parsed?.SurveyOptions ?? parsed?.surveyOptions) ? (parsed.SurveyOptions ?? parsed.surveyOptions).map((option) => ({
+            id: Number.parseInt(String(option?.Id ?? option?.id ?? ""), 10),
+            name: String(option?.Name ?? option?.name ?? "").trim()
+          })).filter((option) => Number.isInteger(option.id) && option.name) : [],
+          selectedSurveyIds: parseIntegerList(parsed?.SelectedSurveyIds ?? parsed?.selectedSurveyIds),
+          year: Number.isInteger(parsed?.Year) ? parsed.Year : Number.parseInt(String(parsed?.Year ?? parsed?.year ?? ""), 10),
+          month: String(parsed?.Month ?? parsed?.month ?? "").trim(),
+          dateFrom: String(parsed?.DateFrom ?? parsed?.dateFrom ?? "").trim(),
+          dateTo: String(parsed?.DateTo ?? parsed?.dateTo ?? "").trim()
+        };
+        if (!Number.isInteger(config.year)) {
+          config.year = null;
+        }
+        serverFilterConfigs.set(page, config);
+        return config;
+      } catch (error) {
+        serverFilterConfigs.set(page, null);
+        return null;
+      }
+    }
+    function isServerFilterPage(page) {
+      const config = getServerFilterConfig(page);
+      return Boolean(config?.basePath);
+    }
+    function getServerFilterTabName(page) {
+      switch (page?.dataset?.page) {
+        case "surveys-list":
+          return "get_surveys";
+        case "surveys-archive":
+          return "archived_surveys";
+        case "answers-list":
+          return "list_answers_users";
+        default:
+          return "";
+      }
+    }
+    function getSelectedOptionNames(options, selectedIds) {
+      const selectedIdSet = new Set(parseIntegerList(selectedIds));
+      return options.filter((option) => selectedIdSet.has(option.id)).map((option) => option.name).sort((left, right) => left.localeCompare(right, "ru"));
+    }
+    function buildServerFilterUrl(page) {
+      const config = getServerFilterConfig(page);
+      if (!config?.basePath) {
+        return "";
+      }
+      const currentPath = normalizeCurrentPath(window.location.pathname);
+      const basePath = normalizeCurrentPath(config.basePath);
+      const params = currentPath === basePath ? new URLSearchParams(window.location.search) : new URLSearchParams();
+      ["page", "organizationIds", "surveyIds", "year", "month", "dateFrom", "dateTo"].forEach((key) => {
+        params.delete(key);
+      });
+      if (config.selectedOrganizationIds.length > 0) {
+        params.set("organizationIds", config.selectedOrganizationIds.join(","));
+      }
+      if (config.selectedSurveyIds.length > 0) {
+        params.set("surveyIds", config.selectedSurveyIds.join(","));
+      }
+      if (Number.isInteger(config.year)) {
+        params.set("year", String(config.year));
+      } else if (config.month) {
+        params.set("month", config.month);
+      } else {
+        if (config.dateFrom) {
+          params.set("dateFrom", config.dateFrom);
+        }
+        if (config.dateTo) {
+          params.set("dateTo", config.dateTo);
+        }
+      }
+      const queryString = params.toString();
+      return queryString ? `${config.basePath}?${queryString}` : config.basePath;
+    }
+    function normalizeCurrentPath(pathname) {
+      if (!pathname) {
+        return "/";
+      }
+      return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+    }
+    function navigateServerFilterPage(page) {
+      const url = buildServerFilterUrl(page);
+      if (!url) {
+        return;
+      }
+      const config = getServerFilterConfig(page);
+      const queryIndex = url.indexOf("?");
+      const queryString = queryIndex >= 0 ? url.slice(queryIndex + 1) : "";
+      const tabName = getServerFilterTabName(page);
+      const scrollTargetSelector = page?.dataset?.tableScrollTarget || "";
+      if (typeof window.refreshAdminTab === "function" && tabName) {
+        window.refreshAdminTab(tabName, queryString || null, {
+          scrollTargetSelector
+        });
+        return;
+      }
+      window.location.assign(url);
+    }
+    function syncServerDateFilterState(instance) {
+      const config = getServerFilterConfig(instance?.page);
+      if (!config) {
+        return;
+      }
+      config.year = null;
+      config.month = "";
+      config.dateFrom = "";
+      config.dateTo = "";
+      if (instance.state.activeFilterType === "year" && Number.isInteger(instance.state.activeYear)) {
+        config.year = instance.state.activeYear;
+        return;
+      }
+      if (instance.state.activeFilterType === "month" && instance.state.activeMonth) {
+        config.month = `${instance.state.activeMonth.year}-${pad(instance.state.activeMonth.monthIndex + 1)}`;
+        return;
+      }
+      if (instance.state.activeFilterType === "range" && instance.state.rangeStart && instance.state.rangeEnd) {
+        config.dateFrom = instance.state.rangeStart;
+        config.dateTo = instance.state.rangeEnd;
+      }
+    }
+    function getInitialDateState(page, today) {
+      const state = {
+        isOpen: false,
+        mode: "month",
+        monthViewYear: today.getFullYear(),
+        yearViewStart: getDecadeStart(today.getFullYear()),
+        rangeViewDate: new Date(today.getFullYear(), today.getMonth(), 1),
+        activeFilterType: "all",
+        activeYear: null,
+        activeMonth: null,
+        rangeStart: "",
+        rangeEnd: ""
+      };
+      const config = getServerFilterConfig(page);
+      if (!config?.enableDateFilter) {
+        return state;
+      }
+      if (Number.isInteger(config.year)) {
+        state.activeFilterType = "year";
+        state.activeYear = config.year;
+        state.monthViewYear = config.year;
+        state.yearViewStart = getDecadeStart(config.year);
+        return state;
+      }
+      const monthMatch = config.month.match(/^(\d{4})-(\d{2})$/);
+      if (monthMatch) {
+        const year = Number.parseInt(monthMatch[1], 10);
+        const monthIndex = Number.parseInt(monthMatch[2], 10) - 1;
+        if (Number.isInteger(year) && Number.isInteger(monthIndex) && monthIndex >= 0 && monthIndex < 12) {
+          state.activeFilterType = "month";
+          state.activeMonth = { year, monthIndex };
+          state.monthViewYear = year;
+          state.yearViewStart = getDecadeStart(year);
+          return state;
+        }
+      }
+      if (config.dateFrom && config.dateTo) {
+        state.activeFilterType = "range";
+        state.rangeStart = config.dateFrom;
+        state.rangeEnd = config.dateTo;
+        const rangeDate = parseIso(config.dateFrom);
+        if (rangeDate) {
+          state.rangeViewDate = new Date(rangeDate.getFullYear(), rangeDate.getMonth(), 1);
+        }
+      }
+      return state;
+    }
     function shouldHideCountSummary(page) {
       return page?.dataset?.filterHideCountSummary === "true";
     }
@@ -1094,7 +1756,7 @@
       refs.clearButton.disabled = state.activeFilterType === "all" && !Number.isInteger(state.activeYear) && !state.activeMonth && !state.rangeStart && !state.rangeEnd;
     }
     function updateOrganizationFilterSummary(instance, visibleCount, totalCount) {
-      const selectedOrganizations = instance.state.selectedOrganizations;
+      const selectedOrganizations = instance.state.serverMode ? getSelectedOptionNames(instance.state.availableOrganizationOptions, instance.state.selectedOrganizationIds) : instance.state.selectedOrganizations;
       const label = getOrganizationFilterLabel(selectedOrganizations);
       const itemLabel = getPageItemLabel(instance.page);
       const hideCountSummary = shouldHideCountSummary(instance.page);
@@ -1108,10 +1770,10 @@
       if (instance.refs.summary) {
         instance.refs.summary.textContent = summary;
       }
-      instance.refs.clearButton.disabled = selectedOrganizations.length === 0;
+      instance.refs.clearButton.disabled = instance.state.serverMode ? instance.state.selectedOrganizationIds.length === 0 : selectedOrganizations.length === 0;
     }
     function updateSurveyNameFilterSummary(instance, visibleCount, totalCount) {
-      const selectedSurveyNames = instance.state.selectedSurveyNames;
+      const selectedSurveyNames = instance.state.serverMode ? getSelectedOptionNames(instance.state.availableSurveyOptions, instance.state.selectedSurveyIds) : instance.state.selectedSurveyNames;
       const label = getSurveyNameFilterLabel(selectedSurveyNames);
       const itemLabel = getPageItemLabel(instance.page);
       const hideCountSummary = shouldHideCountSummary(instance.page);
@@ -1125,7 +1787,7 @@
       if (instance.refs.summary) {
         instance.refs.summary.textContent = summary;
       }
-      instance.refs.clearButton.disabled = selectedSurveyNames.length === 0;
+      instance.refs.clearButton.disabled = instance.state.serverMode ? instance.state.selectedSurveyIds.length === 0 : selectedSurveyNames.length === 0;
     }
     function updatePageSummaries(page, visibleCount, totalCount) {
       const dateInstance = getDateInstanceForPage(page);
@@ -1143,6 +1805,15 @@
     }
     function applyPageFilters(page) {
       const rows = getDataRowsFromPage(page);
+      if (isServerFilterPage(page)) {
+        updatePageSummaries(
+          page,
+          rows.length,
+          Number.parseInt(String(page?.dataset?.totalCount || rows.length), 10) || rows.length
+        );
+        syncEmptyRow(page, rows, rows.length);
+        return;
+      }
       const totalCount = rows.length;
       const dateInstance = getDateInstanceForPage(page);
       const organizationInstance = getOrganizationInstanceForPage(page);
@@ -1331,21 +2002,28 @@
     function renderOrganizationPanel(instance) {
       const { state, refs } = instance;
       refs.options.textContent = "";
-      if (state.availableOrganizations.length === 0) {
+      const hasOptions = state.serverMode ? state.availableOrganizationOptions.length > 0 : state.availableOrganizations.length > 0;
+      if (!hasOptions) {
         refs.options.appendChild(
-          createElement("p", "app-checkbox-empty survey-period-filter__organization-empty", "Организации для фильтрации не найдены.")
+          createElement("p", "app-checkbox-empty", "Организации для фильтрации не найдены.")
         );
         return;
       }
-      state.availableOrganizations.forEach((organizationName) => {
-        const optionLabel = createElement("label", "app-checkbox-option survey-period-filter__organization-option");
-        const checkbox = createElement("input", "app-checkbox-input survey-period-filter__organization-checkbox");
-        const labelText = createElement("span", "app-checkbox-text survey-period-filter__organization-name", organizationName);
-        const isSelected = state.selectedOrganizations.includes(organizationName);
+      const options = state.serverMode ? state.availableOrganizationOptions : state.availableOrganizations;
+      options.forEach((option) => {
+        const organizationId = state.serverMode ? option.id : null;
+        const organizationName = state.serverMode ? option.name : option;
+        const optionLabel = createElement("label", "app-checkbox-option");
+        const checkbox = createElement("input", "app-checkbox-input");
+        const labelText = createElement("span", "app-checkbox-text", organizationName);
+        const isSelected = state.serverMode ? state.selectedOrganizationIds.includes(organizationId) : state.selectedOrganizations.includes(organizationName);
         optionLabel.classList.toggle("is-selected", isSelected);
         checkbox.type = "checkbox";
         checkbox.dataset.role = "survey-organization-filter-option";
         checkbox.dataset.organizationName = organizationName;
+        if (state.serverMode) {
+          checkbox.dataset.organizationId = String(organizationId);
+        }
         checkbox.checked = isSelected;
         optionLabel.appendChild(checkbox);
         optionLabel.appendChild(labelText);
@@ -1355,21 +2033,28 @@
     function renderSurveyNamePanel(instance) {
       const { state, refs } = instance;
       refs.options.textContent = "";
-      if (state.availableSurveyNames.length === 0) {
+      const hasOptions = state.serverMode ? state.availableSurveyOptions.length > 0 : state.availableSurveyNames.length > 0;
+      if (!hasOptions) {
         refs.options.appendChild(
-          createElement("p", "app-checkbox-empty survey-period-filter__organization-empty", "Анкеты для фильтрации не найдены.")
+          createElement("p", "app-checkbox-empty", "Анкеты для фильтрации не найдены.")
         );
         return;
       }
-      state.availableSurveyNames.forEach((surveyName) => {
-        const optionLabel = createElement("label", "app-checkbox-option survey-period-filter__organization-option");
-        const checkbox = createElement("input", "app-checkbox-input survey-period-filter__organization-checkbox");
-        const labelText = createElement("span", "app-checkbox-text survey-period-filter__organization-name", surveyName);
-        const isSelected = state.selectedSurveyNames.includes(surveyName);
+      const options = state.serverMode ? state.availableSurveyOptions : state.availableSurveyNames;
+      options.forEach((option) => {
+        const surveyId = state.serverMode ? option.id : null;
+        const surveyName = state.serverMode ? option.name : option;
+        const optionLabel = createElement("label", "app-checkbox-option");
+        const checkbox = createElement("input", "app-checkbox-input");
+        const labelText = createElement("span", "app-checkbox-text", surveyName);
+        const isSelected = state.serverMode ? state.selectedSurveyIds.includes(surveyId) : state.selectedSurveyNames.includes(surveyName);
         optionLabel.classList.toggle("is-selected", isSelected);
         checkbox.type = "checkbox";
         checkbox.dataset.role = "survey-name-filter-option";
         checkbox.dataset.surveyName = surveyName;
+        if (state.serverMode) {
+          checkbox.dataset.surveyId = String(surveyId);
+        }
         checkbox.checked = isSelected;
         optionLabel.appendChild(checkbox);
         optionLabel.appendChild(labelText);
@@ -1389,6 +2074,11 @@
       instance.state.rangeStart = "";
       instance.state.rangeEnd = "";
       render(instance);
+      if (isServerFilterPage(instance.page)) {
+        syncServerDateFilterState(instance);
+        navigateServerFilterPage(instance.page);
+        return;
+      }
       applyFilter(instance);
     }
     function applyYearFilter(instance, year) {
@@ -1403,6 +2093,11 @@
       state.monthViewYear = year;
       state.yearViewStart = getDecadeStart(year);
       render(instance);
+      if (isServerFilterPage(instance.page)) {
+        syncServerDateFilterState(instance);
+        navigateServerFilterPage(instance.page);
+        return;
+      }
       applyFilter(instance);
     }
     function applyMonthFilter(instance, monthIndex) {
@@ -1419,6 +2114,11 @@
         monthIndex
       };
       render(instance);
+      if (isServerFilterPage(instance.page)) {
+        syncServerDateFilterState(instance);
+        navigateServerFilterPage(instance.page);
+        return;
+      }
       applyFilter(instance);
     }
     function handleRangeSelection(instance, isoValue) {
@@ -1428,6 +2128,9 @@
         state.rangeEnd = "";
         state.activeFilterType = "all";
         render(instance);
+        if (isServerFilterPage(instance.page)) {
+          return;
+        }
         applyFilter(instance);
         return;
       }
@@ -1440,6 +2143,11 @@
       state.activeFilterType = "range";
       state.activeYear = null;
       render(instance);
+      if (isServerFilterPage(instance.page)) {
+        syncServerDateFilterState(instance);
+        navigateServerFilterPage(instance.page);
+        return;
+      }
       applyFilter(instance);
     }
     function renderOrganization(instance) {
@@ -1463,6 +2171,24 @@
       renderOrganization(instance);
       applyPageFilters(instance.page);
     }
+    function toggleOrganizationIdSelection(instance, organizationId, isSelected) {
+      if (!Number.isInteger(organizationId)) {
+        return;
+      }
+      const nextSelectedOrganizationIds = new Set(instance.state.selectedOrganizationIds);
+      if (isSelected) {
+        nextSelectedOrganizationIds.add(organizationId);
+      } else {
+        nextSelectedOrganizationIds.delete(organizationId);
+      }
+      instance.state.selectedOrganizationIds = Array.from(nextSelectedOrganizationIds).sort((left, right) => left - right);
+      const config = getServerFilterConfig(instance.page);
+      if (config) {
+        config.selectedOrganizationIds = [...instance.state.selectedOrganizationIds];
+      }
+      renderOrganization(instance);
+      navigateServerFilterPage(instance.page);
+    }
     function toggleSurveyNameSelection(instance, surveyName, isSelected) {
       const normalizedName = String(surveyName || "").trim();
       if (!normalizedName) {
@@ -1478,6 +2204,24 @@
       renderSurveyName(instance);
       applyPageFilters(instance.page);
     }
+    function toggleSurveyIdSelection(instance, surveyId, isSelected) {
+      if (!Number.isInteger(surveyId)) {
+        return;
+      }
+      const nextSelectedSurveyIds = new Set(instance.state.selectedSurveyIds);
+      if (isSelected) {
+        nextSelectedSurveyIds.add(surveyId);
+      } else {
+        nextSelectedSurveyIds.delete(surveyId);
+      }
+      instance.state.selectedSurveyIds = Array.from(nextSelectedSurveyIds).sort((left, right) => left - right);
+      const config = getServerFilterConfig(instance.page);
+      if (config) {
+        config.selectedSurveyIds = [...instance.state.selectedSurveyIds];
+      }
+      renderSurveyName(instance);
+      navigateServerFilterPage(instance.page);
+    }
     function bindInstance(root) {
       if (!(root instanceof Element) || instances.has(root)) {
         return;
@@ -1492,18 +2236,7 @@
       const instance = {
         root,
         page,
-        state: {
-          isOpen: false,
-          mode: "month",
-          monthViewYear: today.getFullYear(),
-          yearViewStart: getDecadeStart(today.getFullYear()),
-          rangeViewDate: new Date(today.getFullYear(), today.getMonth(), 1),
-          activeFilterType: "all",
-          activeYear: null,
-          activeMonth: null,
-          rangeStart: "",
-          rangeEnd: ""
-        },
+        state: getInitialDateState(page, today),
         refs: {
           trigger: root.querySelector('[data-role="survey-date-filter-trigger"]'),
           label: root.querySelector('[data-role="survey-date-filter-label"]'),
@@ -1637,8 +2370,11 @@
         page,
         state: {
           isOpen: false,
+          serverMode: isServerFilterPage(page),
           availableOrganizations: collectAvailableOrganizations(page),
-          selectedOrganizations: []
+          availableOrganizationOptions: getServerFilterConfig(page)?.organizationOptions || [],
+          selectedOrganizations: [],
+          selectedOrganizationIds: [...getServerFilterConfig(page)?.selectedOrganizationIds || []]
         },
         refs: {
           trigger: root.querySelector('[data-role="survey-organization-filter-trigger"]'),
@@ -1667,6 +2403,16 @@
         }
         if (event.target.closest('[data-role="survey-organization-filter-clear"]')) {
           event.preventDefault();
+          if (instance.state.serverMode) {
+            instance.state.selectedOrganizationIds = [];
+            const config = getServerFilterConfig(instance.page);
+            if (config) {
+              config.selectedOrganizationIds = [];
+            }
+            renderOrganization(instance);
+            navigateServerFilterPage(instance.page);
+            return;
+          }
           instance.state.selectedOrganizations = [];
           renderOrganization(instance);
           applyPageFilters(instance.page);
@@ -1677,11 +2423,15 @@
         if (!option || !root.contains(option)) {
           return;
         }
-        toggleOrganizationSelection(
-          instance,
-          option.dataset.organizationName || "",
-          Boolean(option.checked)
-        );
+        if (instance.state.serverMode) {
+          toggleOrganizationIdSelection(
+            instance,
+            Number.parseInt(option.dataset.organizationId || "", 10),
+            Boolean(option.checked)
+          );
+          return;
+        }
+        toggleOrganizationSelection(instance, option.dataset.organizationName || "", Boolean(option.checked));
       };
       root.addEventListener("click", instance.handlers.click);
       root.addEventListener("change", instance.handlers.change);
@@ -1703,8 +2453,11 @@
         page,
         state: {
           isOpen: false,
+          serverMode: isServerFilterPage(page),
           availableSurveyNames: collectAvailableSurveyNames(page),
-          selectedSurveyNames: []
+          availableSurveyOptions: getServerFilterConfig(page)?.surveyOptions || [],
+          selectedSurveyNames: [],
+          selectedSurveyIds: [...getServerFilterConfig(page)?.selectedSurveyIds || []]
         },
         refs: {
           trigger: root.querySelector('[data-role="survey-name-filter-trigger"]'),
@@ -1733,6 +2486,16 @@
         }
         if (event.target.closest('[data-role="survey-name-filter-clear"]')) {
           event.preventDefault();
+          if (instance.state.serverMode) {
+            instance.state.selectedSurveyIds = [];
+            const config = getServerFilterConfig(instance.page);
+            if (config) {
+              config.selectedSurveyIds = [];
+            }
+            renderSurveyName(instance);
+            navigateServerFilterPage(instance.page);
+            return;
+          }
           instance.state.selectedSurveyNames = [];
           renderSurveyName(instance);
           applyPageFilters(instance.page);
@@ -1743,11 +2506,15 @@
         if (!option || !root.contains(option)) {
           return;
         }
-        toggleSurveyNameSelection(
-          instance,
-          option.dataset.surveyName || "",
-          Boolean(option.checked)
-        );
+        if (instance.state.serverMode) {
+          toggleSurveyIdSelection(
+            instance,
+            Number.parseInt(option.dataset.surveyId || "", 10),
+            Boolean(option.checked)
+          );
+          return;
+        }
+        toggleSurveyNameSelection(instance, option.dataset.surveyName || "", Boolean(option.checked));
       };
       root.addEventListener("click", instance.handlers.click);
       root.addEventListener("change", instance.handlers.change);
@@ -1829,6 +2596,7 @@
         observer.disconnect();
         observer = null;
       }
+      serverFilterConfigs.clear?.();
       document.removeEventListener("click", handleDocumentClick);
       document.removeEventListener("keydown", handleDocumentKeydown);
     }
@@ -2096,11 +2864,20 @@
         tableSection: root?.querySelector('[data-role="table-section"]'),
         tableBody: root?.querySelector('[data-role="survey-table-body"]'),
         pagination: root?.querySelector('[data-role="pagination"]'),
-        prevPage: root?.querySelector('[data-role="prev-page"]'),
-        nextPage: root?.querySelector('[data-role="next-page"]'),
         errorWrap: root?.querySelector('[data-role="error"]'),
         errorText: root?.querySelector('[data-role="error-text"]')
       };
+    }
+    function scrollToTableSection() {
+      const refs = getContentRefs();
+      const target = refs.tableSection?.querySelector("table") || refs.tableSection;
+      if (!target) {
+        return;
+      }
+      target.scrollIntoView({
+        block: "start",
+        behavior: "auto"
+      });
     }
     function renderChrome() {
       const headerHost = document.getElementById("chrome-header");
@@ -2302,6 +3079,9 @@
         state.tabSnapshots[tab] = snapshot;
         if (options.applyToCurrent !== false && state.activeTab === tab) {
           mountSnapshot(snapshot, { preserveFilters: options.preserveFilters === true });
+          if (options.scrollToTableStart === true) {
+            scrollToTableSection();
+          }
         }
         return snapshot;
       } catch (error) {
@@ -2435,22 +3215,20 @@
         }
         return;
       }
-      const prevPageButton = event.target.closest('[data-role="prev-page"]');
-      if (prevPageButton && contentHost.contains(prevPageButton) && !prevPageButton.disabled) {
+      const paginationButton = event.target.closest('[data-role="pagination-page"]');
+      if (paginationButton && contentHost.contains(paginationButton)) {
+        const targetPage = Number(paginationButton.dataset.page || 0);
+        if (!Number.isFinite(targetPage) || targetPage <= 0 || targetPage === state.currentSnapshot.currentPage) {
+          return;
+        }
+        event.preventDefault();
         loadTabSnapshot(state.activeTab, {
-          page: Math.max(1, state.currentSnapshot.currentPage - 1),
+          page: targetPage,
           searchTerm: state.currentSnapshot.searchTerm,
-          signedOnly: state.currentSnapshot.signedOnly
+          signedOnly: state.currentSnapshot.signedOnly,
+          scrollToTableStart: true
         });
         return;
-      }
-      const nextPageButton = event.target.closest('[data-role="next-page"]');
-      if (nextPageButton && contentHost.contains(nextPageButton) && !nextPageButton.disabled) {
-        loadTabSnapshot(state.activeTab, {
-          page: state.currentSnapshot.currentPage + 1,
-          searchTerm: state.currentSnapshot.searchTerm,
-          signedOnly: state.currentSnapshot.signedOnly
-        });
       }
     }
     function handleDoubleClick(event) {

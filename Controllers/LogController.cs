@@ -5,10 +5,12 @@ using MainProject.Application.Contracts;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.ViewModels;
+using MainProject.Application.Support;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class LogController : Controller
 {
+    private const int LogsPageSize = 10;
     private readonly IAuditLogService _auditLogService;
 
     public LogController(IAuditLogService auditLogService)
@@ -17,16 +19,28 @@ public class LogController : Controller
     }
 
     [HttpGet("event-log")]
-    public IActionResult GetLogs()
+    public IActionResult GetLogs(
+        [FromQuery] int page = 1,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
     {
         try
         {
-            return View("get_logs", _auditLogService.GetLogs());
+            return View("get_logs", _auditLogService.GetLogsPage(page, LogsPageSize, sortBy, sortDirection));
         }
         catch (Exception ex)
         {
             ViewData["LogLoadErrorMessage"] = $"Не удалось загрузить журнал событий: {ex.Message}";
-            return View("get_logs", Array.Empty<Log>());
+            return View("get_logs", new AuditLogPageViewModel
+            {
+                HasExplicitSort = AppSortState.HasExplicitSort(sortBy),
+                CurrentPage = 1,
+                TotalPages = 1,
+                TotalCount = 0,
+                PageSize = LogsPageSize,
+                SortBy = AppSortState.HasExplicitSort(sortBy) ? sortBy ?? string.Empty : string.Empty,
+                SortDirection = AppSortState.HasExplicitSort(sortBy) ? AppSortState.NormalizeExplicitDirection(sortDirection) : string.Empty
+            });
         }
     }
 
@@ -51,7 +65,7 @@ public class LogController : Controller
         }
 
         var logText = _auditLogService.GenerateLogText(logs);
-        var fileName = $"logs_dump_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+        var fileName = $"АИС Анкетирование. Журнал событий {DateTime.Now:yyyy-MM-dd HH-mm-ss}.txt";
         var fileBytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(logText);
         return File(fileBytes, "text/plain", fileName);
     }

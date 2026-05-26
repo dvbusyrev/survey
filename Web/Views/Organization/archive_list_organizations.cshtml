@@ -1,16 +1,22 @@
-﻿@model IEnumerable<MainProject.Domain.Entities.Organization>
+﻿@model MainProject.Web.ViewModels.OrganizationListPageViewModel
 
 @{
     ViewData["Title"] = "Архив организаций";
     ViewData["OrganizationSection"] = "archive";
-    var organizations = Model ?? Array.Empty<MainProject.Domain.Entities.Organization>();
+    var pageModel = Model ?? new MainProject.Web.ViewModels.OrganizationListPageViewModel();
+    var organizations = pageModel.Organizations;
 }
 
 @section PageStyles {
     <link rel="stylesheet" href="~/css/pages/organization.css" asp-append-version="true" />
 }
 
-<div class="app-page organization-page" id="default_content">
+<div class="app-page organization-page"
+     id="default_content"
+     data-page="organization-archive"
+     data-total-count="@pageModel.TotalCount"
+     data-visible-count="@organizations.Count"
+     data-table-scroll-target="#organizations-table-top">
     @await Html.PartialAsync("~/Web/Views/Organization/Partials/_OrganizationSubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
@@ -23,9 +29,21 @@
         "~/Web/Views/Organization/Partials/_OrganizationTable.cshtml",
         new MainProject.Web.ViewModels.OrganizationTableViewModel
         {
-            Organizations = organizations.ToList(),
-            ShowActions = true
+            Organizations = organizations,
+            ShowActions = true,
+            TableId = "organizations-table-top",
+            NameSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.OrganizationListSortFields.Name),
+            NameSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.OrganizationListSortFields.Name),
+            NameAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.OrganizationListSortFields.Name),
+            DateBeginSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.OrganizationListSortFields.DateBegin),
+            DateBeginSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.OrganizationListSortFields.DateBegin),
+            DateBeginAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.OrganizationListSortFields.DateBegin),
+            DateEndSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.OrganizationListSortFields.DateEnd),
+            DateEndSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.OrganizationListSortFields.DateEnd),
+            DateEndAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.OrganizationListSortFields.DateEnd)
         })
+
+    @await Html.PartialAsync("~/Web/Views/Shared/_AppPagination.cshtml", pageModel.Pagination)
 </div>
 
 @await Html.PartialAsync("~/Web/Views/Organization/Partials/_EditOrganizationModal.cshtml")

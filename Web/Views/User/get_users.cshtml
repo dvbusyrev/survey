@@ -3,12 +3,18 @@
 @{
     ViewData["Title"] = "Список пользователей";
     ViewData["UserSection"] = "list";
-    var users = Model?.Users ?? Array.Empty<MainProject.Domain.Entities.User>();
+    var pageModel = Model ?? new MainProject.Web.ViewModels.UserListPageViewModel();
+    var users = pageModel.Users;
     var organizations = Model?.Organizations ?? Array.Empty<MainProject.Application.DTO.SelectionOption>();
     var openAddUserModal = Model?.OpenAddUserModal ?? false;
 }
 
-<div class="app-page users-page" id="default_content" data-page="users-list">
+<div class="app-page users-page"
+     id="default_content"
+     data-page="users-list"
+     data-total-count="@pageModel.TotalCount"
+     data-visible-count="@users.Count"
+     data-table-scroll-target="#users-table-top">
     @await Html.PartialAsync("~/Web/Views/User/Partials/_UserSubnav.cshtml")
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
@@ -27,8 +33,26 @@
         new MainProject.Web.ViewModels.UserTableViewModel
         {
             Users = users,
-            ShowActions = true
+            ShowActions = true,
+            TableId = "users-table-top",
+            NameSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.UserListSortFields.Name),
+            NameSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.UserListSortFields.Name),
+            NameAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.UserListSortFields.Name),
+            OrganizationSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.UserListSortFields.Organization),
+            OrganizationSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.UserListSortFields.Organization),
+            OrganizationAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.UserListSortFields.Organization),
+            RoleSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.UserListSortFields.Role),
+            RoleSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.UserListSortFields.Role),
+            RoleAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.UserListSortFields.Role),
+            DateBeginSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.UserListSortFields.DateBegin),
+            DateBeginSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.UserListSortFields.DateBegin),
+            DateBeginAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.UserListSortFields.DateBegin),
+            DateEndSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.UserListSortFields.DateEnd),
+            DateEndSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.UserListSortFields.DateEnd),
+            DateEndAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.UserListSortFields.DateEnd)
         })
+
+    @await Html.PartialAsync("~/Web/Views/Shared/_AppPagination.cshtml", pageModel.Pagination)
 </div>
 
 @await Html.PartialAsync("~/Web/Views/User/Partials/_UserManagementModals.cshtml", organizations)

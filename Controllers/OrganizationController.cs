@@ -17,7 +17,12 @@ public class OrganizationController : Controller
 
     [HttpGet("organizations")]
     [HttpGet("organizations/{variantType}")]
-    public IActionResult GetOrganization(string? variantType, bool openAddOrganizationModal = false)
+    public IActionResult GetOrganization(
+        string? variantType,
+        bool openAddOrganizationModal = false,
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         if (string.Equals(variantType, "data", StringComparison.OrdinalIgnoreCase))
         {
@@ -33,7 +38,11 @@ public class OrganizationController : Controller
 
         try
         {
-            var pageModel = _organizationManagementService.GetActiveOrganizationsPage(openAddOrganizationModal);
+            var pageModel = _organizationManagementService.GetActiveOrganizationsPage(
+                page,
+                sortBy,
+                sortDirection,
+                openAddOrganizationModal);
             return View("get_organization", pageModel);
         }
         catch (Exception ex)
@@ -62,11 +71,18 @@ public class OrganizationController : Controller
     }
 
     [HttpGet("organizations/create")]
-    public IActionResult AddOrganization()
+    public IActionResult AddOrganization(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         try
         {
-            var pageModel = _organizationManagementService.GetActiveOrganizationsPage(openAddOrganizationModal: true);
+            var pageModel = _organizationManagementService.GetActiveOrganizationsPage(
+                page,
+                sortBy,
+                sortDirection,
+                openAddOrganizationModal: true);
             return View("get_organization", pageModel);
         }
         catch (Exception ex)
@@ -76,11 +92,16 @@ public class OrganizationController : Controller
     }
 
     [HttpGet("organizations/archive")]
-    public IActionResult ArchiveListOrganizations()
+    public IActionResult ArchiveListOrganizations(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null)
     {
         try
         {
-            return View("archive_list_organizations", _organizationManagementService.GetArchivedOrganizations());
+            return View(
+                "archive_list_organizations",
+                _organizationManagementService.GetArchivedOrganizationsPage(page, sortBy, sortDirection));
         }
         catch (Exception ex)
         {

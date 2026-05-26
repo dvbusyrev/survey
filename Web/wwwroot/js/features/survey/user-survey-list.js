@@ -68,11 +68,22 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
             tableSection: root?.querySelector('[data-role="table-section"]'),
             tableBody: root?.querySelector('[data-role="survey-table-body"]'),
             pagination: root?.querySelector('[data-role="pagination"]'),
-            prevPage: root?.querySelector('[data-role="prev-page"]'),
-            nextPage: root?.querySelector('[data-role="next-page"]'),
             errorWrap: root?.querySelector('[data-role="error"]'),
             errorText: root?.querySelector('[data-role="error-text"]')
         };
+    }
+
+    function scrollToTableSection() {
+        const refs = getContentRefs();
+        const target = refs.tableSection?.querySelector('table') || refs.tableSection;
+        if (!target) {
+            return;
+        }
+
+        target.scrollIntoView({
+            block: 'start',
+            behavior: 'auto'
+        });
     }
 
     function renderChrome() {
@@ -333,6 +344,9 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
 
             if (options.applyToCurrent !== false && state.activeTab === tab) {
                 mountSnapshot(snapshot, { preserveFilters: options.preserveFilters === true });
+                if (options.scrollToTableStart === true) {
+                    scrollToTableSection();
+                }
             }
 
             return snapshot;
@@ -496,23 +510,21 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
             return;
         }
 
-        const prevPageButton = event.target.closest('[data-role="prev-page"]');
-        if (prevPageButton && contentHost.contains(prevPageButton) && !prevPageButton.disabled) {
+        const paginationButton = event.target.closest('[data-role="pagination-page"]');
+        if (paginationButton && contentHost.contains(paginationButton)) {
+            const targetPage = Number(paginationButton.dataset.page || 0);
+            if (!Number.isFinite(targetPage) || targetPage <= 0 || targetPage === state.currentSnapshot.currentPage) {
+                return;
+            }
+
+            event.preventDefault();
             loadTabSnapshot(state.activeTab, {
-                page: Math.max(1, state.currentSnapshot.currentPage - 1),
+                page: targetPage,
                 searchTerm: state.currentSnapshot.searchTerm,
-                signedOnly: state.currentSnapshot.signedOnly
+                signedOnly: state.currentSnapshot.signedOnly,
+                scrollToTableStart: true
             });
             return;
-        }
-
-        const nextPageButton = event.target.closest('[data-role="next-page"]');
-        if (nextPageButton && contentHost.contains(nextPageButton) && !nextPageButton.disabled) {
-            loadTabSnapshot(state.activeTab, {
-                page: state.currentSnapshot.currentPage + 1,
-                searchTerm: state.currentSnapshot.searchTerm,
-                signedOnly: state.currentSnapshot.signedOnly
-            });
         }
     }
 
