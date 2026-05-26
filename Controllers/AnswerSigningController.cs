@@ -31,7 +31,7 @@ public class AnswerSigningController : Controller
 
         try
         {
-            return Content(_answerSigningService.GetSigningData(id, idOrganization));
+            return Json(_answerSigningService.GetSigningData(id, idOrganization));
         }
         catch (Exception ex)
         {

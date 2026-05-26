@@ -1,6 +1,7 @@
 const CADESCOM_CONTAINER_STORE = 100;
 const CAPICOM_STORE_OPEN_READ_ONLY = 0;
 const CADESCOM_CADES_BES = 1;
+const CADESCOM_BASE64_TO_BINARY = 1;
 
 let cadesPluginLoadPromise = null;
 
@@ -217,6 +218,12 @@ async function checkCSPAvailable() {
 async function getDataForSignature(id, organizationId) {
     const response = await fetch(`/signatures/${id}/${organizationId}`);
     if (!response.ok) throw new Error('Ошибка получения данных');
+
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (contentType.includes('application/json')) {
+        return await response.json();
+    }
+
     return await response.text();
 }
 
@@ -340,9 +347,21 @@ async function createDigitalSignature(data) {
         await signer.propset_Certificate(selectedCert.certificate);
 
         const signedData = await cadesplugin.CreateObjectAsync("CAdESCOM.CadesSignedData");
-        await signedData.propset_Content(data);
+        const signaturePayload = typeof data === 'string'
+            ? { content: data, contentEncoding: 'utf8', detached: false }
+            : {
+                content: data?.content || '',
+                contentEncoding: data?.contentEncoding || 'utf8',
+                detached: Boolean(data?.detached)
+            };
 
-        return await signedData.SignCades(signer, CADESCOM_CADES_BES);
+        if (signaturePayload.contentEncoding === 'base64') {
+            await signedData.propset_ContentEncoding(CADESCOM_BASE64_TO_BINARY);
+        }
+
+        await signedData.propset_Content(signaturePayload.content);
+
+        return await signedData.SignCades(signer, CADESCOM_CADES_BES, signaturePayload.detached);
     } catch (error) {
         console.error("Ошибка при создании подписи:", error);
         throw error;
