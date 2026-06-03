@@ -8,11 +8,11 @@
 .survey-table td {
   padding: 12px;
   text-align: left;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
 }
 
 .survey-table th {
-  background-color: #f8f9fa;
+  background-color: var(--app-theme-table-header-background);
 }
 
 .loading-overlay {
@@ -26,13 +26,13 @@
 
 .error-message {
   padding: 8px;
-  color: #dc3545;
+  color: var(--danger);
   text-align: center;
 }
 
 .success-message {
   padding: 20px;
-  color: #28a745;
+  color: var(--success);
   text-align: center;
 }
 
@@ -44,7 +44,7 @@
 
 .modal-description {
   margin: 0 0 25px;
-  color: #555;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 

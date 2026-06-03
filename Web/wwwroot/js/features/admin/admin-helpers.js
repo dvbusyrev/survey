@@ -60,6 +60,11 @@
             return 'survey_auto_creation';
         }
 
+        if (normalizedPath === '/theme/configuration'
+            || normalizedPath === '/theme-settings') {
+            return 'theme_settings';
+        }
+
         if (normalizedPath === '/event-log') {
             return 'get_logs';
         }
@@ -177,7 +182,7 @@
     function handleError(error) {
         console.error('Ошибка:', error);
         window.siteNotify(
-            'Произошла ошибка: ' + (error.message || 'Попробуйте снова или обратитесь в поддержку'),
+            'Произошла ошибка: ' + (error.message || 'Неизвестная ошибка'),
             'error'
         );
     }

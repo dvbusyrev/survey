@@ -1,5 +1,14 @@
-﻿@{
+﻿@using System.Text.Json
+@inject MainProject.Application.Contracts.IThemeSettingsService ThemeSettingsService
+@{
     Layout = null;
+    var layoutThemeSettings = await ThemeSettingsService.GetAsync();
+    var layoutThemeJson = JsonSerializer.Serialize(layoutThemeSettings);
+    var inlineBackgroundImage = string.IsNullOrWhiteSpace(layoutThemeSettings.BackgroundImageDataUrl)
+        ? "none"
+        : $"url('{layoutThemeSettings.BackgroundImageDataUrl.Replace("'", "\\'")}')";
+    var inlineImageOpacity = (Math.Clamp(layoutThemeSettings.BackgroundImageOpacity, 0, 100) / 100d)
+        .ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 <!DOCTYPE html>
@@ -13,9 +22,38 @@
     <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/shared/site-notifications.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-theme.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pages/auth-page.css" asp-append-version="true" />
+    <style id="app-theme-inline">
+        :root {
+            --app-theme-font-color: @layoutThemeSettings.FontColor;
+            --app-theme-background-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-background-start-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-background-end-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-gradient-opacity: 0;
+            --app-theme-background-image: @Html.Raw(inlineBackgroundImage);
+            --app-theme-background-image-opacity: @inlineImageOpacity;
+        }
+
+        body {
+            background: transparent !important;
+        }
+
+        #app-theme-background {
+            background: @layoutThemeSettings.BackgroundColor !important;
+        }
+
+        #app-theme-background::before {
+            background: none !important;
+            opacity: 0 !important;
+        }
+    </style>
+    <script id="app-theme-config" type="application/json">@Html.Raw(layoutThemeJson)</script>
+    <script src="~/js/core/app-theme.js" asp-append-version="true"></script>
 </head>
 <body>
+    <div id="app-theme-background" aria-hidden="true"></div>
+    <div id="app-theme-effects-root" aria-hidden="true"></div>
     <div id="global-antiforgery-token" hidden aria-hidden="true">
         @Html.AntiForgeryToken()
     </div>

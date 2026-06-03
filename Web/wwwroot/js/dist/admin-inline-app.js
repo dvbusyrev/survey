@@ -219,6 +219,7 @@
     window.closeMobileNavigation = closeMobileNavigation;
     window.toggleMobileNavigation = toggleMobileNavigation;
     window.queueNavigationLayoutEvaluation = queueNavigationLayoutEvaluation;
+    window.isAppMobileNavigationViewport = isMobileNavigationViewport;
     function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
       const isAdmin = userRole === "admin";
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -1333,6 +1334,370 @@
       bindEmailAction("email-save-button", window.saveEmailSettings);
       bindEmailAction("email-send-button", window.sendEmailMessage);
     };
+    function getThemeField(id) {
+      return document.getElementById(id);
+    }
+    function getThemeTrimmedValue(id) {
+      return (getThemeField(id)?.value || "").trim();
+    }
+    const THEME_PERCENT_FIELDS = [
+      ["theme-header-darken-percent", "headerDarkenPercent", 16],
+      ["theme-footer-darken-percent", "footerDarkenPercent", 16],
+      ["theme-button-darken-percent", "buttonDarkenPercent", 16],
+      ["theme-button-strong-darken-percent", "buttonStrongDarkenPercent", 28],
+      ["theme-surface-tint-opacity-percent", "surfaceTintOpacityPercent", 24]
+    ];
+    function getThemePercentValue(id, fallback) {
+      const value = Number.parseInt(getThemeField(id)?.value || "", 10);
+      if (!Number.isFinite(value)) {
+        return fallback;
+      }
+      return Math.max(0, Math.min(100, value));
+    }
+    function normalizeThemeSettingsPayload(rawSettings) {
+      if (typeof window.toCamelThemeSettings === "function") {
+        return window.toCamelThemeSettings(rawSettings);
+      }
+      return {
+        fontColor: getThemeTrimmedValue("theme-font-color") || "#343D4B",
+        backgroundColor: getThemeTrimmedValue("theme-background-color") || "#B2A8FF",
+        gradientEnabled: Boolean(getThemeField("theme-gradient-enabled")?.checked),
+        effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
+        effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
+        effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
+        effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
+        backgroundImageDataUrl: getThemeField("theme-background-image-data-url")?.value || "",
+        backgroundImageOpacity: Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "35", 10) || 35,
+        softLightenPercent: 0,
+        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 16),
+        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 16),
+        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 16),
+        buttonStrongDarkenPercent: getThemePercentValue("theme-button-strong-darken-percent", 28),
+        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 24)
+      };
+    }
+    function setThemeInvalidState(id, isInvalid) {
+      const element = getThemeField(id);
+      if (!element) {
+        return;
+      }
+      element.classList.toggle("invalid", Boolean(isInvalid));
+      element.setAttribute("aria-invalid", isInvalid ? "true" : "false");
+    }
+    function clearThemeInvalidStates() {
+      [
+        "theme-font-color",
+        "theme-background-color",
+        "theme-background-image-file",
+        "theme-background-image-opacity",
+        ...THEME_PERCENT_FIELDS.map(([id]) => id)
+      ].forEach((id) => setThemeInvalidState(id, false));
+    }
+    const themeSettingsPageState = {
+      savedSettings: null,
+      isMounted: false
+    };
+    function hasThemeSettingsForm() {
+      return Boolean(
+        getThemeField("theme-font-color") && getThemeField("theme-background-color")
+      );
+    }
+    function syncThemeOpacityLabel(settings) {
+      const opacityValue = document.getElementById("theme-background-image-opacity-value");
+      if (opacityValue) {
+        opacityValue.textContent = `${settings.backgroundImageOpacity}%`;
+      }
+      THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
+        const valueNode = document.getElementById(`${fieldId}-value`);
+        if (valueNode) {
+          valueNode.textContent = `${settings[propertyName]}%`;
+        }
+      });
+    }
+    function collectThemeSettingsPayload() {
+      const opacityValue = Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "", 10);
+      return {
+        fontColor: getThemeTrimmedValue("theme-font-color"),
+        backgroundColor: getThemeTrimmedValue("theme-background-color"),
+        gradientEnabled: Boolean(getThemeField("theme-gradient-enabled")?.checked),
+        effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
+        effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
+        effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
+        effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
+        backgroundImageDataUrl: getThemeField("theme-background-image-data-url")?.value || "",
+        backgroundImageOpacity: Number.isFinite(opacityValue) ? opacityValue : 0,
+        softLightenPercent: 0,
+        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 16),
+        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 16),
+        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 16),
+        buttonStrongDarkenPercent: getThemePercentValue("theme-button-strong-darken-percent", 28),
+        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 24)
+      };
+    }
+    function validateThemeSettingsPayload(settings) {
+      clearThemeInvalidStates();
+      const errors = [];
+      const colorRegex = /^#[0-9a-f]{6}$/i;
+      const colorFields = [
+        ["theme-font-color", settings.fontColor, "Цвет шрифта"],
+        ["theme-background-color", settings.backgroundColor, "Цвет фона"]
+      ];
+      colorFields.forEach(([fieldId, value, label]) => {
+        if (!colorRegex.test(String(value || ""))) {
+          errors.push(`Поле «${label}» заполнено некорректно.`);
+          setThemeInvalidState(fieldId, true);
+        }
+      });
+      if (!Number.isInteger(settings.backgroundImageOpacity) || settings.backgroundImageOpacity < 0 || settings.backgroundImageOpacity > 100) {
+        errors.push("Поле «Прозрачность изображения» должно быть числом от 0 до 100.");
+        setThemeInvalidState("theme-background-image-opacity", true);
+      }
+      THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
+        const value = settings[propertyName];
+        if (!Number.isInteger(value) || value < 0 || value > 100) {
+          errors.push("Значения оттенков должны быть от 0 до 100.");
+          setThemeInvalidState(fieldId, true);
+        }
+      });
+      const imageValue = String(settings.backgroundImageDataUrl || "");
+      if (imageValue) {
+        const allowedPrefixes = [
+          "data:image/png;base64,",
+          "data:image/jpeg;base64,",
+          "data:image/jpg;base64,",
+          "data:image/webp;base64,"
+        ];
+        if (!allowedPrefixes.some((prefix) => imageValue.startsWith(prefix))) {
+          errors.push("Фоновое изображение должно быть PNG, JPEG или WebP.");
+          setThemeInvalidState("theme-background-image-file", true);
+        }
+      }
+      return errors;
+    }
+    async function readThemeImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Не удалось прочитать изображение."));
+        reader.readAsDataURL(file);
+      });
+    }
+    async function handleThemeImageChange(event) {
+      const input = event?.currentTarget;
+      const file = input?.files?.[0];
+      if (!file) {
+        return;
+      }
+      try {
+        const dataUrl = await readThemeImageFile(file);
+        const hiddenField = getThemeField("theme-background-image-data-url");
+        if (hiddenField) {
+          hiddenField.value = dataUrl;
+        }
+        applyThemeDraftState();
+      } catch (error) {
+        showEmailToast(error.message || "Не удалось загрузить изображение.", "error", "Изображение не загружено", { duration: 0 });
+      } finally {
+        input.value = "";
+      }
+    }
+    function clearThemeImage() {
+      const hiddenField = getThemeField("theme-background-image-data-url");
+      if (hiddenField) {
+        hiddenField.value = "";
+      }
+      applyThemeDraftState();
+    }
+    function populateThemeForm(settings) {
+      const normalizedSettings = normalizeThemeSettingsPayload(settings);
+      const fontColor = getThemeField("theme-font-color");
+      if (fontColor) {
+        fontColor.value = normalizedSettings.fontColor;
+      }
+      const backgroundColor = getThemeField("theme-background-color");
+      if (backgroundColor) {
+        backgroundColor.value = normalizedSettings.backgroundColor;
+      }
+      const gradientEnabled = getThemeField("theme-gradient-enabled");
+      if (gradientEnabled) {
+        gradientEnabled.checked = normalizedSettings.gradientEnabled;
+      }
+      const effectSnow = getThemeField("theme-effect-snow");
+      if (effectSnow) {
+        effectSnow.checked = normalizedSettings.effectSnow;
+      }
+      const effectFireworks = getThemeField("theme-effect-fireworks");
+      if (effectFireworks) {
+        effectFireworks.checked = normalizedSettings.effectFireworks;
+      }
+      const effectGrass = getThemeField("theme-effect-grass");
+      if (effectGrass) {
+        effectGrass.checked = normalizedSettings.effectGrass;
+      }
+      const effectRain = getThemeField("theme-effect-rain");
+      if (effectRain) {
+        effectRain.checked = normalizedSettings.effectRain;
+      }
+      const imageDataField = getThemeField("theme-background-image-data-url");
+      if (imageDataField) {
+        imageDataField.value = normalizedSettings.backgroundImageDataUrl;
+      }
+      const opacityField = getThemeField("theme-background-image-opacity");
+      if (opacityField) {
+        opacityField.value = String(normalizedSettings.backgroundImageOpacity);
+      }
+      THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
+        const field = getThemeField(fieldId);
+        if (field) {
+          field.value = String(normalizedSettings[propertyName]);
+        }
+      });
+      syncThemeOpacityLabel(normalizedSettings);
+    }
+    function applyThemeDraftState() {
+      if (!hasThemeSettingsForm()) {
+        return normalizeThemeSettingsPayload(
+          window.__appThemeDraftSettings || window.__appThemeSavedSettings || window.__appThemeSettings
+        );
+      }
+      const settings = normalizeThemeSettingsPayload(collectThemeSettingsPayload());
+      syncThemeOpacityLabel(settings);
+      window.__appThemeDraftSettings = { ...settings };
+      if (typeof window.applyThemeSettings === "function") {
+        window.applyThemeSettings(settings);
+      }
+      return settings;
+    }
+    function resetThemeSettings() {
+      const savedSettings = normalizeThemeSettingsPayload(
+        themeSettingsPageState.savedSettings || window.__appThemeSavedSettings || window.__appThemeSettings
+      );
+      clearThemeInvalidStates();
+      window.__appThemeDraftSettings = null;
+      populateThemeForm(savedSettings);
+      themeSettingsPageState.savedSettings = { ...savedSettings };
+      applyThemeDraftState();
+    }
+    async function submitThemeSettings() {
+      const settings = normalizeThemeSettingsPayload(collectThemeSettingsPayload());
+      const validationErrors = validateThemeSettingsPayload(settings);
+      if (validationErrors.length > 0) {
+        showEmailValidationErrors(validationErrors);
+        return false;
+      }
+      setEmailButtonsBusy(true, {
+        activeButtonId: "theme-save-button",
+        busyLabel: "Сохранение..."
+      });
+      try {
+        const response = await fetch("/theme/settings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(settings)
+        });
+        if (!response.ok) {
+          throw new Error((await extractEmailApiErrors(response)).join(" "));
+        }
+        const payload = await response.json();
+        clearThemeInvalidStates();
+        themeSettingsPageState.savedSettings = { ...settings };
+        window.__appThemeSavedSettings = { ...settings };
+        window.__appThemeDraftSettings = null;
+        if (typeof window.persistThemeSettings === "function") {
+          window.persistThemeSettings(settings);
+        }
+        if (typeof window.applyThemeSettings === "function") {
+          window.applyThemeSettings(settings);
+        }
+        showEmailToast(
+          payload?.message || "Настройки темы сохранены.",
+          "success",
+          "Настройки сохранены"
+        );
+        return true;
+      } catch (error) {
+        showEmailToast(
+          error.message || "Не удалось сохранить настройки темы.",
+          "error",
+          "Сохранение не выполнено",
+          { duration: 0 }
+        );
+        return false;
+      } finally {
+        setEmailButtonsBusy(false);
+      }
+    }
+    function bindThemeAction(buttonId, action) {
+      const button = document.getElementById(buttonId);
+      if (!button || button.dataset.themeActionBound === "true") {
+        return;
+      }
+      button.dataset.themeActionBound = "true";
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        action();
+      });
+    }
+    function bindThemeInput(id, eventName = "input") {
+      const element = getThemeField(id);
+      if (!element || element.dataset.themePreviewBound === "true") {
+        return;
+      }
+      element.dataset.themePreviewBound = "true";
+      element.addEventListener(eventName, applyThemeDraftState);
+    }
+    window.saveThemeSettings = submitThemeSettings;
+    window.resetThemeSettings = resetThemeSettings;
+    window.initThemeSettingsPage = function initThemeSettingsPage() {
+      if (!hasThemeSettingsForm()) {
+        themeSettingsPageState.isMounted = false;
+        return;
+      }
+      themeSettingsPageState.isMounted = true;
+      bindThemeAction("theme-save-button", window.saveThemeSettings);
+      bindThemeAction("theme-reset-button", window.resetThemeSettings);
+      bindThemeAction("theme-background-image-clear", clearThemeImage);
+      bindThemeInput("theme-font-color");
+      bindThemeInput("theme-background-color");
+      bindThemeInput("theme-gradient-enabled", "change");
+      bindThemeInput("theme-background-image-opacity");
+      THEME_PERCENT_FIELDS.forEach(([fieldId]) => bindThemeInput(fieldId));
+      bindThemeInput("theme-effect-snow", "change");
+      bindThemeInput("theme-effect-fireworks", "change");
+      bindThemeInput("theme-effect-grass", "change");
+      bindThemeInput("theme-effect-rain", "change");
+      const fileInput = getThemeField("theme-background-image-file");
+      if (fileInput && fileInput.dataset.themeFileBound !== "true") {
+        fileInput.dataset.themeFileBound = "true";
+        fileInput.addEventListener("change", handleThemeImageChange);
+      }
+      const savedSettings = normalizeThemeSettingsPayload(
+        window.__appThemeSavedSettings || window.__appThemeSettings || collectThemeSettingsPayload()
+      );
+      const initialSettings = normalizeThemeSettingsPayload(
+        window.__appThemeDraftSettings || savedSettings
+      );
+      populateThemeForm(initialSettings);
+      themeSettingsPageState.savedSettings = { ...savedSettings };
+      window.__appThemeSavedSettings = { ...savedSettings };
+      applyThemeDraftState();
+    };
+    window.teardownThemeSettingsPage = function teardownThemeSettingsPage() {
+      if (!themeSettingsPageState.isMounted) {
+        return;
+      }
+      themeSettingsPageState.isMounted = false;
+      const nextSettings = normalizeThemeSettingsPayload(
+        window.__appThemeDraftSettings || themeSettingsPageState.savedSettings || window.__appThemeSavedSettings || window.__appThemeSettings
+      );
+      if (typeof window.applyThemeSettings === "function") {
+        window.applyThemeSettings(nextSettings);
+      }
+    };
   })();
 
   // Web/wwwroot/js/features/admin/admin-inline-core.js
@@ -1420,6 +1785,8 @@
           return { tab, id: null, url: "/reports" };
         case "survey_auto_creation":
           return { tab, id: null, url: "/survey-auto-creation" };
+        case "theme_settings":
+          return { tab, id: null, url: "/theme/configuration" };
         case "get_logs":
           return buildQueryHistoryEntry(tab, "/event-log", id, { preserveCurrentWhenMissing: id === void 0 });
         case "email":
@@ -1476,6 +1843,9 @@
       }
       if (normalizedPath === "/survey-auto-creation") {
         return buildAdminHistoryEntry("survey_auto_creation");
+      }
+      if (normalizedPath === "/theme/configuration" || normalizedPath === "/theme-settings") {
+        return buildAdminHistoryEntry("theme_settings");
       }
       if (normalizedPath === "/event-log") {
         return buildAdminHistoryEntry("get_logs", search || "");
@@ -1842,6 +2212,12 @@
       renderModal();
     };
     const schedulePostContentHooks = () => {
+      const mountedPage = contentAdmin.querySelector(".app-page[data-page]")?.dataset.page || "";
+      window.setTimeout(() => {
+        if (typeof window.reapplyCurrentThemeSettings === "function") {
+          window.reapplyCurrentThemeSettings();
+        }
+      }, 0);
       if (initTogglesTimer) {
         window.clearTimeout(initTogglesTimer);
       }
@@ -1861,21 +2237,28 @@
           }
         }, 0);
       }
-      if (state.activeTab === "open_statistics") {
+      if (mountedPage === "answers-statistics") {
         window.setTimeout(() => {
           if (typeof window.initAnswerStatisticsPage === "function") {
             window.initAnswerStatisticsPage();
           }
         }, 0);
       }
-      if (["email", "email_new", "email_settings"].includes(state.activeTab)) {
+      if (mountedPage === "mail-settings-page" || mountedPage === "mail-compose") {
         window.setTimeout(() => {
           if (typeof window.initEmailSettingsPage === "function") {
             window.initEmailSettingsPage();
           }
         }, 0);
       }
-      if (state.activeTab === "survey_auto_creation") {
+      if (mountedPage === "theme-settings-page") {
+        window.setTimeout(() => {
+          if (typeof window.initThemeSettingsPage === "function") {
+            window.initThemeSettingsPage();
+          }
+        }, 0);
+      }
+      if (mountedPage === "survey-auto-creation") {
         window.setTimeout(() => {
           if (typeof window.initSurveyAutoCreationPage === "function") {
             window.initSurveyAutoCreationPage();
@@ -1884,6 +2267,9 @@
       }
     };
     const setContentMount = (mountFn) => {
+      if (contentAdmin.querySelector('.app-page[data-page="theme-settings-page"]') && typeof window.teardownThemeSettingsPage === "function") {
+        window.teardownThemeSettingsPage();
+      }
       if (typeof contentCleanup === "function") {
         contentCleanup();
         contentCleanup = null;
@@ -2351,6 +2737,10 @@
             await fetchHtmlPage("/survey-auto-creation");
             setActiveTabAndRefreshNav(tab);
             break;
+          case "theme_settings":
+            await fetchHtmlPage("/theme/configuration");
+            setActiveTabAndRefreshNav(tab);
+            break;
           case "email":
           case "email_new":
             await fetchHtmlPage("/mail");
@@ -2447,7 +2837,7 @@
         }
       };
       const isDirectNavDisabled = tabHolder?.classList?.contains("nav-item") && tabHolder.classList.contains("has-submenu") && tabHolder.dataset.disableDirectNav === "true";
-      const isMobileNavigationViewport = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 900px)").matches : window.innerWidth <= 900;
+      const isMobileNavigationViewport = typeof window.isAppMobileNavigationViewport === "function" ? window.isAppMobileNavigationViewport() : typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 900px)").matches || document.body.classList.contains("compact-nav-mode") : window.innerWidth <= 900 || document.body.classList.contains("compact-nav-mode");
       const isMobileSubmenuToggle = isMobileNavigationViewport && tabHolder?.classList?.contains("nav-item") && tabHolder.classList.contains("has-submenu");
       if (isDirectNavDisabled || isMobileSubmenuToggle) {
         releaseSubmenuSuppression();
@@ -2612,7 +3002,7 @@
         return;
       }
       if (!token || !surveyId) {
-        surveyEditNotify("Ошибка безопасности. Пожалуйста, обновите страницу.");
+        surveyEditNotify("Ошибка безопасности.");
         return;
       }
       const formData = {
@@ -2665,7 +3055,7 @@
       console.error("Ошибка при обновлении анкеты:", error);
       let userMessage = error.message;
       if (error.message.includes("jsonb") && error.message.includes("text")) {
-        userMessage = "Ошибка формата данных. Пожалуйста, обновите страницу и попробуйте снова.";
+        userMessage = "Ошибка формата данных.";
       } else if (error.message.includes("date")) {
         userMessage = "Ошибка в датах. Проверьте правильность введенных дат.";
       } else if (error.message.includes("validation")) {

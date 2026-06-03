@@ -5,13 +5,12 @@
   min-height: 0;
   height: 100%;
   margin: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior: none;
   scrollbar-gutter: stable both-edges;
 }
 
@@ -48,7 +47,7 @@
   max-width: fit-content;
   margin-right: auto;
   margin-left: auto;
-  color: #667eea;
+  color: var(--text-main);
   text-align: center;
 }
 
@@ -69,7 +68,7 @@
   max-width: 100%;
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
-  color: var(--text-secondary);
+  color: var(--text-main);
   font-size: var(--app-button-font-size);
   font-weight: 500;
   text-decoration: none;
@@ -84,13 +83,13 @@
 .menu-tab:hover {
   color: var(--text-main);
   text-decoration: none;
-  background-color: rgba(243, 244, 246, 0.8);
+  background-color: var(--app-nav-link-hover-background);
 }
 
 .menu-tab.active-tab,
 .menu-tab.active {
   z-index: 2;
-  color: var(--primary-dark);
+  color: var(--text-main);
   font-weight: 600;
   background-color: white;
   border-color: var(--border);
@@ -121,7 +120,7 @@
   min-width: min(100%, 240px);
   max-width: 100%;
   padding: 0.75rem 1rem;
-  color: #4a5568;
+  color: var(--text-main);
   background: white;
   border: 1px solid var(--border-dark);
   border-radius: 8px;
@@ -130,8 +129,8 @@
 
 .filter-sort input[type="text"]:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent 82%);
 }
 
 .filter-sort button,
@@ -180,7 +179,7 @@
   .modal-content table
 ) :is(th, td) {
   padding: 0.4em;
-  color: #4a5568;
+  color: var(--text-main);
   font-size: var(--app-table-font-size);
   line-height: 1.35;
   text-align: left;
@@ -190,7 +189,7 @@
   /*hyphens: auto;*/
   word-break: normal;
   overflow-wrap: break-word;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
 }
 
 :where(
@@ -317,7 +316,7 @@
 }
 
 .table_tr {
-  background-color: rgba(102, 126, 234, 0.1);
+  background-color: var(--app-theme-table-header-background);
   border-radius: 16px 16px 0 0;
 }
 
@@ -333,7 +332,7 @@
   .help-document-page__content table,
   .modal-content table
 ) thead tr.table_tr th {
-  background-color: rgba(102, 126, 234, 0.1);
+  background-color: var(--app-theme-table-header-background);
   background-clip: padding-box;
 }
 
@@ -383,7 +382,7 @@
   .help-document-page__content table,
   .modal-content table
 ) th {
-  color: #4a5568;
+  color: var(--text-main);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -451,23 +450,23 @@
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="asc"]::before {
-  border-bottom-color: #5b5fc7;
+  border-bottom-color: var(--primary-dark);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="asc"]::after {
-  border-top-color: rgba(91, 95, 199, 0.25);
+  border-top-color: color-mix(in srgb, var(--primary-dark) 25%, transparent 75%);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="desc"]::before {
-  border-bottom-color: rgba(91, 95, 199, 0.25);
+  border-bottom-color: color-mix(in srgb, var(--primary-dark) 25%, transparent 75%);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable[data-sort-direction="desc"]::after {
-  border-top-color: #5b5fc7;
+  border-top-color: var(--primary-dark);
 }
 
 :where([data-column-sort="true"], [data-role="main-table"], .surveys-table, .users-table, .organization-table, .answers-page__signatures-table, .answers-table, .logs-table) th.table-sortable:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.35);
+  outline: 2px solid color-mix(in srgb, var(--primary) 35%, transparent 65%);
   outline-offset: -2px;
 }
 
@@ -483,7 +482,7 @@
   .help-document-page__content table,
   .modal-content table
 ) tbody tr:hover {
-  background-color: rgba(240, 248, 255, 0.8);
+  background-color: color-mix(in srgb, var(--primary) 8%, white 92%);
 }
 
 :where(
@@ -620,11 +619,11 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   text-decoration: none;
   appearance: none;
   background-color: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border: 1px solid var(--app-theme-icon-hover-border);
   border-radius: 8px;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
   cursor: pointer;
@@ -633,7 +632,7 @@
 }
 
 .icon-container:focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.45);
+  outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent 55%);
   outline-offset: 2px;
 }
 
@@ -655,10 +654,10 @@
 }
 
 .icon-container:hover {
-  color: #5b5fc7;
-  background: rgba(238, 242, 255, 0.96);
-  border-color: rgba(99, 102, 241, 0.28);
-  box-shadow: 0 6px 14px rgba(99, 102, 241, 0.12);
+  color: var(--app-theme-icon-hover-color);
+  background: var(--app-theme-icon-hover-background);
+  border-color: var(--app-theme-icon-hover-border);
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 
@@ -739,14 +738,14 @@
 
 .page-info {
   min-width: 0;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   text-align: center;
 }
 
 .modal-message {
   margin-bottom: 1.5rem;
-  color: #4a5568;
+  color: var(--text-main);
   line-height: 1.5;
   text-align: justify;
   text-justify: inter-word;
@@ -777,6 +776,13 @@
 
   .menu-bar {
     flex-wrap: nowrap;
+  }
+
+  .menu-tab {
+    flex: 0 0 auto;
+    max-width: none;
+    white-space: nowrap;
+    overflow-wrap: normal;
   }
 }
 

@@ -27,9 +27,10 @@
                 <input
                     id="organizationSurveyDateEnd"
                     class="form-control"
-                    type="text"
-                    data-date-format="dd.mm.yyyy"
+                    type="date"
+                    data-date-native="true"
                     data-date-label="Дата конца"
+                    lang="ru-RU"
                     min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" />
             </div>
 

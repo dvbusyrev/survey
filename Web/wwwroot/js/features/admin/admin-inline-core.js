@@ -102,6 +102,8 @@
                 return { tab, id: null, url: '/reports' };
             case 'survey_auto_creation':
                 return { tab, id: null, url: '/survey-auto-creation' };
+            case 'theme_settings':
+                return { tab, id: null, url: '/theme/configuration' };
             case 'get_logs':
                 return buildQueryHistoryEntry(tab, '/event-log', id, { preserveCurrentWhenMissing: id === undefined });
             case 'email':
@@ -173,6 +175,11 @@
 
         if (normalizedPath === '/survey-auto-creation') {
             return buildAdminHistoryEntry('survey_auto_creation');
+        }
+
+        if (normalizedPath === '/theme/configuration'
+            || normalizedPath === '/theme-settings') {
+            return buildAdminHistoryEntry('theme_settings');
         }
 
         if (normalizedPath === '/event-log') {
@@ -629,6 +636,14 @@
     };
 
     const schedulePostContentHooks = () => {
+        const mountedPage = contentAdmin.querySelector('.app-page[data-page]')?.dataset.page || '';
+
+        window.setTimeout(() => {
+            if (typeof window.reapplyCurrentThemeSettings === 'function') {
+                window.reapplyCurrentThemeSettings();
+            }
+        }, 0);
+
         if (initTogglesTimer) {
             window.clearTimeout(initTogglesTimer);
         }
@@ -650,7 +665,7 @@
             }, 0);
         }
 
-        if (state.activeTab === 'open_statistics') {
+        if (mountedPage === 'answers-statistics') {
             window.setTimeout(() => {
                 if (typeof window.initAnswerStatisticsPage === 'function') {
                     window.initAnswerStatisticsPage();
@@ -658,7 +673,7 @@
             }, 0);
         }
 
-        if (['email', 'email_new', 'email_settings'].includes(state.activeTab)) {
+        if (mountedPage === 'mail-settings-page' || mountedPage === 'mail-compose') {
             window.setTimeout(() => {
                 if (typeof window.initEmailSettingsPage === 'function') {
                     window.initEmailSettingsPage();
@@ -666,7 +681,15 @@
             }, 0);
         }
 
-        if (state.activeTab === 'survey_auto_creation') {
+        if (mountedPage === 'theme-settings-page') {
+            window.setTimeout(() => {
+                if (typeof window.initThemeSettingsPage === 'function') {
+                    window.initThemeSettingsPage();
+                }
+            }, 0);
+        }
+
+        if (mountedPage === 'survey-auto-creation') {
             window.setTimeout(() => {
                 if (typeof window.initSurveyAutoCreationPage === 'function') {
                     window.initSurveyAutoCreationPage();
@@ -676,6 +699,12 @@
     };
 
     const setContentMount = (mountFn) => {
+        if (
+            contentAdmin.querySelector('.app-page[data-page="theme-settings-page"]')
+            && typeof window.teardownThemeSettingsPage === 'function'
+        ) {
+            window.teardownThemeSettingsPage();
+        }
         if (typeof contentCleanup === 'function') {
             contentCleanup();
             contentCleanup = null;
@@ -1183,6 +1212,10 @@
                     await fetchHtmlPage('/survey-auto-creation');
                     setActiveTabAndRefreshNav(tab);
                     break;
+                case 'theme_settings':
+                    await fetchHtmlPage('/theme/configuration');
+                    setActiveTabAndRefreshNav(tab);
+                    break;
                 case 'email':
                 case 'email_new':
                     await fetchHtmlPage('/mail');
@@ -1308,9 +1341,13 @@
         const isDirectNavDisabled = tabHolder?.classList?.contains('nav-item')
             && tabHolder.classList.contains('has-submenu')
             && tabHolder.dataset.disableDirectNav === 'true';
-        const isMobileNavigationViewport = typeof window.matchMedia === 'function'
-            ? window.matchMedia('(max-width: 900px)').matches
-            : window.innerWidth <= 900;
+        const isMobileNavigationViewport = typeof window.isAppMobileNavigationViewport === 'function'
+            ? window.isAppMobileNavigationViewport()
+            : (
+                typeof window.matchMedia === 'function'
+                    ? window.matchMedia('(max-width: 900px)').matches || document.body.classList.contains('compact-nav-mode')
+                    : window.innerWidth <= 900 || document.body.classList.contains('compact-nav-mode')
+            );
         const isMobileSubmenuToggle = isMobileNavigationViewport
             && tabHolder?.classList?.contains('nav-item')
             && tabHolder.classList.contains('has-submenu');

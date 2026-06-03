@@ -28,6 +28,9 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 019_store_audit_old_new_rows.sql", script);
         Assert.Contains(@"\ir 020_limit_auto_creation_schedule_options.sql", script);
         Assert.Contains(@"\ir 021_allow_empty_auto_creation_period.sql", script);
+        Assert.Contains(@"\ir 022_store_signed_answer_content.sql", script);
+        Assert.Contains(@"\ir 023_add_theme_config.sql", script);
+        Assert.Contains(@"\ir 024_add_theme_palette_controls.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -228,6 +231,35 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("audit_old_row_data", script);
         Assert.Contains("audit_new_row_data", script);
         Assert.Contains("VALUES ('019', 'store_audit_old_new_rows')", script);
+    }
+
+    [Fact]
+    public void ThemeConfigMigration_CreatesThemeStorageAndAudit()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "023_add_theme_config.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.theme_config", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.theme_config_l", script);
+        Assert.Contains("background_image_data_url", script);
+        Assert.Contains("background_image_opacity", script);
+        Assert.Contains("CREATE TRIGGER trg_theme_config_set_update_metadata", script);
+        Assert.Contains("CREATE TRIGGER trg_theme_config_audit", script);
+        Assert.Contains("write_crud_audit('id_config')", script);
+        Assert.Contains("VALUES ('023', 'add_theme_config')", script);
+    }
+
+    [Fact]
+    public void ThemePaletteControlsMigration_AddsThemeShadeSettings()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "024_add_theme_palette_controls.sql"));
+
+        Assert.Contains("soft_lighten_percent", script);
+        Assert.Contains("header_darken_percent", script);
+        Assert.Contains("footer_darken_percent", script);
+        Assert.Contains("button_darken_percent", script);
+        Assert.Contains("button_strong_darken_percent", script);
+        Assert.Contains("surface_tint_opacity_percent", script);
+        Assert.Contains("VALUES ('024', 'add_theme_palette_controls')", script);
     }
 
     private static string GetRepositoryRoot()

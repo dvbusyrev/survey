@@ -462,12 +462,15 @@ async function updateUser() {
 
     } catch (error) {
         console.error('Ошибка обновления:', error);
+        const safeErrorMessage = typeof window.normalizeClientErrorMessage === 'function'
+            ? window.normalizeClientErrorMessage(error.message)
+            : error.message;
         const messageContainer = document.querySelector('#editUserModal .message');
         if (messageContainer) {
-            messageContainer.textContent = error.message;
+            messageContainer.textContent = safeErrorMessage;
             messageContainer.style.color = 'red';
         } else {
-            showAdminToast(`Ошибка: ${error.message}`);
+            showAdminToast(`Ошибка: ${safeErrorMessage}`);
         }
     }
 }
@@ -576,7 +579,10 @@ async function createOrganization() {
         messageDiv.style.display = 'block';
 
     } catch (error) {
-        messageDiv.textContent = 'Ошибка при отправке: ' + error.message;
+        const safeErrorMessage = typeof window.normalizeClientErrorMessage === 'function'
+            ? window.normalizeClientErrorMessage(error.message)
+            : error.message;
+        messageDiv.textContent = 'Ошибка при отправке: ' + safeErrorMessage;
         messageDiv.className = 'alert alert-danger';
         messageDiv.style.display = 'block';
         console.error('Ошибка:', error);
@@ -672,7 +678,7 @@ async function updateOrganization() {
                 body: JSON.stringify(organizationData)
             });
         } catch (networkError) {
-            throw new Error("Ошибка сети. Проверьте соединение.");
+            throw new Error("Ошибка сети.");
         }
 
         // 5. Проверка ответа сервера

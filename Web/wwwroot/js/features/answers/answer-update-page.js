@@ -18,8 +18,11 @@
     }
 
     function showError(message) {
+        const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
+            ? window.normalizeClientErrorMessage(message)
+            : message;
         if (errorText) {
-            errorText.textContent = message;
+            errorText.textContent = safeMessage;
         }
 
         if (errorBox) {
@@ -85,7 +88,7 @@
             const ratingValue = Number.parseInt(activeButton.dataset.answerRating || '', 10);
             if (!Number.isFinite(ratingValue) || ratingValue < 1 || ratingValue > 5) {
                 return {
-                    error: 'Обнаружена некорректная оценка. Обновите страницу и попробуйте снова.'
+                    error: 'Обнаружена некорректная оценка.'
                 };
             }
 

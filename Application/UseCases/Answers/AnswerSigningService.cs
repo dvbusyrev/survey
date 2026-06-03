@@ -23,6 +23,11 @@ public sealed class AnswerSigningService : IAnswerSigningService
             throw new InvalidOperationException("Ответы для подписи не найдены.");
         }
 
+        if (answerRecords.Any(answer => !string.IsNullOrWhiteSpace(answer.Csp)))
+        {
+            throw new AnswerAlreadySignedException();
+        }
+
         var pdfBytes = AnswerPdfDocumentBuilder.BuildPdfContent(survey, answerRecords);
         return new AnswerSigningPayload
         {
@@ -47,7 +52,29 @@ public sealed class AnswerSigningService : IAnswerSigningService
             signedContent = DecodeBase64Payload(request.SignedContent, "подписанный PDF");
         }
 
-        return _answerDataService.UpdateSignature(surveyId, organizationId, signature, signedContent);
+        var answerRecord = _answerDataService.GetAnswerRecord(surveyId, organizationId);
+        if (answerRecord == null)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(answerRecord.Csp))
+        {
+            throw new AnswerAlreadySignedException();
+        }
+
+        if (_answerDataService.UpdateSignature(surveyId, organizationId, signature, signedContent))
+        {
+            return true;
+        }
+
+        var updatedAnswerRecord = _answerDataService.GetAnswerRecord(surveyId, organizationId);
+        if (!string.IsNullOrWhiteSpace(updatedAnswerRecord?.Csp))
+        {
+            throw new AnswerAlreadySignedException();
+        }
+
+        return false;
     }
 
     private static string NormalizeBase64Payload(string? payload)

@@ -1,17 +1,58 @@
+@using System.Text.Json
 @using MainProject.Infrastructure.Security
 @inject MainProject.Application.Contracts.IUserChromeContextService UserChromeContextService
+@inject MainProject.Application.Contracts.IThemeSettingsService ThemeSettingsService
 <!DOCTYPE html>
 <html lang="ru-RU">
 <head>
+    @{
+        var layoutThemeSettings = await ThemeSettingsService.GetAsync();
+        var layoutThemeJson = JsonSerializer.Serialize(layoutThemeSettings);
+        var inlineBackgroundImage = string.IsNullOrWhiteSpace(layoutThemeSettings.BackgroundImageDataUrl)
+            ? "none"
+        : $"url('{layoutThemeSettings.BackgroundImageDataUrl.Replace("'", "\\'")}')";
+        var inlineGradientOpacity = layoutThemeSettings.GradientEnabled ? "1" : "0";
+        var inlineImageOpacity = (Math.Clamp(layoutThemeSettings.BackgroundImageOpacity, 0, 100) / 100d)
+            .ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    }
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
     <title>@(ViewData["Title"] ?? "Анкетирование")</title>
     @await Html.PartialAsync("~/Web/Views/Shared/_BaseStyles.cshtml")
+    <style id="app-theme-inline">
+        :root {
+            --app-theme-font-color: @layoutThemeSettings.FontColor;
+            --app-theme-background-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-background-start-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-background-end-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-gradient-opacity: 0;
+            --app-theme-background-image: @Html.Raw(inlineBackgroundImage);
+            --app-theme-background-image-opacity: @inlineImageOpacity;
+        }
+
+        body,
+        .page-container {
+            background: transparent !important;
+        }
+
+        #app-theme-background {
+            background: @layoutThemeSettings.BackgroundColor !important;
+        }
+
+        #app-theme-background::before {
+            background: none !important;
+            opacity: 0 !important;
+        }
+    </style>
+    <script id="app-theme-config" type="application/json">@Html.Raw(layoutThemeJson)</script>
+    <script src="~/js/core/app-theme.js" asp-append-version="true"></script>
     @RenderSection("PageStyles", required: false)
     @RenderSection("Head", required: false)
 </head>
     <body class="@(ViewData["BodyClass"] as string ?? string.Empty)">
+    <div id="app-theme-background" aria-hidden="true"></div>
+    <div id="app-theme-effects-root" aria-hidden="true"></div>
     @{
         var isAuthenticated = User?.Identity?.IsAuthenticated == true;
         var chromeContext = isAuthenticated
@@ -69,6 +110,8 @@
                         ['/organizations', 'get_organization'],
                         ['/reports', 'reports'],
                         ['/survey-auto-creation', 'survey_auto_creation'],
+                        ['/theme/configuration', 'theme_settings'],
+                        ['/theme-settings', 'theme_settings'],
                         ['/mail/configuration', 'email_settings'],
                         ['/mail-settings', 'email_settings'],
                         ['/mail', 'email_new'],
@@ -93,6 +136,7 @@
                         'organization-surveys': 'organization_surveys',
                         'reports': 'reports',
                         'survey-auto-creation': 'survey_auto_creation',
+                        'theme-settings-page': 'theme_settings',
                         'mail-compose': 'email_new',
                         'mail-settings-page': 'email_settings',
                         'help-page': 'help'
@@ -148,6 +192,9 @@
                 window.mountHeader(headerHost, { userRole, userId, displayName, userName, organizationName });
                 window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole, userId });
                 window.mountFooter(footerHost);
+                if (typeof window.reapplyCurrentThemeSettings === 'function') {
+                    window.reapplyCurrentThemeSettings();
+                }
             })();
         </script>
     }

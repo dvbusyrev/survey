@@ -34,3 +34,5 @@ COMMIT;
 \ir 020_limit_auto_creation_schedule_options.sql
 \ir 021_allow_empty_auto_creation_period.sql
 \ir 022_store_signed_answer_content.sql
+\ir 023_add_theme_config.sql
+\ir 024_add_theme_palette_controls.sql

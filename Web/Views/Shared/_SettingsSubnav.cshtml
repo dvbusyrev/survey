@@ -1,6 +1,7 @@
 @{
     var activeSection = (ViewData["SettingsSection"] as string ?? "sender").ToLowerInvariant();
     var senderActive = activeSection == "sender";
+    var themeActive = activeSection == "theme";
     var autoCreationActive = activeSection is "auto" or "auto-creation";
 }
 
@@ -12,6 +13,14 @@
         aria-selected="@(senderActive ? "true" : "false")"
         data-tab-target="email_settings">
         Настройка отправителя
+    </a>
+    <a
+        href="/theme/configuration"
+        class="menu-tab @(themeActive ? "active-tab" : "")"
+        role="tab"
+        aria-selected="@(themeActive ? "true" : "false")"
+        data-tab-target="theme_settings">
+        Настройка темы
     </a>
     <a
         href="/survey-auto-creation"

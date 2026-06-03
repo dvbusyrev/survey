@@ -8,6 +8,8 @@ namespace MainProject.Application.UseCases.Answers;
 
 public static class AnswerPdfDocumentBuilder
 {
+    private static readonly DateTime StablePdfTimestamp = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     public static byte[] BuildPdfContent(Survey survey, IReadOnlyList<AnswerRecord> answers)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -85,6 +87,15 @@ public static class AnswerPdfDocumentBuilder
                             });
                     });
             });
+        })
+        .WithMetadata(new DocumentMetadata
+        {
+            Title = survey.NameSurvey,
+            Author = "АИС Анкетирование",
+            Creator = "АИС Анкетирование",
+            Producer = "QuestPDF",
+            CreationDate = StablePdfTimestamp,
+            ModifiedDate = StablePdfTimestamp
         });
 
         using var stream = new MemoryStream();

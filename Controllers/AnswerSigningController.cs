@@ -33,6 +33,10 @@ public class AnswerSigningController : Controller
         {
             return Json(_answerSigningService.GetSigningData(id, idOrganization));
         }
+        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
+        {
+            return Conflict(ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при получении данных для подписи");
@@ -62,6 +66,10 @@ public class AnswerSigningController : Controller
             }
 
             return Ok("Запись успешно обновлена.");
+        }
+        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
+        {
+            return Conflict(ex.Message);
         }
         catch (ArgumentException ex)
         {

@@ -67,7 +67,7 @@
 
 .modal-title {
   margin: 0;
-  color: #667eea;
+  color: var(--primary-dark);
   font-size: 1.5rem;
   font-weight: 600;
   text-align: center;
@@ -81,7 +81,7 @@
 .modal-description,
 .modal-message {
   margin: 0 0 1.5rem;
-  color: #4a5568;
+  color: var(--text-main);
   line-height: 1.5;
   text-align: justify;
   text-justify: inter-word;
@@ -90,7 +90,7 @@
 
 .modal-description {
   margin-bottom: 25px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .modal-body {
@@ -126,12 +126,12 @@
 }
 
 .modal_btn-primary {
-  color: white;
-  background: linear-gradient(145deg, #9a7dff 0%, #6a5acd 100%);
+  color: var(--app-theme-accent-text-color);
+  background: linear-gradient(145deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
 }
 
 .modal_btn-secondary {
-  color: #4a5568;
+  color: var(--text-main);
   background: #e2e8f0;
 }
 
@@ -141,7 +141,7 @@
 }
 
 .modal_btn-primary:hover {
-  background: linear-gradient(145deg, #8a6dff 0%, #5a4acd 100%);
+  background: linear-gradient(145deg, var(--app-theme-accent-strong-color) 0%, var(--app-theme-accent-color) 100%);
   box-shadow:
     0 6px 8px rgba(0, 0, 0, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
@@ -167,10 +167,10 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 1rem;
   line-height: 1;
-  background: rgba(99, 102, 241, 0.06);
+  background: color-mix(in srgb, var(--primary) 6%, white 94%);
   border: 1px solid rgba(209, 213, 219, 0.95);
   border-radius: 999px;
   cursor: pointer;
@@ -178,8 +178,8 @@
 }
 
 .modal-close:hover {
-  color: #4338ca;
-  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary-dark);
+  background: color-mix(in srgb, var(--primary) 12%, white 88%);
   transform: scale(1.04);
 }
 
@@ -276,9 +276,9 @@ body.modal-open {
 .notification-close {
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
-  color: white;
+  color: var(--app-theme-accent-text-color);
   font-size: var(--app-button-font-size);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
   border: none;
   border-radius: var(--app-button-radius);
   cursor: pointer;

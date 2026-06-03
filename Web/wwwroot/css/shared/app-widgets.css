@@ -16,11 +16,11 @@
 .survey-table td {
   padding: 12px;
   text-align: left;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
 }
 
 .survey-table th {
-  background-color: #f8f9fa;
+  background-color: var(--app-theme-table-header-background);
 }
 
 .icon-container {
@@ -43,13 +43,13 @@
 
 .error-message {
   padding: 8px;
-  color: #dc3545;
+  color: var(--danger);
   text-align: center;
 }
 
 .success-message {
   padding: 20px;
-  color: #28a745;
+  color: var(--success);
   text-align: center;
 }
 
@@ -81,7 +81,7 @@
 
 .chart-title {
   margin-bottom: 15px;
-  color: #333;
+  color: var(--text-main);
   font-size: 18px;
   font-weight: 500;
   text-align: center;
@@ -89,7 +89,7 @@
 
 .loading {
   padding: 50px;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 18px;
   text-align: center;
 }
@@ -97,9 +97,9 @@
 .error {
   margin: 20px;
   padding: 20px;
-  color: #e74c3c;
+  color: var(--danger);
   text-align: center;
-  background: #fde8e8;
+  background: rgba(239, 68, 68, 0.12);
   border-radius: 8px;
 }
 
@@ -126,14 +126,14 @@
 
 .submenu2 div {
   padding: 0.75rem 1.5rem;
-  color: #4a5568;
+  color: var(--text-main);
   cursor: pointer;
   transition: background-color 0.3s;
 }
 
 .submenu2 div:hover {
-  color: #667eea;
-  background-color: #f7fafc;
+  color: var(--primary-dark);
+  background-color: color-mix(in srgb, var(--primary) 6%, white 94%);
 }
 
 .confirmed-criteria {
@@ -157,7 +157,7 @@
   width: 50px;
   height: 50px;
   border: 5px solid rgba(255, 255, 255, 0.3);
-  border-top: 5px solid #3498db;
+  border-top: 5px solid var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }

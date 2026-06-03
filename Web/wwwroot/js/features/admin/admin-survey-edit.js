@@ -103,7 +103,7 @@ function surveyEditSaveSelectedOrganization() {
             }
 
             if (!token || !surveyId) {
-                surveyEditNotify('Ошибка безопасности. Пожалуйста, обновите страницу.');
+                surveyEditNotify('Ошибка безопасности.');
                 return;
             }
 
@@ -170,7 +170,7 @@ function surveyEditSaveSelectedOrganization() {
             let userMessage = error.message;
             
             if (error.message.includes('jsonb') && error.message.includes('text')) {
-                userMessage = 'Ошибка формата данных. Пожалуйста, обновите страницу и попробуйте снова.';
+                userMessage = 'Ошибка формата данных.';
             } else if (error.message.includes('date')) {
                 userMessage = 'Ошибка в датах. Проверьте правильность введенных дат.';
             } else if (error.message.includes('validation')) {

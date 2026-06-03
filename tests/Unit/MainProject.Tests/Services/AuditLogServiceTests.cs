@@ -42,7 +42,8 @@ public sealed class AuditLogServiceTests
             "answer_item_l",
             "auto_creation_config_l",
             "survey_auto_creation_config_l",
-            "email_config_l"
+            "email_config_l",
+            "theme_config_l"
         ]);
 
         Assert.NotNull(result);
@@ -51,6 +52,7 @@ public sealed class AuditLogServiceTests
         Assert.Contains("FROM public.auto_creation_config_l", result);
         Assert.Contains("FROM public.survey_auto_creation_config_l", result);
         Assert.Contains("FROM public.email_config_l", result);
+        Assert.Contains("FROM public.theme_config_l", result);
     }
 
     [Fact]
@@ -236,9 +238,8 @@ public sealed class AuditLogServiceTests
         var result = service.GenerateLogText(new[] { groupedLog });
 
         Assert.DoesNotContain("id_omsu", result);
-        Assert.Contains("ID записи: id_organization=2, id_survey=3", result);
-        Assert.Contains("- organization_survey: Организация 2 / анкета 3 (ID: id_organization=2, id_survey=3)", result);
-        Assert.Equal(1, Regex.Matches(result, "- organization_survey: Организация 2 / анкета 3 \\(ID: id_organization=2, id_survey=3\\)").Count);
+        Assert.Contains("- organization_survey: 2 (ID: 2)", result);
+        Assert.Single(Regex.Matches(result, "- organization_survey: 2 \\(ID: 2\\)").Cast<Match>());
     }
 
     private sealed class ThrowingDbConnectionFactory : IDbConnectionFactory

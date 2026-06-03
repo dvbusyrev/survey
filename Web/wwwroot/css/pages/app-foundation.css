@@ -1,20 +1,20 @@
 :root {
   font-size: 149.25%;
-  --primary: #6366f1;
-  --primary-light: #818cf8;
-  --primary-dark: #4f46e5;
-  --primary-extra-light: #e0e7ff;
+  --primary: #968DD6;
+  --primary-light: #BEB6FF;
+  --primary-dark: #8079B8;
+  --primary-extra-light: #B8AFFF;
   --secondary: #f3f4f6;
   --success: #10b981;
   --success-dark: #059669;
   --danger: #ef4444;
   --warning: #f59e0b;
   --info: #3b82f6;
-  --text-main: #1f2937;
-  --text-secondary: #6b7280;
-  --text-light: #9ca3af;
-  --border: #e5e7eb;
-  --border-dark: #d1d5db;
+  --text-main: #343D4B;
+  --text-secondary: rgba(52, 61, 75, 0.72);
+  --text-light: rgba(52, 61, 75, 0.52);
+  --border: rgba(52, 61, 75, 0.12);
+  --border-dark: rgba(52, 61, 75, 0.18);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -37,6 +37,7 @@ html,
 body {
   min-height: 100%;
   height: 100%;
+  overscroll-behavior: none;
 }
 
 html {
@@ -47,7 +48,7 @@ body {
   color: var(--text-main);
   font-family: "Inter", sans-serif;
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow: hidden;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -86,6 +87,7 @@ option,
   min-height: 100dvh;
   height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .page-container > footer,
@@ -273,7 +275,11 @@ option,
   .admin-container {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    min-width: 0;
     padding-top: 0;
+    overflow: hidden;
   }
 
   #chrome-navigation {
@@ -285,6 +291,8 @@ option,
     z-index: 120;
     display: flex;
     align-items: flex-start;
+    width: 100vw;
+    height: 100dvh;
     padding: calc(var(--header-height) + var(--page-gap)) var(--page-gap) var(--page-gap);
     overflow: hidden;
     pointer-events: none;
@@ -306,7 +314,11 @@ option,
   .content,
   #content_admin,
   #content_user {
-    padding: 1rem;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-width: 0;
+    padding: var(--page-gap);
   }
 
   .note {
@@ -329,7 +341,11 @@ option,
 body.compact-nav-mode .admin-container {
   grid-template-columns: 1fr;
   grid-template-rows: minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   padding-top: 0;
+  overflow: hidden;
 }
 
 body.compact-nav-mode #chrome-navigation {
@@ -341,6 +357,8 @@ body.compact-nav-mode #chrome-navigation {
   z-index: 120;
   display: flex;
   align-items: flex-start;
+  width: 100vw;
+  height: 100dvh;
   padding: calc(var(--header-height) + var(--page-gap)) var(--page-gap) var(--page-gap);
   overflow: hidden;
   pointer-events: none;

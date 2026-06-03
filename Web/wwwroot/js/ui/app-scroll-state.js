@@ -6,6 +6,16 @@
     const POSITIONS_KEY = 'app-scroll-state:positions:v1';
     const CARRY_KEY = 'app-scroll-state:carry:v1';
     const MAX_CARRY_AGE_MS = 30_000;
+    const SCROLLABLE_OVERFLOW_RE = /(auto|scroll|overlay)/;
+    const SCROLL_LOCK_SELECTOR = [
+        '.modal.modal--visible',
+        '.modal-overlay.active',
+        '.notification-overlay.active',
+        '.site-confirm-overlay.is-open',
+        '.survey-period-filter__popover:not(.is-hidden)',
+        '[data-role$="-dropdown-menu"]:not(.is-hidden)',
+        '[role="dialog"]:not(.is-hidden)'
+    ].join(',');
 
     function normalizePath(path) {
         if (!path) {
@@ -53,12 +63,78 @@
         return normalizePath(`${window.location.pathname}${window.location.search}`);
     }
 
+    function getContentScroller() {
+        return document.getElementById('content_admin')
+            || document.getElementById('content_user')
+            || null;
+    }
+
+    function getPrimaryScroller() {
+        return getContentScroller()
+            || document.scrollingElement
+            || document.documentElement
+            || document.body;
+    }
+
+    function isDocumentScroller(scroller) {
+        return !scroller
+            || scroller === document.documentElement
+            || scroller === document.body
+            || scroller === document.scrollingElement;
+    }
+
+    function getElementFromTarget(target) {
+        if (target instanceof Element) {
+            return target;
+        }
+
+        return target?.parentElement || null;
+    }
+
+    function isScrollableElement(element) {
+        if (!element || element === document.body || element === document.documentElement) {
+            return false;
+        }
+
+        const style = window.getComputedStyle(element);
+        return SCROLLABLE_OVERFLOW_RE.test(style.overflowY || '')
+            && element.scrollHeight > element.clientHeight + 1;
+    }
+
+    function findScrollableAncestor(target, stopAt = null) {
+        let element = getElementFromTarget(target);
+
+        while (element && element !== document.body && element !== document.documentElement) {
+            if (element === stopAt) {
+                return element;
+            }
+
+            if (isScrollableElement(element)) {
+                return element;
+            }
+
+            element = element.parentElement;
+        }
+
+        return null;
+    }
+
+    function isInsideOpenOverlay(target) {
+        const element = getElementFromTarget(target);
+        return Boolean(element?.closest?.(SCROLL_LOCK_SELECTOR));
+    }
+
     function getScrollTop() {
-        return Math.max(
-            window.scrollY || 0,
-            document.documentElement?.scrollTop || 0,
-            document.body?.scrollTop || 0
-        );
+        const scroller = getPrimaryScroller();
+        if (isDocumentScroller(scroller)) {
+            return Math.max(
+                window.scrollY || 0,
+                document.documentElement?.scrollTop || 0,
+                document.body?.scrollTop || 0
+            );
+        }
+
+        return Math.max(0, scroller.scrollTop || 0);
     }
 
     function persistPosition(path, scrollTop) {
@@ -111,10 +187,58 @@
         }
 
         const targetTop = Math.max(0, Math.round(scrollTop));
-        const applyScroll = () => window.scrollTo(0, targetTop);
+        const applyScroll = () => {
+            const scroller = getPrimaryScroller();
+            if (isDocumentScroller(scroller)) {
+                window.scrollTo(0, targetTop);
+                return;
+            }
+
+            scroller.scrollTop = targetTop;
+        };
 
         window.requestAnimationFrame(() => window.requestAnimationFrame(applyScroll));
         window.setTimeout(applyScroll, 80);
+    }
+
+    function handleDocumentWheel(event) {
+        if (event.defaultPrevented || document.body?.classList.contains('modal-open')) {
+            return;
+        }
+
+        const scroller = getContentScroller();
+        if (!scroller || !isScrollableElement(scroller)) {
+            return;
+        }
+
+        if (isInsideOpenOverlay(event.target)) {
+            return;
+        }
+
+        const localScroller = findScrollableAncestor(event.target, scroller);
+        if (localScroller && localScroller !== scroller) {
+            return;
+        }
+
+        const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        const deltaY = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+            ? event.deltaY * 16
+            : (event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? event.deltaY * scroller.clientHeight : event.deltaY);
+        const nextScrollTop = Math.min(maxScrollTop, Math.max(0, scroller.scrollTop + deltaY));
+        const targetElement = getElementFromTarget(event.target);
+        const isInsideContentScroller = scroller.contains(targetElement);
+
+        if (isInsideContentScroller) {
+            if (nextScrollTop === scroller.scrollTop && deltaY !== 0) {
+                event.preventDefault();
+            }
+            return;
+        }
+
+        if (nextScrollTop !== scroller.scrollTop) {
+            scroller.scrollTop = nextScrollTop;
+        }
+        event.preventDefault();
     }
 
     function restorePosition(path = getCurrentPath(), options = {}) {
@@ -247,6 +371,7 @@
 
     document.addEventListener('click', handleDocumentClick);
     document.addEventListener('submit', handleFormSubmit);
+    document.addEventListener('wheel', handleDocumentWheel, { passive: false });
     window.addEventListener('pagehide', saveCurrentPosition);
     window.addEventListener('beforeunload', saveCurrentPosition);
     window.addEventListener('pageshow', () => restoreCurrentPosition({ preferCarry: true }));

@@ -204,11 +204,14 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
     }
 
     function setError(message) {
+        const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
+            ? window.normalizeClientErrorMessage(message)
+            : message;
         const refs = getContentRefs();
-        refs.errorWrap?.classList.toggle('u-hidden', !message);
+        refs.errorWrap?.classList.toggle('u-hidden', !safeMessage);
 
         if (refs.errorText) {
-            refs.errorText.textContent = message || '';
+            refs.errorText.textContent = safeMessage || '';
         }
     }
 

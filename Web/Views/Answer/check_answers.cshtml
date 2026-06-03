@@ -73,8 +73,12 @@
             <div class="answers-page__actions">
                 <button type="button" class="answers-page__action-button"
                         data-role="sign-actions"
+                        data-role-sign-button="true"
                         data-click-call="CSP"
-                        data-click-args='[@survey.IdSurvey, @idOrganization]'>Подписать</button>
+                        data-click-args='[@survey.IdSurvey, @idOrganization]'
+                        disabled="@(isSigned ? "disabled" : null)">
+                    @(isSigned ? "Подписано" : "Подписать")
+                </button>
                 <button type="button" class="answers-page__action-button"
                         data-role="download-btn"
                         data-click-call="downloadAnswerDocument"

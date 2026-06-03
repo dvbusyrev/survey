@@ -68,7 +68,11 @@
     <div class="button-container survey-user-answer-actions">
         <div data-role="sign-actions">
             <button type="button"
-                    class="modal_btn modal_btn-primary">Подписать</button>
+                    class="modal_btn modal_btn-primary"
+                    data-role="sign-button"
+                    disabled="@(isSigned ? "disabled" : null)">
+                @(isSigned ? "Подписано" : "Подписать")
+            </button>
         </div>
         <button type="button" class="modal_btn modal_btn-primary" data-role="download-btn">Скачать файл с анкетой</button>
     </div>

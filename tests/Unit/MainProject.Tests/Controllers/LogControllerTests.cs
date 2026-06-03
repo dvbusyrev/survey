@@ -1,6 +1,7 @@
 using MainProject.Application.Contracts;
 using MainProject.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+using MainProject.Web.ViewModels;
 
 namespace MainProject.Tests.Controllers;
 
@@ -16,7 +17,8 @@ public sealed class LogControllerTests
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("get_logs", viewResult.ViewName);
-        Assert.Same(expectedLogs, viewResult.Model);
+        var model = Assert.IsType<AuditLogPageViewModel>(viewResult.Model);
+        Assert.Same(expectedLogs, model.Logs);
     }
 
     [Fact]
@@ -28,7 +30,8 @@ public sealed class LogControllerTests
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("get_logs", viewResult.ViewName);
-        Assert.Empty(Assert.IsAssignableFrom<IReadOnlyList<Log>>(viewResult.Model));
+        var model = Assert.IsType<AuditLogPageViewModel>(viewResult.Model);
+        Assert.Empty(model.Logs);
         Assert.Contains("Не удалось загрузить журнал событий", controller.ViewData["LogLoadErrorMessage"] as string);
     }
 
@@ -68,12 +71,27 @@ public sealed class LogControllerTests
         public IReadOnlyList<Log> GetLogs()
             => _logs;
 
+        public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
+            => new()
+            {
+                Logs = _logs,
+                CurrentPage = currentPage,
+                TotalPages = 1,
+                TotalCount = _logs.Count,
+                PageSize = pageSize,
+                SortBy = sortBy ?? string.Empty,
+                SortDirection = sortDirection ?? string.Empty
+            };
+
         public string GenerateLogText(IEnumerable<Log> logs)
             => throw new NotSupportedException();
     }
 
     private sealed class ThrowingAuditLogService : IAuditLogService
     {
+        public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
+            => throw new InvalidOperationException("audit tables are unavailable");
+
         public IReadOnlyList<Log> GetLogs()
             => throw new InvalidOperationException("audit tables are unavailable");
 

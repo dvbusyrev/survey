@@ -542,7 +542,13 @@
     }
 
     function showError(title, message) {
-        showTimedNotification('error', title, message);
+        showTimedNotification(
+            'error',
+            title,
+            typeof window.normalizeClientErrorMessage === 'function'
+                ? window.normalizeClientErrorMessage(message)
+                : message
+        );
     }
 
     function hideNotification() {
@@ -758,7 +764,7 @@
                     return;
                 }
 
-                showSuccess('Успех', 'Анкета успешно создана. Пожалуйста, перезагрузите страницу.');
+                showSuccess('Успех', 'Анкета успешно создана.');
                 window.setTimeout(function () {
                     window.location.reload();
                 }, 2000);

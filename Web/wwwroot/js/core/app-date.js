@@ -6,8 +6,11 @@
     const DISPLAY_PLACEHOLDER = 'ДД.ММ.ГГГГ';
     const ACTIVE_DATE_FORMAT = 'dd.mm.yyyy';
     const LEGACY_DATE_FORMAT = 'dd/mm/yyyy';
+    const DATE_LOCALE = 'ru-RU';
     const GLOBAL_YEAR_RANGE = 10;
     const DATE_INPUT_SELECTOR = `input[type="date"]:not([data-date-proxy="true"]):not([data-date-native="true"]), input[data-date-format="${ACTIVE_DATE_FORMAT}"]:not([data-date-native="true"]), input[data-date-format="${LEGACY_DATE_FORMAT}"]:not([data-date-native="true"])`;
+    const NATIVE_DATE_INPUT_SELECTOR = 'input[type="date"][data-date-native="true"]:not([data-date-proxy="true"])';
+    const DATE_PICKER_CURSOR_RESET_CLASS = 'app-date-picker-cursor-reset';
     const MONTH_NAMES = [
         'Январь',
         'Февраль',
@@ -229,6 +232,10 @@
         return input?.dataset?.dateNative === 'true' && input.type === 'date';
     }
 
+    function isNativeDateField(input) {
+        return input?.dataset?.dateNative === 'true';
+    }
+
     function updateInputValidationState(input) {
         if (!input) {
             return false;
@@ -238,6 +245,9 @@
         if (!normalizedValue) {
             input.classList.remove('invalid');
             syncPickerValue(input);
+            if (isNativeDateField(input)) {
+                syncNativeDatePlaceholder(input);
+            }
             return true;
         }
 
@@ -245,11 +255,17 @@
         if (!isoValue) {
             input.classList.add('invalid');
             syncPickerValue(input);
+            if (isNativeDateField(input)) {
+                syncNativeDatePlaceholder(input);
+            }
             return false;
         }
 
         input.value = isNativeDateInput(input) ? isoValue : toDisplay(isoValue);
         syncPickerValue(input);
+        if (isNativeDateField(input)) {
+            syncNativeDatePlaceholder(input);
+        }
 
         if (!isIsoWithinRange(input, isoValue)) {
             input.classList.add('invalid');
@@ -307,12 +323,54 @@
         return true;
     }
 
+    function applyDateLocale(element) {
+        if (!element) {
+            return;
+        }
+
+        element.lang = DATE_LOCALE;
+        element.setAttribute('lang', DATE_LOCALE);
+        element.setAttribute('data-date-locale', DATE_LOCALE);
+    }
+
+    function applyDocumentDateLocale() {
+        applyDateLocale(document.documentElement);
+        applyDateLocale(document.body);
+    }
+
+    function resetDatePickerCursor(button) {
+        if (!button) {
+            return;
+        }
+
+        button.blur();
+        button.classList.add(DATE_PICKER_CURSOR_RESET_CLASS);
+
+        const release = function () {
+            button.classList.remove(DATE_PICKER_CURSOR_RESET_CLASS);
+            button.removeEventListener('pointerleave', release);
+            window.removeEventListener('pointermove', releaseIfPointerOutside);
+            window.removeEventListener('pointerdown', releaseIfPointerOutside);
+        };
+
+        const releaseIfPointerOutside = function () {
+            if (!button.matches(':hover')) {
+                release();
+            }
+        };
+
+        button.addEventListener('pointerleave', release);
+        window.addEventListener('pointermove', releaseIfPointerOutside, { passive: true });
+        window.addEventListener('pointerdown', releaseIfPointerOutside, { passive: true });
+    }
+
     function applyDateMask(input) {
         if (!input) {
             return;
         }
 
-        const value = normalizeInput(input.value);
+        const rawValue = String(input.value || '');
+        const value = normalizeInput(rawValue);
         if (!value) {
             return;
         }
@@ -322,6 +380,18 @@
             return;
         }
 
+        const canPreserveSelection = document.activeElement === input
+            && typeof input.selectionStart === 'number'
+            && typeof input.selectionEnd === 'number'
+            && typeof input.setSelectionRange === 'function';
+        const selectionStart = canPreserveSelection ? input.selectionStart : 0;
+        const selectionEnd = canPreserveSelection ? input.selectionEnd : 0;
+        const digitsBeforeStart = canPreserveSelection
+            ? rawValue.slice(0, selectionStart).replace(/\D/g, '').length
+            : 0;
+        const digitsBeforeEnd = canPreserveSelection
+            ? rawValue.slice(0, selectionEnd).replace(/\D/g, '').length
+            : 0;
         const digits = value.replace(/\D/g, '').slice(0, 8);
         const parts = [];
 
@@ -337,7 +407,46 @@
             parts.push(digits.slice(4, 8));
         }
 
-        input.value = parts.join('.');
+        const formattedValue = parts.join('.');
+        if (input.value === formattedValue) {
+            return;
+        }
+
+        input.value = formattedValue;
+
+        if (!canPreserveSelection) {
+            return;
+        }
+
+        const resolveSelectionOffset = function (digitCount) {
+            if (digitCount <= 0) {
+                return 0;
+            }
+
+            let seenDigits = 0;
+            for (let index = 0; index < formattedValue.length; index += 1) {
+                if (/\d/.test(formattedValue[index])) {
+                    seenDigits += 1;
+                }
+
+                if (seenDigits >= digitCount) {
+                    return index + 1;
+                }
+            }
+
+            return formattedValue.length;
+        };
+
+        const nextStart = resolveSelectionOffset(digitsBeforeStart);
+        const nextEnd = selectionStart === selectionEnd
+            ? nextStart
+            : resolveSelectionOffset(digitsBeforeEnd);
+
+        try {
+            input.setSelectionRange(nextStart, nextEnd);
+        } catch (error) {
+            // Some input types refuse manual selection; keep the formatted value.
+        }
     }
 
     function getCalendarState(input) {
@@ -607,6 +716,167 @@
         input.style.margin = '0';
     }
 
+    function syncNativeDatePlaceholder(input) {
+        if (!input) {
+            return;
+        }
+
+        const isEmpty = !normalizeInput(input.value);
+        const isFocused = document.activeElement === input;
+        input.dataset.dateEmpty = isEmpty ? 'true' : 'false';
+        input.placeholder = isEmpty && !isFocused ? DISPLAY_PLACEHOLDER : '';
+        input.closest('.app-native-date-field')?.classList.toggle('app-native-date-field--empty', isEmpty);
+        input.closest('.app-native-date-field')?.classList.toggle('app-native-date-field--focused', isFocused);
+    }
+
+    function syncNativePickerConstraints(input, picker) {
+        if (!input || !picker) {
+            return;
+        }
+
+        picker.min = input.dataset.dateMin || input.min || '';
+        picker.max = input.dataset.dateMax || input.max || '';
+        picker.step = input.dataset.dateStep || input.step || '';
+    }
+
+    function openNativeDatePicker(input) {
+        const picker = input?._appNativeDatePicker;
+        if (!picker) {
+            input?.focus();
+            return;
+        }
+
+        applyDocumentDateLocale();
+        applyDateLocale(input);
+        applyDateLocale(input.closest('.app-native-date-field'));
+        applyDateLocale(picker);
+        syncPickerValue(input);
+        syncNativePickerConstraints(input, picker);
+
+        try {
+            if (typeof picker.showPicker === 'function') {
+                picker.showPicker();
+                return;
+            }
+        } catch (error) {
+            // Some browsers reject showPicker when they decide there is no user activation.
+        }
+
+        picker.focus({ preventScroll: true });
+        picker.click();
+    }
+
+    function enhanceNativeInput(input) {
+        if (!input || input.dataset.dateNativeEnhanced === 'true') {
+            return;
+        }
+
+        input.dataset.dateNativeEnhanced = 'true';
+        input.dataset.dateEnhanced = 'true';
+        input.dataset.dateMin = input.min || input.dataset.dateMin || '';
+        input.dataset.dateMax = input.max || input.dataset.dateMax || '';
+        input.dataset.dateStep = input.step || input.dataset.dateStep || '';
+
+        if (input.type === 'date') {
+            input.type = 'text';
+        }
+
+        input.inputMode = 'numeric';
+        input.pattern = '\\d{2}\\.\\d{2}\\.\\d{4}';
+        input.title = DISPLAY_PLACEHOLDER;
+        applyDocumentDateLocale();
+        applyDateLocale(input);
+        input.autocomplete = input.autocomplete || 'off';
+        input.classList.add('app-native-date-field__input');
+
+        if (!input.getAttribute('aria-label')) {
+            const label = input.dataset.dateLabel || resolveInputLabel(input) || DISPLAY_PLACEHOLDER;
+            input.setAttribute('aria-label', `${label}, формат ${DISPLAY_PLACEHOLDER}`);
+        }
+
+        if (!input.parentElement?.classList.contains('app-native-date-field')) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'app-native-date-field';
+            applyDateLocale(wrapper);
+            preserveInputSpacing(input, wrapper);
+
+            input.parentNode.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'app-native-date-field__button';
+            button.setAttribute('aria-label', `Открыть календарь: ${input.dataset.dateLabel || resolveInputLabel(input) || 'Дата'}`);
+            const icon = document.createElement('i');
+            icon.className = 'fa-regular fa-calendar';
+            icon.setAttribute('aria-hidden', 'true');
+            button.appendChild(icon);
+            wrapper.appendChild(button);
+
+            const picker = document.createElement('input');
+            picker.type = 'date';
+            picker.className = 'app-native-date-field__picker';
+            picker.tabIndex = -1;
+            picker.setAttribute('aria-hidden', 'true');
+            picker.dataset.dateProxy = 'true';
+            applyDateLocale(picker);
+            syncNativePickerConstraints(input, picker);
+            wrapper.appendChild(picker);
+
+            input._appDatePickerProxy = picker;
+            input._appNativeDatePicker = picker;
+            input._appNativeDateButton = button;
+
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                openNativeDatePicker(input);
+                resetDatePickerCursor(button);
+            });
+
+            picker.addEventListener('change', function () {
+                input.value = picker.value ? toDisplay(picker.value) : '';
+                input.classList.remove('invalid');
+                syncNativeDatePlaceholder(input);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                input.focus({ preventScroll: true });
+            });
+        }
+
+        if (input.value) {
+            input.value = toDisplay(input.value);
+        }
+
+        syncPickerValue(input);
+        syncNativeDatePlaceholder(input);
+
+        input.addEventListener('input', function () {
+            applyDateMask(input);
+            syncPickerValue(input);
+            syncNativeDatePlaceholder(input);
+        });
+
+        input.addEventListener('focus', function () {
+            syncNativeDatePlaceholder(input);
+        });
+
+        input.addEventListener('change', function () {
+            syncPickerValue(input);
+            syncNativeDatePlaceholder(input);
+        });
+
+        input.addEventListener('blur', function () {
+            updateInputValidationState(input);
+        });
+
+        input.addEventListener('keydown', function (event) {
+            if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4') {
+                event.preventDefault();
+                openNativeDatePicker(input);
+            }
+        });
+    }
+
     function ensureDateField(input) {
         if (input.parentElement?.classList.contains('app-date-field')) {
             return input.parentElement;
@@ -622,7 +892,7 @@
         const icon = document.createElement('span');
         icon.className = 'app-date-field__icon';
         const iconGlyph = document.createElement('i');
-        iconGlyph.className = 'fa-solid fa-calendar-days';
+        iconGlyph.className = 'fa-regular fa-calendar';
         iconGlyph.setAttribute('aria-hidden', 'true');
         icon.appendChild(iconGlyph);
 
@@ -641,6 +911,8 @@
         picker.dataset.dateProxy = 'true';
         picker.setAttribute('aria-label', 'Выбрать дату');
         picker.setAttribute('aria-hidden', 'true');
+        applyDateLocale(input);
+        applyDateLocale(picker);
 
         const bounds = resolveEffectiveBounds(input);
         picker.min = bounds.min;
@@ -660,6 +932,7 @@
         button.addEventListener('click', function (event) {
             event.preventDefault();
             openPicker(input);
+            resetDatePickerCursor(button);
         });
 
         wrapper.appendChild(button);
@@ -732,6 +1005,11 @@
         input.dataset.dateFormat = ACTIVE_DATE_FORMAT;
         input.classList.add('app-date-field__input');
 
+        if (!input.getAttribute('aria-label')) {
+            const label = input.dataset.dateLabel || resolveInputLabel(input) || 'Дата';
+            input.setAttribute('aria-label', `${label}, формат ${DISPLAY_PLACEHOLDER}`);
+        }
+
         ensureDateField(input);
 
         if (input.value) {
@@ -769,6 +1047,15 @@
 
     function enhanceDateInputs(root) {
         const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+        if (scope.matches?.(NATIVE_DATE_INPUT_SELECTOR)) {
+            enhanceNativeInput(scope);
+        }
+
+        if (scope.matches?.(DATE_INPUT_SELECTOR)) {
+            enhanceInput(scope);
+        }
+
+        scope.querySelectorAll(NATIVE_DATE_INPUT_SELECTOR).forEach(enhanceNativeInput);
         scope.querySelectorAll(DATE_INPUT_SELECTOR).forEach(enhanceInput);
     }
 
@@ -782,10 +1069,6 @@
                 mutation.addedNodes.forEach((node) => {
                     if (!(node instanceof Element)) {
                         return;
-                    }
-
-                    if (node.matches?.(DATE_INPUT_SELECTOR)) {
-                        enhanceInput(node);
                     }
 
                     enhanceDateInputs(node);
@@ -873,6 +1156,7 @@
                     input.classList.remove('invalid');
                     syncPickerValue(input);
                 });
+                form.querySelectorAll('input[data-date-native-enhanced="true"]').forEach(syncNativeDatePlaceholder);
             }, 0);
         }, true);
     }

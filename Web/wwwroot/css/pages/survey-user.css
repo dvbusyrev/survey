@@ -328,7 +328,7 @@
         .status.active {
             background-color: var(--primary-extra-light);
             color: var(--primary-dark);
-            box-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
+            box-shadow: 0 2px 4px color-mix(in srgb, var(--primary) 10%, transparent 90%);
         }
 
         .status.archived {
@@ -379,7 +379,7 @@
     .search-box:focus {
         outline: none;
         border-color: var(--primary-light);
-        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent 80%);
     }
 
 .filter-date {
@@ -544,7 +544,7 @@
 
 .csp-btn-secondary {
     background-color: #e2e8f0;
-    color: #4a5568;
+    color: var(--text-main);
 }
 
 .csp-btn-secondary:hover {
@@ -921,7 +921,7 @@
 
 .filter-group label {
     font-size: inherit;
-    color: #4a5568;
+    color: var(--text-main);
 }
 
 .filter-group input[type="text"],
@@ -966,7 +966,7 @@
     .date-filters input[data-date-format="dd/mm/yyyy"]:focus {
         border-color: var(--primary-light);
         outline: none;
-        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent 80%);
     }
 
 .search-button {
@@ -1067,14 +1067,14 @@
 /* fill_survey styles */
         
         :root {
-            --primary: #6366f1;
-            --primary-light: #818cf8;
-            --primary-dark: #4f46e5;
+            --primary: #8A9BEA;
+            --primary-light: #D5D5F5;
+            --primary-dark: #A68BCA;
             --success: #10b981;
             --danger: #ef4444;
             --warning: #f59e0b;
-            --text-main: #1f2937;
-            --text-secondary: #6b7280;
+            --text-main: #4A5568;
+            --text-secondary: rgba(74, 85, 104, 0.72);
             --border: #e5e7eb;
             --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
             --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -1476,16 +1476,16 @@
     height: 44px;
     color: var(--primary-dark);
     font-weight: 700;
-    background: rgba(99, 102, 241, 0.1);
-    border: 1px solid rgba(99, 102, 241, 0.22);
+    background: color-mix(in srgb, var(--primary) 10%, white 90%);
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent 78%);
     border-radius: 12px;
     box-shadow: none;
 }
 
 .btn_crit:hover {
     color: white;
-    background: linear-gradient(145deg, #8a6dff 0%, #5a4acd 100%);
-    box-shadow: 0 6px 12px rgba(79, 70, 229, 0.22);
+    background: linear-gradient(145deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
+    box-shadow: 0 6px 12px color-mix(in srgb, var(--primary-dark) 22%, transparent 78%);
     transform: translateY(-1px);
 }
 
@@ -1555,7 +1555,7 @@
     padding: 0.25rem 0.6rem;
     color: var(--primary-dark);
     font-weight: 700;
-    background: rgba(99, 102, 241, 0.12);
+    background: color-mix(in srgb, var(--primary) 12%, white 88%);
     border-radius: 999px;
 }
 
@@ -1698,7 +1698,7 @@
 #default_content[data-page="user-surveys"] .menu-tab.active-tab,
 #default_content[data-page="user-surveys"] .menu-tab.active {
     z-index: 2;
-    color: var(--primary-dark);
+    color: var(--text-main);
     font-weight: 600;
     background-color: #fff;
     border-color: var(--border);
@@ -1707,8 +1707,12 @@
 }
 
 #default_content[data-page="user-surveys"] .menu-tab:not(.active-tab):not(.active) {
-    color: var(--text-secondary);
+    color: var(--text-main);
     background-color: rgba(255, 255, 255, 0.7);
+}
+
+#default_content[data-page="user-surveys"] .menu-tab:not(.active-tab):not(.active):hover {
+    background-color: var(--app-nav-link-hover-background);
 }
 
 .client-surveys-page__content > script[data-role="survey-user-items"] {

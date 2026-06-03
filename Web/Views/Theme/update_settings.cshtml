@@ -1,0 +1,182 @@
+@model MainProject.Application.DTO.Theme.ThemeSettings
+
+@{
+    ViewData["Title"] = "Настройка темы";
+    ViewData["SettingsSection"] = "theme";
+    var settings = Model ?? new MainProject.Application.DTO.Theme.ThemeSettings();
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/theme-settings-page.css" asp-append-version="true" />
+}
+
+<div class="app-page email-settings-page theme-settings-page" id="default_content" data-page="theme-settings-page">
+    @await Html.PartialAsync("~/Web/Views/Shared/_SettingsSubnav.cshtml")
+    @await Html.PartialAsync(
+        "~/Web/Views/Shared/_PageIntro.cshtml",
+        new MainProject.Web.ViewModels.PageIntroModel
+        {
+            Description = "Здесь можно задать основной цвет темы, цвет текста, фон, дополнительные визуальные эффекты и фоновое изображение. Изменения применяются сразу на странице и сохраняются только после кнопки «Сохранить»."
+        })
+
+    <section class="app-page__section">
+        <p class="email-settings-page__notice theme-settings-page__notice">
+            Контентные блоки и таблицы остаются белыми. Из выбранного цвета система автоматически строит более тёмные оттенки для шапки, футера, кнопок и акцентных элементов.
+        </p>
+
+        <div class="email-settings-page__grid email-settings-page__grid--single theme-settings-page__grid">
+            <div class="email-settings-page__panel">
+                <div class="email-settings-page__form">
+                    <div class="form-group theme-settings-page__form-group">
+                        <label for="theme-font-color">Цвет шрифта</label>
+                        <input type="color"
+                               class="theme-settings-page__color-input"
+                               id="theme-font-color"
+                               value="@settings.FontColor" />
+                    </div>
+
+                    <div class="form-group theme-settings-page__form-group">
+                        <label for="theme-background-color">Цвет фона</label>
+                        <input type="color"
+                               class="theme-settings-page__color-input"
+                               id="theme-background-color"
+                               value="@settings.BackgroundColor" />
+                    </div>
+
+                    <div class="form-group theme-settings-page__form-group">
+                        <label for="theme-gradient-enabled">Градиент</label>
+                        <label class="theme-settings-page__checkbox-row" for="theme-gradient-enabled">
+                            <input type="checkbox"
+                                   id="theme-gradient-enabled"
+                                   class="app-checkbox-input"
+                                   @(settings.GradientEnabled ? "checked" : null) />
+                            <span class="app-checkbox-text">Включить градиентные оттенки</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group theme-settings-page__form-group theme-settings-page__form-group--shade">
+                        <label>Оттенки интерфейса</label>
+                        <div class="theme-settings-page__shade-list">
+                            <label class="theme-settings-page__shade-row" for="theme-header-darken-percent">
+                                <span>Шапка</span>
+                                <div class="theme-settings-page__range-field">
+                                    <input type="range"
+                                           id="theme-header-darken-percent"
+                                           min="0"
+                                           max="100"
+                                           value="@settings.HeaderDarkenPercent" />
+                                    <span id="theme-header-darken-percent-value">@settings.HeaderDarkenPercent%</span>
+                                </div>
+                            </label>
+                            <label class="theme-settings-page__shade-row" for="theme-footer-darken-percent">
+                                <span>Футер</span>
+                                <div class="theme-settings-page__range-field">
+                                    <input type="range"
+                                           id="theme-footer-darken-percent"
+                                           min="0"
+                                           max="100"
+                                           value="@settings.FooterDarkenPercent" />
+                                    <span id="theme-footer-darken-percent-value">@settings.FooterDarkenPercent%</span>
+                                </div>
+                            </label>
+                            <label class="theme-settings-page__shade-row" for="theme-button-darken-percent">
+                                <span>Кнопки</span>
+                                <div class="theme-settings-page__range-field">
+                                    <input type="range"
+                                           id="theme-button-darken-percent"
+                                           min="0"
+                                           max="100"
+                                           value="@settings.ButtonDarkenPercent" />
+                                    <span id="theme-button-darken-percent-value">@settings.ButtonDarkenPercent%</span>
+                                </div>
+                            </label>
+                            <label class="theme-settings-page__shade-row" for="theme-button-strong-darken-percent">
+                                <span>Градиент кнопок</span>
+                                <div class="theme-settings-page__range-field">
+                                    <input type="range"
+                                           id="theme-button-strong-darken-percent"
+                                           min="0"
+                                           max="100"
+                                           value="@settings.ButtonStrongDarkenPercent" />
+                                    <span id="theme-button-strong-darken-percent-value">@settings.ButtonStrongDarkenPercent%</span>
+                                </div>
+                            </label>
+                            <label class="theme-settings-page__shade-row" for="theme-surface-tint-opacity-percent">
+                                <span>Подложки</span>
+                                <div class="theme-settings-page__range-field">
+                                    <input type="range"
+                                           id="theme-surface-tint-opacity-percent"
+                                           min="0"
+                                           max="100"
+                                           value="@settings.SurfaceTintOpacityPercent" />
+                                    <span id="theme-surface-tint-opacity-percent-value">@settings.SurfaceTintOpacityPercent%</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group theme-settings-page__form-group theme-settings-page__form-group--file">
+                        <label for="theme-background-image-file">Фоновое изображение</label>
+                        <div class="theme-settings-page__file-stack">
+                            <input type="file"
+                                   class="form-control"
+                                   id="theme-background-image-file"
+                                   accept="image/png,image/jpeg,image/jpg,image/webp" />
+                            <input type="hidden"
+                                   id="theme-background-image-data-url"
+                                   value="@settings.BackgroundImageDataUrl" />
+                            <div class="theme-settings-page__file-actions">
+                                <button type="button" id="theme-background-image-clear" class="modal_btn modal_btn-secondary">Убрать изображение</button>
+                            </div>
+                            <p class="theme-settings-page__field-note">Поддерживаются PNG, JPEG и WebP.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group theme-settings-page__form-group">
+                        <label for="theme-background-image-opacity">Прозрачность изображения</label>
+                        <div class="theme-settings-page__range-field">
+                            <input type="range"
+                                   id="theme-background-image-opacity"
+                                   min="0"
+                                   max="100"
+                                   value="@settings.BackgroundImageOpacity" />
+                            <span id="theme-background-image-opacity-value">@settings.BackgroundImageOpacity%</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group theme-settings-page__form-group theme-settings-page__form-group--effects">
+                        <label>Эффекты</label>
+                        <div class="theme-settings-page__effects-list">
+                            <label class="app-checkbox-option" for="theme-effect-snow">
+                                <input type="checkbox" id="theme-effect-snow" class="app-checkbox-input" @(settings.EffectSnow ? "checked" : null) />
+                                <span class="app-checkbox-text">Снег</span>
+                            </label>
+                            <label class="app-checkbox-option" for="theme-effect-fireworks">
+                                <input type="checkbox" id="theme-effect-fireworks" class="app-checkbox-input" @(settings.EffectFireworks ? "checked" : null) />
+                                <span class="app-checkbox-text">Салюты при нажатии</span>
+                            </label>
+                            <label class="app-checkbox-option" for="theme-effect-grass">
+                                <input type="checkbox" id="theme-effect-grass" class="app-checkbox-input" @(settings.EffectGrass ? "checked" : null) />
+                                <span class="app-checkbox-text">Трава</span>
+                            </label>
+                            <label class="app-checkbox-option" for="theme-effect-rain">
+                                <input type="checkbox" id="theme-effect-rain" class="app-checkbox-input" @(settings.EffectRain ? "checked" : null) />
+                                <span class="app-checkbox-text">Дождь</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="email-settings-page__actions theme-settings-page__actions">
+            <button type="button" id="theme-reset-button" class="modal_btn modal_btn-secondary">Сброс</button>
+            <button type="button" id="theme-save-button" class="modal_btn modal_btn-primary">Сохранить</button>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="~/js/features/theme/theme-settings-page.js" asp-append-version="true"></script>
+}

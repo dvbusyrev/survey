@@ -25,7 +25,8 @@ public sealed class AuditLogService : IAuditLogService
         new("answer_item", "answer_item_l"),
         new("auto_creation_config", "auto_creation_config_l"),
         new("survey_auto_creation_config", "survey_auto_creation_config_l"),
-        new("email_config", "email_config_l")
+        new("email_config", "email_config_l"),
+        new("theme_config", "theme_config_l")
     ];
 
     private static readonly Dictionary<string, int> AuditSourceOrder = AuditSources
@@ -708,6 +709,14 @@ public sealed class AuditLogService : IAuditLogService
                 : new AuditLogGroupKey("email_config", configId, log.IdUser, log.Date.Ticks);
         }
 
+        if (string.Equals(sourceTable, "theme_config", StringComparison.OrdinalIgnoreCase))
+        {
+            var configId = ExtractConfigId(recordPk, rowData);
+            return string.IsNullOrWhiteSpace(configId)
+                ? null
+                : new AuditLogGroupKey("theme_config", configId, log.IdUser, log.Date.Ticks);
+        }
+
         return null;
     }
 
@@ -756,6 +765,7 @@ public sealed class AuditLogService : IAuditLogService
             "answer" => "answer",
             "auto_creation_config" => "auto_creation_config",
             "email_config" => "email_config",
+            "theme_config" => "theme_config",
             _ => string.Empty
         };
 
@@ -778,6 +788,7 @@ public sealed class AuditLogService : IAuditLogService
             "answer" => $"Ответ {groupKey.RelatedId}",
             "auto_creation_config" => $"Конфигурация {groupKey.RelatedId}",
             "email_config" => $"Почтовая конфигурация {groupKey.RelatedId}",
+            "theme_config" => $"Конфигурация темы {groupKey.RelatedId}",
             _ => groupKey.RelatedId
         };
     }
@@ -790,6 +801,7 @@ public sealed class AuditLogService : IAuditLogService
             "answer" => "Ответ",
             "auto_creation_config" => "Настройка автосоздания",
             "email_config" => "Почтовая настройка",
+            "theme_config" => "Настройка темы",
             _ => "Запись"
         };
     }
@@ -1186,6 +1198,7 @@ public sealed class AuditLogService : IAuditLogService
             "auto_creation_config" => BuildIdLabel(recordPk, "id_config", "Конфигурация"),
             "survey_auto_creation_config" => BuildSurveyAutoCreationTarget(recordPk, rowData),
             "email_config" => BuildIdLabel(recordPk, "id_config", "Почтовая конфигурация"),
+            "theme_config" => BuildIdLabel(recordPk, "id_config", "Конфигурация темы"),
             _ => BuildGenericTarget(recordPk)
         };
     }
@@ -1320,6 +1333,7 @@ public sealed class AuditLogService : IAuditLogService
             "auto_creation_config" => "Настройка автосоздания",
             "survey_auto_creation_config" => "Связь автосоздания и анкеты",
             "email_config" => "Почтовая настройка",
+            "theme_config" => "Настройка темы",
             _ => sourceTable
         };
     }

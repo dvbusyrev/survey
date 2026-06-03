@@ -219,6 +219,7 @@
     window.closeMobileNavigation = closeMobileNavigation;
     window.toggleMobileNavigation = toggleMobileNavigation;
     window.queueNavigationLayoutEvaluation = queueNavigationLayoutEvaluation;
+    window.isAppMobileNavigationViewport = isMobileNavigationViewport;
     function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
       const isAdmin = userRole === "admin";
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -594,7 +595,7 @@
     }
     if (/CAdESCOM|CreateObjectAsync|объект/i.test(message)) {
       return {
-        message: "CryptoPro установлен, но браузер не смог создать объекты плагина. Проверьте версию КриптоПРО CSP, расширение и перезапустите браузер.",
+        message: "CryptoPro установлен, но браузер не смог создать объекты плагина. Проверьте версию КриптоПРО CSP и расширение.",
         showInstallHelp: true
       };
     }
@@ -648,6 +649,11 @@
   }
   async function CSP(id, organizationId) {
     try {
+      const page = getAnswersPageContainer(document);
+      if (page?.dataset.isSigned === "true") {
+        showError("Анкета уже подписана и не может быть подписана повторно.");
+        return;
+      }
       await ensureCadesPluginLoaded();
       await checkCSPAvailable();
       const dataToSign = await getDataForSignature(id, organizationId);
@@ -703,7 +709,10 @@
   }
   async function getDataForSignature(id, organizationId) {
     const response = await fetch(`/signatures/${id}/${organizationId}`);
-    if (!response.ok) throw new Error("Ошибка получения данных");
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || "Ошибка получения данных");
+    }
     const contentType = String(response.headers.get("content-type") || "").toLowerCase();
     if (contentType.includes("application/json")) {
       return await response.json();
@@ -892,6 +901,11 @@
       signatureStatus.classList.toggle("signed", isSigned);
       signatureStatus.classList.toggle("not-signed", !isSigned);
     }
+    const signButton = page.querySelector('[data-role="sign-button"], [data-role-sign-button="true"]');
+    if (signButton instanceof HTMLButtonElement) {
+      signButton.disabled = isSigned;
+      signButton.textContent = isSigned ? "Подписано" : "Подписать";
+    }
   }
   window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organizationId, triggerElement) {
     const page = getAnswersPageContainer(triggerElement);
@@ -902,8 +916,9 @@
     return window.createPdfReport(surveyId, organizationId);
   };
   function showError(message) {
+    const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
     if (typeof window.siteNotify === "function") {
-      window.siteNotify(message, "error", { title: "Ошибка" });
+      window.siteNotify(safeMessage, "error", { title: "Ошибка" });
       return;
     }
     const notification = document.createElement("div");
@@ -913,7 +928,7 @@
     icon.textContent = "!";
     const text = document.createElement("span");
     text.className = "csp-notification-text";
-    text.textContent = message;
+    text.textContent = safeMessage;
     notification.appendChild(icon);
     notification.appendChild(text);
     document.body.appendChild(notification);
@@ -930,7 +945,7 @@
   function renderHostError(host, message) {
     const errorNode = document.createElement("div");
     errorNode.className = "error-message";
-    errorNode.textContent = message;
+    errorNode.textContent = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
     host.replaceChildren(errorNode);
   }
   async function fetchModalContentHtml(url, fallbackMessage) {
@@ -1149,18 +1164,6 @@
   };
   window.downloadSignedArchive = async function(surveyId, organizationId) {
     try {
-      const loadingIndicator = document.createElement("div");
-      loadingIndicator.className = "loading-overlay";
-      const loadingContent = document.createElement("div");
-      loadingContent.className = "loading-content";
-      const spinner = document.createElement("div");
-      spinner.className = "loading-spinner";
-      const label = document.createElement("p");
-      label.textContent = "Подготовка архива...";
-      loadingContent.appendChild(spinner);
-      loadingContent.appendChild(label);
-      loadingIndicator.appendChild(loadingContent);
-      document.body.appendChild(loadingIndicator);
       const response = await fetch(`/answers/${surveyId}/${organizationId}/signed-archive`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -1183,11 +1186,6 @@
       if (error.details) {
         console.error("Детали ошибки:", error.details);
       }
-    } finally {
-      const overlay = document.querySelector(".loading-overlay");
-      if (overlay) {
-        document.body.removeChild(overlay);
-      }
     }
   };
   window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, organizationId, userRole, onBack, initialHtml }) {
@@ -1209,6 +1207,9 @@
       });
       signButton?.addEventListener("click", (event) => {
         event.preventDefault();
+        if (signButton.disabled) {
+          return;
+        }
         if (surveyId > 0 && currentOrganizationId > 0) {
           CSP(surveyId, currentOrganizationId);
         }
@@ -2994,10 +2995,11 @@
       }
     }
     function setError(message) {
+      const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
       const refs = getContentRefs();
-      refs.errorWrap?.classList.toggle("u-hidden", !message);
+      refs.errorWrap?.classList.toggle("u-hidden", !safeMessage);
       if (refs.errorText) {
-        refs.errorText.textContent = message || "";
+        refs.errorText.textContent = safeMessage || "";
       }
     }
     function populateDateFilters() {

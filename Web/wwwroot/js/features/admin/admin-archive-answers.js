@@ -202,19 +202,13 @@ window.AdminArchives = (function () {
       const br1 = document.createElement('br');
       const p2 = document.createElement('p');
       const strong = document.createElement('strong');
-      strong.textContent = error.message || 'Неизвестная ошибка';
+      strong.textContent = typeof window.normalizeClientErrorMessage === 'function'
+        ? window.normalizeClientErrorMessage(error.message || 'Неизвестная ошибка')
+        : (error.message || 'Неизвестная ошибка');
       p2.appendChild(strong);
-      const br2 = document.createElement('br');
-      const retryButton = document.createElement('button');
-      retryButton.type = 'button';
-      retryButton.className = 'retry-btn';
-      retryButton.textContent = 'Повторить попытку';
-      retryButton.addEventListener('click', () => showAnswersModal(surveyId, isArchive ? null : organizationId));
       errorWrap.appendChild(p1);
       errorWrap.appendChild(br1);
       errorWrap.appendChild(p2);
-      errorWrap.appendChild(br2);
-      errorWrap.appendChild(retryButton);
       container.appendChild(errorWrap);
     }
   }

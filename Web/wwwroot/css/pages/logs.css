@@ -89,14 +89,14 @@
 }
 
 .logs-modal__label {
-  color: #637085;
+  color: var(--text-secondary);
   font-size: 0.92rem;
   font-weight: 700;
 }
 
 .logs-modal__value,
 .logs-modal__text {
-  color: #17324d;
+  color: var(--text-main);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -108,7 +108,7 @@
 
 .logs-modal__section-title {
   margin: 0;
-  color: #17324d;
+  color: var(--text-main);
   font-size: 1rem;
   font-weight: 800;
 }
@@ -126,21 +126,21 @@
   border-collapse: separate;
   border-spacing: 0;
   background: #fff;
-  border: 1px solid rgba(203, 213, 225, 0.9);
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
 }
 
 .logs-modal__record-table caption {
   padding: 0 0 0.5rem;
-  color: #17324d;
+  color: var(--text-main);
   font-weight: 800;
   text-align: left;
 }
 
 .logs-modal__record-table :is(th, td) {
   padding: 0.55rem 0.7rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+  border-bottom: 1px solid var(--border);
   font-size: 0.78rem;
   line-height: 1.35;
   text-align: left;
@@ -149,9 +149,9 @@
 }
 
 .logs-modal__record-table th {
-  color: #334155;
+  color: var(--text-main);
   font-weight: 800;
-  background: #f8fafc;
+  background: var(--app-theme-table-header-background);
 }
 
 .logs-modal__record-table tbody tr:last-child td {
@@ -170,7 +170,7 @@
 
 .logs-modal__empty {
   margin: 0;
-  color: #637085;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 900px) {

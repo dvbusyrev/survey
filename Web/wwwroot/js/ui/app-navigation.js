@@ -196,6 +196,7 @@ window.releaseNavigationSubmenuSuppression = releaseNavigationSubmenuSuppression
 window.closeMobileNavigation = closeMobileNavigation;
 window.toggleMobileNavigation = toggleMobileNavigation;
 window.queueNavigationLayoutEvaluation = queueNavigationLayoutEvaluation;
+window.isAppMobileNavigationViewport = isMobileNavigationViewport;
 
 function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
     const isAdmin = userRole === 'admin';

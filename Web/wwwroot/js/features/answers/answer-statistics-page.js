@@ -275,7 +275,11 @@
             hideAllLoaders();
         } catch (error) {
             console.error('Ошибка загрузки статистики:', error);
-            showGlobalError(error instanceof Error ? error.message : 'Не удалось загрузить статистику.');
+            showGlobalError(
+                typeof window.normalizeClientErrorMessage === 'function'
+                    ? window.normalizeClientErrorMessage(error instanceof Error ? error.message : 'Не удалось загрузить статистику.')
+                    : (error instanceof Error ? error.message : 'Не удалось загрузить статистику.')
+            );
         }
     }
 

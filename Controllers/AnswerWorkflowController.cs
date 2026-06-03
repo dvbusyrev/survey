@@ -72,6 +72,12 @@ public class AnswerWorkflowController : Controller
 
             return View("~/Web/Views/Answer/check_answers.cshtml", result.Model);
         }
+        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
+        {
+            return isAjaxRequest
+                ? Conflict(new OperationResponse { Error = ex.Message })
+                : Conflict(ex.Message);
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка при сохранении ответа");
@@ -205,6 +211,10 @@ public class AnswerWorkflowController : Controller
             }
 
             return View("~/Web/Views/Answer/check_answers.cshtml", result.Model);
+        }
+        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
+        {
+            return Conflict(ex.Message);
         }
         catch (Exception ex)
         {

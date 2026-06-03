@@ -85,7 +85,7 @@ function normalizeCryptoProError(error) {
 
     if (/CAdESCOM|CreateObjectAsync|объект/i.test(message)) {
         return {
-            message: 'CryptoPro установлен, но браузер не смог создать объекты плагина. Проверьте версию КриптоПРО CSP, расширение и перезапустите браузер.',
+            message: 'CryptoPro установлен, но браузер не смог создать объекты плагина. Проверьте версию КриптоПРО CSP и расширение.',
             showInstallHelp: true
         };
     }
@@ -147,6 +147,12 @@ async function ensureCadesPluginLoaded() {
 
 async function CSP(id, organizationId) {
     try {
+        const page = getAnswersPageContainer(document);
+        if (page?.dataset.isSigned === 'true') {
+            showError('Анкета уже подписана и не может быть подписана повторно.');
+            return;
+        }
+
         await ensureCadesPluginLoaded();
         await checkCSPAvailable();
 
@@ -217,7 +223,10 @@ async function checkCSPAvailable() {
 
 async function getDataForSignature(id, organizationId) {
     const response = await fetch(`/signatures/${id}/${organizationId}`);
-    if (!response.ok) throw new Error('Ошибка получения данных');
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Ошибка получения данных');
+    }
 
     const contentType = String(response.headers.get('content-type') || '').toLowerCase();
     if (contentType.includes('application/json')) {
@@ -458,11 +467,8 @@ function showCSPInstallInstructions(reasonMessage = '') {
         step2.appendChild(document.createTextNode('Установите '));
         step2.appendChild(link2);
         step2.appendChild(document.createTextNode(' версии 4.0 и выше.'));
-        const step3 = document.createElement('li');
-        step3.textContent = 'Перезапустите браузер и обновите страницу.';
         steps.appendChild(step1);
         steps.appendChild(step2);
-        steps.appendChild(step3);
     }
 
     body.appendChild(intro);
@@ -629,6 +635,12 @@ function applySignedState(source, isSigned) {
         signatureStatus.classList.toggle('signed', isSigned);
         signatureStatus.classList.toggle('not-signed', !isSigned);
     }
+
+    const signButton = page.querySelector('[data-role="sign-button"], [data-role-sign-button="true"]');
+    if (signButton instanceof HTMLButtonElement) {
+        signButton.disabled = isSigned;
+        signButton.textContent = isSigned ? 'Подписано' : 'Подписать';
+    }
 }
 
 window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organizationId, triggerElement) {
@@ -643,8 +655,11 @@ window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organi
 };
 
 function showError(message) {
+    const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
+        ? window.normalizeClientErrorMessage(message)
+        : message;
     if (typeof window.siteNotify === 'function') {
-        window.siteNotify(message, 'error', { title: 'Ошибка' });
+        window.siteNotify(safeMessage, 'error', { title: 'Ошибка' });
         return;
     }
 
@@ -655,7 +670,7 @@ function showError(message) {
     icon.textContent = '!';
     const text = document.createElement('span');
     text.className = 'csp-notification-text';
-    text.textContent = message;
+    text.textContent = safeMessage;
     notification.appendChild(icon);
     notification.appendChild(text);
     
@@ -676,7 +691,9 @@ function createHtmlFragment(html) {
 function renderHostError(host, message) {
     const errorNode = document.createElement('div');
     errorNode.className = 'error-message';
-    errorNode.textContent = message;
+    errorNode.textContent = typeof window.normalizeClientErrorMessage === 'function'
+        ? window.normalizeClientErrorMessage(message)
+        : message;
     host.replaceChildren(errorNode);
 }
 
@@ -1009,19 +1026,6 @@ const downloadSigned = async (surveyData) => {
 
 window.downloadSignedArchive = async function(surveyId, organizationId) {
     try {
-        const loadingIndicator = document.createElement('div');
-        loadingIndicator.className = 'loading-overlay';
-        const loadingContent = document.createElement('div');
-        loadingContent.className = 'loading-content';
-        const spinner = document.createElement('div');
-        spinner.className = 'loading-spinner';
-        const label = document.createElement('p');
-        label.textContent = 'Подготовка архива...';
-        loadingContent.appendChild(spinner);
-        loadingContent.appendChild(label);
-        loadingIndicator.appendChild(loadingContent);
-        document.body.appendChild(loadingIndicator);
-
         const response = await fetch(`/answers/${surveyId}/${organizationId}/signed-archive`);
         
         if (!response.ok) {
@@ -1049,11 +1053,6 @@ window.downloadSignedArchive = async function(surveyId, organizationId) {
         if (error.details) {
             console.error('Детали ошибки:', error.details);
         }
-    } finally {
-        const overlay = document.querySelector('.loading-overlay');
-        if (overlay) {
-            document.body.removeChild(overlay);
-        }
     }
 }
 
@@ -1080,6 +1079,10 @@ window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, or
 
         signButton?.addEventListener('click', (event) => {
             event.preventDefault();
+            if (signButton.disabled) {
+                return;
+            }
+
             if (surveyId > 0 && currentOrganizationId > 0) {
                 CSP(surveyId, currentOrganizationId);
             }

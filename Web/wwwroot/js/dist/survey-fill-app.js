@@ -219,6 +219,7 @@
     window.closeMobileNavigation = closeMobileNavigation;
     window.toggleMobileNavigation = toggleMobileNavigation;
     window.queueNavigationLayoutEvaluation = queueNavigationLayoutEvaluation;
+    window.isAppMobileNavigationViewport = isMobileNavigationViewport;
     function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
       const isAdmin = userRole === "admin";
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;

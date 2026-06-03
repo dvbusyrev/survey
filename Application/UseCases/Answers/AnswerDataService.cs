@@ -185,6 +185,23 @@ public sealed class AnswerDataService
             throw new InvalidOperationException("Назначение анкеты для организации не найдено.");
         }
 
+        var existingSignature = connection.ExecuteScalar<string?>(
+            @"SELECT csp
+              FROM public.answer
+              WHERE id_organization_survey = @assignmentId
+              FOR UPDATE",
+            new
+            {
+                assignmentId = assignmentId.Value
+            },
+            transaction);
+
+        if (!string.IsNullOrWhiteSpace(existingSignature))
+        {
+            transaction.Rollback();
+            throw new AnswerAlreadySignedException();
+        }
+
         var idAnswer = connection.ExecuteScalar<int>(
             @"INSERT INTO public.answer (
                   id_organization_survey,
@@ -229,8 +246,8 @@ public sealed class AnswerDataService
             return false;
         }
 
-        var answerId = connection.ExecuteScalar<int?>(
-            @"SELECT id_answer
+        var existingAnswer = connection.QueryFirstOrDefault<ExistingAnswerRow>(
+            @"SELECT id_answer AS IdAnswer, csp AS Csp
               FROM public.answer
               WHERE id_organization_survey = @assignmentId
               FOR UPDATE",
@@ -240,10 +257,16 @@ public sealed class AnswerDataService
             },
             transaction);
 
-        if (!answerId.HasValue)
+        if (existingAnswer == null)
         {
             transaction.Rollback();
             return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(existingAnswer.Csp))
+        {
+            transaction.Rollback();
+            throw new AnswerAlreadySignedException();
         }
 
         var items = BuildNormalizedAnswerItems(connection, transaction, answerRecord.IdSurvey, answerRecord.Answers);
@@ -256,7 +279,7 @@ public sealed class AnswerDataService
               WHERE id_answer = @answerId",
             new
             {
-                answerId = answerId.Value,
+                answerId = existingAnswer.IdAnswer,
                 completionDate = DateTime.Now
             },
             transaction);
@@ -267,7 +290,7 @@ public sealed class AnswerDataService
             return false;
         }
 
-        ReplaceAnswerItems(connection, transaction, answerId.Value, items);
+        ReplaceAnswerItems(connection, transaction, existingAnswer.IdAnswer, items);
         transaction.Commit();
 
         return true;
@@ -284,7 +307,8 @@ public sealed class AnswerDataService
               FROM public.organization_survey os
               WHERE os.id_organization_survey = a.id_organization_survey
                 AND os.id_organization = @organizationId
-                AND os.id_survey = @surveyId",
+                AND os.id_survey = @surveyId
+                AND COALESCE(BTRIM(a.csp), '') = ''",
             new { signature, signedContent, organizationId, surveyId });
 
         return rowsAffected > 0;
@@ -450,5 +474,11 @@ public sealed class AnswerDataService
         public string QuestionText { get; init; } = string.Empty;
         public int? Rating { get; init; }
         public string? Comment { get; init; }
+    }
+
+    private sealed class ExistingAnswerRow
+    {
+        public int IdAnswer { get; init; }
+        public string? Csp { get; init; }
     }
 }

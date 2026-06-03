@@ -183,6 +183,62 @@
         }
     }
 
+    function normalizeClientErrorMessage(message, fallbackMessage = 'Произошла ошибка.') {
+        const normalizedMessage = normalizeMessage(message).trim();
+        if (!normalizedMessage) {
+            return fallbackMessage;
+        }
+
+        const lowerMessage = normalizedMessage.toLowerCase();
+        const withoutTypePrefix = normalizedMessage.replace(/^(typeerror|error):\s*/i, '').trim();
+
+        if (/(failed to fetch|load failed|network request failed|fetch failed|networkerror|err_connection_refused|err_network|err_failed|err_internet_disconnected|connection refused|connection reset|connection aborted|econnrefused|econnreset|enotfound|econnaborted)/i.test(normalizedMessage)) {
+            return 'Сервер недоступен.';
+        }
+
+        if (/(internet connection appears to be offline|network connection was lost|network is offline|offline)/i.test(normalizedMessage)) {
+            return 'Нет соединения с сетью.';
+        }
+
+        if (/(timeout|timed out|time-out|etimedout)/i.test(normalizedMessage)) {
+            return 'Превышено время ожидания ответа от сервера.';
+        }
+
+        if (/(aborterror|operation was aborted|request aborted|aborted)/i.test(normalizedMessage)) {
+            return 'Запрос был отменён.';
+        }
+
+        if (/(unexpected end of json input|json.parse|unexpected token.*json|is not valid json)/i.test(normalizedMessage)) {
+            return 'Сервер вернул некорректный ответ.';
+        }
+
+        if (/unexpected token\s*</i.test(normalizedMessage)) {
+            return 'Сервер вернул страницу вместо данных.';
+        }
+
+        if (/(cannot read propert|cannot set propert|is not a function|undefined is not an object|null is not an object|script error)/i.test(normalizedMessage)) {
+            return 'Произошла ошибка интерфейса.';
+        }
+
+        if (/(23505|duplicate key value|unique constraint|повторяющееся значение ключа)/i.test(normalizedMessage)) {
+            return 'Такая запись уже существует.';
+        }
+
+        if (/(23502|null value in column|not-null constraint|нарушает ограничение not-null)/i.test(normalizedMessage)) {
+            return 'Не заполнены обязательные поля.';
+        }
+
+        if (/(23503|foreign key constraint|violates foreign key|нарушает ограничение внешнего ключа)/i.test(normalizedMessage)) {
+            return 'Нельзя изменить запись: есть связанные данные.';
+        }
+
+        if (lowerMessage === 'undefined' || lowerMessage === 'null' || lowerMessage === 'nan') {
+            return fallbackMessage;
+        }
+
+        return withoutTypePrefix || fallbackMessage;
+    }
+
     function showToast(message, type, options) {
         ensureBody(() => {
             const container = ensureToastContainer();
@@ -218,7 +274,7 @@
             toast.appendChild(closeNode);
 
             toast.querySelector('.site-toast__title').textContent = title;
-            toast.querySelector('.site-toast__message').textContent = normalizeMessage(message);
+            toast.querySelector('.site-toast__message').textContent = normalizeClientErrorMessage(message);
 
             const closeButton = toast.querySelector('.site-toast__close');
             const removeToast = () => {
@@ -485,7 +541,7 @@
     }
 
     window.siteNotify = function (message, type, options) {
-        showToast(message, type, options);
+        showToast(normalizeClientErrorMessage(message), type, options);
     };
 
     window.siteConfirm = function (message, options) {
@@ -499,11 +555,11 @@
 
     const nativeShowNotification = window.showNotification;
     window.showNotification = function (message, isSuccess) {
-        showToast(message, isSuccess ? 'success' : 'error');
+        showToast(normalizeClientErrorMessage(message), isSuccess ? 'success' : 'error');
     };
 
     window.alert = function (message) {
-        const normalizedMessage = normalizeMessage(message);
+        const normalizedMessage = normalizeClientErrorMessage(message);
         const hasErrorTone = /ошиб|не удалось|некоррект|проверьте|не найден|не заполн|не может/i.test(normalizedMessage);
         const hasSuccessTone = /успешно|сохранен|создан|обновлен|добавлен|загружен|удален|отправлен/i.test(normalizedMessage);
         const toastType = hasErrorTone ? 'error' : hasSuccessTone ? 'success' : 'info';
@@ -515,6 +571,8 @@
 
         showToast(normalizedMessage, toastType, { title });
     };
+
+    window.normalizeClientErrorMessage = normalizeClientErrorMessage;
 
     document.addEventListener('pointerdown', function (event) {
         const modal = getInteractiveModalFromTarget(event.target);

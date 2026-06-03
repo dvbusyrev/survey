@@ -1,6 +1,7 @@
 ﻿using Dapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -11,6 +12,7 @@ using MainProject.Application.UseCases;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Application.UseCases.Answers;
 using MainProject.Application.UseCases.Surveys;
+using System.Globalization;
 using System.Text.Json;
 using System.Threading.RateLimiting;
 
@@ -133,6 +135,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IUserChromeContextService, UserChromeContextService>();
 builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+builder.Services.AddScoped<IThemeSettingsService, ThemeSettingsService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<ISurveyAutoCreationService, SurveyAutoCreationService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
@@ -162,6 +165,16 @@ builder.Services.AddResponseCompression(options =>
     });
 });
 
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    var supportedCultures = new[] { new CultureInfo("ru-RU") };
+
+    options.DefaultRequestCulture = new RequestCulture("ru-RU");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+    options.ApplyCurrentCultureToResponseHeaders = true;
+});
+
 var app = builder.Build();
 
 // НАСТРОЙКА HTTP ПЕРЕАДРЕСАЦИИ
@@ -180,6 +193,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRequestLocalization();
 app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();

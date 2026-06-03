@@ -33,6 +33,8 @@ What this does:
 - applies `020_limit_auto_creation_schedule_options`
 - applies `021_allow_empty_auto_creation_period`
 - applies `022_store_signed_answer_content`
+- applies `023_add_theme_config`
+- applies `024_add_theme_palette_controls`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -60,3 +62,5 @@ Migration sources:
 - `020_limit_auto_creation_schedule_options` limits auto-creation weekday options to the first three weekdays and working period values to 14 days
 - `021_allow_empty_auto_creation_period` allows blank auto-creation period values and open-ended survey assignments
 - `022_store_signed_answer_content` stores the exact signed PDF bytes so detached signatures are archived with the same content that was signed
+- `023_add_theme_config` creates theme settings storage and audit logging for interface appearance
+- `024_add_theme_palette_controls` adds configurable shade and tint controls for derived theme colors
