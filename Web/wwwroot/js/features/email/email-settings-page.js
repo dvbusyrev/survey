@@ -57,6 +57,10 @@
         Object.values(fieldIds).forEach((id) => setInvalidState(id, false));
     }
 
+    const emailSettingsPageState = {
+        savedSettings: null
+    };
+
     function collectSettings() {
         const smtpPortValue = Number.parseInt(getField(fieldIds.smtpPort)?.value || '', 10);
 
@@ -72,6 +76,34 @@
             fromAddress: getTrimmedValue(fieldIds.fromAddress),
             fromDisplayName: getTrimmedValue(fieldIds.fromDisplayName)
         };
+    }
+
+    function setFieldValue(id, value) {
+        const element = getField(id);
+        if (!element) {
+            return;
+        }
+
+        element.value = value == null ? '' : String(value);
+    }
+
+    function populateSettings(settings) {
+        const normalizedSettings = settings || {};
+        setFieldValue(fieldIds.to, normalizedSettings.to);
+        setFieldValue(fieldIds.subject, normalizedSettings.subject);
+        setFieldValue(fieldIds.content, normalizedSettings.content);
+        setFieldValue(fieldIds.smtpHost, normalizedSettings.smtpHost);
+        setFieldValue(fieldIds.smtpPort, normalizedSettings.smtpPort || '');
+        setFieldValue(fieldIds.smtpEnableSsl, normalizedSettings.smtpEnableSsl ? 'true' : 'false');
+        setFieldValue(fieldIds.smtpUserName, normalizedSettings.smtpUserName);
+        setFieldValue(fieldIds.smtpPassword, normalizedSettings.smtpPassword);
+        setFieldValue(fieldIds.fromAddress, normalizedSettings.fromAddress);
+        setFieldValue(fieldIds.fromDisplayName, normalizedSettings.fromDisplayName);
+    }
+
+    function resetEmailSettings() {
+        clearInvalidStates();
+        populateSettings(emailSettingsPageState.savedSettings || collectSettings());
     }
 
     function validateSettings(settings) {
@@ -220,6 +252,9 @@
 
             const payload = await response.json();
             clearInvalidStates();
+            if (options.updateSavedSettings) {
+                emailSettingsPageState.savedSettings = { ...settings };
+            }
             showNotification(
                 payload?.message || options.successMessage,
                 'success',
@@ -244,7 +279,8 @@
             successTitle: 'Настройки сохранены',
             successMessage: 'Настройки электронной почты сохранены.',
             errorTitle: 'Сохранение не выполнено',
-            errorMessage: 'Не удалось сохранить настройки.'
+            errorMessage: 'Не удалось сохранить настройки.',
+            updateSavedSettings: true
         });
     };
 
@@ -271,6 +307,8 @@
     }
 
     window.initEmailSettingsPage = function initEmailSettingsPage() {
+        emailSettingsPageState.savedSettings = collectSettings();
+        bindButton('email-reset-button', resetEmailSettings);
         bindButton('email-save-button', window.saveEmailSettings);
         bindButton('email-send-button', window.sendEmailMessage);
     };

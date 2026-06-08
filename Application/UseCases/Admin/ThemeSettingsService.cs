@@ -13,6 +13,8 @@ public sealed class ThemeSettingsService : IThemeSettingsService
     private const int MaxBackgroundImageLength = 4_000_000;
     private const string DefaultFontColor = "#343D4B";
     private const string DefaultBackgroundColor = "#B2A8FF";
+    private const int DefaultDetailsBrightness = 59;
+    private const int CurrentThemeScaleMarker = 50;
     private const string DefaultGradientStartColor = "#B2A8FF";
     private const string DefaultGradientEndColor = "#B2A8FF";
     private static readonly Regex HexColorRegex = new("^#[0-9A-Fa-f]{6}$", RegexOptions.Compiled);
@@ -74,11 +76,13 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                 return new ThemeSettings();
             }
 
+            var isLegacyDarkenScale = row.ButtonStrongDarkenPercent != CurrentThemeScaleMarker;
+
             return ApplyDerivedGradientColors(new ThemeSettings
             {
                 FontColor = NormalizeColorOrDefault(row.FontColor, DefaultFontColor),
                 BackgroundColor = NormalizeColorOrDefault(row.BackgroundColor, DefaultBackgroundColor),
-                GradientEnabled = row.GradientEnabled,
+                GradientEnabled = false,
                 GradientStartColor = NormalizeColorOrDefault(row.GradientStartColor, DefaultGradientStartColor),
                 GradientEndColor = NormalizeColorOrDefault(row.GradientEndColor, DefaultGradientEndColor),
                 EffectSnow = row.EffectSnow,
@@ -88,11 +92,13 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                 BackgroundImageDataUrl = NormalizeBackgroundImage(row.BackgroundImageDataUrl),
                 BackgroundImageOpacity = NormalizeOpacity(row.BackgroundImageOpacity),
                 SoftLightenPercent = NormalizePercent(row.SoftLightenPercent),
-                HeaderDarkenPercent = NormalizePercent(row.HeaderDarkenPercent),
-                FooterDarkenPercent = NormalizePercent(row.FooterDarkenPercent),
-                ButtonDarkenPercent = NormalizePercent(row.ButtonDarkenPercent),
-                ButtonStrongDarkenPercent = NormalizePercent(row.ButtonStrongDarkenPercent),
-                SurfaceTintOpacityPercent = NormalizePercent(row.SurfaceTintOpacityPercent)
+                HeaderDarkenPercent = NormalizeBrightnessPercent(row.HeaderDarkenPercent, isLegacyDarkenScale),
+                FooterDarkenPercent = NormalizeBrightnessPercent(row.FooterDarkenPercent, isLegacyDarkenScale),
+                ButtonDarkenPercent = NormalizeBrightnessPercent(row.ButtonDarkenPercent, isLegacyDarkenScale),
+                ButtonStrongDarkenPercent = CurrentThemeScaleMarker,
+                SurfaceTintOpacityPercent = isLegacyDarkenScale
+                    ? DefaultDetailsBrightness
+                    : NormalizePercent(row.SurfaceTintOpacityPercent)
             });
         }
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
@@ -207,7 +213,7 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         {
             FontColor = NormalizeColorOrDefault(settings.FontColor, DefaultFontColor),
             BackgroundColor = NormalizeColorOrDefault(settings.BackgroundColor, DefaultBackgroundColor),
-            GradientEnabled = settings.GradientEnabled,
+            GradientEnabled = false,
             GradientStartColor = NormalizeColorOrDefault(settings.GradientStartColor, DefaultGradientStartColor),
             GradientEndColor = NormalizeColorOrDefault(settings.GradientEndColor, DefaultGradientEndColor),
             EffectSnow = settings.EffectSnow,
@@ -220,7 +226,7 @@ public sealed class ThemeSettingsService : IThemeSettingsService
             HeaderDarkenPercent = NormalizePercent(settings.HeaderDarkenPercent),
             FooterDarkenPercent = NormalizePercent(settings.FooterDarkenPercent),
             ButtonDarkenPercent = NormalizePercent(settings.ButtonDarkenPercent),
-            ButtonStrongDarkenPercent = NormalizePercent(settings.ButtonStrongDarkenPercent),
+            ButtonStrongDarkenPercent = CurrentThemeScaleMarker,
             SurfaceTintOpacityPercent = NormalizePercent(settings.SurfaceTintOpacityPercent)
         };
 
@@ -247,11 +253,10 @@ public sealed class ThemeSettingsService : IThemeSettingsService
             errors.Add("Прозрачность фонового изображения должна быть от 0 до 100.");
         }
 
-        ValidatePercent(normalized.HeaderDarkenPercent, "Затемнение шапки", errors);
-        ValidatePercent(normalized.FooterDarkenPercent, "Затемнение футера", errors);
-        ValidatePercent(normalized.ButtonDarkenPercent, "Затемнение кнопок", errors);
-        ValidatePercent(normalized.ButtonStrongDarkenPercent, "Градиент кнопок", errors);
-        ValidatePercent(normalized.SurfaceTintOpacityPercent, "Подложки", errors);
+        ValidatePercent(normalized.HeaderDarkenPercent, "Яркость шапки", errors);
+        ValidatePercent(normalized.FooterDarkenPercent, "Яркость подвала", errors);
+        ValidatePercent(normalized.ButtonDarkenPercent, "Яркость кнопок", errors);
+        ValidatePercent(normalized.SurfaceTintOpacityPercent, "Яркость деталей", errors);
 
         if (errors.Count > 0)
         {
@@ -290,6 +295,17 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         return Math.Clamp(value, 0, 100);
     }
 
+    private static int NormalizeBrightnessPercent(int value, bool isLegacyDarkenScale)
+    {
+        var normalized = NormalizePercent(value);
+        if (!isLegacyDarkenScale)
+        {
+            return normalized;
+        }
+
+        return Math.Clamp(50 - (normalized / 2), 0, 100);
+    }
+
     private static void ValidatePercent(int value, string fieldName, ICollection<string> errors)
     {
         if (value < 0 || value > 100)
@@ -303,6 +319,7 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         var gradientStartColor = settings.BackgroundColor;
         var gradientEndColor = settings.BackgroundColor;
 
+        settings.GradientEnabled = false;
         settings.GradientStartColor = gradientStartColor;
         settings.GradientEndColor = gradientEndColor;
         return settings;

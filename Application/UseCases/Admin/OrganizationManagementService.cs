@@ -25,27 +25,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
         string? sortDirection,
         bool openAddOrganizationModal = false)
     {
-        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
-        var normalizedSortBy = NormalizeOrganizationSortField(hasExplicitSort ? sortBy : null);
-        var normalizedSortDirection = hasExplicitSort
-            ? AppSortState.NormalizeExplicitDirection(sortDirection)
-            : NormalizeOrganizationSortDirection(null, normalizedSortBy);
-        var organizations = SortOrganizations(GetOrganizations(includeArchived: false), sortBy, sortDirection);
-        var pageSlice = AppListPaging.Slice(organizations, currentPage);
-
-        return new OrganizationListPageViewModel
-        {
-            Organizations = pageSlice.Items,
-            OpenAddOrganizationModal = openAddOrganizationModal,
-            CurrentPage = pageSlice.CurrentPage,
-            TotalPages = pageSlice.TotalPages,
-            TotalCount = pageSlice.TotalCount,
-            PageSize = pageSlice.PageSize,
-            HasExplicitSort = hasExplicitSort,
-            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
-            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
-            ViewModeIsArchive = false
-        };
+        return GetOrganizationsPage(currentPage, sortBy, sortDirection, includeArchived: false, openAddOrganizationModal);
     }
 
     public OrganizationSurveyAssignmentsPageViewModel GetOrganizationSurveyAssignmentsPage()
@@ -78,25 +58,49 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
         string? sortBy,
         string? sortDirection)
     {
+        return GetOrganizationsPage(currentPage, sortBy, sortDirection, includeArchived: true);
+    }
+
+    private OrganizationListPageViewModel GetOrganizationsPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        bool includeArchived,
+        bool openAddOrganizationModal = false)
+    {
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeOrganizationSortField(hasExplicitSort ? sortBy : null);
         var normalizedSortDirection = hasExplicitSort
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeOrganizationSortDirection(null, normalizedSortBy);
-        var organizations = SortOrganizations(GetOrganizations(includeArchived: true), sortBy, sortDirection);
-        var pageSlice = AppListPaging.Slice(organizations, currentPage);
+
+        using var connection = _connectionFactory.CreateConnection();
+        var totalCount = connection.ExecuteScalar<int>(GetOrganizationCountSql(includeArchived));
+        var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
+        var organizations = connection.Query<Organization>(
+            $"""
+            {GetOrganizationPageSelectSql(includeArchived)}
+            ORDER BY {BuildOrganizationOrderBy(normalizedSortBy, normalizedSortDirection)}
+            LIMIT @pageSize OFFSET @offset;
+            """,
+            new
+            {
+                pageSize = pageWindow.PageSize,
+                offset = pageWindow.Offset
+            }).ToList();
 
         return new OrganizationListPageViewModel
         {
-            Organizations = pageSlice.Items,
-            CurrentPage = pageSlice.CurrentPage,
-            TotalPages = pageSlice.TotalPages,
-            TotalCount = pageSlice.TotalCount,
-            PageSize = pageSlice.PageSize,
+            Organizations = organizations,
+            OpenAddOrganizationModal = openAddOrganizationModal,
+            CurrentPage = pageWindow.CurrentPage,
+            TotalPages = pageWindow.TotalPages,
+            TotalCount = pageWindow.TotalCount,
+            PageSize = pageWindow.PageSize,
             HasExplicitSort = hasExplicitSort,
             SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
             SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
-            ViewModeIsArchive = true
+            ViewModeIsArchive = includeArchived
         };
     }
 
@@ -411,6 +415,59 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
             ORDER BY o.organization_name;
             """,
             new { includeArchived }).ToList();
+    }
+
+    private static string GetOrganizationCountSql(bool includeArchived)
+    {
+        return $"""
+            SELECT COUNT(*)
+            FROM public.organization o
+            WHERE {GetOrganizationArchivePredicate(includeArchived)};
+            """;
+    }
+
+    private static string GetOrganizationPageSelectSql(bool includeArchived)
+    {
+        return $"""
+            SELECT
+                o.id_organization AS OrganizationId,
+                o.organization_name,
+                o.organization_short_name,
+                o.date_begin,
+                o.date_end,
+                COALESCE((
+                    SELECT string_agg(s.name_survey, ', ' ORDER BY s.name_survey)
+                    FROM public.organization_survey os
+                    INNER JOIN public.survey s
+                        ON s.id_survey = os.id_survey
+                    WHERE os.id_organization = o.id_organization
+                ), 'Не указано') AS survey_names,
+                o.email
+            FROM public.organization o
+            WHERE {GetOrganizationArchivePredicate(includeArchived)}
+            """;
+    }
+
+    private static string GetOrganizationArchivePredicate(bool includeArchived)
+    {
+        return includeArchived
+            ? "o.date_end < CURRENT_DATE"
+            : "(o.date_end IS NULL OR o.date_end >= CURRENT_DATE)";
+    }
+
+    private static string BuildOrganizationOrderBy(string sortBy, string sortDirection)
+    {
+        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
+            ? "DESC"
+            : "ASC";
+        var nulls = "NULLS LAST";
+
+        return sortBy switch
+        {
+            OrganizationListSortFields.DateBegin => $"o.date_begin {direction} {nulls}, o.id_organization ASC",
+            OrganizationListSortFields.DateEnd => $"o.date_end {direction} {nulls}, o.id_organization ASC",
+            _ => $"o.organization_name {direction}, o.id_organization ASC"
+        };
     }
 
     private static IReadOnlyList<OrganizationSurveyAssignmentRow> GetOrganizationSurveyAssignmentRows(

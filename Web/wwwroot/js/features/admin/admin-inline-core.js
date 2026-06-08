@@ -1,5 +1,8 @@
 (() => {
     const DETACHED_CONTENT_HOST_ID = 'admin-inline-detached-content';
+    const loadedStylesheetUrls = new Set();
+    const loadedScriptUrls = new Set();
+    let loadedAssetsPrimed = false;
 
     function normalizePathname(pathname) {
         if (!pathname) {
@@ -264,25 +267,89 @@
         }
     }
 
-    function isStylesheetLoaded(href) {
-        return Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).some((link) => {
-            return normalizeAssetUrl(link.href) === href;
+    function primeLoadedAssets() {
+        if (loadedAssetsPrimed) {
+            return;
+        }
+
+        document.querySelectorAll('link[rel="stylesheet"][href]').forEach((link) => {
+            const href = normalizeAssetUrl(link.href);
+            if (href) {
+                loadedStylesheetUrls.add(href);
+            }
+        });
+
+        document.querySelectorAll('script[src]').forEach((script) => {
+            const src = normalizeAssetUrl(script.src);
+            if (src) {
+                loadedScriptUrls.add(src);
+            }
+        });
+
+        loadedAssetsPrimed = true;
+    }
+
+    function isThemeStylesheetUrl(href) {
+        try {
+            return new URL(href, window.location.origin).pathname.endsWith('/css/shared/app-theme.css');
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function getThemeStylesheetAnchor() {
+        return Array.from(document.querySelectorAll('link[rel="stylesheet"][href]'))
+            .find((link) => isThemeStylesheetUrl(link.getAttribute('href') || link.href))
+            || document.getElementById('app-theme-inline');
+    }
+
+    function normalizeThemeStylesheetOrder() {
+        const themeAnchor = getThemeStylesheetAnchor();
+        const head = themeAnchor?.parentNode;
+        if (!head) {
+            return;
+        }
+
+        const children = Array.from(head.children);
+        const themeIndex = children.indexOf(themeAnchor);
+        if (themeIndex < 0) {
+            return;
+        }
+
+        children.slice(themeIndex + 1).forEach((node) => {
+            if (
+                node.tagName === 'LINK'
+                && node.getAttribute('rel') === 'stylesheet'
+                && !isThemeStylesheetUrl(node.getAttribute('href') || node.href)
+            ) {
+                head.insertBefore(node, themeAnchor);
+            }
         });
     }
 
-    function isScriptLoaded(src) {
-        return Array.from(document.querySelectorAll('script[src]')).some((script) => {
-            return normalizeAssetUrl(script.src) === src;
-        });
+    function insertStylesheetBeforeTheme(link) {
+        normalizeThemeStylesheetOrder();
+
+        const themeAnchor = getThemeStylesheetAnchor();
+        if (themeAnchor?.parentNode) {
+            themeAnchor.parentNode.insertBefore(link, themeAnchor);
+            return;
+        }
+
+        document.head.appendChild(link);
     }
 
     function loadStylesheetsFromDocument(parsedDocument) {
+        primeLoadedAssets();
+        normalizeThemeStylesheetOrder();
+
         parsedDocument.querySelectorAll('link[rel="stylesheet"][href]').forEach((sourceLink) => {
             const href = normalizeAssetUrl(sourceLink.getAttribute('href'));
-            if (!href || isStylesheetLoaded(href)) {
+            if (!href || loadedStylesheetUrls.has(href)) {
                 return;
             }
 
+            loadedStylesheetUrls.add(href);
             const link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = href;
@@ -291,7 +358,7 @@
                 link.media = sourceLink.media;
             }
 
-            document.head.appendChild(link);
+            insertStylesheetBeforeTheme(link);
         });
     }
 
@@ -307,18 +374,29 @@
     }
 
     async function loadScriptsFromDocument(parsedDocument) {
+        primeLoadedAssets();
+        let loadedAnyScript = false;
         const scriptSources = Array.from(parsedDocument.querySelectorAll('script[src]'))
             .map((script) => normalizeAssetUrl(script.getAttribute('src')))
             .filter(Boolean)
             .filter((src, index, list) => list.indexOf(src) === index);
 
         for (const src of scriptSources) {
-            if (isScriptLoaded(src)) {
+            if (loadedScriptUrls.has(src)) {
                 continue;
             }
 
-            await loadScriptAsset(src);
+            loadedScriptUrls.add(src);
+            try {
+                await loadScriptAsset(src);
+                loadedAnyScript = true;
+            } catch (error) {
+                loadedScriptUrls.delete(src);
+                throw error;
+            }
         }
+
+        return loadedAnyScript;
     }
 
     function shouldSkipFetchedNode(node) {
@@ -339,7 +417,19 @@
             return true;
         }
 
-        if (['global-antiforgery-token', 'layout-chrome-context', 'chrome-context', 'chrome-header', 'chrome-navigation', 'chrome-footer', 'root', DETACHED_CONTENT_HOST_ID].includes(element.id)) {
+        if ([
+            'global-antiforgery-token',
+            'layout-chrome-context',
+            'chrome-context',
+            'chrome-header',
+            'chrome-navigation',
+            'chrome-footer',
+            'app-theme-background',
+            'app-theme-effects-root',
+            'app-theme-foreground-effects-root',
+            'root',
+            DETACHED_CONTENT_HOST_ID
+        ].includes(element.id)) {
             return true;
         }
 
@@ -356,22 +446,61 @@
 
     function getPrimaryRenderableNodes(sourceDocument) {
         const contentHost = sourceDocument.getElementById('content_admin');
-        return contentHost
-            ? Array.from(contentHost.childNodes)
+        if (contentHost) {
+            return Array.from(contentHost.childNodes);
+        }
+
+        const pageContent = sourceDocument.getElementById('default_content');
+        return pageContent
+            ? [pageContent]
             : Array.from(sourceDocument.body.childNodes);
     }
 
     function getDetachedRenderableNodes(sourceDocument) {
         const contentHost = sourceDocument.getElementById('content_admin');
-        if (!contentHost) {
+        const pageContent = sourceDocument.getElementById('default_content');
+        const primaryNode = contentHost || pageContent;
+        if (!primaryNode) {
             return [];
         }
 
-        return Array.from(sourceDocument.body.childNodes).filter((node) => {
-            return node !== contentHost
-                && !shouldSkipFetchedNode(node)
-                && !(node.nodeType === Node.ELEMENT_NODE && node.querySelector?.('#content_admin'));
-        });
+        const nodes = [];
+        const seen = new Set();
+        const detachedSelectors = [
+            '.modal',
+            '[id$="Modal"]',
+            'template',
+            '#notification',
+            '#loadingOverlay',
+            '#survey-edit-selected-organization-names'
+        ];
+
+        const appendNode = (node) => {
+            if (!node || seen.has(node) || node === primaryNode || shouldSkipFetchedNode(node)) {
+                return;
+            }
+
+            if (primaryNode.contains?.(node)) {
+                return;
+            }
+
+            if (
+                node.nodeType === Node.ELEMENT_NODE
+                && (node.querySelector?.('#content_admin') || node.querySelector?.('#default_content'))
+            ) {
+                return;
+            }
+
+            seen.add(node);
+            nodes.push(node);
+        };
+
+        Array.from(sourceDocument.body.childNodes).forEach(appendNode);
+        sourceDocument.body
+            .querySelectorAll(detachedSelectors.join(','))
+            .forEach(appendNode);
+
+        return nodes;
     }
 
     function buildFragmentFromNodes(nodes, cloneNodes = true) {
@@ -577,12 +706,24 @@
         window.history.pushState(nextState, '', historyEntry.url);
     };
 
+    const remountNavigation = () => {
+        if (typeof navCleanup === 'function') {
+            navCleanup();
+        }
+
+        navCleanup = typeof window.mountNavigation === 'function'
+            ? window.mountNavigation(navHost, {
+                openTab,
+                activeTab: state.activeTab,
+                userRole: initialData.userRole,
+                userId: initialData.userId
+            })
+            : null;
+    };
+
     const remountChrome = () => {
         if (typeof headerCleanup === 'function') {
             headerCleanup();
-        }
-        if (typeof navCleanup === 'function') {
-            navCleanup();
         }
         if (typeof footerCleanup === 'function') {
             footerCleanup();
@@ -595,14 +736,7 @@
                 organizationName: initialData.organizationName
             })
             : null;
-        navCleanup = typeof window.mountNavigation === 'function'
-            ? window.mountNavigation(navHost, {
-                openTab,
-                activeTab: state.activeTab,
-                userRole: initialData.userRole,
-                userId: initialData.userId
-            })
-            : null;
+        remountNavigation();
         footerCleanup = typeof window.mountFooter === 'function'
             ? window.mountFooter(footerHost)
             : null;
@@ -637,12 +771,6 @@
 
     const schedulePostContentHooks = () => {
         const mountedPage = contentAdmin.querySelector('.app-page[data-page]')?.dataset.page || '';
-
-        window.setTimeout(() => {
-            if (typeof window.reapplyCurrentThemeSettings === 'function') {
-                window.reapplyCurrentThemeSettings();
-            }
-        }, 0);
 
         if (initTogglesTimer) {
             window.clearTimeout(initTogglesTimer);
@@ -755,8 +883,10 @@
         }
         loadStylesheetsFromDocument(parsedDocument);
         setHtmlContent(parsedDocument);
-        await loadScriptsFromDocument(parsedDocument);
-        schedulePostContentHooks();
+        const loadedAnyScript = await loadScriptsFromDocument(parsedDocument);
+        if (loadedAnyScript) {
+            schedulePostContentHooks();
+        }
         return response;
     };
 
@@ -911,8 +1041,8 @@
                 cancel.className = 'modal_btn modal_btn-secondary';
                 cancel.textContent = 'Отмена';
                 cancel.addEventListener('click', closeModal);
-                footer.appendChild(ok);
                 footer.appendChild(cancel);
+                footer.appendChild(ok);
                 root.appendChild(header);
                 root.appendChild(body);
                 root.appendChild(footer);
@@ -955,8 +1085,7 @@
 
     const setActiveTabAndRefreshNav = (tab) => {
         state.activeTab = tab;
-        remountChrome();
-        schedulePostContentHooks();
+        remountNavigation();
     };
 
     const tryOpenModal = (modalId, openHandler) => {

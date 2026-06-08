@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Data;
 using System.Text;
 using Dapper;
 using MainProject.Application.Contracts;
@@ -75,22 +76,58 @@ public sealed class AuditLogService : IAuditLogService
 
     public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
     {
+        return GetLogsPageInternal(currentPage, pageSize, sortBy, sortDirection, stripDetails: true);
+    }
+
+    public Log? GetLogDetails(long idLog, int currentPage, int pageSize, string? sortBy, string? sortDirection)
+    {
+        if (idLog <= 0)
+        {
+            return null;
+        }
+
+        return GetLogsPageInternal(currentPage, pageSize, sortBy, sortDirection, stripDetails: false)
+            .Logs
+            .FirstOrDefault(log => log.IdLog == idLog);
+    }
+
+    private AuditLogPageViewModel GetLogsPageInternal(
+        int currentPage,
+        int pageSize,
+        string? sortBy,
+        string? sortDirection,
+        bool stripDetails)
+    {
         var normalizedPageSize = pageSize > 0 ? pageSize : 25;
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeSortField(hasExplicitSort ? sortBy : null);
         var normalizedSortDirection = hasExplicitSort
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeSortDirection(null, normalizedSortBy);
-        var allLogs = SortLogsForPage(GetLogs(), normalizedSortBy, normalizedSortDirection);
-        var totalCount = allLogs.Count;
+        using var connection = _connectionFactory.CreateConnection();
+        var metadata = LoadAuditMetadata(connection);
+        var totalCount = GetAuditRowCount(connection, metadata.AvailableAuditTables);
         var totalPages = totalCount == 0
             ? 1
             : (int)Math.Ceiling((double)totalCount / normalizedPageSize);
         var normalizedPage = Math.Clamp(currentPage, 1, totalPages);
-        var pageLogs = allLogs
-            .Skip((normalizedPage - 1) * normalizedPageSize)
+        var pageRows = GetAuditPageRows(
+            connection,
+            metadata.AvailableAuditTables,
+            normalizedPage,
+            normalizedPageSize,
+            normalizedSortBy,
+            normalizedSortDirection);
+        var pageLogs = SortLogsForPage(
+                MapAuditRows(pageRows, metadata.SourceColumnOrders, reconstructPreviousSnapshots: false),
+                normalizedSortBy,
+                normalizedSortDirection)
             .Take(normalizedPageSize)
             .ToList();
+        if (stripDetails)
+        {
+            StripLogDetails(pageLogs);
+        }
 
         return new AuditLogPageViewModel
         {
@@ -108,35 +145,35 @@ public sealed class AuditLogService : IAuditLogService
     public IReadOnlyList<Log> GetLogs()
     {
         using var connection = _connectionFactory.CreateConnection();
-        var availableAuditTables = connection.Query<string>(
-                ExistingAuditTablesSql,
-                new { TableNames = AuditSources.Select(source => source.AuditTableName).ToArray() })
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var sourceColumnOrders = connection.Query<SourceColumnOrderRow>(
-                SourceColumnOrderSql,
-                new { TableNames = AuditSources.Select(source => source.SourceTable).ToArray() })
-            .GroupBy(row => row.TableName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<string>)group
-                    .OrderBy(row => row.OrdinalPosition)
-                    .Select(row => row.ColumnName)
-                    .ToArray(),
-                StringComparer.OrdinalIgnoreCase);
-
-        var auditSql = BuildAuditSql(availableAuditTables);
+        var metadata = LoadAuditMetadata(connection);
+        var auditSql = BuildAuditSql(metadata.AvailableAuditTables);
         if (string.IsNullOrWhiteSpace(auditSql))
         {
             return Array.Empty<Log>();
         }
 
         var rows = connection.Query<AuditLogRow>(auditSql).ToList();
-        var orderedRows = rows
-            .OrderBy(row => row.ChangedAt)
-            .ThenBy(row => row.SourceOrder)
-            .ThenBy(row => row.IdAudit)
-            .ToList();
+        var groupedLogs = MapAuditRows(rows, metadata.SourceColumnOrders, reconstructPreviousSnapshots: true);
+        AssignDisplayLogIds(groupedLogs);
 
+        return groupedLogs
+            .OrderByDescending(item => item.Date)
+            .ThenByDescending(item => item.IdLog)
+            .ToList();
+    }
+
+    private static List<Log> MapAuditRows(
+        IReadOnlyList<AuditLogRow> rows,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> sourceColumnOrders,
+        bool reconstructPreviousSnapshots)
+    {
+        var orderedRows = reconstructPreviousSnapshots
+            ? rows
+                .OrderBy(row => row.ChangedAt)
+                .ThenBy(row => row.SourceOrder)
+                .ThenBy(row => row.IdAudit)
+                .ToList()
+            : rows.ToList();
         var previousSnapshots = new Dictionary<string, JObject>(StringComparer.Ordinal);
         var logs = new List<Log>(orderedRows.Count);
 
@@ -151,12 +188,12 @@ public sealed class AuditLogService : IAuditLogService
 
             previousSnapshots.TryGetValue(recordKey, out var previousRowData);
             var effectivePreviousRowData = string.Equals(row.Operation, "UPDATE", StringComparison.OrdinalIgnoreCase)
-                ? oldRowData ?? previousRowData
+                ? oldRowData ?? (reconstructPreviousSnapshots ? previousRowData : null)
                 : null;
 
             logs.Add(MapAuditLog(row, recordPk, rowData, effectivePreviousRowData, oldRowData, newRowData, sourceColumnOrders));
 
-            if (string.IsNullOrWhiteSpace(recordKey))
+            if (!reconstructPreviousSnapshots || string.IsNullOrWhiteSpace(recordKey))
             {
                 continue;
             }
@@ -173,13 +210,15 @@ public sealed class AuditLogService : IAuditLogService
             }
         }
 
-        var groupedLogs = GroupRelatedLogs(DeduplicateLogs(logs));
-        AssignDisplayLogIds(groupedLogs);
+        return GroupRelatedLogs(DeduplicateLogs(logs));
+    }
 
-        return groupedLogs
-            .OrderByDescending(item => item.Date)
-            .ThenByDescending(item => item.IdLog)
-            .ToList();
+    private static void StripLogDetails(IEnumerable<Log> logs)
+    {
+        foreach (var log in logs)
+        {
+            log.ExtraData = null;
+        }
     }
 
     public string GenerateLogText(IEnumerable<Log> logs)
@@ -271,6 +310,69 @@ public sealed class AuditLogService : IAuditLogService
     private static string GetEventValue(Log log) => string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType!;
 
     private static string GetDescriptionValue(Log log) => string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description!;
+
+    private static AuditMetadata LoadAuditMetadata(IDbConnection connection)
+    {
+        var availableAuditTables = connection.Query<string>(
+                ExistingAuditTablesSql,
+                new { TableNames = AuditSources.Select(source => source.AuditTableName).ToArray() })
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var sourceColumnOrders = connection.Query<SourceColumnOrderRow>(
+                SourceColumnOrderSql,
+                new { TableNames = AuditSources.Select(source => source.SourceTable).ToArray() })
+            .GroupBy(row => row.TableName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<string>)group
+                    .OrderBy(row => row.OrdinalPosition)
+                    .Select(row => row.ColumnName)
+                    .ToArray(),
+                StringComparer.OrdinalIgnoreCase);
+
+        return new AuditMetadata(availableAuditTables, sourceColumnOrders);
+    }
+
+    private static int GetAuditRowCount(IDbConnection connection, IReadOnlyCollection<string> availableAuditTables)
+    {
+        var countSql = BuildAuditCountSql(availableAuditTables);
+        if (string.IsNullOrWhiteSpace(countSql))
+        {
+            return 0;
+        }
+
+        var count = connection.QuerySingle<long>(countSql);
+        return count > int.MaxValue ? int.MaxValue : (int)count;
+    }
+
+    private static IReadOnlyList<AuditLogRow> GetAuditPageRows(
+        IDbConnection connection,
+        IReadOnlyCollection<string> availableAuditTables,
+        int currentPage,
+        int pageSize,
+        string sortBy,
+        string sortDirection)
+    {
+        var pageSql = BuildAuditPageSql(availableAuditTables, sortBy, sortDirection);
+        if (string.IsNullOrWhiteSpace(pageSql))
+        {
+            return [];
+        }
+
+        var offset = Math.Max(0, (currentPage - 1) * pageSize);
+        var candidateLimit = string.Equals(sortBy, AuditLogSortFields.Date, StringComparison.Ordinal)
+            ? offset + (pageSize * 4)
+            : pageSize;
+
+        return connection.Query<AuditLogRow>(
+                pageSql,
+                new
+                {
+                    Offset = offset,
+                    Limit = pageSize * 4,
+                    CandidateLimit = Math.Max(candidateLimit, pageSize)
+                })
+            .ToList();
+    }
 
     private static void AppendExportBlock(StringBuilder sb, Log log, int ordinal)
     {
@@ -1449,6 +1551,129 @@ public sealed class AuditLogService : IAuditLogService
             """;
     }
 
+    private static string? BuildAuditCountSql(IReadOnlyCollection<string> availableAuditTables)
+    {
+        var unionParts = AuditSources
+            .Where(source => availableAuditTables.Contains(source.AuditTableName))
+            .Select(source =>
+                $$"""
+                    SELECT COUNT(*)::bigint AS row_count
+                    FROM public.{{source.AuditTableName}}
+                """)
+            .ToArray();
+
+        if (unionParts.Length == 0)
+        {
+            return null;
+        }
+
+        return $$"""
+            SELECT COALESCE(SUM(row_count), 0)::bigint
+            FROM (
+                {{string.Join("\n                UNION ALL\n", unionParts)}}
+            ) audit_counts;
+            """;
+    }
+
+    private static string? BuildAuditPageSql(
+        IReadOnlyCollection<string> availableAuditTables,
+        string sortBy,
+        string sortDirection)
+    {
+        var isDateSort = string.Equals(sortBy, AuditLogSortFields.Date, StringComparison.Ordinal);
+        var dateDirection = string.Equals(sortDirection, "asc", StringComparison.Ordinal) ? "ASC" : "DESC";
+        var auditIdDirection = dateDirection;
+        var unionParts = AuditSources
+            .Where(source => availableAuditTables.Contains(source.AuditTableName))
+            .Select(source =>
+            {
+                var sourceOrder = AuditSourceOrder[source.SourceTable];
+                if (!isDateSort)
+                {
+                    return $$"""
+                        SELECT '{{source.SourceTable}}'::text AS source_table, {{sourceOrder}}::integer AS source_order, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data, old_row_data, new_row_data
+                        FROM public.{{source.AuditTableName}}
+                    """;
+                }
+
+                return $$"""
+                    SELECT '{{source.SourceTable}}'::text AS source_table, {{sourceOrder}}::integer AS source_order, id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data, old_row_data, new_row_data
+                    FROM (
+                        SELECT id_audit, operation, changed_at, changed_by_user_id, record_pk, row_data, old_row_data, new_row_data
+                        FROM public.{{source.AuditTableName}}
+                        ORDER BY changed_at {{dateDirection}}, id_audit {{auditIdDirection}}
+                        LIMIT @CandidateLimit
+                    ) source_entries
+                """;
+            })
+            .ToArray();
+
+        if (unionParts.Length == 0)
+        {
+            return null;
+        }
+
+        return $$"""
+            SELECT
+                audit_entries.source_table AS SourceTable,
+                audit_entries.source_order AS SourceOrder,
+                audit_entries.id_audit AS IdAudit,
+                audit_entries.operation AS Operation,
+                audit_entries.changed_at AS ChangedAt,
+                audit_entries.changed_by_user_id AS ChangedByUserId,
+                COALESCE(actor.full_name, actor.login) AS ActorName,
+                audit_entries.record_pk::text AS RecordPkJson,
+                audit_entries.row_data::text AS RowDataJson,
+                audit_entries.old_row_data::text AS OldRowDataJson,
+                audit_entries.new_row_data::text AS NewRowDataJson
+            FROM (
+                {{string.Join("\n                UNION ALL\n", unionParts)}}
+            ) audit_entries
+            LEFT JOIN public.app_user actor
+                ON actor.id_user = audit_entries.changed_by_user_id
+            ORDER BY {{BuildAuditPageOrderBy(sortBy, sortDirection)}}
+            OFFSET @Offset
+            LIMIT @Limit;
+            """;
+    }
+
+    private static string BuildAuditPageOrderBy(string sortBy, string sortDirection)
+    {
+        var direction = string.Equals(sortDirection, "asc", StringComparison.Ordinal) ? "ASC" : "DESC";
+
+        return sortBy switch
+        {
+            AuditLogSortFields.User => $"""
+                COALESCE(actor.full_name, actor.login, '') {direction},
+                audit_entries.changed_at DESC,
+                audit_entries.source_order DESC,
+                audit_entries.id_audit DESC
+                """,
+            AuditLogSortFields.Event => $"""
+                CASE audit_entries.operation
+                    WHEN 'INSERT' THEN 'Добавление'
+                    WHEN 'UPDATE' THEN 'Изменение'
+                    WHEN 'DELETE' THEN 'Удаление'
+                    ELSE audit_entries.operation
+                END {direction},
+                audit_entries.changed_at DESC,
+                audit_entries.source_order DESC,
+                audit_entries.id_audit DESC
+                """,
+            AuditLogSortFields.Description => $"""
+                audit_entries.source_table {direction},
+                audit_entries.changed_at DESC,
+                audit_entries.source_order DESC,
+                audit_entries.id_audit DESC
+                """,
+            _ => $"""
+                audit_entries.changed_at {direction},
+                audit_entries.source_order {direction},
+                audit_entries.id_audit {direction}
+                """
+        };
+    }
+
     private const string ExistingAuditTablesSql = """
         SELECT table_name
         FROM information_schema.tables
@@ -1481,6 +1706,10 @@ public sealed class AuditLogService : IAuditLogService
         public string? OldRowDataJson { get; init; }
         public string? NewRowDataJson { get; init; }
     }
+
+    private sealed record AuditMetadata(
+        HashSet<string> AvailableAuditTables,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> SourceColumnOrders);
 
     private sealed class SourceColumnOrderRow
     {

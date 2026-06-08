@@ -53,7 +53,7 @@ public sealed class AppPaginationViewModel
                 ? CreateItem(1, "В начало", false, true, urlBuilder)
                 : null,
             NextShortcut = normalizedCurrentPage < normalizedTotalPages
-                ? CreateItem(normalizedCurrentPage + 1, "дальше", false, true, urlBuilder)
+                ? CreateItem(normalizedCurrentPage + 1, "Дальше", false, true, urlBuilder)
                 : null
         };
     }

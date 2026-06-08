@@ -12,23 +12,35 @@ public static class AppListPaging
 
     public static PagedSlice<T> Slice<T>(IReadOnlyList<T> items, int currentPage, int pageSize = DefaultPageSize)
     {
-        var normalizedPageSize = pageSize > 0 ? pageSize : DefaultPageSize;
-        var totalCount = items.Count;
-        var totalPages = totalCount == 0
-            ? 1
-            : (int)Math.Ceiling((double)totalCount / normalizedPageSize);
-        var normalizedPage = Math.Clamp(currentPage, 1, totalPages);
+        var window = CreateWindow(items.Count, currentPage, pageSize);
         var pageItems = items
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
+            .Skip(window.Offset)
+            .Take(window.PageSize)
             .ToList();
 
         return new PagedSlice<T>(
             pageItems,
+            window.CurrentPage,
+            window.TotalPages,
+            window.TotalCount,
+            window.PageSize);
+    }
+
+    public static PageWindow CreateWindow(int totalCount, int currentPage, int pageSize = DefaultPageSize)
+    {
+        var normalizedPageSize = pageSize > 0 ? pageSize : DefaultPageSize;
+        var normalizedTotalCount = Math.Max(totalCount, 0);
+        var totalPages = normalizedTotalCount == 0
+            ? 1
+            : (int)Math.Ceiling((double)normalizedTotalCount / normalizedPageSize);
+        var normalizedPage = Math.Clamp(currentPage, 1, totalPages);
+
+        return new PageWindow(
             normalizedPage,
             totalPages,
-            totalCount,
-            normalizedPageSize);
+            normalizedTotalCount,
+            normalizedPageSize,
+            (normalizedPage - 1) * normalizedPageSize);
     }
 
     public readonly record struct PagedSlice<T>(
@@ -37,4 +49,11 @@ public static class AppListPaging
         int TotalPages,
         int TotalCount,
         int PageSize);
+
+    public readonly record struct PageWindow(
+        int CurrentPage,
+        int TotalPages,
+        int TotalCount,
+        int PageSize,
+        int Offset);
 }

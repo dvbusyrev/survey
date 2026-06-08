@@ -70,9 +70,52 @@ public class LogController : Controller
         return File(fileBytes, "text/plain", fileName);
     }
 
+    [HttpGet("event-log/details/{idLog:long}")]
+    public IActionResult GetLogDetails(
+        long idLog,
+        [FromQuery] int page = 1,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] string? sortDirection = null)
+    {
+        try
+        {
+            var log = _auditLogService.GetLogDetails(idLog, page, LogsPageSize, sortBy, sortDirection);
+            if (log == null)
+            {
+                return NotFound(new { message = "Событие не найдено" });
+            }
+
+            return Json(BuildLogDetailsResponse(log));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = $"Не удалось загрузить событие: {ex.Message}" });
+        }
+    }
+
     [HttpGet("logs/export")]
     public IActionResult RedirectLegacyDumpLogs()
     {
         return RedirectPermanent("/event-log/export");
+    }
+
+    private static object BuildLogDetailsResponse(Log log)
+    {
+        return new
+        {
+            id = log.IdLog,
+            date = log.Date.ToString("dd.MM.yyyy HH:mm:ss"),
+            user = string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser,
+            eventType = string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType,
+            targetType = log.TargetType ?? string.Empty,
+            targetName = log.TargetName ?? string.Empty,
+            description = log.Description ?? string.Empty,
+            extraDataJson = log.ExtraData switch
+            {
+                Newtonsoft.Json.Linq.JToken token => token.ToString(Newtonsoft.Json.Formatting.None),
+                null => string.Empty,
+                _ => log.ExtraData.ToString() ?? string.Empty
+            }
+        };
     }
 }

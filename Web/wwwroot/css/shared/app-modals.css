@@ -101,6 +101,21 @@
   overflow-y: auto;
 }
 
+:is(
+  #addUserModal,
+  #editUserModal,
+  #addOrganizationModal,
+  #editOrganizationModal,
+  #surveyEditorModal
+) .modal-body .app-page__section.app-page__stack {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .modal-footer {
   flex: 0 0 auto;
   display: flex;
@@ -114,46 +129,49 @@
 
 .modal_btn {
   position: relative;
+  -webkit-appearance: none;
+  appearance: none;
   overflow: hidden;
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
   font-size: var(--app-button-font-size);
   border: none;
   border-radius: var(--app-button-radius);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.12s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
 .modal_btn-primary {
-  color: var(--app-theme-accent-text-color);
-  background: linear-gradient(145deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .modal_btn-secondary {
   color: var(--text-main);
-  background: #e2e8f0;
+  font-weight: 500;
+  background: #ffffff;
+  border: 1px solid var(--border);
 }
 
 .modal_btn-danger {
-  color: white;
-  background: linear-gradient(145deg, #ef4444 0%, #dc2626 100%);
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .modal_btn-primary:hover {
-  background: linear-gradient(145deg, var(--app-theme-accent-strong-color) 0%, var(--app-theme-accent-color) 100%);
-  box-shadow:
-    0 6px 8px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transform: translateY(-1px);
+  background: var(--app-theme-button-color);
 }
 
 .modal_btn-secondary:hover {
-  background: #cbd5e0;
+  background: #ffffff;
 }
 
 .modal_btn-danger:hover {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: var(--app-theme-button-color);
 }
 
 .modal-close {
@@ -167,20 +185,20 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  color: var(--text-secondary);
+  color: var(--text-main);
   font-size: 1rem;
   line-height: 1;
-  background: color-mix(in srgb, var(--primary) 6%, white 94%);
-  border: 1px solid rgba(209, 213, 219, 0.95);
+  background: #ffffff;
+  border: 1px solid var(--border);
   border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
 .modal-close:hover {
-  color: var(--primary-dark);
-  background: color-mix(in srgb, var(--primary) 12%, white 88%);
-  transform: scale(1.04);
+  color: var(--text-main);
+  background: #ffffff;
+  border-color: var(--border);
 }
 
 .modal-close i {
@@ -274,15 +292,18 @@ body.modal-open {
 }
 
 .notification-close {
+  -webkit-appearance: none;
+  appearance: none;
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
-  color: var(--app-theme-accent-text-color);
+  color: var(--app-theme-button-text-color);
   font-size: var(--app-button-font-size);
-  background: linear-gradient(135deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
-  border: none;
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
   border-radius: var(--app-button-radius);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
 .confirmed-criteria {

@@ -12,6 +12,8 @@
     let signaturesModal = null;
     let signaturesHost = null;
     let signaturesTitle = null;
+    const loadedStylesheetUrls = new Set();
+    let loadedStylesheetsPrimed = false;
 
     function createStandardModalFrame(options) {
         if (typeof window.createSiteModalFrame === 'function') {
@@ -337,18 +339,31 @@
         }
     }
 
-    function isStylesheetLoaded(href) {
-        return Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).some((link) => {
-            return normalizeAssetUrl(link.href) === href;
+    function primeLoadedStylesheets() {
+        if (loadedStylesheetsPrimed) {
+            return;
+        }
+
+        document.querySelectorAll('link[rel="stylesheet"][href]').forEach((link) => {
+            const href = normalizeAssetUrl(link.href);
+            if (href) {
+                loadedStylesheetUrls.add(href);
+            }
         });
+
+        loadedStylesheetsPrimed = true;
     }
 
     function loadStylesheetsFromDocument(parsedDocument) {
+        primeLoadedStylesheets();
+
         parsedDocument.querySelectorAll('link[rel="stylesheet"][href]').forEach((sourceLink) => {
             const href = normalizeAssetUrl(sourceLink.getAttribute('href'));
-            if (!href || isStylesheetLoaded(href)) {
+            if (!href || loadedStylesheetUrls.has(href)) {
                 return;
             }
+
+            loadedStylesheetUrls.add(href);
 
             const link = document.createElement('link');
             link.rel = 'stylesheet';
@@ -509,8 +524,8 @@
 
         extensionModal = frame.modal;
         extensionHost = frame.body;
-        frame.footer.appendChild(extensionSubmitButton);
         frame.footer.appendChild(extensionCancelButton);
+        frame.footer.appendChild(extensionSubmitButton);
     }
 
     function closeSurveyExtensionModal() {

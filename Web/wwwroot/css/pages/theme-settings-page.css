@@ -44,12 +44,10 @@
 
 .theme-settings-page__color-input:focus::-webkit-color-swatch {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent 82%);
 }
 
 .theme-settings-page__color-input:focus::-moz-color-swatch {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent 82%);
 }
 
 .theme-settings-page__checkbox-row {

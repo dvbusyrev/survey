@@ -212,15 +212,15 @@
         </div>
         <div class="modal-footer">
             <button type="button"
+                    class="modal_btn modal_btn-secondary"
+                    data-click-call="closeSurveyEditorModal">
+                Отмена
+            </button>
+            <button type="button"
                     class="modal_btn modal_btn-primary"
                     data-role="survey-submit"
                     data-click-call="@(isEditMode ? "surveyEditUpdate" : "addSurvey")">
                 Сохранить
-            </button>
-            <button type="button"
-                    class="modal_btn modal_btn-secondary"
-                    data-click-call="closeSurveyEditorModal">
-                Отмена
             </button>
         </div>
     </div>

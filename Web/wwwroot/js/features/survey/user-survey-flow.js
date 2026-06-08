@@ -631,7 +631,7 @@ function applySignedState(source, isSigned) {
     }
 
     if (signatureStatus) {
-        signatureStatus.textContent = isSigned ? 'подписано' : 'не подписано';
+        signatureStatus.textContent = isSigned ? 'Подписана' : 'Нет подписи';
         signatureStatus.classList.toggle('signed', isSigned);
         signatureStatus.classList.toggle('not-signed', !isSigned);
     }

@@ -11,7 +11,6 @@
         var inlineBackgroundImage = string.IsNullOrWhiteSpace(layoutThemeSettings.BackgroundImageDataUrl)
             ? "none"
         : $"url('{layoutThemeSettings.BackgroundImageDataUrl.Replace("'", "\\'")}')";
-        var inlineGradientOpacity = layoutThemeSettings.GradientEnabled ? "1" : "0";
         var inlineImageOpacity = (Math.Clamp(layoutThemeSettings.BackgroundImageOpacity, 0, 100) / 100d)
             .ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
     }
@@ -20,6 +19,8 @@
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
     <title>@(ViewData["Title"] ?? "Анкетирование")</title>
     @await Html.PartialAsync("~/Web/Views/Shared/_BaseStyles.cshtml")
+    @RenderSection("PageStyles", required: false)
+    <link rel="stylesheet" href="~/css/shared/app-theme.css" asp-append-version="true" />
     <style id="app-theme-inline">
         :root {
             --app-theme-font-color: @layoutThemeSettings.FontColor;
@@ -32,7 +33,9 @@
         }
 
         body,
-        .page-container {
+        .page-container,
+        .admin-container,
+        .content-wrapper {
             background: transparent !important;
         }
 
@@ -47,7 +50,6 @@
     </style>
     <script id="app-theme-config" type="application/json">@Html.Raw(layoutThemeJson)</script>
     <script src="~/js/core/app-theme.js" asp-append-version="true"></script>
-    @RenderSection("PageStyles", required: false)
     @RenderSection("Head", required: false)
 </head>
     <body class="@(ViewData["BodyClass"] as string ?? string.Empty)">

@@ -1,7 +1,7 @@
 @model MainProject.Application.DTO.Email.EmailTemplateSettings
 
 @{
-    ViewData["Title"] = "Новое отправление";
+    ViewData["Title"] = "Электронная почта";
     var settings = Model ?? new MainProject.Application.DTO.Email.EmailTemplateSettings();
 }
 
@@ -14,7 +14,7 @@
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            Title = "Новое отправление",
+            Title = "Электронная почта",
             Description = "Здесь можно подготовить письмо и отправить его по сохранённому SMTP-профилю."
         })
 
@@ -57,8 +57,8 @@
         <input type="hidden" id="email-from-display-name" value="@settings.FromDisplayName" />
 
         <div class="email-settings-page__actions">
-            <button type="button" id="email-save-button" class="modal_btn modal_btn-primary">Сохранить</button>
-            <button type="button" id="email-send-button" class="modal_btn modal_btn-secondary">Отправить</button>
+            <button type="button" id="email-save-button" class="modal_btn modal_btn-secondary">Сохранить</button>
+            <button type="button" id="email-send-button" class="modal_btn modal_btn-primary">Отправить</button>
         </div>
     </section>
 </div>

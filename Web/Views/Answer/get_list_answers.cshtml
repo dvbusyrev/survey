@@ -55,12 +55,12 @@
                     aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Date)">
                     <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(MainProject.Web.ViewModels.AnswerListSortFields.Date)">Дата</a>
                 </th>
-                <th class="text-center table-sortable @(string.IsNullOrWhiteSpace(pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Signed)) ? string.Empty : "is-sorted")"
+                <th class="answers-page__signature-column text-center table-sortable @(string.IsNullOrWhiteSpace(pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Signed)) ? string.Empty : "is-sorted")"
                     data-sort-direction="@pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Signed)"
                     aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Signed)">
                     <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(MainProject.Web.ViewModels.AnswerListSortFields.Signed)">Подпись</a>
                 </th>
-                <th class="table-th--end table-col--actions text-center">Действия</th>
+                <th class="table-th--end table-col--actions text-center" aria-label="Просмотр"></th>
             </tr>
         </thead>
         <tbody>
@@ -96,24 +96,17 @@
                         <td>@answer.OrganizationName</td>
                         <td>@answer.SurveyName</td>
                         <td class="table-col--date">@answer.CompletionDate?.ToString("dd.MM.yyyy HH:mm:ss")</td>
-                        <td class="text-center">
+                        <td class="answers-page__signature-column text-center">
                             @if (!answer.IsSigned)
                             {
-                                <span class="answers-page__unsigned-icon">Не подписи</span>
+                                <span class="answers-page__unsigned-icon">Нет подписи</span>
                             }
                             else
                             {
                                 <span class="answers-page__signed-icon">Подписана</span>
                             }
                         </td>
-                        <td class="answers-page__view-link action-icons table-col--actions text-center">
-                            <div class="action-icons__content">
-                                <span class="icon-container" aria-hidden="true">
-                                    <span><i class="fas fa-eye"></i></span>
-                                    <span class="icon-tooltip">Смотреть</span>
-                                </span>
-                            </div>
-                        </td>
+                        <td class="answers-page__view-link answers-page__view-action action-icons table-col--actions text-center"></td>
                     </tr>
                 }
             }
@@ -132,4 +125,5 @@
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminArchiveScripts.cshtml")
     <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
+    <script src="~/js/features/admin/admin-answers-list-page.js" asp-append-version="true"></script>
 }

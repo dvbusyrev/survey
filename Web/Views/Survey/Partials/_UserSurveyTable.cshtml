@@ -42,8 +42,8 @@
                 var filterMonth = !filterDate.HasValue || filterDate.Value == default ? string.Empty : filterDate.Value.ToString("MM");
                 var filterYear = !filterDate.HasValue || filterDate.Value == default ? string.Empty : filterDate.Value.ToString("yyyy");
                 var signatureText = isArchive
-                    ? (!string.IsNullOrWhiteSpace(survey.Csp) ? "Подписана" : "Не подписана")
-                    : "Не подписана";
+                    ? (!string.IsNullOrWhiteSpace(survey.Csp) ? "Подписана" : "Нет подписи")
+                    : "Нет подписи";
                 var statusText = isArchive
                     ? $"Заполнена: {FormatDate(survey.CompletionDate)}"
                     : "Не заполнена";

@@ -37,8 +37,59 @@
         }
     }
 
+    function renderPasswordEye(btn, isVisible) {
+        if (!btn) return;
+
+        btn.textContent = '';
+        if (isVisible) {
+            btn.appendChild(createSvgEye('eye-closed', [
+                'M3 3l18 18',
+                'M10.6 10.7a3 3 0 0 0 4 4',
+                'M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-4.1 4.8',
+                'M6.6 6.7A17.7 17.7 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5.2-1.3'
+            ]));
+            return;
+        }
+
+        btn.appendChild(createSvgEye('eye-open', ['M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z'], { cx: 12, cy: 12, r: 3 }));
+    }
+
+    function attachInlinePasswordToggle(input, btn) {
+        if (!input || !btn) return false;
+
+        btn.addEventListener('mousedown', function (event) {
+            event.preventDefault();
+        });
+
+        btn.addEventListener('click', function () {
+            const isVisible = input.dataset.passwordVisible === 'true';
+            const nextVisible = !isVisible;
+            setPasswordVisibility(input, btn, nextVisible);
+            renderPasswordEye(btn, nextVisible);
+
+            window.requestAnimationFrame(function () {
+                input.focus({ preventScroll: true });
+                const length = input.value ? input.value.length : 0;
+                if (typeof input.setSelectionRange === 'function') {
+                    input.setSelectionRange(length, length);
+                }
+            });
+        });
+
+        const isVisible = input.dataset.passwordVisible === 'true';
+        setPasswordVisibility(input, btn, isVisible);
+        renderPasswordEye(btn, isVisible);
+        input.dataset.eyeApplied = 'true';
+        return true;
+    }
+
     function addPasswordEye(input) {
         if (!input || input.dataset.eyeApplied === 'true') return;
+        const inlineToggle = input.closest('.input-container.has-toggle')?.querySelector('.password-toggle-btn');
+        if (attachInlinePasswordToggle(input, inlineToggle)) {
+            return;
+        }
+
         if (input.closest('.password-eye-wrap')) {
             input.dataset.eyeApplied = 'true';
             return;
@@ -65,10 +116,12 @@
         btn.addEventListener('click', function () {
             const isVisible = input.dataset.passwordVisible === 'true';
             setPasswordVisibility(input, btn, !isVisible);
+            renderPasswordEye(btn, !isVisible);
         });
 
         wrapper.appendChild(btn);
         setPasswordVisibility(input, btn, input.dataset.passwordVisible === 'true');
+        renderPasswordEye(btn, input.dataset.passwordVisible === 'true');
         input.dataset.eyeApplied = 'true';
     }
 
@@ -85,7 +138,9 @@
                 const modal = document.getElementById('addUserModal');
                 if (!modal) {
                     console.error('addUserModal not found in DOM');
-                    alert('Форма добавления пользователя не загружена. Сначала откройте список пользователей.');
+                    if (typeof window.refreshAdminTab === 'function') {
+                        window.refreshAdminTab('add_user', null, { historyMode: 'replace' });
+                    }
                     return;
                 }
 

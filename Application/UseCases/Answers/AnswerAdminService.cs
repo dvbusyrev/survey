@@ -1,4 +1,5 @@
-﻿using Dapper;
+﻿using System.Data;
+using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.Support;
@@ -53,48 +54,6 @@ public sealed class AnswerAdminService : IAnswerAdminService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        const string sql = @"
-            SELECT
-                ha.id_answer AS IdAnswer,
-                os.id_organization AS IdOrganization,
-                os.id_survey AS IdSurvey,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, 'Нет данных') AS OrganizationName,
-                COALESCE(s.name_survey, 'Нет данных') AS SurveyName,
-                ha.completion_date AS CompletionDate,
-                COALESCE(ha.csp, '') AS Signature
-            FROM public.answer ha
-            INNER JOIN public.organization_survey os
-                ON os.id_organization_survey = ha.id_organization_survey
-            LEFT JOIN public.organization o
-                ON o.id_organization = os.id_organization
-            LEFT JOIN public.survey s
-                ON s.id_survey = os.id_survey
-            ORDER BY ha.completion_date DESC NULLS LAST, ha.id_answer DESC";
-
-        var rows = connection.Query<AnswerListRow>(sql).ToList();
-        var organizationOptions = rows
-            .Where(row => row.IdOrganization > 0 && !string.IsNullOrWhiteSpace(row.OrganizationName))
-            .GroupBy(row => row.IdOrganization)
-            .Select(group => new SelectionOption
-            {
-                Id = group.Key,
-                Name = group.First().OrganizationName!.Trim()
-            })
-            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
-            .ThenBy(option => option.Id)
-            .ToList();
-        var surveyOptions = rows
-            .Where(row => row.IdSurvey > 0 && !string.IsNullOrWhiteSpace(row.SurveyName))
-            .GroupBy(row => row.IdSurvey)
-            .Select(group => new SelectionOption
-            {
-                Id = group.Key,
-                Name = group.First().SurveyName!.Trim()
-            })
-            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
-            .ThenBy(option => option.Id)
-            .ToList();
-
         var selectedOrganizationIds = ParseSelectedIds(organizationIds);
         var selectedSurveyIds = ParseSelectedIds(surveyIds);
         var bounds = ResolveDateBounds(year, month, dateFrom, dateTo);
@@ -104,32 +63,49 @@ public sealed class AnswerAdminService : IAnswerAdminService
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeAnswerSortDirection(null, normalizedSortBy);
 
-        var filteredRows = rows
-            .Where(row => selectedOrganizationIds.Count == 0 || selectedOrganizationIds.Contains(row.IdOrganization))
-            .Where(row => selectedSurveyIds.Count == 0 || selectedSurveyIds.Contains(row.IdSurvey))
-            .Where(row => MatchesDateBounds(row.CompletionDate, bounds.Start, bounds.End))
-            .Select(row => new AnswerListItemViewModel
-            {
-                IdAnswer = row.IdAnswer,
-                IdOrganization = row.IdOrganization,
-                IdSurvey = row.IdSurvey,
-                OrganizationName = row.OrganizationName ?? "Нет данных",
-                SurveyName = row.SurveyName ?? "Нет данных",
-                CompletionDate = row.CompletionDate,
-                IsSigned = !string.IsNullOrWhiteSpace(row.Signature)
-            })
-            .ToList();
+        var parameters = new DynamicParameters();
+        parameters.Add("selectedOrganizationIds", selectedOrganizationIds.ToArray());
+        parameters.Add("hasOrganizationFilter", selectedOrganizationIds.Count > 0);
+        parameters.Add("selectedSurveyIds", selectedSurveyIds.ToArray());
+        parameters.Add("hasSurveyFilter", selectedSurveyIds.Count > 0);
+        parameters.Add("hasDateFilter", bounds.Start.HasValue && bounds.End.HasValue);
+        parameters.Add("dateStart", bounds.Start);
+        parameters.Add("dateEnd", bounds.End);
 
-        var sortedRows = SortAnswerRows(filteredRows, normalizedSortBy, normalizedSortDirection);
-        var pageSlice = AppListPaging.Slice(sortedRows, currentPage);
+        var organizationOptions = GetAnswerOrganizationOptions(connection);
+        var surveyOptions = GetAnswerSurveyOptions(connection);
+        var totalCount = connection.ExecuteScalar<int>(
+            $"{AnswerRowsCte} SELECT COUNT(*) FROM answer_rows WHERE {BuildAnswerFilterPredicate()};",
+            parameters);
+        var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
+        parameters.Add("pageSize", pageWindow.PageSize);
+        parameters.Add("offset", pageWindow.Offset);
+
+        var pageRows = connection.Query<AnswerListItemViewModel>(
+            $"""
+            {AnswerRowsCte}
+            SELECT
+                id_answer AS IdAnswer,
+                id_organization AS IdOrganization,
+                id_survey AS IdSurvey,
+                organization_name AS OrganizationName,
+                survey_name AS SurveyName,
+                completion_date AS CompletionDate,
+                is_signed AS IsSigned
+            FROM answer_rows
+            WHERE {BuildAnswerFilterPredicate()}
+            ORDER BY {BuildAnswerOrderBy(normalizedSortBy, normalizedSortDirection)}
+            LIMIT @pageSize OFFSET @offset;
+            """,
+            parameters).ToList();
 
         return new AnswerListPageViewModel
         {
-            Answers = pageSlice.Items,
-            CurrentPage = pageSlice.CurrentPage,
-            TotalPages = pageSlice.TotalPages,
-            TotalCount = pageSlice.TotalCount,
-            PageSize = pageSlice.PageSize,
+            Answers = pageRows,
+            CurrentPage = pageWindow.CurrentPage,
+            TotalPages = pageWindow.TotalPages,
+            TotalCount = pageWindow.TotalCount,
+            PageSize = pageWindow.PageSize,
             HasExplicitSort = hasExplicitSort,
             SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
             SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
@@ -380,6 +356,98 @@ public sealed class AnswerAdminService : IAnswerAdminService
         return completionDate.HasValue
             && completionDate.Value >= startDate.Value
             && completionDate.Value <= endDate.Value;
+    }
+
+    private const string AnswerRowsCte = """
+        WITH answer_rows AS (
+            SELECT
+                ha.id_answer,
+                os.id_organization,
+                os.id_survey,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, 'Нет данных') AS organization_name,
+                COALESCE(s.name_survey, 'Нет данных') AS survey_name,
+                ha.completion_date,
+                (COALESCE(ha.csp, '') <> '') AS is_signed
+            FROM public.answer ha
+            INNER JOIN public.organization_survey os
+                ON os.id_organization_survey = ha.id_organization_survey
+            LEFT JOIN public.organization o
+                ON o.id_organization = os.id_organization
+            LEFT JOIN public.survey s
+                ON s.id_survey = os.id_survey
+        )
+        """;
+
+    private static IReadOnlyList<SelectionOption> GetAnswerOrganizationOptions(IDbConnection connection)
+    {
+        return BuildSelectionOptions(connection.Query<SelectionOption>(
+            """
+            SELECT DISTINCT
+                os.id_organization AS Id,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, 'Нет данных') AS Name
+            FROM public.answer ha
+            INNER JOIN public.organization_survey os
+                ON os.id_organization_survey = ha.id_organization_survey
+            LEFT JOIN public.organization o
+                ON o.id_organization = os.id_organization;
+            """));
+    }
+
+    private static IReadOnlyList<SelectionOption> GetAnswerSurveyOptions(IDbConnection connection)
+    {
+        return BuildSelectionOptions(connection.Query<SelectionOption>(
+            """
+            SELECT DISTINCT
+                os.id_survey AS Id,
+                COALESCE(s.name_survey, 'Нет данных') AS Name
+            FROM public.answer ha
+            INNER JOIN public.organization_survey os
+                ON os.id_organization_survey = ha.id_organization_survey
+            LEFT JOIN public.survey s
+                ON s.id_survey = os.id_survey;
+            """));
+    }
+
+    private static IReadOnlyList<SelectionOption> BuildSelectionOptions(IEnumerable<SelectionOption> options)
+    {
+        return options
+            .Where(option => option.Id > 0 && !string.IsNullOrWhiteSpace(option.Name))
+            .GroupBy(option => option.Id)
+            .Select(group => group.First())
+            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
+            .ThenBy(option => option.Id)
+            .ToList();
+    }
+
+    private static string BuildAnswerFilterPredicate()
+    {
+        return """
+            (@hasOrganizationFilter = false OR id_organization = ANY(@selectedOrganizationIds))
+            AND (@hasSurveyFilter = false OR id_survey = ANY(@selectedSurveyIds))
+            AND (
+                @hasDateFilter = false
+                OR (
+                    completion_date IS NOT NULL
+                    AND completion_date >= @dateStart
+                    AND completion_date <= @dateEnd
+                )
+            )
+            """;
+    }
+
+    private static string BuildAnswerOrderBy(string sortBy, string sortDirection)
+    {
+        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
+            ? "DESC"
+            : "ASC";
+
+        return sortBy switch
+        {
+            AnswerListSortFields.Organization => $"organization_name {direction}, id_answer DESC",
+            AnswerListSortFields.Survey => $"survey_name {direction}, id_answer DESC",
+            AnswerListSortFields.Signed => $"is_signed {direction}, id_answer DESC",
+            _ => $"completion_date {direction} NULLS LAST, id_answer DESC"
+        };
     }
 
     private static string NormalizeAnswerSortField(string? sortBy)

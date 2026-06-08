@@ -60,6 +60,26 @@
   min-width: 18ch;
 }
 
+.logs-table th.table-col--description.table-sortable {
+  --logs-description-sort-left: calc(18ch + 0.8rem);
+  padding-right: 0.4em;
+}
+
+.logs-table th.table-col--description.table-sortable::before,
+.logs-table th.table-col--description.table-sortable::after {
+  right: auto;
+  left: var(--logs-description-sort-left);
+}
+
+.logs-table th.table-col--description.table-sortable > .logs-table__sort-link {
+  margin: -0.4em;
+  padding: 0.4em;
+}
+
+.logs-table__sort-label {
+  white-space: nowrap;
+}
+
 .logs-table__summary {
   text-align: left;
   line-height: 1.45;

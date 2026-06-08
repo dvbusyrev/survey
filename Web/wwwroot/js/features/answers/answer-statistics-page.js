@@ -29,8 +29,8 @@
             return;
         }
 
-        loader.textContent = errorMessage || 'Загрузка данных...';
-        loader.style.display = isLoading || errorMessage ? 'block' : 'none';
+        loader.textContent = errorMessage || '';
+        loader.style.display = errorMessage ? 'block' : 'none';
     }
 
     function hideAllLoaders() {
@@ -76,22 +76,49 @@
         }
     };
 
+    function getThemeCssValue(name, fallback) {
+        const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return value || fallback;
+    }
+
+    function getChartTextColor() {
+        return getThemeCssValue('--text-main', getThemeCssValue('--app-theme-font-color', '#343D4B'));
+    }
+
+    function getChartSecondaryTextColor() {
+        return getThemeCssValue('--text-secondary', getChartTextColor());
+    }
+
+    function getChartGridColor() {
+        return getThemeCssValue('--border', 'rgba(52, 61, 75, 0.12)');
+    }
+
     function getScoreScale() {
+        const textColor = getChartTextColor();
+        const gridColor = getChartGridColor();
+
         return {
             type: 'linear',
             min: 0,
             max: 5,
             ticks: {
-                stepSize: 1
+                stepSize: 1,
+                color: textColor
             },
             title: {
                 display: true,
-                text: 'Средняя оценка'
+                text: 'Средняя оценка',
+                color: textColor
+            },
+            grid: {
+                color: gridColor
             }
         };
     }
 
     function buildCommonOptions(showLegend) {
+        const textColor = getChartTextColor();
+
         return {
             responsive: true,
             maintainAspectRatio: false,
@@ -102,6 +129,7 @@
                     labels: {
                         padding: 14,
                         boxWidth: 12,
+                        color: textColor,
                         font: {
                             size: 12
                         }
@@ -140,6 +168,8 @@
     }
 
     function renderCharts(chartsData) {
+        const chartTextColor = getChartTextColor();
+        const chartSecondaryTextColor = getChartSecondaryTextColor();
         const yearLabels = chartsData.lineChart?.labels || [];
         const yearData = chartsData.lineChart?.data || [];
 
@@ -162,6 +192,9 @@
                 ...buildCommonOptions(false),
                 scales: {
                     x: {
+                        ticks: {
+                            color: chartTextColor
+                        },
                         grid: {
                             display: false
                         }
@@ -195,6 +228,9 @@
                 ...buildCommonOptions(false),
                 scales: {
                     x: {
+                        ticks: {
+                            color: chartTextColor
+                        },
                         grid: {
                             display: false
                         }
@@ -224,7 +260,8 @@
                     scales: {
                         x: {
                             ticks: {
-                                display: false
+                                display: false,
+                                color: chartSecondaryTextColor
                             },
                             grid: {
                                 display: false

@@ -81,10 +81,11 @@
 }
 
 .organization-surveys-page__actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 19rem) auto;
   gap: 0.4rem;
   align-items: end;
+  max-width: 100%;
 }
 
 .organization-surveys-page__select-all-toggle {
@@ -98,38 +99,20 @@
 .organization-surveys-page__date-field {
   display: grid;
   gap: 0.45rem;
-  min-width: min(19rem, 100%);
+  min-width: 0;
 }
 
 .organization-surveys-page__date-field label {
   margin: 0;
   color: var(--text-main);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .organization-surveys-page__date-field .form-control {
   min-height: 3rem;
-  padding: 0.75rem 3rem 0.75rem 0.9rem;
   font-size: 0.95rem;
   border-radius: 0.45rem;
-}
-
-.organization-surveys-page .app-date-field__button {
-  right: 0.95rem;
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.organization-surveys-page .app-date-field__icon {
-  font-size: 1rem;
-}
-
-.organization-surveys-page .modal_btn {
-  min-height: 1.05rem;
-  padding: 0.3rem 0.55rem;
-  font-size: 0.58rem;
-  border-radius: 0.3rem;
 }
 
 .organization-surveys-page__message {
@@ -212,13 +195,12 @@
   border: 1px solid var(--border);
   border-radius: 0.45rem;
   background: rgba(248, 250, 252, 0.82);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
   cursor: pointer;
 }
 
 .organization-surveys-page__survey-row:hover {
   border-color: var(--primary-light);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.08);
 }
 
 .organization-surveys-page__survey-row--expired {

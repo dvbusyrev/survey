@@ -226,7 +226,7 @@
       const isSurveySectionActive = isAdmin ? ["get_surveys", "add_survey", "list_answers_users", "archived_surveys"].includes(activeTab) : ["active", "archived", "answers_tab", "archived_surveys_for_user"].includes(activeTab);
       const isOrganizationSectionActive = ["get_organization", "organization_surveys", "add_organization", "archive_list_organizations"].includes(activeTab);
       const isEmailSectionActive = ["email", "email_new"].includes(activeTab);
-      const isSettingsSectionActive = ["email_settings", "survey_auto_creation"].includes(activeTab);
+      const isSettingsSectionActive = ["email_settings", "theme_settings", "survey_auto_creation"].includes(activeTab);
       const navigate = (tab) => {
         if (tab === "add_user") {
           const tryOpenAddUserModal = () => {
@@ -317,6 +317,7 @@
           archive_list_organizations: "/organizations/archive",
           reports: "/reports",
           survey_auto_creation: "/survey-auto-creation",
+          theme_settings: "/theme/configuration",
           email: "/mail",
           email_new: "/mail",
           email_settings: "/mail/configuration",
@@ -897,7 +898,7 @@
       signatureInfo.classList.toggle("is-hidden", !isSigned);
     }
     if (signatureStatus) {
-      signatureStatus.textContent = isSigned ? "подписано" : "не подписано";
+      signatureStatus.textContent = isSigned ? "Подписана" : "Нет подписи";
       signatureStatus.classList.toggle("signed", isSigned);
       signatureStatus.classList.toggle("not-signed", !isSigned);
     }
@@ -1268,6 +1269,7 @@
     const organizationInstances = /* @__PURE__ */ new Map();
     const surveyNameInstances = /* @__PURE__ */ new Map();
     const serverFilterConfigs = /* @__PURE__ */ new WeakMap();
+    const PENDING_OPEN_FILTER_STORAGE_KEY = "surveyAdminPendingOpenFilter";
     let observer = null;
     function pad(value) {
       return String(value).padStart(2, "0");
@@ -1593,17 +1595,74 @@
       const queryString = params.toString();
       return queryString ? `${config.basePath}?${queryString}` : config.basePath;
     }
+    function rememberPendingOpenFilter(page, filterName) {
+      const normalizedFilterName = String(filterName || "").trim();
+      if (!normalizedFilterName) {
+        return;
+      }
+      const config = getServerFilterConfig(page);
+      const payload = {
+        filterName: normalizedFilterName,
+        pageName: page?.dataset?.page || "",
+        basePath: normalizeCurrentPath(config?.basePath || window.location.pathname),
+        createdAt: Date.now()
+      };
+      window.__surveyAdminPendingOpenFilter = payload;
+      try {
+        window.sessionStorage?.setItem(PENDING_OPEN_FILTER_STORAGE_KEY, JSON.stringify(payload));
+      } catch (error) {
+      }
+    }
+    function readPendingOpenFilter() {
+      if (window.__surveyAdminPendingOpenFilter) {
+        return window.__surveyAdminPendingOpenFilter;
+      }
+      try {
+        const rawValue = window.sessionStorage?.getItem(PENDING_OPEN_FILTER_STORAGE_KEY);
+        return rawValue ? JSON.parse(rawValue) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+    function clearPendingOpenFilter() {
+      window.__surveyAdminPendingOpenFilter = null;
+      try {
+        window.sessionStorage?.removeItem(PENDING_OPEN_FILTER_STORAGE_KEY);
+      } catch (error) {
+      }
+    }
+    function consumePendingOpenFilter(page, filterName) {
+      const payload = readPendingOpenFilter();
+      if (!payload || payload.filterName !== filterName) {
+        return false;
+      }
+      if (Date.now() - Number(payload.createdAt || 0) > 15e3) {
+        clearPendingOpenFilter();
+        return false;
+      }
+      const config = getServerFilterConfig(page);
+      const expectedPath = normalizeCurrentPath(config?.basePath || window.location.pathname);
+      if (payload.basePath && payload.basePath !== expectedPath) {
+        return false;
+      }
+      if (payload.pageName && payload.pageName !== (page?.dataset?.page || "")) {
+        return false;
+      }
+      clearPendingOpenFilter();
+      return true;
+    }
     function normalizeCurrentPath(pathname) {
       if (!pathname) {
         return "/";
       }
       return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
     }
-    function navigateServerFilterPage(page) {
+    function navigateServerFilterPage(page, openFilterName = "") {
       const url = buildServerFilterUrl(page);
       if (!url) {
         return;
       }
+      rememberPendingOpenFilter(page, openFilterName);
       const config = getServerFilterConfig(page);
       const queryIndex = url.indexOf("?");
       const queryString = queryIndex >= 0 ? url.slice(queryIndex + 1) : "";
@@ -1729,19 +1788,13 @@
       if (!Array.isArray(selectedOrganizations) || selectedOrganizations.length === 0) {
         return "Фильтр по организациям";
       }
-      if (selectedOrganizations.length === 1) {
-        return selectedOrganizations[0];
-      }
-      return `Организаций: ${selectedOrganizations.length}`;
+      return `Организации: ${selectedOrganizations.length}`;
     }
     function getSurveyNameFilterLabel(selectedSurveyNames) {
       if (!Array.isArray(selectedSurveyNames) || selectedSurveyNames.length === 0) {
         return "Фильтр по анкетам";
       }
-      if (selectedSurveyNames.length === 1) {
-        return selectedSurveyNames[0];
-      }
-      return `Анкет: ${selectedSurveyNames.length}`;
+      return `Анкеты: ${selectedSurveyNames.length}`;
     }
     function updateFilterSummary(instance, visibleCount, totalCount) {
       const { state, refs } = instance;
@@ -2096,7 +2149,7 @@
       render(instance);
       if (isServerFilterPage(instance.page)) {
         syncServerDateFilterState(instance);
-        navigateServerFilterPage(instance.page);
+        navigateServerFilterPage(instance.page, "date");
         return;
       }
       applyFilter(instance);
@@ -2115,7 +2168,7 @@
       render(instance);
       if (isServerFilterPage(instance.page)) {
         syncServerDateFilterState(instance);
-        navigateServerFilterPage(instance.page);
+        navigateServerFilterPage(instance.page, "date");
         return;
       }
       applyFilter(instance);
@@ -2136,7 +2189,7 @@
       render(instance);
       if (isServerFilterPage(instance.page)) {
         syncServerDateFilterState(instance);
-        navigateServerFilterPage(instance.page);
+        navigateServerFilterPage(instance.page, "date");
         return;
       }
       applyFilter(instance);
@@ -2165,7 +2218,7 @@
       render(instance);
       if (isServerFilterPage(instance.page)) {
         syncServerDateFilterState(instance);
-        navigateServerFilterPage(instance.page);
+        navigateServerFilterPage(instance.page, "date");
         return;
       }
       applyFilter(instance);
@@ -2207,7 +2260,7 @@
         config.selectedOrganizationIds = [...instance.state.selectedOrganizationIds];
       }
       renderOrganization(instance);
-      navigateServerFilterPage(instance.page);
+      navigateServerFilterPage(instance.page, "organization");
     }
     function toggleSurveyNameSelection(instance, surveyName, isSelected) {
       const normalizedName = String(surveyName || "").trim();
@@ -2240,7 +2293,7 @@
         config.selectedSurveyIds = [...instance.state.selectedSurveyIds];
       }
       renderSurveyName(instance);
-      navigateServerFilterPage(instance.page);
+      navigateServerFilterPage(instance.page, "survey");
     }
     function bindInstance(root) {
       if (!(root instanceof Element) || instances.has(root)) {
@@ -2375,6 +2428,10 @@
       instances.set(root, instance);
       render(instance);
       applyFilter(instance);
+      if (consumePendingOpenFilter(page, "date")) {
+        closeAllPopovers(root);
+        setPopoverOpen(instance, true);
+      }
     }
     function bindOrganizationInstance(root) {
       if (!(root instanceof Element) || organizationInstances.has(root)) {
@@ -2430,7 +2487,7 @@
               config.selectedOrganizationIds = [];
             }
             renderOrganization(instance);
-            navigateServerFilterPage(instance.page);
+            navigateServerFilterPage(instance.page, "organization");
             return;
           }
           instance.state.selectedOrganizations = [];
@@ -2458,6 +2515,10 @@
       organizationInstances.set(root, instance);
       renderOrganization(instance);
       applyPageFilters(instance.page);
+      if (consumePendingOpenFilter(page, "organization")) {
+        closeAllPopovers(root);
+        setPopoverOpen(instance, true);
+      }
     }
     function bindSurveyNameInstance(root) {
       if (!(root instanceof Element) || surveyNameInstances.has(root)) {
@@ -2513,7 +2574,7 @@
               config.selectedSurveyIds = [];
             }
             renderSurveyName(instance);
-            navigateServerFilterPage(instance.page);
+            navigateServerFilterPage(instance.page, "survey");
             return;
           }
           instance.state.selectedSurveyNames = [];
@@ -2541,6 +2602,10 @@
       surveyNameInstances.set(root, instance);
       renderSurveyName(instance);
       applyPageFilters(instance.page);
+      if (consumePendingOpenFilter(page, "survey")) {
+        closeAllPopovers(root);
+        setPopoverOpen(instance, true);
+      }
     }
     function bindAvailablePages(root = document) {
       cleanupDetachedInstances();

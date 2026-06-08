@@ -83,6 +83,9 @@ public sealed class LogControllerTests
                 SortDirection = sortDirection ?? string.Empty
             };
 
+        public Log? GetLogDetails(long idLog, int currentPage, int pageSize, string? sortBy, string? sortDirection)
+            => _logs.FirstOrDefault(log => log.IdLog == idLog);
+
         public string GenerateLogText(IEnumerable<Log> logs)
             => throw new NotSupportedException();
     }
@@ -90,6 +93,9 @@ public sealed class LogControllerTests
     private sealed class ThrowingAuditLogService : IAuditLogService
     {
         public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
+            => throw new InvalidOperationException("audit tables are unavailable");
+
+        public Log? GetLogDetails(long idLog, int currentPage, int pageSize, string? sortBy, string? sortDirection)
             => throw new InvalidOperationException("audit tables are unavailable");
 
         public IReadOnlyList<Log> GetLogs()

@@ -188,8 +188,8 @@ option,
 }
 
 .back-button:hover {
-  color: var(--primary-dark);
-  text-decoration: underline;
+  color: var(--primary);
+  text-decoration: none;
 }
 
 .back-button--compact {

@@ -31,86 +31,57 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        const string sql = @"
-            SELECT
-                s.id_survey AS IdSurvey,
-                s.name_survey AS NameSurvey,
-                ss.date_begin AS DateBegin,
-                ss.date_end AS DateEnd,
-                o.id_organization AS OrganizationId,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName
-            FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-            LEFT JOIN public.organization_survey os
-                ON os.id_survey = s.id_survey
-            LEFT JOIN public.organization o
-                ON o.id_organization = os.id_organization
-            WHERE EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey existing_os
-                    WHERE existing_os.id_survey = s.id_survey
-                )
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.answer a
-                    INNER JOIN public.organization_survey answered_os
-                        ON answered_os.id_organization_survey = a.id_organization_survey
-                    WHERE answered_os.id_survey = s.id_survey
-                )
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey active_os
-                    WHERE active_os.id_survey = s.id_survey
-                      AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
-                )
-            ORDER BY s.id_survey DESC, COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name);";
-
-        var assignmentRows = connection.Query<SurveyArchiveAssignmentRow>(sql).ToList();
-        var groupedRows = BuildSurveyTableRows(assignmentRows);
-        var organizationOptions = BuildSelectionOptions(
-            assignmentRows
-                .Where(row => row.OrganizationId > 0 && !string.IsNullOrWhiteSpace(row.OrganizationName))
-                .Select(row => new SelectionOption
-                {
-                    Id = row.OrganizationId,
-                    Name = row.OrganizationName!.Trim()
-                }));
-        var surveyOptions = groupedRows
-            .Select(row => new SelectionOption
-            {
-                Id = row.IdSurvey,
-                Name = row.NameSurvey
-            })
-            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
-            .ThenBy(option => option.Id)
-            .ToList();
-
         var selectedOrganizationIds = ParseSelectedIds(organizationIds);
         var selectedSurveyIds = ParseSelectedIds(surveyIds);
         var bounds = ResolveDateBounds(year, month, dateFrom, dateTo);
-
-        var filteredRows = groupedRows
-            .Where(row => selectedOrganizationIds.Count == 0 || row.OrganizationIds.Any(selectedOrganizationIds.Contains))
-            .Where(row => selectedSurveyIds.Count == 0 || selectedSurveyIds.Contains(row.IdSurvey))
-            .Where(row => MatchesDateBounds(row, bounds.Start, bounds.End))
-            .ToList();
-
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeSurveyArchiveSortField(hasExplicitSort ? sortBy : null);
         var normalizedSortDirection = hasExplicitSort
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeSurveyArchiveSortDirection(null, normalizedSortBy);
-        var sortedRows = SortSurveyRows(filteredRows, normalizedSortBy, normalizedSortDirection);
-        var pageSlice = AppListPaging.Slice(sortedRows, currentPage);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("selectedOrganizationIds", selectedOrganizationIds.ToArray());
+        parameters.Add("hasOrganizationFilter", selectedOrganizationIds.Count > 0);
+        parameters.Add("selectedSurveyIds", selectedSurveyIds.ToArray());
+        parameters.Add("hasSurveyFilter", selectedSurveyIds.Count > 0);
+        parameters.Add("hasDateFilter", bounds.Start.HasValue && bounds.End.HasValue);
+        parameters.Add("dateStart", bounds.Start);
+        parameters.Add("dateEnd", bounds.End);
+
+        var organizationOptions = GetArchivedSurveyOrganizationOptions(connection);
+        var surveyOptions = GetArchivedSurveyOptions(connection);
+        var totalCount = connection.ExecuteScalar<int>(
+            $"{ArchivedSurveyRowsCte} SELECT COUNT(*) FROM survey_rows WHERE {BuildArchivedSurveyFilterPredicate()};",
+            parameters);
+        var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
+        parameters.Add("pageSize", pageWindow.PageSize);
+        parameters.Add("offset", pageWindow.Offset);
+
+        var pageRows = connection.Query<SurveyArchiveTablePageRow>(
+            $"""
+            {ArchivedSurveyRowsCte}
+            SELECT
+                id_survey AS IdSurvey,
+                name_survey AS NameSurvey,
+                date_begin AS DateBegin,
+                date_end AS DateEnd,
+                organization_ids AS OrganizationIds,
+                organization_names AS OrganizationNames
+            FROM survey_rows
+            WHERE {BuildArchivedSurveyFilterPredicate()}
+            ORDER BY {BuildSurveyArchiveOrderBy(normalizedSortBy, normalizedSortDirection)}
+            LIMIT @pageSize OFFSET @offset;
+            """,
+            parameters).ToList();
 
         return new SurveyArchivePageViewModel
         {
-            SurveyRows = pageSlice.Items,
-            CurrentPage = pageSlice.CurrentPage,
-            TotalPages = pageSlice.TotalPages,
-            TotalCount = pageSlice.TotalCount,
-            PageSize = pageSlice.PageSize,
+            SurveyRows = pageRows.Select(MapSurveyArchiveTablePageRow).ToList(),
+            CurrentPage = pageWindow.CurrentPage,
+            TotalPages = pageWindow.TotalPages,
+            TotalCount = pageWindow.TotalCount,
+            PageSize = pageWindow.PageSize,
             HasExplicitSort = hasExplicitSort,
             SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
             SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
@@ -340,6 +311,148 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
                     .ToArray()
             })
             .ToList();
+    }
+
+    private const string ArchivedSurveyRowsCte = """
+        WITH survey_rows AS (
+            SELECT
+                s.id_survey,
+                s.name_survey,
+                ss.date_begin,
+                ss.date_end,
+                COALESCE(
+                    ARRAY(
+                        SELECT DISTINCT os2.id_organization
+                        FROM public.organization_survey os2
+                        WHERE os2.id_survey = s.id_survey
+                          AND os2.id_organization IS NOT NULL
+                        ORDER BY os2.id_organization
+                    ),
+                    ARRAY[]::integer[]
+                ) AS organization_ids,
+                COALESCE(
+                    ARRAY(
+                        SELECT DISTINCT COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
+                        FROM public.organization_survey os2
+                        INNER JOIN public.organization o2
+                            ON o2.id_organization = os2.id_organization
+                        WHERE os2.id_survey = s.id_survey
+                          AND COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name) IS NOT NULL
+                        ORDER BY COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
+                    ),
+                    ARRAY[]::text[]
+                ) AS organization_names
+            FROM public.survey s
+            LEFT JOIN public.survey_schedule ss
+                ON ss.id_survey = s.id_survey
+            WHERE EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey existing_os
+                    WHERE existing_os.id_survey = s.id_survey
+                )
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.answer a
+                    INNER JOIN public.organization_survey answered_os
+                        ON answered_os.id_organization_survey = a.id_organization_survey
+                    WHERE answered_os.id_survey = s.id_survey
+                )
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey active_os
+                    WHERE active_os.id_survey = s.id_survey
+                      AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
+                )
+        )
+        """;
+
+    private static IReadOnlyList<SelectionOption> GetArchivedSurveyOrganizationOptions(IDbConnection connection)
+    {
+        return BuildSelectionOptions(connection.Query<SelectionOption>(
+            """
+            SELECT DISTINCT
+                o.id_organization AS Id,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS Name
+            FROM public.organization_survey os
+            INNER JOIN public.organization o
+                ON o.id_organization = os.id_organization
+            WHERE EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey existing_os
+                    WHERE existing_os.id_survey = os.id_survey
+                )
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.answer a
+                    INNER JOIN public.organization_survey answered_os
+                        ON answered_os.id_organization_survey = a.id_organization_survey
+                    WHERE answered_os.id_survey = os.id_survey
+                )
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey active_os
+                    WHERE active_os.id_survey = os.id_survey
+                      AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
+                );
+            """));
+    }
+
+    private static IReadOnlyList<SelectionOption> GetArchivedSurveyOptions(IDbConnection connection)
+    {
+        return BuildSelectionOptions(connection.Query<SelectionOption>(
+            $"""
+            {ArchivedSurveyRowsCte}
+            SELECT
+                id_survey AS Id,
+                name_survey AS Name
+            FROM survey_rows;
+            """));
+    }
+
+    private static string BuildArchivedSurveyFilterPredicate()
+    {
+        return """
+            (@hasOrganizationFilter = false OR organization_ids && @selectedOrganizationIds)
+            AND (@hasSurveyFilter = false OR id_survey = ANY(@selectedSurveyIds))
+            AND (
+                @hasDateFilter = false
+                OR (
+                    date_end IS NOT NULL
+                    AND date_begin::date >= @dateStart
+                    AND date_begin::date <= @dateEnd
+                    AND date_end::date >= @dateStart
+                    AND date_end::date <= @dateEnd
+                )
+            )
+            """;
+    }
+
+    private static SurveyTableRowViewModel MapSurveyArchiveTablePageRow(SurveyArchiveTablePageRow row)
+    {
+        return new SurveyTableRowViewModel
+        {
+            IdSurvey = row.IdSurvey,
+            NameSurvey = row.NameSurvey ?? string.Empty,
+            DateBegin = row.DateBegin,
+            DateEnd = row.DateEnd,
+            OrganizationIds = row.OrganizationIds ?? Array.Empty<int>(),
+            OrganizationNames = row.OrganizationNames ?? Array.Empty<string>()
+        };
+    }
+
+    private static string BuildSurveyArchiveOrderBy(string sortBy, string sortDirection)
+    {
+        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
+            ? "DESC"
+            : "ASC";
+
+        return sortBy switch
+        {
+            SurveyArchiveSortFields.Name => $"name_survey {direction}, id_survey DESC",
+            SurveyArchiveSortFields.DateBegin => $"date_begin {direction} NULLS LAST, id_survey DESC",
+            SurveyArchiveSortFields.DateEnd => $"date_end {direction} NULLS LAST, id_survey DESC",
+            _ => "id_survey DESC"
+        };
     }
 
     private static IReadOnlyList<int> ParseSelectedIds(string? rawValue)
@@ -583,5 +696,15 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         public DateTime? DateEnd { get; init; }
         public int OrganizationId { get; init; }
         public string? OrganizationName { get; init; }
+    }
+
+    private sealed class SurveyArchiveTablePageRow
+    {
+        public int IdSurvey { get; init; }
+        public string? NameSurvey { get; init; }
+        public DateTime DateBegin { get; init; }
+        public DateTime? DateEnd { get; init; }
+        public int[]? OrganizationIds { get; init; }
+        public string[]? OrganizationNames { get; init; }
     }
 }

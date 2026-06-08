@@ -226,7 +226,7 @@
       const isSurveySectionActive = isAdmin ? ["get_surveys", "add_survey", "list_answers_users", "archived_surveys"].includes(activeTab) : ["active", "archived", "answers_tab", "archived_surveys_for_user"].includes(activeTab);
       const isOrganizationSectionActive = ["get_organization", "organization_surveys", "add_organization", "archive_list_organizations"].includes(activeTab);
       const isEmailSectionActive = ["email", "email_new"].includes(activeTab);
-      const isSettingsSectionActive = ["email_settings", "survey_auto_creation"].includes(activeTab);
+      const isSettingsSectionActive = ["email_settings", "theme_settings", "survey_auto_creation"].includes(activeTab);
       const navigate = (tab) => {
         if (tab === "add_user") {
           const tryOpenAddUserModal = () => {
@@ -317,6 +317,7 @@
           archive_list_organizations: "/organizations/archive",
           reports: "/reports",
           survey_auto_creation: "/survey-auto-creation",
+          theme_settings: "/theme/configuration",
           email: "/mail",
           email_new: "/mail",
           email_settings: "/mail/configuration",
@@ -769,7 +770,6 @@
           submitButton.disabled = !isFormValid() || loading;
           submitButton.textContent = loading ? "Обработка..." : "Продлить доступ";
           submitButton.style.removeProperty("background-color");
-          submitButton.style.cursor = isFormValid() ? "pointer" : "not-allowed";
           submitButton.style.opacity = isFormValid() ? "1" : "0.6";
           submitButton.onclick = handleSubmit;
         }
@@ -817,7 +817,6 @@
           externalSubmitButton.onclick = null;
           externalSubmitButton.disabled = true;
           externalSubmitButton.style.removeProperty("background-color");
-          externalSubmitButton.style.removeProperty("cursor");
           externalSubmitButton.style.removeProperty("opacity");
         }
         if (externalCancelButton) {
@@ -890,54 +889,74 @@
             chart.ctx.restore();
           }
         };
+        const getThemeCssValue = (name, fallback) => {
+          const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+          return value || fallback;
+        };
+        const getChartTextColor = () => getThemeCssValue(
+          "--text-main",
+          getThemeCssValue("--app-theme-font-color", "#343D4B")
+        );
+        const getChartSecondaryTextColor = () => getThemeCssValue("--text-secondary", getChartTextColor());
+        const getChartGridColor = () => getThemeCssValue("--border", "rgba(52, 61, 75, 0.12)");
         const getScoreScale = () => ({
           type: "linear",
           min: 0,
           max: 5,
           ticks: {
-            stepSize: 1
+            stepSize: 1,
+            color: getChartTextColor()
           },
           title: {
             display: true,
-            text: "Средняя оценка"
+            text: "Средняя оценка",
+            color: getChartTextColor()
+          },
+          grid: {
+            color: getChartGridColor()
           }
         });
-        const buildCommonOptions = (showLegend) => ({
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: Boolean(showLegend),
-              position: "bottom",
-              labels: {
-                padding: 14,
-                boxWidth: 12,
-                font: {
-                  size: 12
+        const buildCommonOptions = (showLegend) => {
+          const textColor = getChartTextColor();
+          return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: Boolean(showLegend),
+                position: "bottom",
+                labels: {
+                  padding: 14,
+                  boxWidth: 12,
+                  color: textColor,
+                  font: {
+                    size: 12
+                  }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label(context) {
+                    const value = context.parsed?.y ?? context.parsed?.x ?? context.parsed;
+                    const numericValue = Number(value);
+                    if (Number.isFinite(numericValue)) {
+                      return `${context.dataset.label || "Средняя оценка"}: ${numericValue.toFixed(2)}`;
+                    }
+                    return context.dataset.label || "";
+                  }
                 }
               }
             },
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  const value = context.parsed?.y ?? context.parsed?.x ?? context.parsed;
-                  const numericValue = Number(value);
-                  if (Number.isFinite(numericValue)) {
-                    return `${context.dataset.label || "Средняя оценка"}: ${numericValue.toFixed(2)}`;
-                  }
-                  return context.dataset.label || "";
-                }
+            layout: {
+              padding: {
+                top: 10,
+                bottom: showLegend ? 20 : 10
               }
             }
-          },
-          layout: {
-            padding: {
-              top: 10,
-              bottom: showLegend ? 20 : 10
-            }
-          }
-        });
+          };
+        };
         if (chartRefs.line && chartsData.lineChart) {
+          const chartTextColor = getChartTextColor();
           const yearLabels = chartsData.lineChart.labels || [];
           const yearData = chartsData.lineChart.data || [];
           chartInstances.line = new Chart(chartRefs.line, {
@@ -959,6 +978,9 @@
               ...buildCommonOptions(false),
               scales: {
                 x: {
+                  ticks: {
+                    color: chartTextColor
+                  },
                   grid: {
                     display: false
                   }
@@ -977,6 +999,7 @@
           });
         }
         if (chartRefs.bar && chartsData.barChart) {
+          const chartTextColor = getChartTextColor();
           chartInstances.bar = new Chart(chartRefs.bar, {
             type: "bar",
             data: {
@@ -993,6 +1016,9 @@
               ...buildCommonOptions(false),
               scales: {
                 x: {
+                  ticks: {
+                    color: chartTextColor
+                  },
                   grid: {
                     display: false
                   }
@@ -1003,6 +1029,7 @@
           });
         }
         if (chartRefs.radar && chartsData.avgScoreByOrganizationRadar) {
+          const chartSecondaryTextColor = getChartSecondaryTextColor();
           chartInstances.radar = new Chart(chartRefs.radar, {
             type: "bar",
             data: {
@@ -1020,7 +1047,8 @@
               scales: {
                 x: {
                   ticks: {
-                    display: false
+                    display: false,
+                    color: chartSecondaryTextColor
                   },
                   grid: {
                     display: false
@@ -1052,10 +1080,6 @@
         }
         host.innerHTML = "";
         if (loading) {
-          const loadingNode = document.createElement("div");
-          loadingNode.className = "loading";
-          loadingNode.textContent = "Загрузка данных...";
-          host.appendChild(loadingNode);
           return;
         }
         if (error) {
@@ -1139,6 +1163,9 @@
         "email-from-display-name"
       ].forEach((id) => setEmailInvalidState(id, false));
     }
+    const emailSettingsPageState = {
+      savedSettings: null
+    };
     function collectEmailSettingsPayload() {
       const smtpPortValue = Number.parseInt(getEmailField("email-smtp-port")?.value || "", 10);
       return {
@@ -1153,6 +1180,30 @@
         fromAddress: getEmailTrimmedValue("email-from-address"),
         fromDisplayName: getEmailTrimmedValue("email-from-display-name")
       };
+    }
+    function setEmailFieldValue(id, value) {
+      const element = getEmailField(id);
+      if (!element) {
+        return;
+      }
+      element.value = value == null ? "" : String(value);
+    }
+    function populateEmailSettingsForm(settings) {
+      const normalizedSettings = settings || {};
+      setEmailFieldValue("email-to", normalizedSettings.to);
+      setEmailFieldValue("email-subject", normalizedSettings.subject);
+      setEmailFieldValue("email-content", normalizedSettings.content);
+      setEmailFieldValue("email-smtp-host", normalizedSettings.smtpHost);
+      setEmailFieldValue("email-smtp-port", normalizedSettings.smtpPort || "");
+      setEmailFieldValue("email-smtp-enable-ssl", normalizedSettings.smtpEnableSsl ? "true" : "false");
+      setEmailFieldValue("email-smtp-user-name", normalizedSettings.smtpUserName);
+      setEmailFieldValue("email-smtp-password", normalizedSettings.smtpPassword);
+      setEmailFieldValue("email-from-address", normalizedSettings.fromAddress);
+      setEmailFieldValue("email-from-display-name", normalizedSettings.fromDisplayName);
+    }
+    function resetEmailSettings() {
+      clearEmailInvalidStates();
+      populateEmailSettingsForm(emailSettingsPageState.savedSettings || collectEmailSettingsPayload());
     }
     function validateEmailSettingsPayload(settings) {
       clearEmailInvalidStates();
@@ -1280,6 +1331,9 @@
         }
         const payload = await response.json();
         clearEmailInvalidStates();
+        if (options.updateSavedSettings) {
+          emailSettingsPageState.savedSettings = { ...settings };
+        }
         showEmailToast(
           payload?.message || options.successMessage,
           "success",
@@ -1305,7 +1359,8 @@
         successTitle: "Настройки сохранены",
         successMessage: "Настройки электронной почты сохранены.",
         errorTitle: "Сохранение не выполнено",
-        errorMessage: "Не удалось сохранить настройки."
+        errorMessage: "Не удалось сохранить настройки.",
+        updateSavedSettings: true
       });
     };
     window.sendEmailMessage = function sendEmailMessage() {
@@ -1331,6 +1386,8 @@
       });
     }
     window.initEmailSettingsPage = function initEmailSettingsPage() {
+      emailSettingsPageState.savedSettings = collectEmailSettingsPayload();
+      bindEmailAction("email-reset-button", resetEmailSettings);
       bindEmailAction("email-save-button", window.saveEmailSettings);
       bindEmailAction("email-send-button", window.sendEmailMessage);
     };
@@ -1341,11 +1398,10 @@
       return (getThemeField(id)?.value || "").trim();
     }
     const THEME_PERCENT_FIELDS = [
-      ["theme-header-darken-percent", "headerDarkenPercent", 16],
-      ["theme-footer-darken-percent", "footerDarkenPercent", 16],
-      ["theme-button-darken-percent", "buttonDarkenPercent", 16],
-      ["theme-button-strong-darken-percent", "buttonStrongDarkenPercent", 28],
-      ["theme-surface-tint-opacity-percent", "surfaceTintOpacityPercent", 24]
+      ["theme-header-darken-percent", "headerDarkenPercent", 42],
+      ["theme-footer-darken-percent", "footerDarkenPercent", 42],
+      ["theme-button-darken-percent", "buttonDarkenPercent", 42],
+      ["theme-surface-tint-opacity-percent", "surfaceTintOpacityPercent", 59]
     ];
     function getThemePercentValue(id, fallback) {
       const value = Number.parseInt(getThemeField(id)?.value || "", 10);
@@ -1354,26 +1410,40 @@
       }
       return Math.max(0, Math.min(100, value));
     }
+    function getThemeImagePayloadValue() {
+      const imageField = getThemeField("theme-background-image-data-url");
+      if (imageField) {
+        return imageField.value || "";
+      }
+      return window.__appThemeDraftSettings?.backgroundImageDataUrl || window.__appThemeSavedSettings?.backgroundImageDataUrl || window.__appThemeSettings?.backgroundImageDataUrl || "";
+    }
+    function hasThemePayloadValue(rawSettings, camelName, pascalName) {
+      return Boolean(rawSettings && typeof rawSettings === "object") && (Object.prototype.hasOwnProperty.call(rawSettings, camelName) || Object.prototype.hasOwnProperty.call(rawSettings, pascalName));
+    }
     function normalizeThemeSettingsPayload(rawSettings) {
+      const normalizedSource = hasThemePayloadValue(rawSettings, "backgroundImageDataUrl", "BackgroundImageDataUrl") ? rawSettings : {
+        ...rawSettings || {},
+        backgroundImageDataUrl: getThemeImagePayloadValue()
+      };
       if (typeof window.toCamelThemeSettings === "function") {
-        return window.toCamelThemeSettings(rawSettings);
+        return window.toCamelThemeSettings(normalizedSource);
       }
       return {
         fontColor: getThemeTrimmedValue("theme-font-color") || "#343D4B",
         backgroundColor: getThemeTrimmedValue("theme-background-color") || "#B2A8FF",
-        gradientEnabled: Boolean(getThemeField("theme-gradient-enabled")?.checked),
+        gradientEnabled: false,
         effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
         effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
         effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
         effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
-        backgroundImageDataUrl: getThemeField("theme-background-image-data-url")?.value || "",
+        backgroundImageDataUrl: normalizedSource.backgroundImageDataUrl || normalizedSource.BackgroundImageDataUrl || "",
         backgroundImageOpacity: Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "35", 10) || 35,
         softLightenPercent: 0,
-        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 16),
-        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 16),
-        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 16),
-        buttonStrongDarkenPercent: getThemePercentValue("theme-button-strong-darken-percent", 28),
-        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 24)
+        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
+        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 42),
+        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 42),
+        buttonStrongDarkenPercent: 50,
+        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 59)
       };
     }
     function setThemeInvalidState(id, isInvalid) {
@@ -1419,19 +1489,19 @@
       return {
         fontColor: getThemeTrimmedValue("theme-font-color"),
         backgroundColor: getThemeTrimmedValue("theme-background-color"),
-        gradientEnabled: Boolean(getThemeField("theme-gradient-enabled")?.checked),
+        gradientEnabled: false,
         effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
         effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
         effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
         effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
-        backgroundImageDataUrl: getThemeField("theme-background-image-data-url")?.value || "",
+        backgroundImageDataUrl: getThemeImagePayloadValue(),
         backgroundImageOpacity: Number.isFinite(opacityValue) ? opacityValue : 0,
         softLightenPercent: 0,
-        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 16),
-        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 16),
-        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 16),
-        buttonStrongDarkenPercent: getThemePercentValue("theme-button-strong-darken-percent", 28),
-        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 24)
+        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
+        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 42),
+        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 42),
+        buttonStrongDarkenPercent: 50,
+        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 59)
       };
     }
     function validateThemeSettingsPayload(settings) {
@@ -1455,7 +1525,7 @@
       THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
         const value = settings[propertyName];
         if (!Number.isInteger(value) || value < 0 || value > 100) {
-          errors.push("Значения оттенков должны быть от 0 до 100.");
+          errors.push("Значения яркости должны быть от 0 до 100.");
           setThemeInvalidState(fieldId, true);
         }
       });
@@ -1518,10 +1588,6 @@
       if (backgroundColor) {
         backgroundColor.value = normalizedSettings.backgroundColor;
       }
-      const gradientEnabled = getThemeField("theme-gradient-enabled");
-      if (gradientEnabled) {
-        gradientEnabled.checked = normalizedSettings.gradientEnabled;
-      }
       const effectSnow = getThemeField("theme-effect-snow");
       if (effectSnow) {
         effectSnow.checked = normalizedSettings.effectSnow;
@@ -1576,7 +1642,9 @@
       window.__appThemeDraftSettings = null;
       populateThemeForm(savedSettings);
       themeSettingsPageState.savedSettings = { ...savedSettings };
-      applyThemeDraftState();
+      if (typeof window.applyThemeSettings === "function") {
+        window.applyThemeSettings(savedSettings);
+      }
     }
     async function submitThemeSettings() {
       const settings = normalizeThemeSettingsPayload(collectThemeSettingsPayload());
@@ -1586,8 +1654,7 @@
         return false;
       }
       setEmailButtonsBusy(true, {
-        activeButtonId: "theme-save-button",
-        busyLabel: "Сохранение..."
+        activeButtonId: "theme-save-button"
       });
       try {
         const response = await fetch("/theme/settings", {
@@ -1650,6 +1717,23 @@
       element.dataset.themePreviewBound = "true";
       element.addEventListener(eventName, applyThemeDraftState);
     }
+    function bindThemeColorPickerCursor(id) {
+      const element = getThemeField(id);
+      if (!element || element.dataset.themePickerCursorBound === "true") {
+        return;
+      }
+      element.dataset.themePickerCursorBound = "true";
+      const suppressCursor = () => {
+        window.AppPickerCursor?.suppress(element);
+      };
+      element.addEventListener("pointerdown", suppressCursor);
+      element.addEventListener("click", suppressCursor);
+      element.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          suppressCursor();
+        }
+      });
+    }
     window.saveThemeSettings = submitThemeSettings;
     window.resetThemeSettings = resetThemeSettings;
     window.initThemeSettingsPage = function initThemeSettingsPage() {
@@ -1663,7 +1747,8 @@
       bindThemeAction("theme-background-image-clear", clearThemeImage);
       bindThemeInput("theme-font-color");
       bindThemeInput("theme-background-color");
-      bindThemeInput("theme-gradient-enabled", "change");
+      bindThemeColorPickerCursor("theme-font-color");
+      bindThemeColorPickerCursor("theme-background-color");
       bindThemeInput("theme-background-image-opacity");
       THEME_PERCENT_FIELDS.forEach(([fieldId]) => bindThemeInput(fieldId));
       bindThemeInput("theme-effect-snow", "change");
@@ -1684,7 +1769,9 @@
       populateThemeForm(initialSettings);
       themeSettingsPageState.savedSettings = { ...savedSettings };
       window.__appThemeSavedSettings = { ...savedSettings };
-      applyThemeDraftState();
+      if (window.__appThemeDraftSettings && typeof window.applyThemeSettings === "function") {
+        window.applyThemeSettings(initialSettings);
+      }
     };
     window.teardownThemeSettingsPage = function teardownThemeSettingsPage() {
       if (!themeSettingsPageState.isMounted) {
@@ -1692,8 +1779,9 @@
       }
       themeSettingsPageState.isMounted = false;
       const nextSettings = normalizeThemeSettingsPayload(
-        window.__appThemeDraftSettings || themeSettingsPageState.savedSettings || window.__appThemeSavedSettings || window.__appThemeSettings
+        themeSettingsPageState.savedSettings || window.__appThemeSavedSettings || window.__appThemeSettings
       );
+      window.__appThemeDraftSettings = null;
       if (typeof window.applyThemeSettings === "function") {
         window.applyThemeSettings(nextSettings);
       }
@@ -1703,6 +1791,9 @@
   // Web/wwwroot/js/features/admin/admin-inline-core.js
   (() => {
     const DETACHED_CONTENT_HOST_ID = "admin-inline-detached-content";
+    const loadedStylesheetUrls = /* @__PURE__ */ new Set();
+    const loadedScriptUrls = /* @__PURE__ */ new Set();
+    let loadedAssetsPrimed = false;
     function normalizePathname(pathname) {
       if (!pathname) {
         return "/";
@@ -1911,29 +2002,76 @@
         return "";
       }
     }
-    function isStylesheetLoaded(href) {
-      return Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).some((link) => {
-        return normalizeAssetUrl(link.href) === href;
+    function primeLoadedAssets() {
+      if (loadedAssetsPrimed) {
+        return;
+      }
+      document.querySelectorAll('link[rel="stylesheet"][href]').forEach((link) => {
+        const href = normalizeAssetUrl(link.href);
+        if (href) {
+          loadedStylesheetUrls.add(href);
+        }
+      });
+      document.querySelectorAll("script[src]").forEach((script) => {
+        const src = normalizeAssetUrl(script.src);
+        if (src) {
+          loadedScriptUrls.add(src);
+        }
+      });
+      loadedAssetsPrimed = true;
+    }
+    function isThemeStylesheetUrl(href) {
+      try {
+        return new URL(href, window.location.origin).pathname.endsWith("/css/shared/app-theme.css");
+      } catch (error) {
+        return false;
+      }
+    }
+    function getThemeStylesheetAnchor() {
+      return Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).find((link) => isThemeStylesheetUrl(link.getAttribute("href") || link.href)) || document.getElementById("app-theme-inline");
+    }
+    function normalizeThemeStylesheetOrder() {
+      const themeAnchor = getThemeStylesheetAnchor();
+      const head = themeAnchor?.parentNode;
+      if (!head) {
+        return;
+      }
+      const children = Array.from(head.children);
+      const themeIndex = children.indexOf(themeAnchor);
+      if (themeIndex < 0) {
+        return;
+      }
+      children.slice(themeIndex + 1).forEach((node) => {
+        if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet" && !isThemeStylesheetUrl(node.getAttribute("href") || node.href)) {
+          head.insertBefore(node, themeAnchor);
+        }
       });
     }
-    function isScriptLoaded(src) {
-      return Array.from(document.querySelectorAll("script[src]")).some((script) => {
-        return normalizeAssetUrl(script.src) === src;
-      });
+    function insertStylesheetBeforeTheme(link) {
+      normalizeThemeStylesheetOrder();
+      const themeAnchor = getThemeStylesheetAnchor();
+      if (themeAnchor?.parentNode) {
+        themeAnchor.parentNode.insertBefore(link, themeAnchor);
+        return;
+      }
+      document.head.appendChild(link);
     }
     function loadStylesheetsFromDocument(parsedDocument) {
+      primeLoadedAssets();
+      normalizeThemeStylesheetOrder();
       parsedDocument.querySelectorAll('link[rel="stylesheet"][href]').forEach((sourceLink) => {
         const href = normalizeAssetUrl(sourceLink.getAttribute("href"));
-        if (!href || isStylesheetLoaded(href)) {
+        if (!href || loadedStylesheetUrls.has(href)) {
           return;
         }
+        loadedStylesheetUrls.add(href);
         const link = document.createElement("link");
         link.rel = "stylesheet";
         link.href = href;
         if (sourceLink.media) {
           link.media = sourceLink.media;
         }
-        document.head.appendChild(link);
+        insertStylesheetBeforeTheme(link);
       });
     }
     function loadScriptAsset(src) {
@@ -1947,13 +2085,23 @@
       });
     }
     async function loadScriptsFromDocument(parsedDocument) {
+      primeLoadedAssets();
+      let loadedAnyScript = false;
       const scriptSources = Array.from(parsedDocument.querySelectorAll("script[src]")).map((script) => normalizeAssetUrl(script.getAttribute("src"))).filter(Boolean).filter((src, index, list) => list.indexOf(src) === index);
       for (const src of scriptSources) {
-        if (isScriptLoaded(src)) {
+        if (loadedScriptUrls.has(src)) {
           continue;
         }
-        await loadScriptAsset(src);
+        loadedScriptUrls.add(src);
+        try {
+          await loadScriptAsset(src);
+          loadedAnyScript = true;
+        } catch (error) {
+          loadedScriptUrls.delete(src);
+          throw error;
+        }
       }
+      return loadedAnyScript;
     }
     function shouldSkipFetchedNode(node) {
       if (!node) {
@@ -1969,7 +2117,19 @@
       if (["SCRIPT", "LINK", "STYLE", "META", "TITLE"].includes(element.tagName)) {
         return true;
       }
-      if (["global-antiforgery-token", "layout-chrome-context", "chrome-context", "chrome-header", "chrome-navigation", "chrome-footer", "root", DETACHED_CONTENT_HOST_ID].includes(element.id)) {
+      if ([
+        "global-antiforgery-token",
+        "layout-chrome-context",
+        "chrome-context",
+        "chrome-header",
+        "chrome-navigation",
+        "chrome-footer",
+        "app-theme-background",
+        "app-theme-effects-root",
+        "app-theme-foreground-effects-root",
+        "root",
+        DETACHED_CONTENT_HOST_ID
+      ].includes(element.id)) {
         return true;
       }
       if (element.tagName === "TEMPLATE" && ["nav-template-admin", "nav-template-user", "header-template", "footer-template", "admin-extension-modal-template", "admin-extension-modal-row-template", "admin-statistics-template"].includes(element.id)) {
@@ -1982,16 +2142,45 @@
     }
     function getPrimaryRenderableNodes(sourceDocument) {
       const contentHost = sourceDocument.getElementById("content_admin");
-      return contentHost ? Array.from(contentHost.childNodes) : Array.from(sourceDocument.body.childNodes);
+      if (contentHost) {
+        return Array.from(contentHost.childNodes);
+      }
+      const pageContent = sourceDocument.getElementById("default_content");
+      return pageContent ? [pageContent] : Array.from(sourceDocument.body.childNodes);
     }
     function getDetachedRenderableNodes(sourceDocument) {
       const contentHost = sourceDocument.getElementById("content_admin");
-      if (!contentHost) {
+      const pageContent = sourceDocument.getElementById("default_content");
+      const primaryNode = contentHost || pageContent;
+      if (!primaryNode) {
         return [];
       }
-      return Array.from(sourceDocument.body.childNodes).filter((node) => {
-        return node !== contentHost && !shouldSkipFetchedNode(node) && !(node.nodeType === Node.ELEMENT_NODE && node.querySelector?.("#content_admin"));
-      });
+      const nodes = [];
+      const seen = /* @__PURE__ */ new Set();
+      const detachedSelectors = [
+        ".modal",
+        '[id$="Modal"]',
+        "template",
+        "#notification",
+        "#loadingOverlay",
+        "#survey-edit-selected-organization-names"
+      ];
+      const appendNode = (node) => {
+        if (!node || seen.has(node) || node === primaryNode || shouldSkipFetchedNode(node)) {
+          return;
+        }
+        if (primaryNode.contains?.(node)) {
+          return;
+        }
+        if (node.nodeType === Node.ELEMENT_NODE && (node.querySelector?.("#content_admin") || node.querySelector?.("#default_content"))) {
+          return;
+        }
+        seen.add(node);
+        nodes.push(node);
+      };
+      Array.from(sourceDocument.body.childNodes).forEach(appendNode);
+      sourceDocument.body.querySelectorAll(detachedSelectors.join(",")).forEach(appendNode);
+      return nodes;
     }
     function buildFragmentFromNodes(nodes, cloneNodes = true) {
       const fragment = document.createDocumentFragment();
@@ -2164,12 +2353,20 @@
       }
       window.history.pushState(nextState, "", historyEntry.url);
     };
+    const remountNavigation = () => {
+      if (typeof navCleanup === "function") {
+        navCleanup();
+      }
+      navCleanup = typeof window.mountNavigation === "function" ? window.mountNavigation(navHost, {
+        openTab,
+        activeTab: state.activeTab,
+        userRole: initialData.userRole,
+        userId: initialData.userId
+      }) : null;
+    };
     const remountChrome = () => {
       if (typeof headerCleanup === "function") {
         headerCleanup();
-      }
-      if (typeof navCleanup === "function") {
-        navCleanup();
       }
       if (typeof footerCleanup === "function") {
         footerCleanup();
@@ -2180,12 +2377,7 @@
         userName: initialData.userName,
         organizationName: initialData.organizationName
       }) : null;
-      navCleanup = typeof window.mountNavigation === "function" ? window.mountNavigation(navHost, {
-        openTab,
-        activeTab: state.activeTab,
-        userRole: initialData.userRole,
-        userId: initialData.userId
-      }) : null;
+      remountNavigation();
       footerCleanup = typeof window.mountFooter === "function" ? window.mountFooter(footerHost) : null;
     };
     const setLoading = (isLoading) => {
@@ -2213,11 +2405,6 @@
     };
     const schedulePostContentHooks = () => {
       const mountedPage = contentAdmin.querySelector(".app-page[data-page]")?.dataset.page || "";
-      window.setTimeout(() => {
-        if (typeof window.reapplyCurrentThemeSettings === "function") {
-          window.reapplyCurrentThemeSettings();
-        }
-      }, 0);
       if (initTogglesTimer) {
         window.clearTimeout(initTogglesTimer);
       }
@@ -2314,8 +2501,10 @@
       }
       loadStylesheetsFromDocument(parsedDocument);
       setHtmlContent(parsedDocument);
-      await loadScriptsFromDocument(parsedDocument);
-      schedulePostContentHooks();
+      const loadedAnyScript = await loadScriptsFromDocument(parsedDocument);
+      if (loadedAnyScript) {
+        schedulePostContentHooks();
+      }
       return response;
     };
     const deleteSurvey = async (surveyId) => {
@@ -2459,8 +2648,8 @@
           cancel.className = "modal_btn modal_btn-secondary";
           cancel.textContent = "Отмена";
           cancel.addEventListener("click", closeModal);
-          footer.appendChild(ok);
           footer.appendChild(cancel);
+          footer.appendChild(ok);
           root.appendChild(header);
           root.appendChild(body);
           root.appendChild(footer);
@@ -2502,8 +2691,7 @@
     };
     const setActiveTabAndRefreshNav = (tab) => {
       state.activeTab = tab;
-      remountChrome();
-      schedulePostContentHooks();
+      remountNavigation();
     };
     const tryOpenModal = (modalId, openHandler) => {
       const modal = document.getElementById(modalId);

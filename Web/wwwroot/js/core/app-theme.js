@@ -11,7 +11,7 @@
     const DEFAULTS = {
         fontColor: '#343D4B',
         backgroundColor: '#B2A8FF',
-        gradientEnabled: true,
+        gradientEnabled: false,
         gradientStartColor: '#B2A8FF',
         gradientEndColor: '#B2A8FF',
         effectSnow: false,
@@ -21,16 +21,19 @@
         backgroundImageDataUrl: '',
         backgroundImageOpacity: 35,
         softLightenPercent: 0,
-        headerDarkenPercent: 16,
-        footerDarkenPercent: 16,
-        buttonDarkenPercent: 16,
-        buttonStrongDarkenPercent: 28,
-        surfaceTintOpacityPercent: 24
+        headerDarkenPercent: 42,
+        footerDarkenPercent: 42,
+        buttonDarkenPercent: 42,
+        buttonStrongDarkenPercent: 50,
+        surfaceTintOpacityPercent: 59
     };
     const LEGACY_PERSISTED_THEME_STORAGE_KEY = 'app-theme-settings';
+    const LIGHT_TEXT_LUMINANCE_THRESHOLD = 0.52;
     let effectCleanup = [];
     let pendingEffectRender = false;
     let activeEffectsSignature = '';
+    let activeThemeVariablesSignature = '';
+    let pendingChromeTextColorSync = false;
 
     function clampOpacity(value) {
         const numericValue = Number.parseInt(value, 10);
@@ -59,6 +62,38 @@
         return String(value || '').trim();
     }
 
+    function buildBackgroundImageCssValue(value) {
+        const normalized = normalizeImageDataUrl(value);
+        return normalized ? `url("${normalized}")` : 'none';
+    }
+
+    function getImageSignature(value) {
+        const normalized = normalizeImageDataUrl(value);
+        if (!normalized) {
+            return '';
+        }
+
+        return [
+            normalized.length,
+            normalized.slice(0, 64),
+            normalized.slice(-64)
+        ].join(':');
+    }
+
+    function buildThemeVariablesSignature(settings) {
+        return JSON.stringify({
+            fontColor: settings.fontColor,
+            backgroundColor: settings.backgroundColor,
+            backgroundImageDataUrl: getImageSignature(settings.backgroundImageDataUrl),
+            backgroundImageOpacity: settings.backgroundImageOpacity,
+            softLightenPercent: settings.softLightenPercent,
+            headerDarkenPercent: settings.headerDarkenPercent,
+            footerDarkenPercent: settings.footerDarkenPercent,
+            buttonDarkenPercent: settings.buttonDarkenPercent,
+            surfaceTintOpacityPercent: settings.surfaceTintOpacityPercent
+        });
+    }
+
     function toCamelThemeSettings(raw) {
         if (!raw || typeof raw !== 'object') {
             return { ...DEFAULTS };
@@ -67,7 +102,7 @@
         return {
             fontColor: normalizeHexColor(raw.fontColor || raw.FontColor, DEFAULTS.fontColor),
             backgroundColor: normalizeHexColor(raw.backgroundColor || raw.BackgroundColor, DEFAULTS.backgroundColor),
-            gradientEnabled: Boolean(raw.gradientEnabled ?? raw.GradientEnabled),
+            gradientEnabled: false,
             gradientStartColor: normalizeHexColor(raw.gradientStartColor || raw.GradientStartColor, DEFAULTS.gradientStartColor),
             gradientEndColor: normalizeHexColor(raw.gradientEndColor || raw.GradientEndColor, DEFAULTS.gradientEndColor),
             effectSnow: Boolean(raw.effectSnow ?? raw.EffectSnow),
@@ -80,7 +115,7 @@
             headerDarkenPercent: clampPercent(raw.headerDarkenPercent ?? raw.HeaderDarkenPercent, DEFAULTS.headerDarkenPercent),
             footerDarkenPercent: clampPercent(raw.footerDarkenPercent ?? raw.FooterDarkenPercent, DEFAULTS.footerDarkenPercent),
             buttonDarkenPercent: clampPercent(raw.buttonDarkenPercent ?? raw.ButtonDarkenPercent, DEFAULTS.buttonDarkenPercent),
-            buttonStrongDarkenPercent: clampPercent(raw.buttonStrongDarkenPercent ?? raw.ButtonStrongDarkenPercent, DEFAULTS.buttonStrongDarkenPercent),
+            buttonStrongDarkenPercent: DEFAULTS.buttonStrongDarkenPercent,
             surfaceTintOpacityPercent: clampPercent(raw.surfaceTintOpacityPercent ?? raw.SurfaceTintOpacityPercent, DEFAULTS.surfaceTintOpacityPercent)
         };
     }
@@ -109,7 +144,9 @@
         }
 
         body,
-        .page-container {
+        .page-container,
+        .admin-container,
+        .content-wrapper {
             background: transparent !important;
         }
 
@@ -249,6 +286,19 @@
         );
     }
 
+    function adjustBrightnessFromMidpoint(baseHex, percent, fallback) {
+        const value = clampPercent(percent, fallback);
+        if (value === 50) {
+            return baseHex;
+        }
+
+        if (value < 50) {
+            return mixHexColors(baseHex, '#000000', (50 - value) / 50);
+        }
+
+        return mixHexColors(baseHex, '#FFFFFF', (value - 50) / 50);
+    }
+
     function hexToRgba(hex, alpha) {
         const color = hexToRgb(hex);
         const safeAlpha = Math.max(0, Math.min(1, Number(alpha) || 0));
@@ -279,7 +329,13 @@
     }
 
     function getContrastTextColor(backgroundHex) {
-        return getRelativeLuminance(backgroundHex) > 0.42 ? '#111827' : '#FFFFFF';
+        return getRelativeLuminance(backgroundHex) > LIGHT_TEXT_LUMINANCE_THRESHOLD ? '#111827' : '#FFFFFF';
+    }
+
+    function getMutedContrastTextColor(textColor) {
+        return textColor === '#FFFFFF'
+            ? 'rgba(255, 255, 255, 0.86)'
+            : 'rgba(17, 24, 39, 0.82)';
     }
 
     function shiftHexColor(sourceHex, { hueDelta = 0, saturationDelta = 0, lightnessDelta = 0 } = {}) {
@@ -297,41 +353,25 @@
     function buildThemePalette(settings) {
         const backgroundBase = normalizeHexColor(settings.backgroundColor, DEFAULTS.backgroundColor);
         const fontColor = normalizeHexColor(settings.fontColor, DEFAULTS.fontColor);
-        const headerDarken = clampPercent(settings.headerDarkenPercent, DEFAULTS.headerDarkenPercent) / 100;
-        const footerDarken = clampPercent(settings.footerDarkenPercent, DEFAULTS.footerDarkenPercent) / 100;
-        const buttonDarken = clampPercent(settings.buttonDarkenPercent, DEFAULTS.buttonDarkenPercent) / 100;
-        const buttonStrongDarken = clampPercent(settings.buttonStrongDarkenPercent, DEFAULTS.buttonStrongDarkenPercent) / 100;
-        const surfaceTintOpacity = clampPercent(settings.surfaceTintOpacityPercent, DEFAULTS.surfaceTintOpacityPercent) / 100;
-        const accentColor = mixHexColors(backgroundBase, '#000000', buttonDarken);
-        const accentStrongCandidate = mixHexColors(accentColor, '#000000', buttonStrongDarken);
-        const accentStrong = settings.gradientEnabled ? accentStrongCandidate : accentColor;
+        const accentColor = adjustBrightnessFromMidpoint(backgroundBase, settings.buttonDarkenPercent, DEFAULTS.buttonDarkenPercent);
+        const accentStrong = accentColor;
         const accentSoft = mixHexColors(backgroundBase, '#FFFFFF', 0.16);
         const accentSubtle = mixHexColors(backgroundBase, '#FFFFFF', 0.08);
-        const headerColor = mixHexColors(backgroundBase, '#000000', headerDarken);
-        const footerColor = mixHexColors(backgroundBase, '#000000', footerDarken);
-        const headerStrongColor = settings.gradientEnabled
-            ? mixHexColors(headerColor, '#000000', 0.16)
-            : headerColor;
-        const footerStrongColor = settings.gradientEnabled
-            ? mixHexColors(footerColor, '#000000', 0.16)
-            : footerColor;
+        const headerColor = adjustBrightnessFromMidpoint(backgroundBase, settings.headerDarkenPercent, DEFAULTS.headerDarkenPercent);
+        const footerColor = adjustBrightnessFromMidpoint(backgroundBase, settings.footerDarkenPercent, DEFAULTS.footerDarkenPercent);
+        const headerStrongColor = headerColor;
+        const footerStrongColor = footerColor;
         const buttonColor = accentColor;
         const buttonStrongColor = accentStrong;
         const backgroundStart = backgroundBase;
         const backgroundEnd = backgroundBase;
+        const surfaceColor = adjustBrightnessFromMidpoint(backgroundBase, settings.surfaceTintOpacityPercent, DEFAULTS.surfaceTintOpacityPercent);
         const contrastTextColor = getContrastTextColor(buttonColor);
-        const contrastMutedTextColor = contrastTextColor === '#FFFFFF'
-            ? 'rgba(255, 255, 255, 0.86)'
-            : 'rgba(17, 24, 39, 0.82)';
+        const contrastMutedTextColor = getMutedContrastTextColor(contrastTextColor);
         const headerTextColor = getContrastTextColor(headerColor);
         const footerTextColor = getContrastTextColor(footerColor);
-        const tableTintAlpha = Math.min(0.92, surfaceTintOpacity * 0.95);
-        const borderTintAlpha = Math.min(0.86, surfaceTintOpacity * 0.85);
-        const hoverTintAlpha = Math.min(0.9, surfaceTintOpacity);
-        const activeTintAlpha = Math.min(0.96, surfaceTintOpacity * 1.08);
-        const tableHeaderBase = mixHexColors(backgroundBase, '#FFFFFF', 0.18);
-        const navHoverBase = mixHexColors(backgroundBase, '#FFFFFF', 0.12);
-        const navActiveBase = mixHexColors(backgroundBase, '#FFFFFF', 0.08);
+        const detailTextColor = getContrastTextColor(surfaceColor);
+        const detailBorderColor = hexToRgba(detailTextColor, 0.18);
 
         return {
             backgroundStart,
@@ -345,9 +385,14 @@
             headerColor,
             headerStrongColor,
             headerTextColor,
+            headerMutedTextColor: getMutedContrastTextColor(headerTextColor),
             footerColor,
             footerStrongColor,
             footerTextColor,
+            footerMutedTextColor: getMutedContrastTextColor(footerTextColor),
+            detailColor: surfaceColor,
+            detailTextColor,
+            detailMutedTextColor: getMutedContrastTextColor(detailTextColor),
             buttonColor,
             buttonStrongColor,
             textMain: fontColor,
@@ -358,13 +403,13 @@
             shadowSm: '0 1px 2px rgba(15, 23, 42, 0.08)',
             shadowMd: '0 8px 20px rgba(15, 23, 42, 0.12)',
             shadowLg: '0 16px 34px rgba(15, 23, 42, 0.16)',
-            tableHeaderBackground: hexToRgba(tableHeaderBase, tableTintAlpha),
-            tableHeaderBorder: hexToRgba(accentStrong, borderTintAlpha),
-            navHoverBackground: hexToRgba(navHoverBase, hoverTintAlpha),
-            navActiveBackground: hexToRgba(navActiveBase, activeTintAlpha),
-            iconHoverBackground: hexToRgba(mixHexColors(backgroundBase, '#FFFFFF', 0.12), 0.96),
-            iconHoverBorder: hexToRgba(accentColor, 0.28),
-            iconHoverColor: accentStrong,
+            tableHeaderBackground: surfaceColor,
+            tableHeaderBorder: detailBorderColor,
+            navHoverBackground: surfaceColor,
+            navActiveBackground: surfaceColor,
+            iconHoverBackground: surfaceColor,
+            iconHoverBorder: detailBorderColor,
+            iconHoverColor: detailTextColor,
             snowColor: '#FFFFFF',
             snowCoreColor: '#FFFFFF',
             snowEdgeColor: '#E2E8F0',
@@ -385,6 +430,31 @@
 
     function getEffectsRoot() {
         return document.getElementById('app-theme-effects-root');
+    }
+
+    function ensureThemeRoots(settings) {
+        if (!document.body) {
+            return;
+        }
+
+        let backgroundRoot = document.getElementById('app-theme-background');
+        if (!backgroundRoot) {
+            backgroundRoot = document.createElement('div');
+            backgroundRoot.id = 'app-theme-background';
+            backgroundRoot.setAttribute('aria-hidden', 'true');
+            document.body.insertBefore(backgroundRoot, document.body.firstChild);
+        }
+
+        let effectsRoot = document.getElementById('app-theme-effects-root');
+        if (!effectsRoot) {
+            effectsRoot = document.createElement('div');
+            effectsRoot.id = 'app-theme-effects-root';
+            effectsRoot.setAttribute('aria-hidden', 'true');
+            backgroundRoot.insertAdjacentElement('afterend', effectsRoot);
+        }
+
+        document.documentElement.style.setProperty('background', settings.backgroundColor, 'important');
+        backgroundRoot.style.setProperty('background', settings.backgroundColor, 'important');
     }
 
     function getForegroundEffectsRoot() {
@@ -667,7 +737,6 @@
 
     function applyThemeVariables(settings, palette) {
         const rootStyle = document.documentElement.style;
-        const backgroundImage = normalizeImageDataUrl(settings.backgroundImageDataUrl);
 
         rootStyle.setProperty('--app-theme-font-color', settings.fontColor);
         rootStyle.setProperty('--app-theme-background-color', settings.backgroundColor);
@@ -682,14 +751,18 @@
         rootStyle.setProperty('--app-theme-header-color', palette.headerColor);
         rootStyle.setProperty('--app-theme-header-strong-color', palette.headerStrongColor);
         rootStyle.setProperty('--app-theme-header-text-color', palette.headerTextColor);
+        rootStyle.setProperty('--app-theme-header-text-muted-color', palette.headerMutedTextColor);
         rootStyle.setProperty('--app-theme-footer-color', palette.footerColor);
         rootStyle.setProperty('--app-theme-footer-strong-color', palette.footerStrongColor);
         rootStyle.setProperty('--app-theme-footer-text-color', palette.footerTextColor);
+        rootStyle.setProperty('--app-theme-footer-text-muted-color', palette.footerMutedTextColor);
+        rootStyle.setProperty('--app-theme-detail-color', palette.detailColor);
+        rootStyle.setProperty('--app-theme-detail-text-color', palette.detailTextColor);
+        rootStyle.setProperty('--app-theme-detail-text-muted-color', palette.detailMutedTextColor);
         rootStyle.setProperty('--app-theme-button-color', palette.buttonColor);
         rootStyle.setProperty('--app-theme-button-strong-color', palette.buttonStrongColor);
         rootStyle.setProperty('--app-theme-button-text-color', palette.contrastTextColor);
-        rootStyle.setProperty('--app-theme-gradient-opacity', settings.gradientEnabled ? '1' : '0');
-        rootStyle.setProperty('--app-theme-background-image-opacity', `${settings.backgroundImageOpacity / 100}`);
+        rootStyle.setProperty('--app-theme-gradient-opacity', '0');
         rootStyle.setProperty('--primary', palette.accentColor);
         rootStyle.setProperty('--primary-light', palette.accentSoft);
         rootStyle.setProperty('--primary-dark', palette.accentStrong);
@@ -710,17 +783,23 @@
         rootStyle.setProperty('--app-theme-icon-hover-border', palette.iconHoverBorder);
         rootStyle.setProperty('--app-theme-icon-hover-color', palette.iconHoverColor);
 
-        if (backgroundImage) {
-            rootStyle.setProperty('--app-theme-background-image', `url("${backgroundImage}")`);
-        } else {
-            rootStyle.setProperty('--app-theme-background-image', 'none');
+        applyThemeBackgroundVariables(settings);
+    }
+
+    function applyThemeBackgroundVariables(settings) {
+        const rootStyle = document.documentElement.style;
+        const backgroundImage = buildBackgroundImageCssValue(settings.backgroundImageDataUrl);
+        const backgroundImageOpacity = `${settings.backgroundImageOpacity / 100}`;
+
+        if (rootStyle.getPropertyValue('--app-theme-background-image').trim() !== backgroundImage) {
+            rootStyle.setProperty('--app-theme-background-image', backgroundImage);
         }
 
-        if (document.body) {
-            document.body.style.setProperty('background', 'transparent', 'important');
+        if (rootStyle.getPropertyValue('--app-theme-background-image-opacity').trim() !== backgroundImageOpacity) {
+            rootStyle.setProperty('--app-theme-background-image-opacity', backgroundImageOpacity);
         }
 
-        document.querySelectorAll('.page-container').forEach((element) => {
+        document.querySelectorAll('body, .page-container, .admin-container, .content-wrapper').forEach((element) => {
             if (element instanceof HTMLElement) {
                 element.style.setProperty('background', 'transparent', 'important');
             }
@@ -729,16 +808,74 @@
         const backgroundElement = document.getElementById('app-theme-background');
         if (backgroundElement instanceof HTMLElement) {
             backgroundElement.style.setProperty('background', settings.backgroundColor, 'important');
+            backgroundElement.style.setProperty('--app-theme-background-image', backgroundImage);
+            backgroundElement.style.setProperty('--app-theme-background-image-opacity', backgroundImageOpacity);
         }
+    }
+
+    function syncChromeTextColors(palette) {
+        if (!palette || !document.querySelectorAll) {
+            return;
+        }
+
+        document.querySelectorAll('.app-header').forEach((element) => {
+            if (element instanceof HTMLElement) {
+                element.style.setProperty('color', palette.headerTextColor, 'important');
+            }
+        });
+
+        document.querySelectorAll('.header-mode-label').forEach((element) => {
+            if (element instanceof HTMLElement) {
+                element.style.setProperty('color', palette.headerMutedTextColor, 'important');
+            }
+        });
+
+        document.querySelectorAll('#chrome-footer, #chrome-footer footer, .page-container > footer').forEach((element) => {
+            if (element instanceof HTMLElement) {
+                element.style.setProperty('color', palette.footerTextColor, 'important');
+            }
+        });
+
+        document.querySelectorAll('#chrome-footer footer p, .page-container > footer p').forEach((element) => {
+            if (element instanceof HTMLElement) {
+                element.style.setProperty('color', 'inherit', 'important');
+            }
+        });
+    }
+
+    function queueChromeTextColorSync(palette) {
+        syncChromeTextColors(palette);
+
+        if (document.readyState !== 'loading' || pendingChromeTextColorSync) {
+            return;
+        }
+
+        pendingChromeTextColorSync = true;
+        document.addEventListener('DOMContentLoaded', () => {
+            pendingChromeTextColorSync = false;
+            syncChromeTextColors(window.__appThemePalette || palette);
+        }, { once: true });
     }
 
     function applyThemeSettings(rawSettings) {
         const settings = toCamelThemeSettings(rawSettings);
-        const palette = buildThemePalette(settings);
+        ensureThemeRoots(settings);
 
-        applyThemeVariables(settings, palette);
+        const variablesSignature = buildThemeVariablesSignature(settings);
+        const canReusePalette = variablesSignature === activeThemeVariablesSignature && window.__appThemePalette;
+        const palette = canReusePalette
+            ? window.__appThemePalette
+            : buildThemePalette(settings);
+
+        if (!canReusePalette) {
+            applyThemeVariables(settings, palette);
+            activeThemeVariablesSignature = variablesSignature;
+        } else {
+            applyThemeBackgroundVariables(settings);
+        }
         window.__appThemeSettings = settings;
         window.__appThemePalette = palette;
+        queueChromeTextColorSync(palette);
 
         if (document.readyState === 'loading' && !getEffectsRoot()) {
             pendingEffectRender = true;

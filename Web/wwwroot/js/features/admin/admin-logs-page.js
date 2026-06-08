@@ -1,6 +1,61 @@
 (function () {
     let cachedBootstrapText = '';
     let cachedLogsMap = new Map();
+    let cachedDetailsPromises = new Map();
+    let descriptionSortFrame = 0;
+
+    function syncDescriptionSortMarker() {
+        if (descriptionSortFrame) {
+            window.cancelAnimationFrame(descriptionSortFrame);
+        }
+
+        descriptionSortFrame = window.requestAnimationFrame(() => {
+            descriptionSortFrame = 0;
+
+            const table = document.querySelector('.logs-table');
+            const header = table?.querySelector('th.table-col--description.table-sortable');
+            const cells = table ? Array.from(table.querySelectorAll('tbody td.table-col--description')) : [];
+            if (!table || !header || cells.length === 0) {
+                return;
+            }
+
+            const descriptionCell = cells.find((cell) => {
+                const text = (cell.textContent || '').trim();
+                return text.length > 0 && cell.getClientRects().length > 0;
+            });
+            if (!descriptionCell) {
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(descriptionCell);
+            const textRects = Array.from(range.getClientRects());
+            range.detach();
+
+            const textRect = textRects
+                .filter((rect) => rect.width > 0 && rect.height > 0)
+                .reduce((rightmostRect, rect) => (
+                    !rightmostRect || rect.right > rightmostRect.right ? rect : rightmostRect
+                ), null);
+            if (!textRect) {
+                return;
+            }
+
+            const headerRect = header.getBoundingClientRect();
+            const headerStyle = window.getComputedStyle(header);
+            const headerPaddingLeft = Number.parseFloat(headerStyle.paddingLeft) || 0;
+            const markerGap = 10;
+            const markerWidth = 12;
+            const minMarkerLeft = headerPaddingLeft;
+            const maxMarkerLeft = Math.max(minMarkerLeft, headerRect.width - markerWidth);
+            const markerLeft = Math.min(
+                Math.max(textRect.right - headerRect.left + markerGap, minMarkerLeft),
+                maxMarkerLeft
+            );
+
+            header.style.setProperty('--logs-description-sort-left', `${Math.ceil(markerLeft)}px`);
+        });
+    }
 
     function readLogsMap() {
         const bootstrapNode = document.getElementById('logs-page-bootstrap');
@@ -38,6 +93,64 @@
         }
 
         return readLogsMap().get(logId) || null;
+    }
+
+    function hasDetails(entry) {
+        return typeof entry?.extraDataJson === 'string' && entry.extraDataJson.trim().length > 0;
+    }
+
+    function buildLogDetailsUrl(logId) {
+        const url = new URL(`/event-log/details/${encodeURIComponent(String(logId))}`, window.location.origin);
+        const currentParams = new URLSearchParams(window.location.search);
+
+        ['page', 'sortBy', 'sortDirection'].forEach((name) => {
+            const value = currentParams.get(name);
+            if (value) {
+                url.searchParams.set(name, value);
+            }
+        });
+
+        return url.toString();
+    }
+
+    async function loadLogEntryDetails(logId) {
+        const cachedEntry = getLogEntry(logId);
+        if (!cachedEntry || hasDetails(cachedEntry)) {
+            return cachedEntry;
+        }
+
+        if (cachedDetailsPromises.has(logId)) {
+            return cachedDetailsPromises.get(logId);
+        }
+
+        const promise = fetch(buildLogDetailsUrl(logId), {
+            cache: 'no-store',
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.message || 'Не удалось загрузить событие');
+                }
+
+                return response.json();
+            })
+            .then((details) => {
+                const mergedEntry = {
+                    ...cachedEntry,
+                    ...details
+                };
+                readLogsMap().set(logId, mergedEntry);
+                return mergedEntry;
+            })
+            .finally(() => {
+                cachedDetailsPromises.delete(logId);
+            });
+
+        cachedDetailsPromises.set(logId, promise);
+        return promise;
     }
 
     function setText(container, role, value) {
@@ -355,8 +468,19 @@
         content.style.setProperty('--logs-modal-width', `${Math.min(preferredWidth, maxWidth)}px`);
     }
 
-    function openLogEntryModal(logId) {
-        const entry = getLogEntry(logId);
+    async function openLogEntryModal(logId) {
+        let entry;
+        try {
+            entry = await loadLogEntryDetails(logId);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Не удалось загрузить событие';
+            console.error('Не удалось загрузить событие журнала:', error);
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, false);
+            }
+            return;
+        }
+
         const modal = document.getElementById('logEntryModal');
         if (!entry || !modal) {
             return;
@@ -411,9 +535,18 @@
     });
 
     window.addEventListener('resize', () => {
+        syncDescriptionSortMarker();
+
         const modal = document.getElementById('logEntryModal');
         if (modal?.classList.contains('modal--visible')) {
             resizeLogModal(modal);
         }
     });
+
+    window.addEventListener('load', syncDescriptionSortMarker, { once: true });
+    if (document.fonts?.ready) {
+        document.fonts.ready.then(syncDescriptionSortMarker).catch(() => {});
+    }
+
+    syncDescriptionSortMarker();
 })();

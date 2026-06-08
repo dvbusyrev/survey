@@ -1,12 +1,4 @@
 window.AdminArchives = (function () {
-  function getTemplateContent(templateId) {
-    const template = document.getElementById(templateId);
-    if (!template || !template.content) {
-      return null;
-    }
-    return template.content;
-  }
-
   function clearNode(node) {
     if (!node) {
       return;
@@ -25,35 +17,102 @@ window.AdminArchives = (function () {
     return cell;
   }
 
-  function renderAnswers(data, isArchive, container, title) {
-    title.textContent = `Ответы на архивную анкету: ${data.survey.name}`;
-    clearNode(container);
+  function createDateContent(value) {
+    const content = document.createElement('span');
+    content.className = 'answers-modal__date-text';
+    const normalizedValue = String(value || '').trim();
 
-    if (data.survey.description) {
-      const info = document.createElement('div');
-      info.className = 'survey-info';
-      const description = document.createElement('p');
-      description.className = 'survey-description';
-      description.textContent = `Описание: ${data.survey.description}`;
-      info.appendChild(description);
-      info.appendChild(document.createElement('br'));
-      container.appendChild(info);
+    if (!normalizedValue) {
+      content.textContent = 'Не указана';
+      return content;
     }
 
+    content.textContent = normalizedValue;
+    return content;
+  }
+
+  function renderModalTitle(title, surveyName) {
+    clearNode(title);
+
+    const mainLine = document.createElement('span');
+    mainLine.className = 'answers-modal__title-main';
+    mainLine.textContent = 'Просмотр анкеты';
+
+    const nameLine = document.createElement('span');
+    nameLine.className = 'answers-modal__title-name';
+    nameLine.textContent = surveyName || 'Без названия';
+
+    title.appendChild(mainLine);
+    title.appendChild(nameLine);
+  }
+
+  function createSignatureContent(isSigned) {
+    const signatureCellContent = document.createElement('span');
+    signatureCellContent.className = 'answers-modal__signature-text';
+    signatureCellContent.textContent = isSigned ? 'Подписана' : 'Нет подписи';
+    return signatureCellContent;
+  }
+
+  function renderSignatureBlock(answers, container) {
+    const firstAnswer = Array.isArray(answers) && answers.length > 0 ? answers[0] : null;
+    const block = document.createElement('div');
+    block.className = 'answers-modal__info-block answers-modal__signature-block';
+
+    const label = document.createElement('div');
+    label.className = 'answers-modal__field-label';
+    label.textContent = 'Подпись';
+
+    block.appendChild(label);
+    block.appendChild(createSignatureContent(Boolean(firstAnswer?.is_signed)));
+    container.appendChild(block);
+  }
+
+  function renderDateBlock(answers, container) {
+    const firstAnswer = Array.isArray(answers) && answers.length > 0 ? answers[0] : null;
+    const block = document.createElement('div');
+    block.className = 'answers-modal__info-block answers-modal__date-block';
+
+    const label = document.createElement('div');
+    label.className = 'answers-modal__field-label';
+    label.textContent = 'Дата';
+
+    block.appendChild(label);
+    block.appendChild(createDateContent(firstAnswer?.date));
+    container.appendChild(block);
+  }
+
+  function renderAnswers(data, isArchive, container, title) {
+    renderModalTitle(title, data.survey.name);
+    clearNode(container);
+    renderDateBlock(data.answers, container);
+    renderSignatureBlock(data.answers, container);
+
     const tableContainer = document.createElement('div');
-    tableContainer.className = 'answers-table-container';
+    tableContainer.className = 'answers-table-container table-responsive answers-modal__table-wrap';
     const table = document.createElement('table');
-    table.className = 'answers-table';
+    table.className = 'answers-table answers-modal__table';
+    table.dataset.role = 'main-table';
+    table.dataset.disableColumnSort = 'true';
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
-    headRow.className = 'table-tr';
+    headRow.className = 'table_tr';
     if (isArchive) {
       const orgHeader = document.createElement('th');
+      orgHeader.className = 'table-th--start';
       orgHeader.textContent = 'Организация';
       headRow.appendChild(orgHeader);
     }
-    ['Вопрос', 'Оценка', 'Комментарий', 'Дата', 'Подпись'].forEach((headerText) => {
+    ['Вопрос', 'Оценка', 'Комментарий'].forEach((headerText, index, headers) => {
       const th = document.createElement('th');
+      if (!isArchive && index === 0) {
+        th.classList.add('table-th--start');
+      }
+      if (index === headers.length - 1) {
+        th.classList.add('table-th--end');
+      }
+      if (headerText === 'Оценка') {
+        th.classList.add('answers-modal__rating-column');
+      }
       th.textContent = headerText;
       headRow.appendChild(th);
     });
@@ -63,9 +122,6 @@ window.AdminArchives = (function () {
     data.answers.forEach(answer => {
       const answerItems = Array.isArray(answer.answers) ? answer.answers : [];
       const rowSpan = answerItems.length > 0 ? answerItems.length : 1;
-      const signatureCellContent = document.createElement('span');
-      signatureCellContent.className = answer.is_signed ? 'signed' : 'not-signed';
-      signatureCellContent.textContent = answer.is_signed ? 'Подписана' : 'Нет подписи';
 
       if (answerItems.length > 0) {
         answerItems.forEach((item, index) => {
@@ -76,18 +132,8 @@ window.AdminArchives = (function () {
             row.appendChild(organizationCell);
           }
           row.appendChild(createTextCell(item.question_text || 'Не указан', 'question-cell'));
-          row.appendChild(createTextCell(`${item.rating || '0'}/5`, 'rating-cell'));
+          row.appendChild(createTextCell(item.rating || '0', 'rating-cell'));
           row.appendChild(createTextCell(item.comment || 'Нет комментария', 'comment-cell'));
-          if (index === 0) {
-            const dateCell = createTextCell(answer.date || 'Не указана', 'date-cell');
-            dateCell.rowSpan = rowSpan;
-            row.appendChild(dateCell);
-            const signatureCell = document.createElement('td');
-            signatureCell.className = 'signature-cell';
-            signatureCell.rowSpan = rowSpan;
-            signatureCell.appendChild(signatureCellContent.cloneNode(true));
-            row.appendChild(signatureCell);
-          }
           tbody.appendChild(row);
         });
       } else {
@@ -100,11 +146,6 @@ window.AdminArchives = (function () {
         row.appendChild(createTextCell('Нет данных', 'question-cell'));
         row.appendChild(createTextCell('-', 'rating-cell'));
         row.appendChild(createTextCell('-', 'comment-cell'));
-        row.appendChild(createTextCell(answer.date || 'Не указана', 'date-cell'));
-        const signatureCell = document.createElement('td');
-        signatureCell.className = 'signature-cell';
-        signatureCell.appendChild(signatureCellContent.cloneNode(true));
-        row.appendChild(signatureCell);
         tbody.appendChild(row);
       }
     });
@@ -131,6 +172,14 @@ window.AdminArchives = (function () {
     closeModalById('answersModal');
   }
 
+  function openPreparedAnswersModal(modal) {
+    if (window.showSiteModal) {
+      window.showSiteModal(modal);
+    } else {
+      modal.style.display = 'flex';
+    }
+  }
+
   async function showAnswersModal(surveyId, organizationId) {
     const modal = document.getElementById('answersModal');
     const container = document.getElementById('answersContainer');
@@ -144,22 +193,6 @@ window.AdminArchives = (function () {
 
     try {
       clearNode(container);
-      const loadingTemplate = getTemplateContent('answers-loading-template');
-      if (loadingTemplate) {
-        container.appendChild(loadingTemplate.cloneNode(true));
-      } else {
-        const loadingNode = document.createElement('div');
-        loadingNode.className = 'loading';
-        loadingNode.textContent = 'Загрузка данных...';
-        container.appendChild(loadingNode);
-      }
-      title.textContent = 'Загрузка...';
-
-      if (window.showSiteModal) {
-        window.showSiteModal(modal);
-      } else {
-        modal.style.display = 'flex';
-      }
 
       const url = isArchive
         ? `/answers/${surveyId}/0/archive`
@@ -192,9 +225,11 @@ window.AdminArchives = (function () {
       }
 
       renderAnswers(data, isArchive, container, title);
+      openPreparedAnswersModal(modal);
     } catch (error) {
       console.error('Ошибка:', error);
       clearNode(container);
+      title.textContent = 'Ошибка загрузки ответов';
       const errorWrap = document.createElement('div');
       errorWrap.className = 'error-message';
       const p1 = document.createElement('p');
@@ -210,6 +245,7 @@ window.AdminArchives = (function () {
       errorWrap.appendChild(br1);
       errorWrap.appendChild(p2);
       container.appendChild(errorWrap);
+      openPreparedAnswersModal(modal);
     }
   }
 

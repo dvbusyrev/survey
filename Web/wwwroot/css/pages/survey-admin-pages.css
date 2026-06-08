@@ -25,20 +25,17 @@
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--border);
   border-radius: var(--app-button-radius);
-  box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease;
 }
 
 .survey-period-filter__trigger:hover,
 .survey-period-filter__trigger[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--primary-dark) 35%, transparent 65%);
-  box-shadow: 0 10px 24px rgba(83, 92, 145, 0.12);
-  transform: translateY(-1px);
+  border-color: var(--border);
 }
 
 .survey-period-filter__trigger i {
-  color: var(--primary-dark);
+  color: inherit;
   font-size: 1rem;
 }
 
@@ -112,27 +109,29 @@
 .survey-period-filter__day-button,
 .survey-period-filter__clear-button,
 .survey-period-filter__save-button {
+  -webkit-appearance: none;
+  appearance: none;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .survey-period-filter__mode-button {
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
-  color: var(--text-secondary);
+  color: var(--text-main);
   font-size: var(--app-button-font-size);
-  font-weight: 700;
-  background: rgba(241, 245, 249, 0.95);
-  border-color: rgba(203, 213, 225, 0.9);
+  font-weight: 500;
+  background: #ffffff;
+  border-color: var(--border);
   border-radius: var(--app-button-radius);
 }
 
 .survey-period-filter__mode-button.is-active {
-  color: var(--app-theme-accent-text-color);
-  background: linear-gradient(145deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
-  border-color: color-mix(in srgb, var(--primary-dark) 80%, transparent 20%);
-  box-shadow: 0 7px 16px color-mix(in srgb, var(--primary-dark) 22%, transparent 78%);
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .survey-period-filter__panel {
@@ -162,10 +161,9 @@
   width: 30px;
   height: 30px;
   color: var(--text-main);
-  background: rgba(248, 250, 252, 0.98);
-  border-color: rgba(203, 213, 225, 0.92);
+  background: #ffffff;
+  border-color: var(--border);
   border-radius: 9px;
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
 }
 
 .survey-period-filter__nav-button:hover,
@@ -174,7 +172,13 @@
 .survey-period-filter__day-button:hover,
 .survey-period-filter__clear-button:hover,
 .survey-period-filter__save-button:hover {
-  transform: translateY(-1px);
+  background: #ffffff;
+}
+
+.survey-work-period__popover .survey-period-filter__nav-button:hover {
+  color: var(--text-main);
+  background: #ffffff;
+  border-color: var(--border);
 }
 
 .survey-period-filter__years,
@@ -197,18 +201,18 @@
   padding: 0.48rem 0.55rem;
   color: var(--text-main);
   font-size: 0.84rem;
-  font-weight: 700;
-  background: rgba(248, 250, 252, 0.98);
-  border-color: rgba(203, 213, 225, 0.92);
+  font-weight: 500;
+  background: #ffffff;
+  border-color: var(--border);
   border-radius: 10px;
 }
 
 .survey-period-filter__year-button.is-selected,
 .survey-period-filter__month-button.is-selected {
-  color: var(--app-theme-accent-text-color);
-  background: linear-gradient(145deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
-  border-color: color-mix(in srgb, var(--primary-dark) 82%, transparent 18%);
-  box-shadow: 0 7px 16px color-mix(in srgb, var(--primary-dark) 22%, transparent 78%);
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .survey-period-filter__hint,
@@ -277,30 +281,56 @@
   padding: 0;
   color: var(--text-main);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 500;
   background: #fff;
-  border-color: rgba(203, 213, 225, 0.92);
+  border-color: var(--border);
   border-radius: 8px;
 }
 
 .survey-period-filter__day-button.is-today {
-  border-color: color-mix(in srgb, var(--primary-dark) 56%, transparent 44%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-dark) 24%, transparent 76%);
+  border-color: var(--border);
 }
 
 .survey-period-filter__day-button.is-in-range {
-  color: var(--primary-dark);
-  background: color-mix(in srgb, var(--primary) 16%, white 84%);
-  border-color: color-mix(in srgb, var(--primary) 20%, transparent 80%);
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .survey-period-filter__day-button.is-range-start,
 .survey-period-filter__day-button.is-range-end,
 .survey-period-filter__day-button.is-range-single {
-  color: var(--app-theme-accent-text-color);
-  background: linear-gradient(145deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
-  border-color: color-mix(in srgb, var(--primary-dark) 82%, transparent 18%);
-  box-shadow: 0 7px 16px color-mix(in srgb, var(--primary-dark) 22%, transparent 78%);
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
+}
+
+.survey-work-period__popover .survey-period-filter__day-button:hover {
+  color: var(--text-main);
+  background: #fff;
+  border-color: var(--border);
+}
+
+.survey-work-period__popover .survey-period-filter__day-button.is-today:hover {
+  border-color: var(--border);
+}
+
+.survey-work-period__popover .survey-period-filter__day-button.is-in-range:hover {
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
+}
+
+.survey-work-period__popover .survey-period-filter__day-button.is-range-start:hover,
+.survey-work-period__popover .survey-period-filter__day-button.is-range-end:hover,
+.survey-work-period__popover .survey-period-filter__day-button.is-range-single:hover {
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .survey-period-filter__footer {
@@ -317,12 +347,18 @@
   justify-content: center;
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
-  color: var(--text-main);
+  color: var(--app-theme-button-text-color);
   font-size: var(--app-button-font-size);
   font-weight: 700;
-  background: rgba(248, 250, 252, 0.98);
-  border-color: rgba(203, 213, 225, 0.92);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
   border-radius: var(--app-button-radius);
+}
+
+.survey-period-filter__clear-button:hover {
+  background: var(--app-theme-button-color);
+  background-image: none;
 }
 
 .survey-period-filter__save-button {
@@ -331,13 +367,24 @@
   justify-content: center;
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
-  color: var(--app-theme-accent-text-color);
+  color: var(--app-theme-button-text-color);
   font-size: var(--app-button-font-size);
   font-weight: 700;
-  background: linear-gradient(145deg, var(--app-theme-accent-color) 0%, var(--app-theme-accent-strong-color) 100%);
-  border-color: color-mix(in srgb, var(--primary-dark) 82%, transparent 18%);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
   border-radius: var(--app-button-radius);
-  box-shadow: 0 7px 16px color-mix(in srgb, var(--primary-dark) 22%, transparent 78%);
+}
+
+.survey-period-filter__save-button:hover {
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
+}
+
+.survey-work-period__popover .survey-period-filter__save-button:hover {
+  background: var(--app-theme-button-color);
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .survey-period-filter__clear-button:disabled,
@@ -399,16 +446,13 @@
   background: #fff;
   border: 1px solid #d5d9e2;
   border-radius: 14px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease;
 }
 
 .survey-editor-page__criteria-remove:hover {
   color: #4b5563;
   border-color: #b9c0cf;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
-  transform: translateY(-1px);
 }
 
 .survey-editor-page__criteria-remove i {
@@ -433,19 +477,27 @@
 }
 
 .criteria-btn--success {
-  background: #28a745;
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .criteria-btn--success:hover {
-  background: #218838;
+  background: var(--app-theme-button-color);
+  background-image: none;
 }
 
 .criteria-btn--info {
-  background: #17a2b8;
+  color: var(--app-theme-button-text-color);
+  background: var(--app-theme-button-color);
+  background-image: none;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
 .criteria-btn--info:hover {
-  background: #138496;
+  background: var(--app-theme-button-color);
+  background-image: none;
 }
 
 @media (max-width: 720px) {

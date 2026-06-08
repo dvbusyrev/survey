@@ -28,28 +28,7 @@ public sealed class UserManagementService : IUserManagementService
         string? sortDirection,
         bool openAddUserModal = false)
     {
-        var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
-        var normalizedSortBy = NormalizeUserSortField(hasExplicitSort ? sortBy : null);
-        var normalizedSortDirection = hasExplicitSort
-            ? AppSortState.NormalizeExplicitDirection(sortDirection)
-            : NormalizeUserSortDirection(null, normalizedSortBy);
-        var users = SortUsers(GetUsers(includeArchived: false), sortBy, sortDirection);
-        var pageSlice = AppListPaging.Slice(users, currentPage);
-
-        return new UserListPageViewModel
-        {
-            Users = pageSlice.Items,
-            Organizations = GetOrganizationOptions(),
-            OpenAddUserModal = openAddUserModal,
-            CurrentPage = pageSlice.CurrentPage,
-            TotalPages = pageSlice.TotalPages,
-            TotalCount = pageSlice.TotalCount,
-            PageSize = pageSlice.PageSize,
-            HasExplicitSort = hasExplicitSort,
-            SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
-            SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
-            ViewModeIsArchive = false
-        };
+        return GetUsersPage(currentPage, sortBy, sortDirection, includeArchived: false, openAddUserModal);
     }
 
     public IReadOnlyList<User> GetArchivedUsers()
@@ -62,26 +41,50 @@ public sealed class UserManagementService : IUserManagementService
         string? sortBy,
         string? sortDirection)
     {
+        return GetUsersPage(currentPage, sortBy, sortDirection, includeArchived: true);
+    }
+
+    private UserListPageViewModel GetUsersPage(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        bool includeArchived,
+        bool openAddUserModal = false)
+    {
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeUserSortField(hasExplicitSort ? sortBy : null);
         var normalizedSortDirection = hasExplicitSort
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeUserSortDirection(null, normalizedSortBy);
-        var users = SortUsers(GetUsers(includeArchived: true), sortBy, sortDirection);
-        var pageSlice = AppListPaging.Slice(users, currentPage);
+
+        using var connection = _connectionFactory.CreateConnection();
+        var totalCount = connection.ExecuteScalar<int>(GetUserCountSql(includeArchived));
+        var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
+        var users = connection.Query<User>(
+            $"""
+            {GetUserPageSelectSql(includeArchived)}
+            ORDER BY {BuildUserOrderBy(normalizedSortBy, normalizedSortDirection)}
+            LIMIT @pageSize OFFSET @offset;
+            """,
+            new
+            {
+                pageSize = pageWindow.PageSize,
+                offset = pageWindow.Offset
+            }).ToList();
 
         return new UserListPageViewModel
         {
-            Users = pageSlice.Items,
+            Users = users,
             Organizations = GetOrganizationOptions(),
-            CurrentPage = pageSlice.CurrentPage,
-            TotalPages = pageSlice.TotalPages,
-            TotalCount = pageSlice.TotalCount,
-            PageSize = pageSlice.PageSize,
+            OpenAddUserModal = openAddUserModal,
+            CurrentPage = pageWindow.CurrentPage,
+            TotalPages = pageWindow.TotalPages,
+            TotalCount = pageWindow.TotalCount,
+            PageSize = pageWindow.PageSize,
             HasExplicitSort = hasExplicitSort,
             SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
             SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
-            ViewModeIsArchive = true
+            ViewModeIsArchive = includeArchived
         };
     }
 
@@ -291,6 +294,62 @@ public sealed class UserManagementService : IUserManagementService
             : UserQueries.ActiveUsers;
 
         return connection.Query<User>(sql).ToList();
+    }
+
+    private static string GetUserCountSql(bool includeArchived)
+    {
+        return $"""
+            SELECT COUNT(*)
+            FROM public.app_user u
+            WHERE {GetUserArchivePredicate(includeArchived)};
+            """;
+    }
+
+    private static string GetUserPageSelectSql(bool includeArchived)
+    {
+        return $"""
+            SELECT
+                u.id_user,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
+                u.login AS NameUser,
+                u.role AS NameRole,
+                u.password AS HashPassword,
+                u.date_begin,
+                u.date_end,
+                u.full_name,
+                u.email,
+                COALESCE(u.id_organization, 0) AS OrganizationId
+            FROM public.app_user u
+            LEFT JOIN public.organization o
+                ON u.id_organization = o.id_organization
+            WHERE {GetUserArchivePredicate(includeArchived)}
+            """;
+    }
+
+    private static string GetUserArchivePredicate(bool includeArchived)
+    {
+        return includeArchived
+            ? "u.date_end < CURRENT_DATE"
+            : "(u.date_end IS NULL OR u.date_end >= CURRENT_DATE)";
+    }
+
+    private static string BuildUserOrderBy(string sortBy, string sortDirection)
+    {
+        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
+            ? "DESC"
+            : "ASC";
+        var nulls = "NULLS LAST";
+
+        return sortBy switch
+        {
+            UserListSortFields.Organization =>
+                $"COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') {direction}, u.id_user ASC",
+            UserListSortFields.Role =>
+                $"CASE LOWER(COALESCE(u.role, '')) WHEN 'admin' THEN 'Администратор' WHEN 'administrator' THEN 'Администратор' WHEN 'user' THEN 'Клиент' WHEN 'client' THEN 'Клиент' ELSE COALESCE(u.role, '') END {direction}, u.id_user ASC",
+            UserListSortFields.DateBegin => $"u.date_begin {direction} {nulls}, u.id_user ASC",
+            UserListSortFields.DateEnd => $"u.date_end {direction} {nulls}, u.id_user ASC",
+            _ => $"COALESCE(NULLIF(u.full_name, ''), u.login, '') {direction}, u.id_user ASC"
+        };
     }
 
     private IReadOnlyList<SelectionOption> GetOrganizationOptions()

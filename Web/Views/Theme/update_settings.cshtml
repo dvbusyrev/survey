@@ -22,7 +22,7 @@
 
     <section class="app-page__section">
         <p class="email-settings-page__notice theme-settings-page__notice">
-            Контентные блоки и таблицы остаются белыми. Из выбранного цвета система автоматически строит более тёмные оттенки для шапки, футера, кнопок и акцентных элементов.
+            Контентные блоки и таблицы остаются белыми. Ползунки яркости строят цвет элемента от чёрного на 0% до белого на 100%; 50% — исходный цвет фона.
         </p>
 
         <div class="email-settings-page__grid email-settings-page__grid--single theme-settings-page__grid">
@@ -44,19 +44,8 @@
                                value="@settings.BackgroundColor" />
                     </div>
 
-                    <div class="form-group theme-settings-page__form-group">
-                        <label for="theme-gradient-enabled">Градиент</label>
-                        <label class="theme-settings-page__checkbox-row" for="theme-gradient-enabled">
-                            <input type="checkbox"
-                                   id="theme-gradient-enabled"
-                                   class="app-checkbox-input"
-                                   @(settings.GradientEnabled ? "checked" : null) />
-                            <span class="app-checkbox-text">Включить градиентные оттенки</span>
-                        </label>
-                    </div>
-
                     <div class="form-group theme-settings-page__form-group theme-settings-page__form-group--shade">
-                        <label>Оттенки интерфейса</label>
+                        <label>Яркость элементов</label>
                         <div class="theme-settings-page__shade-list">
                             <label class="theme-settings-page__shade-row" for="theme-header-darken-percent">
                                 <span>Шапка</span>
@@ -70,7 +59,7 @@
                                 </div>
                             </label>
                             <label class="theme-settings-page__shade-row" for="theme-footer-darken-percent">
-                                <span>Футер</span>
+                                <span>Подвал</span>
                                 <div class="theme-settings-page__range-field">
                                     <input type="range"
                                            id="theme-footer-darken-percent"
@@ -91,19 +80,8 @@
                                     <span id="theme-button-darken-percent-value">@settings.ButtonDarkenPercent%</span>
                                 </div>
                             </label>
-                            <label class="theme-settings-page__shade-row" for="theme-button-strong-darken-percent">
-                                <span>Градиент кнопок</span>
-                                <div class="theme-settings-page__range-field">
-                                    <input type="range"
-                                           id="theme-button-strong-darken-percent"
-                                           min="0"
-                                           max="100"
-                                           value="@settings.ButtonStrongDarkenPercent" />
-                                    <span id="theme-button-strong-darken-percent-value">@settings.ButtonStrongDarkenPercent%</span>
-                                </div>
-                            </label>
                             <label class="theme-settings-page__shade-row" for="theme-surface-tint-opacity-percent">
-                                <span>Подложки</span>
+                                <span>Детали (Подложки)</span>
                                 <div class="theme-settings-page__range-field">
                                     <input type="range"
                                            id="theme-surface-tint-opacity-percent"

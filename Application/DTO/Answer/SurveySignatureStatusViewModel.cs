@@ -7,5 +7,5 @@ public sealed class SurveySignatureStatusViewModel
     public bool IsSigned { get; init; }
     public DateTime? CompletionDate { get; init; }
     public string CompletionStatus => IsCompleted ? "Пройдена" : "Не пройдена";
-    public string SignatureStatus => IsSigned ? "Подписана" : "Не подписана";
+    public string SignatureStatus => IsSigned ? "Подписана" : "Нет подписи";
 }

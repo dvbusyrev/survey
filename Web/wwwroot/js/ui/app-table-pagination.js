@@ -7,15 +7,7 @@ window.__appTablePaginationLoaded = true;
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_VISIBLE_PAGES = 5;
-const TABLE_SELECTOR = [
-    '[data-role="main-table"]',
-    '.surveys-table',
-    '.users-table',
-    '.organization-table',
-    '.answers-page__signatures-table',
-    '.answers-table',
-    '.logs-table'
-].join(', ');
+const TABLE_SELECTOR = '[data-enable-local-table-pagination="true"]';
 const AUXILIARY_HIDDEN_CLASSES = [
     'is-hidden',
     'is-hidden-by-date',
@@ -136,7 +128,7 @@ function buildPaginationItems(currentPage, totalPages) {
 
     if (currentPage < totalPages) {
         items.push({
-            label: 'дальше',
+            label: 'Дальше',
             page: currentPage + 1,
             isAction: true,
             isCurrent: false

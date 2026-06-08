@@ -15,12 +15,7 @@
         targetType = log.TargetType ?? string.Empty,
         targetName = log.TargetName ?? string.Empty,
         description = log.Description ?? string.Empty,
-        extraDataJson = log.ExtraData switch
-        {
-            Newtonsoft.Json.Linq.JToken token => token.ToString(Newtonsoft.Json.Formatting.None),
-            null => string.Empty,
-            _ => log.ExtraData.ToString() ?? string.Empty
-        }
+        extraDataJson = string.Empty
     });
     var logsBootstrapJson = System.Text.Json.JsonSerializer.Serialize(logBootstrapItems);
 }
@@ -70,7 +65,9 @@
                 <th class="table-th--end table-col--description table-sortable @(pageModel.IsSortedBy(AuditLogSortFields.Description) ? "is-sorted" : string.Empty)"
                     data-sort-direction="@pageModel.GetHeaderSortDirection(AuditLogSortFields.Description)"
                     aria-sort="@pageModel.GetAriaSort(AuditLogSortFields.Description)">
-                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(AuditLogSortFields.Description)">Описание</a>
+                    <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(AuditLogSortFields.Description)">
+                        <span class="logs-table__sort-label">Описание</span>
+                    </a>
                 </th>
             </tr>
         </thead>

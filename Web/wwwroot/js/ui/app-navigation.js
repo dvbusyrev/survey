@@ -207,7 +207,7 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
         : ['active', 'archived', 'answers_tab', 'archived_surveys_for_user'].includes(activeTab);
     const isOrganizationSectionActive = ['get_organization', 'organization_surveys', 'add_organization', 'archive_list_organizations'].includes(activeTab);
     const isEmailSectionActive = ['email', 'email_new'].includes(activeTab);
-    const isSettingsSectionActive = ['email_settings', 'survey_auto_creation'].includes(activeTab);
+    const isSettingsSectionActive = ['email_settings', 'theme_settings', 'survey_auto_creation'].includes(activeTab);
 
     const navigate = (tab) => {
         if (tab === 'add_user') {
@@ -314,6 +314,7 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
             archive_list_organizations: '/organizations/archive',
             reports: '/reports',
             survey_auto_creation: '/survey-auto-creation',
+            theme_settings: '/theme/configuration',
             email: '/mail',
             email_new: '/mail',
             email_settings: '/mail/configuration',

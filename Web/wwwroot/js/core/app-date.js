@@ -10,7 +10,6 @@
     const GLOBAL_YEAR_RANGE = 10;
     const DATE_INPUT_SELECTOR = `input[type="date"]:not([data-date-proxy="true"]):not([data-date-native="true"]), input[data-date-format="${ACTIVE_DATE_FORMAT}"]:not([data-date-native="true"]), input[data-date-format="${LEGACY_DATE_FORMAT}"]:not([data-date-native="true"])`;
     const NATIVE_DATE_INPUT_SELECTOR = 'input[type="date"][data-date-native="true"]:not([data-date-proxy="true"])';
-    const DATE_PICKER_CURSOR_RESET_CLASS = 'app-date-picker-cursor-reset';
     const MONTH_NAMES = [
         'Январь',
         'Февраль',
@@ -26,7 +25,53 @@
         'Декабрь'
     ];
     const WEEKDAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const PICKER_CURSOR_SUPPRESSED_CLASS = 'app-picker-cursor-suppressed';
+    const pickerCursorSuppressedElements = new Set();
     let activeCalendarInput = null;
+
+    function isPointerOutsideElement(event, element) {
+        if (!event || !element || typeof element.getBoundingClientRect !== 'function') {
+            return true;
+        }
+
+        const rect = element.getBoundingClientRect();
+        return event.clientX < rect.left
+            || event.clientX > rect.right
+            || event.clientY < rect.top
+            || event.clientY > rect.bottom;
+    }
+
+    function releasePickerTriggerCursor(element) {
+        if (!element?.classList) {
+            return;
+        }
+
+        element.classList.remove(PICKER_CURSOR_SUPPRESSED_CLASS);
+        pickerCursorSuppressedElements.delete(element);
+    }
+
+    function releasePickerTriggerCursors(event = null) {
+        Array.from(pickerCursorSuppressedElements).forEach((element) => {
+            if (!document.contains(element) || !event || isPointerOutsideElement(event, element)) {
+                releasePickerTriggerCursor(element);
+            }
+        });
+    }
+
+    function suppressPickerTriggerCursor(element) {
+        if (!element?.classList) {
+            return;
+        }
+
+        element.classList.add(PICKER_CURSOR_SUPPRESSED_CLASS);
+        pickerCursorSuppressedElements.add(element);
+    }
+
+    window.AppPickerCursor = {
+        release: releasePickerTriggerCursor,
+        releaseAll: releasePickerTriggerCursors,
+        suppress: suppressPickerTriggerCursor
+    };
 
     function pad(value) {
         return String(value).padStart(2, '0');
@@ -338,32 +383,6 @@
         applyDateLocale(document.body);
     }
 
-    function resetDatePickerCursor(button) {
-        if (!button) {
-            return;
-        }
-
-        button.blur();
-        button.classList.add(DATE_PICKER_CURSOR_RESET_CLASS);
-
-        const release = function () {
-            button.classList.remove(DATE_PICKER_CURSOR_RESET_CLASS);
-            button.removeEventListener('pointerleave', release);
-            window.removeEventListener('pointermove', releaseIfPointerOutside);
-            window.removeEventListener('pointerdown', releaseIfPointerOutside);
-        };
-
-        const releaseIfPointerOutside = function () {
-            if (!button.matches(':hover')) {
-                release();
-            }
-        };
-
-        button.addEventListener('pointerleave', release);
-        window.addEventListener('pointermove', releaseIfPointerOutside, { passive: true });
-        window.addEventListener('pointerdown', releaseIfPointerOutside, { passive: true });
-    }
-
     function applyDateMask(input) {
         if (!input) {
             return;
@@ -521,6 +540,7 @@
         }
 
         const inputRect = input.getBoundingClientRect();
+        const anchorRect = input._appDateButton?.getBoundingClientRect?.() || inputRect;
         const minViewportGap = 8;
         const panelWidth = Math.min(
             Math.max(inputRect.width, 260),
@@ -531,7 +551,7 @@
 
         const panelRect = panel.getBoundingClientRect();
         const left = Math.min(
-            Math.max(minViewportGap, inputRect.left),
+            Math.max(minViewportGap, anchorRect.left),
             Math.max(minViewportGap, window.innerWidth - panelWidth - minViewportGap)
         );
         let top = inputRect.bottom + 6;
@@ -829,8 +849,9 @@
 
             button.addEventListener('click', function (event) {
                 event.preventDefault();
+                suppressPickerTriggerCursor(button);
                 openNativeDatePicker(input);
-                resetDatePickerCursor(button);
+                button.blur();
             });
 
             picker.addEventListener('change', function () {
@@ -872,6 +893,7 @@
         input.addEventListener('keydown', function (event) {
             if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4') {
                 event.preventDefault();
+                suppressPickerTriggerCursor(input._appNativeDateButton || input);
                 openNativeDatePicker(input);
             }
         });
@@ -931,8 +953,9 @@
 
         button.addEventListener('click', function (event) {
             event.preventDefault();
+            suppressPickerTriggerCursor(button);
             openPicker(input);
-            resetDatePickerCursor(button);
+            button.blur();
         });
 
         wrapper.appendChild(button);
@@ -1040,6 +1063,7 @@
         input.addEventListener('keydown', function (event) {
             if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4') {
                 event.preventDefault();
+                suppressPickerTriggerCursor(input._appDateButton);
                 openPicker(input);
             }
         });
@@ -1163,6 +1187,8 @@
 
     function observeCalendarEvents() {
         document.addEventListener('pointerdown', handleCalendarDocumentPointerDown, true);
+        document.addEventListener('pointermove', releasePickerTriggerCursors, true);
+        document.addEventListener('mousemove', releasePickerTriggerCursors, true);
         document.addEventListener('keydown', handleCalendarDocumentKeyDown, true);
         window.addEventListener('scroll', handleCalendarViewportChange, true);
         window.addEventListener('resize', handleCalendarViewportChange);
