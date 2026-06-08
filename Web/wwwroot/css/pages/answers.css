@@ -97,11 +97,36 @@
   color: var(--text-main);
   font-weight: 400;
   line-height: 1.4;
-  white-space: nowrap;
   background: white;
   border: 1px solid var(--border-dark);
   border-radius: 8px;
   box-sizing: border-box;
+}
+
+.answers-modal__date-text {
+  white-space: nowrap;
+}
+
+.answers-modal__signature-text {
+  gap: 0.35rem;
+}
+
+.answers-modal__signature-line {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.answers-modal__signature-line-label {
+  color: var(--text-main);
+  font-weight: 400;
+  opacity: 0.78;
+}
+
+.answers-modal__signature-line-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .answers-modal__info-block {

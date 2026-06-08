@@ -1,4 +1,8 @@
-﻿using MainProject.Domain.Entities;
+﻿using System.Globalization;
+using System.Security.Cryptography;
+using System.Security.Cryptography.Pkcs;
+using System.Security.Cryptography.X509Certificates;
+using MainProject.Domain.Entities;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Web.ViewModels;
@@ -133,7 +137,8 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
                     })
                     .ToList(),
                 IsSigned = !string.IsNullOrWhiteSpace(answer.Csp),
-                Signature = answer.Csp
+                Signature = answer.Csp,
+                SignatureInfo = BuildSignatureInfo(answer)
             })
             .ToList();
 
@@ -150,6 +155,204 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             },
             Answers = mappedAnswers
         };
+    }
+
+    private static AnswerSignatureInfoViewModel BuildSignatureInfo(AnswerRecord answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer.Csp))
+        {
+            return new AnswerSignatureInfoViewModel
+            {
+                IsSigned = false,
+                IsValid = false,
+                Status = "Нет подписи"
+            };
+        }
+
+        var signatureBytes = TryDecodeBase64(answer.Csp);
+        if (signatureBytes.Length == 0)
+        {
+            return new AnswerSignatureInfoViewModel
+            {
+                IsSigned = true,
+                IsValid = null,
+                Status = "Проверка недоступна",
+                ValidationMessage = "Подпись сохранена, но её не удалось прочитать."
+            };
+        }
+
+        SignedCms signedCms;
+        try
+        {
+            signedCms = answer.SignedContent is { Length: > 0 }
+                ? new SignedCms(new ContentInfo(answer.SignedContent), detached: true)
+                : new SignedCms();
+            signedCms.Decode(signatureBytes);
+        }
+        catch (Exception exception) when (exception is CryptographicException or ArgumentException)
+        {
+            return new AnswerSignatureInfoViewModel
+            {
+                IsSigned = true,
+                IsValid = null,
+                Status = "Проверка недоступна",
+                ValidationMessage = $"Подпись сохранена, но её не удалось разобрать: {NormalizeExceptionMessage(exception)}"
+            };
+        }
+
+        var signerCertificate = ResolveSignerCertificate(signedCms);
+        var verification = VerifySignature(signedCms);
+
+        return new AnswerSignatureInfoViewModel
+        {
+            IsSigned = true,
+            IsValid = verification.IsValid,
+            Status = verification.Status,
+            SignedBy = GetSignerDisplayName(signerCertificate),
+            Subject = signerCertificate?.Subject ?? string.Empty,
+            Issuer = signerCertificate?.Issuer ?? string.Empty,
+            SerialNumber = signerCertificate?.SerialNumber ?? string.Empty,
+            Thumbprint = signerCertificate?.Thumbprint ?? string.Empty,
+            ValidFrom = FormatCertificateDate(signerCertificate?.NotBefore),
+            ValidTo = FormatCertificateDate(signerCertificate?.NotAfter),
+            ValidationMessage = verification.Message
+        };
+    }
+
+    private static byte[] TryDecodeBase64(string signature)
+    {
+        var normalized = string.Concat(signature.Where(character => !char.IsWhiteSpace(character)));
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return Array.Empty<byte>();
+        }
+
+        try
+        {
+            return Convert.FromBase64String(normalized);
+        }
+        catch (FormatException)
+        {
+            return Array.Empty<byte>();
+        }
+    }
+
+    private static X509Certificate2? ResolveSignerCertificate(SignedCms signedCms)
+    {
+        if (signedCms.SignerInfos.Count > 0)
+        {
+            var certificate = signedCms.SignerInfos[0].Certificate;
+            if (certificate != null)
+            {
+                return certificate;
+            }
+        }
+
+        return signedCms.Certificates.Count > 0
+            ? signedCms.Certificates[0]
+            : null;
+    }
+
+    private static (bool? IsValid, string Status, string Message) VerifySignature(SignedCms signedCms)
+    {
+        if (signedCms.SignerInfos.Count == 0)
+        {
+            return (null, "Проверка недоступна", "В подписи не найден подписант.");
+        }
+
+        try
+        {
+            signedCms.CheckSignature(verifySignatureOnly: true);
+            return (true, "Подпись корректна", "Подпись соответствует сохранённому содержимому.");
+        }
+        catch (Exception exception) when (IsUnsupportedSignatureVerification(exception))
+        {
+            return (null, "Проверка недоступна", NormalizeExceptionMessage(exception));
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            return (null, "Проверка недоступна", NormalizeExceptionMessage(exception));
+        }
+        catch (CryptographicException exception)
+        {
+            return (false, "Подпись некорректна", NormalizeExceptionMessage(exception));
+        }
+    }
+
+    private static bool IsUnsupportedSignatureVerification(Exception exception)
+    {
+        if (exception is PlatformNotSupportedException or NotSupportedException)
+        {
+            return true;
+        }
+
+        if (exception is not CryptographicException)
+        {
+            return false;
+        }
+
+        var message = exception.Message ?? string.Empty;
+        return message.Contains("algorithm", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("not supported", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("unsupported", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("не поддерж", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("алгоритм", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("содержим", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetSignerDisplayName(X509Certificate2? certificate)
+    {
+        if (certificate == null)
+        {
+            return "Не удалось определить";
+        }
+
+        var simpleName = certificate.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
+        if (!string.IsNullOrWhiteSpace(simpleName))
+        {
+            return simpleName.Trim();
+        }
+
+        var commonName = ExtractDistinguishedNameValue(certificate.Subject, "CN");
+        if (!string.IsNullOrWhiteSpace(commonName))
+        {
+            return commonName;
+        }
+
+        var surname = ExtractDistinguishedNameValue(certificate.Subject, "SURNAME");
+        var givenName = ExtractDistinguishedNameValue(certificate.Subject, "GIVENNAME");
+        var fullName = $"{surname} {givenName}".Trim();
+        return string.IsNullOrWhiteSpace(fullName)
+            ? "Не удалось определить"
+            : fullName;
+    }
+
+    private static string ExtractDistinguishedNameValue(string distinguishedName, string key)
+    {
+        foreach (var part in distinguishedName.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var prefix = $"{key}=";
+            if (part.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return part[prefix.Length..]
+                    .Replace("\\,", ",", StringComparison.Ordinal)
+                    .Trim();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string FormatCertificateDate(DateTime? value)
+    {
+        return value?.ToString("dd.MM.yyyy", CultureInfo.GetCultureInfo("ru-RU")) ?? string.Empty;
+    }
+
+    private static string NormalizeExceptionMessage(Exception exception)
+    {
+        return string.IsNullOrWhiteSpace(exception.Message)
+            ? "причина не указана"
+            : exception.Message.Trim();
     }
 
     private CheckAnswersPageViewModel? BuildCheckAnswersPage(int surveyId, int organizationId, IReadOnlyList<AnswerPayloadItem> answers)

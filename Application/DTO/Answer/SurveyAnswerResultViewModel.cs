@@ -19,4 +19,7 @@ public sealed class SurveyAnswerResultViewModel
     public bool IsSigned { get; init; }
 
     public string? Signature { get; init; }
+
+    [JsonPropertyName("signature_info")]
+    public AnswerSignatureInfoViewModel? SignatureInfo { get; init; }
 }

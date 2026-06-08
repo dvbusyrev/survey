@@ -46,10 +46,54 @@ window.AdminArchives = (function () {
     title.appendChild(nameLine);
   }
 
-  function createSignatureContent(isSigned) {
-    const signatureCellContent = document.createElement('span');
+  function appendSignatureLine(parent, labelText, valueText) {
+    const normalizedValue = String(valueText || '').trim();
+    if (!normalizedValue) {
+      return;
+    }
+
+    const line = document.createElement('div');
+    line.className = 'answers-modal__signature-line';
+
+    const label = document.createElement('span');
+    label.className = 'answers-modal__signature-line-label';
+    label.textContent = labelText;
+
+    const value = document.createElement('span');
+    value.className = 'answers-modal__signature-line-value';
+    value.textContent = normalizedValue;
+
+    line.appendChild(label);
+    line.appendChild(value);
+    parent.appendChild(line);
+  }
+
+  function createSignatureContent(answer) {
+    const signatureCellContent = document.createElement('div');
     signatureCellContent.className = 'answers-modal__signature-text';
-    signatureCellContent.textContent = isSigned ? 'Подписана' : 'Нет подписи';
+
+    const signatureInfo = answer?.signature_info || null;
+    const isSigned = Boolean(answer?.is_signed || signatureInfo?.is_signed);
+    if (!isSigned) {
+      signatureCellContent.textContent = 'Нет подписи';
+      return signatureCellContent;
+    }
+
+    appendSignatureLine(signatureCellContent, 'Статус', 'Подписана');
+    appendSignatureLine(signatureCellContent, 'Подписант', signatureInfo?.signed_by || 'Не удалось определить');
+    appendSignatureLine(signatureCellContent, 'Проверка', signatureInfo?.status || 'Проверка недоступна');
+
+    const validationMessage = String(signatureInfo?.validation_message || '').trim();
+    if (validationMessage && signatureInfo?.is_valid !== true) {
+      appendSignatureLine(signatureCellContent, 'Причина', validationMessage);
+    }
+
+    const validFrom = String(signatureInfo?.valid_from || '').trim();
+    const validTo = String(signatureInfo?.valid_to || '').trim();
+    if (validFrom || validTo) {
+      appendSignatureLine(signatureCellContent, 'Сертификат', `действует ${validFrom || 'не указано'} - ${validTo || 'не указано'}`);
+    }
+
     return signatureCellContent;
   }
 
@@ -63,7 +107,7 @@ window.AdminArchives = (function () {
     label.textContent = 'Подпись';
 
     block.appendChild(label);
-    block.appendChild(createSignatureContent(Boolean(firstAnswer?.is_signed)));
+    block.appendChild(createSignatureContent(firstAnswer));
     container.appendChild(block);
   }
 
