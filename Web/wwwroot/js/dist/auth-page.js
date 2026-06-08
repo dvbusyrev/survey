@@ -93,6 +93,17 @@
         }
       });
     });
+    form?.addEventListener("reset", (event) => {
+      event.preventDefault();
+      setSubmittingState(false);
+      if (usernameInput) {
+        usernameInput.value = "";
+      }
+      if (passwordInput) {
+        passwordInput.value = "";
+      }
+      setPasswordVisibility(false);
+    });
     form?.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!usernameInput || !passwordInput || isSubmitting) {
