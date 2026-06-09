@@ -96,7 +96,7 @@
 }
 
 .theme-settings-page__shade-row {
-  display: grid;
+  /*display: grid;*/
   grid-template-columns: minmax(8rem, 0.32fr) minmax(0, 1fr);
   gap: 1rem;
   align-items: center;

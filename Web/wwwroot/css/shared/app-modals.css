@@ -99,6 +99,7 @@
   max-height: none;
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden; 
 }
 
 :is(

@@ -79,19 +79,19 @@ window.AdminArchives = (function () {
       return signatureCellContent;
     }
 
-    appendSignatureLine(signatureCellContent, 'Статус', 'Подписана');
-    appendSignatureLine(signatureCellContent, 'Подписант', signatureInfo?.signed_by || 'Не удалось определить');
-    appendSignatureLine(signatureCellContent, 'Проверка', signatureInfo?.status || 'Проверка недоступна');
+    appendSignatureLine(signatureCellContent, 'Статус:', 'Подписана');
+    appendSignatureLine(signatureCellContent, 'Подписант:', signatureInfo?.signed_by || 'Не удалось определить');
+    // appendSignatureLine(signatureCellContent, 'Проверка', signatureInfo?.status || 'Проверка недоступна');
 
-    const validationMessage = String(signatureInfo?.validation_message || '').trim();
-    if (validationMessage && signatureInfo?.is_valid !== true) {
-      appendSignatureLine(signatureCellContent, 'Причина', validationMessage);
-    }
+    // const validationMessage = String(signatureInfo?.validation_message || '').trim();
+    // if (validationMessage && signatureInfo?.is_valid !== true) {
+    //   appendSignatureLine(signatureCellContent, 'Причина', validationMessage);
+    // }
 
     const validFrom = String(signatureInfo?.valid_from || '').trim();
     const validTo = String(signatureInfo?.valid_to || '').trim();
     if (validFrom || validTo) {
-      appendSignatureLine(signatureCellContent, 'Сертификат', `действует ${validFrom || 'не указано'} - ${validTo || 'не указано'}`);
+      appendSignatureLine(signatureCellContent, 'Сертификат:', `Действует ${validFrom || 'не указано'} - ${validTo || 'не указано'}`);
     }
 
     return signatureCellContent;

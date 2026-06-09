@@ -9,7 +9,7 @@
   margin: 0;
   color: var(--text-main);
   font-weight: 500;
-  text-align: right;
+  /*text-align: right;*/
 }
 
 input[type="checkbox"],
@@ -276,8 +276,8 @@ textarea.form-control {
 
 .app-native-date-field__button {
   position: absolute;
-  top: 50%;
-  left: var(--app-date-icon-left);
+  top: 13%;
+  left: 16%;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -290,7 +290,7 @@ textarea.form-control {
   border: 0;
   border-radius: 0.35rem;
   cursor: default;
-  transform: translateY(-50%);
+  /*transform: translateY(-50%);*/
 }
 
 .app-native-date-field__button i {
@@ -317,7 +317,7 @@ textarea.form-control {
   border: 0;
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-50%);
+  /*transform: translateY(-50%);*/
 }
 
 .app-date-field__input {
@@ -338,7 +338,7 @@ textarea.form-control {
   border: 0;
   border-radius: 0.35rem;
   cursor: default;
-  transform: translateY(-50%);
+  /*transform: translateY(-50%);*/
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 
