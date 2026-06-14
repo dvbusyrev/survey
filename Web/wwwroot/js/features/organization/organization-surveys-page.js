@@ -137,6 +137,36 @@
         updateAllOrganizationCheckboxes();
     }
 
+    function resetOrganizationSurveyAssignments() {
+        const pageRoot = getPageRoot();
+        if (!pageRoot) {
+            return false;
+        }
+
+        pageRoot.querySelectorAll('[data-select-all-organizations], [data-organization-checkbox], [data-survey-checkbox]')
+            .forEach((checkbox) => {
+                checkbox.checked = false;
+                checkbox.indeterminate = false;
+            });
+
+        const dateInput = document.getElementById('organizationSurveyDateEnd');
+        if (dateInput) {
+            if (window.AppDate?.setInputValue) {
+                window.AppDate.setInputValue(dateInput, '');
+            } else {
+                dateInput.value = '';
+            }
+
+            dateInput.classList.remove('invalid');
+            dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+            dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        updateAllOrganizationCheckboxes();
+        clearPageMessage();
+        return true;
+    }
+
     function collectAssignments() {
         return getSelectedSurveyRows().map((row) => ({
             organizationId: Number(row.dataset.organizationId || 0),
@@ -307,5 +337,6 @@
 
     updateAllOrganizationCheckboxes();
 
+    window.resetOrganizationSurveyAssignments = resetOrganizationSurveyAssignments;
     window.saveOrganizationSurveyEndDates = saveOrganizationSurveyEndDates;
 })();

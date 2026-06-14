@@ -1,5 +1,8 @@
 @{
     ViewData["Title"] = "Инструкции";
+    var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+    var isClient = !string.Equals(userRole, MainProject.Infrastructure.Security.AppRoles.Admin, System.StringComparison.OrdinalIgnoreCase);
+    ViewData["ClientSurveySection"] = "help";
 }
 
 @section PageStyles {
@@ -7,6 +10,11 @@
 }
 
 <div class="app-page help-page" id="default_content" data-page="help-page">
+    @if (isClient)
+    {
+        @await Html.PartialAsync("~/Web/Views/Survey/Partials/_ClientSurveySubnav.cshtml")
+    }
+
     @await Html.PartialAsync(
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel

@@ -49,7 +49,68 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
         openRequestId: 0
     };
 
+    const TOOLTIP_OFFSET_X = 12;
+    const TOOLTIP_OFFSET_Y = 14;
+    let rowTooltip = null;
+    let activeTooltipRow = null;
+    let latestTooltipX = 0;
+    let latestTooltipY = 0;
+    let tooltipFrameId = 0;
     let refreshPromise = null;
+
+    function ensureRowTooltip(label) {
+        if (!rowTooltip) {
+            rowTooltip = document.createElement('div');
+            rowTooltip.className = 'client-surveys-page__cursor-tooltip';
+            rowTooltip.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(rowTooltip);
+        }
+
+        rowTooltip.textContent = label || 'Смотреть';
+        return rowTooltip;
+    }
+
+    function applyRowTooltipPosition() {
+        tooltipFrameId = 0;
+        if (!activeTooltipRow || !rowTooltip) {
+            return;
+        }
+
+        rowTooltip.style.transform = `translate3d(${latestTooltipX + TOOLTIP_OFFSET_X}px, ${latestTooltipY + TOOLTIP_OFFSET_Y}px, 0)`;
+    }
+
+    function queueRowTooltipPosition(event) {
+        if (activeTooltipRow && !activeTooltipRow.isConnected) {
+            hideRowTooltip();
+            return;
+        }
+
+        latestTooltipX = event.clientX;
+        latestTooltipY = event.clientY;
+
+        if (!tooltipFrameId) {
+            tooltipFrameId = window.requestAnimationFrame(applyRowTooltipPosition);
+        }
+    }
+
+    function showRowTooltip(row, event) {
+        activeTooltipRow = row;
+        ensureRowTooltip(row.dataset.hoverLabel || 'Смотреть').classList.add('is-visible');
+        queueRowTooltipPosition(event);
+    }
+
+    function hideRowTooltip() {
+        activeTooltipRow = null;
+        if (tooltipFrameId) {
+            window.cancelAnimationFrame(tooltipFrameId);
+            tooltipFrameId = 0;
+        }
+
+        if (rowTooltip) {
+            rowTooltip.classList.remove('is-visible');
+            rowTooltip.style.transform = 'translate3d(-9999px, -9999px, 0)';
+        }
+    }
 
     function getContentRoot() {
         return contentHost.querySelector('[data-role="survey-user-content"]');
@@ -286,6 +347,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
             return;
         }
 
+        hideRowTooltip();
         contentHost.replaceChildren(snapshot.template.content.cloneNode(true));
         state.currentSnapshot = createSnapshotFromHost(contentHost) || snapshot;
         state.activeTab = state.currentSnapshot.activeTab;
@@ -513,6 +575,16 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
             return;
         }
 
+        const actionableRow = event.target.closest('[data-role="user-survey-row"][data-row-action]');
+        if (actionableRow && contentHost.contains(actionableRow) && !event.target.closest('button, a, input, select, textarea')) {
+            const surveyId = Number(actionableRow.dataset.surveyId || 0);
+            if (Number.isFinite(surveyId) && surveyId > 0) {
+                hideRowTooltip();
+                openSurveyById(surveyId);
+            }
+            return;
+        }
+
         const paginationButton = event.target.closest('[data-role="pagination-page"]');
         if (paginationButton && contentHost.contains(paginationButton)) {
             const targetPage = Number(paginationButton.dataset.page || 0);
@@ -537,10 +609,39 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
             return;
         }
 
+        if (row.dataset.rowAction) {
+            return;
+        }
+
         const surveyId = Number(row.dataset.surveyId || 0);
         if (Number.isFinite(surveyId) && surveyId > 0) {
             openSurveyById(surveyId);
         }
+    }
+
+    function handleMouseOver(event) {
+        const row = event.target.closest('[data-role="user-survey-row"][data-hover-label]');
+        if (!row || !contentHost.contains(row) || activeTooltipRow === row) {
+            return;
+        }
+
+        showRowTooltip(row, event);
+    }
+
+    function handleMouseMove(event) {
+        if (!activeTooltipRow) {
+            return;
+        }
+
+        queueRowTooltipPosition(event);
+    }
+
+    function handleMouseOut(event) {
+        if (!activeTooltipRow || activeTooltipRow.contains(event.relatedTarget)) {
+            return;
+        }
+
+        hideRowTooltip();
     }
 
     function handleSubmit(event) {
@@ -587,6 +688,9 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
 
     contentHost.addEventListener('click', handleClick);
     contentHost.addEventListener('dblclick', handleDoubleClick);
+    contentHost.addEventListener('mouseover', handleMouseOver);
+    contentHost.addEventListener('mousemove', handleMouseMove);
+    contentHost.addEventListener('mouseout', handleMouseOut);
     contentHost.addEventListener('submit', handleSubmit);
     contentHost.addEventListener('change', handleChange);
 

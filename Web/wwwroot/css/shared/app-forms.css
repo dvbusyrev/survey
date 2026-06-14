@@ -152,7 +152,7 @@ textarea.form-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--app-theme-detail-color, var(--text-main));
+  color: var(--app-theme-font-color, var(--text-main));
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -276,8 +276,8 @@ textarea.form-control {
 
 .app-native-date-field__button {
   position: absolute;
-  top: 13%;
-  left: 16%;
+  top: 15%;
+  left: 43%;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -333,7 +333,7 @@ textarea.form-control {
   width: var(--app-date-icon-size);
   height: var(--app-date-icon-size);
   padding: 0;
-  color: var(--text-main);
+  color: var(--app-theme-font-color, var(--text-main));
   background: transparent;
   border: 0;
   border-radius: 0.35rem;
@@ -352,7 +352,7 @@ textarea.form-control {
 
 .app-date-field__button:hover,
 .app-date-field__button:focus-visible {
-  color: var(--text-main);
+  color: var(--app-theme-font-color, var(--text-main));
   background: transparent;
   cursor: pointer;
   outline: none;
@@ -386,7 +386,7 @@ textarea.form-control {
 }
 
 .app-date-field:focus-within .app-date-field__button {
-  color: var(--text-main);
+  color: var(--app-theme-font-color, var(--text-main));
 }
 
 .app-date-field__calendar {

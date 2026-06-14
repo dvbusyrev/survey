@@ -27,9 +27,11 @@
     }
     host.innerHTML = "";
     const header = template.content.firstElementChild.cloneNode(true);
+    header.classList.toggle("app-header--client", !isAdmin);
     const modeLabel = header.querySelector(".header-mode-label");
     const role = header.querySelector(".header-user-name");
     const logoutButton = header.querySelector(".logout-button");
+    const menuToggle = header.querySelector(".header-menu-toggle");
     if (modeLabel) {
       modeLabel.textContent = isAdmin ? headerTopLine : "";
       modeLabel.hidden = !isAdmin;
@@ -49,6 +51,9 @@
           }
         }).catch((error) => console.error("Ошибка сети:", error));
       });
+    }
+    if (menuToggle && !isAdmin) {
+      menuToggle.hidden = true;
     }
     host.appendChild(header);
     return () => {
@@ -83,17 +88,21 @@
     function isMobileNavigationOpen() {
       return document.body.classList.contains(MOBILE_NAV_OPEN_CLASS);
     }
+    function hasNavigationHost() {
+      return Boolean(document.getElementById("chrome-navigation"));
+    }
     function syncMobileNavigationToggleButtons() {
       const isOpen = isMobileNavigationOpen();
       const isCompact = isMobileNavigationViewport();
+      const hasNavigation = hasNavigationHost();
       document.querySelectorAll(".header-menu-toggle").forEach((button) => {
         button.setAttribute("aria-expanded", isOpen ? "true" : "false");
         button.setAttribute("aria-label", isOpen ? "Закрыть навигацию" : "Открыть навигацию");
-        button.hidden = !isCompact;
+        button.hidden = !hasNavigation || !isCompact;
       });
     }
     function setMobileNavigationOpen(nextOpen) {
-      const shouldOpen = Boolean(nextOpen) && isMobileNavigationViewport();
+      const shouldOpen = Boolean(nextOpen) && hasNavigationHost() && isMobileNavigationViewport();
       document.body.classList.toggle(MOBILE_NAV_OPEN_CLASS, shouldOpen);
       syncMobileNavigationToggleButtons();
     }

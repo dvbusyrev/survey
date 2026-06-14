@@ -1,0 +1,39 @@
+@{
+    var activeSection = (ViewData["ClientSurveySection"] as string ?? "active").ToLowerInvariant();
+    var activeCountSource = ViewData["ClientSurveyActiveCount"];
+    var hasActiveCount = int.TryParse(System.Convert.ToString(activeCountSource), out var activeCount);
+    var activeSurveysActive = activeSection == "active";
+    var helpActive = activeSection == "help";
+    var archiveActive = activeSection == "archived";
+}
+
+<div class="menu-bar app-page__subnav client-surveys-page__subnav" role="tablist" aria-label="Разделы клиента">
+    <a href="/my-surveys"
+       class="menu-tab @(activeSurveysActive ? "active-tab" : string.Empty)"
+       role="tab"
+       aria-selected="@(activeSurveysActive ? "true" : "false")"
+       data-role="tab-active">
+        <i class="fas fa-clipboard" aria-hidden="true"></i>
+        <span>Доступные анкеты</span>
+        @if (hasActiveCount)
+        {
+            <span class="count-badge" data-role="active-count">@activeCount</span>
+        }
+    </a>
+    <a href="/my-surveys/archive"
+       class="menu-tab @(archiveActive ? "active-tab" : string.Empty)"
+       role="tab"
+       aria-selected="@(archiveActive ? "true" : "false")"
+       data-role="tab-archived">
+        <i class="fas fa-box-archive" aria-hidden="true"></i>
+        <span>Архив анкет</span>
+    </a>
+    <a href="/help"
+       class="menu-tab client-surveys-page__subnav-help @(helpActive ? "active-tab" : string.Empty)"
+       role="tab"
+       aria-selected="@(helpActive ? "true" : "false")"
+       data-role="tab-help">
+        <i class="fas fa-question" aria-hidden="true"></i>
+        <span>Справка</span>
+    </a>
+</div>

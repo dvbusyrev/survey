@@ -25,18 +25,23 @@ function isMobileNavigationOpen() {
     return document.body.classList.contains(MOBILE_NAV_OPEN_CLASS);
 }
 
+function hasNavigationHost() {
+    return Boolean(document.getElementById('chrome-navigation'));
+}
+
 function syncMobileNavigationToggleButtons() {
     const isOpen = isMobileNavigationOpen();
     const isCompact = isMobileNavigationViewport();
+    const hasNavigation = hasNavigationHost();
     document.querySelectorAll('.header-menu-toggle').forEach((button) => {
         button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         button.setAttribute('aria-label', isOpen ? 'Закрыть навигацию' : 'Открыть навигацию');
-        button.hidden = !isCompact;
+        button.hidden = !hasNavigation || !isCompact;
     });
 }
 
 function setMobileNavigationOpen(nextOpen) {
-    const shouldOpen = Boolean(nextOpen) && isMobileNavigationViewport();
+    const shouldOpen = Boolean(nextOpen) && hasNavigationHost() && isMobileNavigationViewport();
     document.body.classList.toggle(MOBILE_NAV_OPEN_CLASS, shouldOpen);
     syncMobileNavigationToggleButtons();
 }

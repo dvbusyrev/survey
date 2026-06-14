@@ -114,6 +114,14 @@ option,
   padding: 0 var(--page-gap) var(--page-gap);
 }
 
+.admin-container.app-client-container {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-header--client .header-menu-toggle {
+  display: none;
+}
+
 #chrome-navigation,
 #content_admin,
 #content_user,

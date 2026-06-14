@@ -3,6 +3,7 @@
 @{
     var surveys = Model?.Surveys ?? Array.Empty<MainProject.Domain.Entities.Survey>();
     var isArchive = Model?.IsArchive ?? false;
+    var columnCount = isArchive ? 4 : 2;
 
     string FormatDate(DateTime? date)
     {
@@ -19,17 +20,19 @@
     <thead>
         <tr class="table_tr">
             <th class="table-th--start">Название</th>
-            <th>Период</th>
-            <th>Статус</th>
-            <th>Подпись</th>
-            <th class="table-th--end table-col--actions">Действия</th>
+            <th class="@(isArchive ? string.Empty : "table-th--end")">Период</th>
+            @if (isArchive)
+            {
+                <th>Статус</th>
+                <th class="table-th--end">Подпись</th>
+            }
         </tr>
     </thead>
     <tbody data-role="survey-table-body">
         @if (surveys.Count == 0)
         {
             <tr data-role="user-survey-empty-row">
-                <td colspan="5" class="table-empty-cell">Анкеты не найдены.</td>
+                <td colspan="@columnCount" class="table-empty-cell">Анкеты не найдены.</td>
             </tr>
         }
         else
@@ -47,10 +50,12 @@
                 var statusText = isArchive
                     ? $"Заполнена: {FormatDate(survey.CompletionDate)}"
                     : "Не заполнена";
-                var rowClass = isArchive ? "client-surveys-table__row" : "client-surveys-table__row client-surveys-table__row--pending";
+                var rowClass = isArchive ? "client-surveys-table__row client-surveys-table__row--viewable" : "client-surveys-table__row client-surveys-table__row--fillable";
 
                 <tr class="@rowClass"
                     data-role="user-survey-row"
+                    data-row-action="@(isArchive ? "view" : "fill")"
+                    data-hover-label="@(isArchive ? "Смотреть" : "Заполнить")"
                     data-survey-id="@survey.IdSurvey"
                     data-survey-name="@(string.IsNullOrWhiteSpace(survey.NameSurvey) ? "Без названия" : survey.NameSurvey)"
                     data-survey-date-begin="@FormatIsoDate(survey.DateBegin)"
@@ -60,26 +65,17 @@
                     data-filter-year="@filterYear">
                     <td>@(string.IsNullOrWhiteSpace(survey.NameSurvey) ? "Без названия" : survey.NameSurvey)</td>
                     <td>@FormatDate(survey.DateBegin) - @FormatDate(survey.DateEnd)</td>
-                    <td class="@(isArchive ? string.Empty : "client-surveys-table__status--pending")">@statusText</td>
-                    <td class="@(string.Equals(signatureText, "Подписана", StringComparison.Ordinal) ? "client-surveys-table__signature--signed" : "client-surveys-table__signature--unsigned")">
-                        @signatureText
-                    </td>
-                    <td class="action-icons table-col--actions">
-                        <div class="action-icons__content">
-                            <button type="button"
-                                    class="icon-container"
-                                    data-role="action"
-                                    data-survey-id="@survey.IdSurvey"
-                                    aria-label="Просмотр">
-                                <span aria-hidden="true"><i class="fas fa-eye"></i></span>
-                                <span class="icon-tooltip">Просмотр</span>
-                            </button>
-                        </div>
-                    </td>
+                    @if (isArchive)
+                    {
+                        <td>@statusText</td>
+                        <td class="@(string.Equals(signatureText, "Подписана", StringComparison.Ordinal) ? "client-surveys-table__signature--signed" : "client-surveys-table__signature--unsigned")">
+                            @signatureText
+                        </td>
+                    }
                 </tr>
             }
             <tr data-role="survey-filter-empty-row" class="is-hidden">
-                <td colspan="5" class="table-empty-cell">Результаты не найдены.</td>
+                <td colspan="@columnCount" class="table-empty-cell">Результаты не найдены.</td>
             </tr>
         }
     </tbody>

@@ -83,6 +83,18 @@
   transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
+.menu-tab i {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  min-width: 1rem;
+  color: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
 .menu-tab:hover {
   color: var(--text-main);
   text-decoration: none;
@@ -115,6 +127,34 @@
   border: 2px solid white;
   border-radius: 9999px;
   animation: pulse 2s infinite;
+}
+
+.client-surveys-page__subnav-help {
+  margin-left: auto;
+}
+
+.client-surveys-page__subnav .menu-tab {
+  position: relative;
+}
+
+.client-surveys-page__subnav [data-role="tab-active"] {
+  padding-right: calc(1.4rem + 0.85rem);
+}
+
+.client-surveys-page__subnav .count-badge {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  display: inline-flex;
+  min-width: 1.1rem;
+  min-height: 1.1rem;
+  padding: 0.12rem;
+  margin-left: 0;
+  font-size: 0.55rem;
+  line-height: 1;
+  border-width: 0;
+  transform: translateY(-50%);
+  animation: none;
 }
 
 .filter-sort input[type="text"] {
@@ -676,7 +716,7 @@
   max-width: min(260px, 80vw);
   display: block;
   padding: 10px 14px;
-  color: #334155;
+  color: var(--text-main);
   font-size: 0.85rem;
   font-weight: 500;
   text-align: center;
@@ -695,7 +735,7 @@
 
 .icon-tooltip,
 .icon-tooltip * {
-  color: #334155 !important;
+  color: var(--text-main);
 }
 
 .icon-tooltip::after {

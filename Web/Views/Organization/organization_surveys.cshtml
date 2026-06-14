@@ -1,7 +1,7 @@
 ﻿@model MainProject.Web.ViewModels.OrganizationSurveyAssignmentsPageViewModel
 
 @{
-    ViewData["Title"] = "Анкеты организаций";
+    ViewData["Title"] = "Продление анкет";
     ViewData["OrganizationSection"] = "surveys";
     var organizations = Model?.Organizations ?? Array.Empty<MainProject.Web.ViewModels.OrganizationSurveyGroupViewModel>();
 }
@@ -16,13 +16,90 @@
         "~/Web/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
         {
-            // Title = "Анкеты организаций",
+            // Title = "Продление анкет",
             Description = "Выберите организации и нужные анкеты, задайте новую дату конца и сохраните изменения. Чекбокс организации выделяет все анкеты внутри секции."
         })
 
-    <div class="organization-toolbar app-page__toolbar organization-surveys-page__toolbar">
-        <div class="organization-surveys-page__actions">
-            <div class="organization-surveys-page__date-field">
+    <section class="app-page__section organization-surveys-page__content-section">
+        <div class="organization-surveys-page__field-title">Анкеты организаций</div>
+
+        <label class="organization-surveys-page__select-all-toggle">
+            <input
+                id="organizationSurveySelectAllOrganizations"
+                type="checkbox"
+                class="app-checkbox-input organization-surveys-page__select-all-checkbox"
+                data-select-all-organizations
+                @(organizations.Any(item => item.Surveys.Count > 0) ? null : "disabled") />
+            <span class="organization-surveys-page__select-all-label">Выбрать все организации</span>
+        </label>
+
+        @if (organizations.Count == 0)
+        {
+            <div class="organization-surveys-page__empty-state">
+                <p class="organization-surveys-page__empty-text">Для активных организаций пока не назначены анкеты.</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var organization in organizations)
+            {
+                var hasSurveys = organization.Surveys.Count > 0;
+
+                <div class="organization-surveys-page__group"
+                     data-organization-group
+                     data-organization-id="@organization.OrganizationId">
+                    <div class="organization-surveys-page__group-header">
+                        <label class="organization-surveys-page__organization-toggle">
+                            <input
+                                type="checkbox"
+                                class="app-checkbox-input organization-surveys-page__organization-checkbox"
+                                data-organization-checkbox
+                                @(hasSurveys ? null : "disabled") />
+                            <span class="organization-surveys-page__organization-name">@organization.OrganizationName</span>
+                        </label>
+                    </div>
+
+                    @if (!hasSurveys)
+                    {
+                        <p class="organization-surveys-page__group-empty">У этой организации нет назначенных анкет.</p>
+                    }
+                    else
+                    {
+                        <div class="organization-surveys-page__survey-list">
+                            @foreach (var survey in organization.Surveys)
+                            {
+                                <label class="organization-surveys-page__survey-row @(survey.IsExpired ? "organization-surveys-page__survey-row--expired" : string.Empty)"
+                                       data-survey-row
+                                       data-organization-id="@organization.OrganizationId"
+                                       data-survey-id="@survey.SurveyId"
+                                       data-base-end-date="@survey.BaseEndDateIso"
+                                       data-effective-end-date="@survey.EffectiveEndDateIso">
+                                    <span class="organization-surveys-page__survey-main">
+                                        <input
+                                            type="checkbox"
+                                            class="app-checkbox-input organization-surveys-page__survey-checkbox"
+                                            data-survey-checkbox />
+                                        <span class="organization-surveys-page__survey-name">@survey.SurveyName</span>
+                                    </span>
+
+                                    <span class="organization-surveys-page__survey-meta">
+                                        <span class="organization-surveys-page__survey-date" data-role="end-date">
+                                            Дата конца: @survey.EffectiveEndDateDisplay
+                                        </span>
+                                        <span class="organization-surveys-page__survey-remaining" data-role="remaining">
+                                            @survey.RemainingText
+                                        </span>
+                                    </span>
+                                </label>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        <div class="organization-surveys-page__bottom-controls">
+            <div class="form-group organization-surveys-page__date-field">
                 <label for="organizationSurveyDateEnd">Дата конца</label>
                 <input
                     id="organizationSurveyDateEnd"
@@ -34,90 +111,24 @@
                     min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" />
             </div>
 
-            <button
-                id="organizationSurveySaveButton"
-                type="button"
-                class="modal_btn modal_btn-primary"
-                data-click-call="saveOrganizationSurveyEndDates">
-                Сохранить
-            </button>
+            <div class="organization-surveys-page__actions">
+                <button
+                    id="organizationSurveyResetButton"
+                    type="button"
+                    class="modal_btn modal_btn-secondary"
+                    data-click-call="resetOrganizationSurveyAssignments">
+                    Сброс
+                </button>
+                <button
+                    id="organizationSurveySaveButton"
+                    type="button"
+                    class="modal_btn modal_btn-primary"
+                    data-click-call="saveOrganizationSurveyEndDates">
+                    Сохранить
+                </button>
+            </div>
         </div>
-    </div>
-
-    <label class="organization-surveys-page__select-all-toggle">
-        <input
-            id="organizationSurveySelectAllOrganizations"
-            type="checkbox"
-            class="app-checkbox-input organization-surveys-page__select-all-checkbox"
-            data-select-all-organizations
-            @(organizations.Any(item => item.Surveys.Count > 0) ? null : "disabled") />
-        <span class="organization-surveys-page__select-all-label">Выбрать все организации</span>
-    </label>
-    
-    @if (organizations.Count == 0)
-    {
-        <section class="app-page__section organization-surveys-page__empty-state">
-            <p class="organization-surveys-page__empty-text">Для активных организаций пока не назначены анкеты.</p>
-        </section>
-    }
-    else
-    {
-        @foreach (var organization in organizations)
-        {
-            var hasSurveys = organization.Surveys.Count > 0;
-
-            <section class="app-page__section organization-surveys-page__group"
-                     data-organization-group
-                     data-organization-id="@organization.OrganizationId">
-                <div class="organization-surveys-page__group-header">
-                    <label class="organization-surveys-page__organization-toggle">
-                        <input
-                            type="checkbox"
-                            class="app-checkbox-input organization-surveys-page__organization-checkbox"
-                            data-organization-checkbox
-                            @(hasSurveys ? null : "disabled") />
-                        <span class="organization-surveys-page__organization-name">@organization.OrganizationName</span>
-                    </label>
-                </div>
-
-                @if (!hasSurveys)
-                {
-                    <p class="organization-surveys-page__group-empty">У этой организации нет назначенных анкет.</p>
-                }
-                else
-                {
-                    <div class="organization-surveys-page__survey-list">
-                        @foreach (var survey in organization.Surveys)
-                        {
-                            <label class="organization-surveys-page__survey-row @(survey.IsExpired ? "organization-surveys-page__survey-row--expired" : string.Empty)"
-                                   data-survey-row
-                                   data-organization-id="@organization.OrganizationId"
-                                   data-survey-id="@survey.SurveyId"
-                                   data-base-end-date="@survey.BaseEndDateIso"
-                                   data-effective-end-date="@survey.EffectiveEndDateIso">
-                                <span class="organization-surveys-page__survey-main">
-                                    <input
-                                        type="checkbox"
-                                        class="app-checkbox-input organization-surveys-page__survey-checkbox"
-                                        data-survey-checkbox />
-                                    <span class="organization-surveys-page__survey-name">@survey.SurveyName</span>
-                                </span>
-
-                                <span class="organization-surveys-page__survey-meta">
-                                    <span class="organization-surveys-page__survey-date" data-role="end-date">
-                                        Дата конца: @survey.EffectiveEndDateDisplay
-                                    </span>
-                                    <span class="organization-surveys-page__survey-remaining" data-role="remaining">
-                                        @survey.RemainingText
-                                    </span>
-                                </span>
-                            </label>
-                        }
-                    </div>
-                }
-            </section>
-        }
-    }
+    </section>
 </div>
 
 @section Scripts {

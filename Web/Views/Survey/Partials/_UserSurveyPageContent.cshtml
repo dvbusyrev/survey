@@ -5,6 +5,8 @@
     var pageModel = Model ?? new MainProject.Web.ViewModels.UserSurveyPageContentViewModel();
     var surveysJson = JsonSerializer.Serialize(pageModel.Surveys);
     var paginationModel = pageModel.Pagination;
+    ViewData["ClientSurveySection"] = pageModel.IsArchive ? "archived" : "active";
+    ViewData["ClientSurveyActiveCount"] = pageModel.ActiveCount;
 }
 
 <div class="client-surveys-page__content"
@@ -15,23 +17,7 @@
      data-total-count="@(pageModel.IsArchive ? pageModel.ArchivedCount : pageModel.ActiveCount)"
      data-search-term="@pageModel.SearchTerm"
      data-signed-only="@(pageModel.SignedOnly ? "true" : "false")">
-    <div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы анкет клиента">
-        <a href="/my-surveys"
-           class="menu-tab @(pageModel.IsArchive ? string.Empty : "active-tab")"
-           role="tab"
-           aria-selected="@(pageModel.IsArchive ? "false" : "true")"
-           data-role="tab-active">
-            Доступные анкеты
-            <span class="count-badge" data-role="active-count">@pageModel.ActiveCount</span>
-        </a>
-        <a href="/my-surveys/archive"
-           class="menu-tab @(pageModel.IsArchive ? "active-tab" : string.Empty)"
-           role="tab"
-           aria-selected="@(pageModel.IsArchive ? "true" : "false")"
-           data-role="tab-archived">
-            Архив анкет
-        </a>
-    </div>
+    @await Html.PartialAsync("~/Web/Views/Survey/Partials/_ClientSurveySubnav.cshtml")
 
     <header class="app-page__intro">
         <p class="app-page__description" data-role="subtitle">@pageModel.Description</p>
@@ -43,12 +29,13 @@
     @*     </div> *@
     @* </section> *@
 
-    <section class="app-page__section">
+    @if (pageModel.IsArchive)
+    {
         <div class="app-page__toolbar survey-list-toolbar client-surveys-page__filter-toolbar">
             @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyDateFilter.cshtml")
             @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyNameFilter.cshtml")
         </div>
-    </section>
+    }
 
     <section class="app-page__section u-hidden" data-role="loading">
         <div class="loading">Загрузка анкет...</div>

@@ -153,6 +153,7 @@
                 const displayName = (contextNode && contextNode.dataset.displayName) || '';
                 const userName = (contextNode && contextNode.dataset.userName) || '';
                 const organizationName = (contextNode && contextNode.dataset.organizationName) || '';
+                const isAdmin = String(userRole || '').trim().toLowerCase() === 'admin';
 
                 const existingContentHost = document.getElementById('content_admin');
                 const insertParent = existingContentHost ? existingContentHost.parentNode : contentNode.parentNode;
@@ -169,11 +170,14 @@
                 pageContainer.appendChild(headerHost);
 
                 const adminContainer = document.createElement('div');
-                adminContainer.className = 'admin-container';
+                adminContainer.className = isAdmin ? 'admin-container' : 'admin-container app-client-container';
 
-                const navHost = document.createElement('div');
-                navHost.id = 'chrome-navigation';
-                adminContainer.appendChild(navHost);
+                let navHost = null;
+                if (isAdmin) {
+                    navHost = document.createElement('div');
+                    navHost.id = 'chrome-navigation';
+                    adminContainer.appendChild(navHost);
+                }
 
                 insertParent.insertBefore(pageContainer, insertBeforeNode);
 
@@ -192,7 +196,9 @@
                 pageContainer.appendChild(footerHost);
 
                 window.mountHeader(headerHost, { userRole, userId, displayName, userName, organizationName });
-                window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole, userId });
+                if (isAdmin && navHost) {
+                    window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole, userId });
+                }
                 window.mountFooter(footerHost);
                 if (typeof window.reapplyCurrentThemeSettings === 'function') {
                     window.reapplyCurrentThemeSettings();

@@ -594,7 +594,7 @@ a[role="button"]:active,
 .field-icon-container:hover,
 .input-container:focus-within .field-icon-container,
 .input-container:focus-within .field-icon-container i {
-  color: var(--app-theme-detail-color);
+  color: var(--app-theme-font-color);
 }
 
 .field-icon-container i {

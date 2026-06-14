@@ -37,9 +37,11 @@ function renderHeader(host, { userRole, displayName, userName, organizationName 
 
     host.innerHTML = '';
     const header = template.content.firstElementChild.cloneNode(true);
+    header.classList.toggle('app-header--client', !isAdmin);
     const modeLabel = header.querySelector('.header-mode-label');
     const role = header.querySelector('.header-user-name');
     const logoutButton = header.querySelector('.logout-button');
+    const menuToggle = header.querySelector('.header-menu-toggle');
 
     if (modeLabel) {
         modeLabel.textContent = isAdmin ? headerTopLine : '';
@@ -62,6 +64,9 @@ function renderHeader(host, { userRole, displayName, userName, organizationName 
                 })
                 .catch(error => console.error('Ошибка сети:', error));
         });
+    }
+    if (menuToggle && !isAdmin) {
+        menuToggle.hidden = true;
     }
 
     host.appendChild(header);
