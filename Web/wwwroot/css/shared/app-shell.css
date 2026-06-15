@@ -495,11 +495,6 @@ nav ul li.submenu-open > .submenu-list {
     display: inline-flex;
   }
 
-  .header-left img {
-    width: 44px;
-    max-height: 30px;
-  }
-
   .app-header h1 {
     width: 100%;
     font-size: 0.9rem;
@@ -580,11 +575,6 @@ body.compact-nav-mode .app-header {
 
 body.compact-nav-mode .header-menu-toggle {
   display: inline-flex;
-}
-
-body.compact-nav-mode .header-left img {
-  width: 44px;
-  max-height: 30px;
 }
 
 body.compact-nav-mode .app-header h1 {
