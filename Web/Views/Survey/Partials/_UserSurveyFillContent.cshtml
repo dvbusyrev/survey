@@ -17,8 +17,6 @@
         <h1 class="app-page__title">@(!string.IsNullOrWhiteSpace(survey.NameSurvey) ? survey.NameSurvey : "Анкета")</h1>
         <p class="app-page__description">@description</p>
     </header>
-
-    <section class="app-page__section">
         <div class="error-message u-hidden" data-role="error">
             <span data-role="error-text"></span>
         </div>
@@ -49,14 +47,10 @@
                 </section>
             }
         </div>
-    </section>
-
-    <section class="app-page__section">
         <div class="button-container">
             <button type="button" class="modal_btn modal_btn-primary" data-role="submit">
                 <span data-role="submit-label">Отправить ответы</span>
             </button>
             <button type="button" class="modal_btn modal_btn-secondary" data-role="cancel-btn">Отмена</button>
         </div>
-    </section>
 </div>

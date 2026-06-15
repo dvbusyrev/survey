@@ -116,6 +116,7 @@ option,
 
 .admin-container.app-client-container {
   grid-template-columns: minmax(0, 1fr);
+  padding: 0 11rem var(--page-gap);
 }
 
 .app-header--client .header-menu-toggle {
