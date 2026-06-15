@@ -8,4 +8,5 @@ public sealed class UserSurveyFillContentViewModel
     public Survey Survey { get; init; } = new();
     public int OrganizationId { get; init; }
     public IReadOnlyList<SurveyQuestionItem> Questions { get; init; } = Array.Empty<SurveyQuestionItem>();
+    public AnswerRecord? DraftAnswer { get; init; }
 }

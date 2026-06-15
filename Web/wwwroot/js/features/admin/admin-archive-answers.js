@@ -31,19 +31,49 @@ window.AdminArchives = (function () {
     return content;
   }
 
-  function renderModalTitle(title, surveyName) {
+  function renderModalTitle(title) {
     clearNode(title);
 
     const mainLine = document.createElement('span');
     mainLine.className = 'answers-modal__title-main';
     mainLine.textContent = 'Просмотр анкеты';
 
-    const nameLine = document.createElement('span');
-    nameLine.className = 'answers-modal__title-name';
-    nameLine.textContent = surveyName || 'Без названия';
-
     title.appendChild(mainLine);
-    title.appendChild(nameLine);
+  }
+
+  function createInfoContent(value, emptyText) {
+    const content = document.createElement('div');
+    content.className = 'answers-modal__info-text';
+    const normalizedValue = String(value || '').trim();
+    content.textContent = normalizedValue || emptyText;
+    return content;
+  }
+
+  function renderInfoBlock(labelText, contentNode, container) {
+    const block = document.createElement('div');
+    block.className = 'answers-modal__info-block';
+
+    const label = document.createElement('div');
+    label.className = 'answers-modal__field-label';
+    label.textContent = labelText;
+
+    block.appendChild(label);
+    block.appendChild(contentNode);
+    container.appendChild(block);
+  }
+
+  function renderNameBlock(survey, container) {
+    renderInfoBlock('Название', createInfoContent(survey?.name, 'Без названия'), container);
+  }
+
+  function renderDescriptionBlock(survey, container) {
+    renderInfoBlock('Описание', createInfoContent(survey?.description, 'Описание не указано'), container);
+  }
+
+  function renderStatusBlock(answers, container) {
+    const hasAnswers = Array.isArray(answers)
+      && answers.some(answer => Array.isArray(answer?.answers) && answer.answers.length > 0);
+    renderInfoBlock('Статус', createInfoContent(hasAnswers ? 'Пройдена' : 'Не пройдена', 'Не пройдена'), container);
   }
 
   function appendSignatureLine(parent, labelText, valueText) {
@@ -126,8 +156,11 @@ window.AdminArchives = (function () {
   }
 
   function renderAnswers(data, isArchive, container, title) {
-    renderModalTitle(title, data.survey.name);
+    renderModalTitle(title);
     clearNode(container);
+    renderNameBlock(data.survey, container);
+    renderDescriptionBlock(data.survey, container);
+    renderStatusBlock(data.answers, container);
     renderDateBlock(data.answers, container);
     renderSignatureBlock(data.answers, container);
 

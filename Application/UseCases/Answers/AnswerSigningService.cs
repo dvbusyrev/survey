@@ -77,6 +77,71 @@ public sealed class AnswerSigningService : IAnswerSigningService
         return false;
     }
 
+    public AnswerSigningPayload GetDraftSigningData(int surveyId, int organizationId)
+    {
+        var survey = _answerDataService.GetSurveyInfo(surveyId)
+            ?? throw new InvalidOperationException("Анкета для подписи не найдена.");
+        var draftRecord = _answerDataService.GetDraftRecord(surveyId, organizationId);
+        if (draftRecord == null || draftRecord.Answers.Count == 0)
+        {
+            throw new InvalidOperationException("Черновик не содержит ответов для подписи.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(draftRecord.Csp))
+        {
+            throw new AnswerAlreadySignedException();
+        }
+
+        draftRecord.CompletionDate ??= DateTime.Now;
+        var pdfBytes = AnswerPdfDocumentBuilder.BuildPdfContent(survey, new[] { draftRecord });
+        return new AnswerSigningPayload
+        {
+            Content = Convert.ToBase64String(pdfBytes),
+            ContentEncoding = "base64",
+            Detached = true,
+            FileName = $"{survey.NameSurvey ?? "Анкета"}_{surveyId.ToString(CultureInfo.InvariantCulture)}_draft.pdf"
+        };
+    }
+
+    public bool SaveDraftSignature(int surveyId, int organizationId, AnswerSignatureSaveRequest request)
+    {
+        var signature = NormalizeBase64Payload(request.Signature);
+        if (string.IsNullOrWhiteSpace(signature))
+        {
+            throw new ArgumentException("Подпись не может быть пустой.", nameof(request));
+        }
+
+        byte[]? signedContent = null;
+        if (request.Detached && string.Equals(request.ContentEncoding, "base64", StringComparison.OrdinalIgnoreCase))
+        {
+            signedContent = DecodeBase64Payload(request.SignedContent, "подписанный PDF");
+        }
+
+        var draftRecord = _answerDataService.GetDraftRecord(surveyId, organizationId);
+        if (draftRecord == null || draftRecord.Answers.Count == 0)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(draftRecord.Csp))
+        {
+            throw new AnswerAlreadySignedException();
+        }
+
+        if (_answerDataService.UpdateDraftSignature(surveyId, organizationId, signature, signedContent))
+        {
+            return true;
+        }
+
+        var updatedDraftRecord = _answerDataService.GetDraftRecord(surveyId, organizationId);
+        if (!string.IsNullOrWhiteSpace(updatedDraftRecord?.Csp))
+        {
+            throw new AnswerAlreadySignedException();
+        }
+
+        return false;
+    }
+
     private static string NormalizeBase64Payload(string? payload)
     {
         if (string.IsNullOrWhiteSpace(payload))

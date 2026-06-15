@@ -27,6 +27,7 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 022_store_signed_answer_content.sql", script);
         Assert.Contains(@"\ir 023_add_theme_config.sql", script);
         Assert.Contains(@"\ir 024_add_theme_palette_controls.sql", script);
+        Assert.Contains(@"\ir 025_add_answer_drafts.sql", script);
     }
 
     [Fact]
@@ -286,6 +287,20 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("button_strong_darken_percent", script);
         Assert.Contains("surface_tint_opacity_percent", script);
         Assert.Contains("VALUES ('024', 'add_theme_palette_controls')", script);
+    }
+
+    [Fact]
+    public void AnswerDraftMigration_CreatesDraftStorage()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "025_add_answer_drafts.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.answer_draft", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.answer_draft_item", script);
+        Assert.Contains("id_organization_survey integer NOT NULL", script);
+        Assert.Contains("signed_content bytea", script);
+        Assert.Contains("UNIQUE (id_organization_survey)", script);
+        Assert.Contains("UNIQUE (id_answer_draft, question_order)", script);
+        Assert.Contains("VALUES ('025', 'add_answer_drafts')", script);
     }
 
     private static string GetRepositoryRoot()

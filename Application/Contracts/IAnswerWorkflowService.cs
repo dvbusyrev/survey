@@ -8,6 +8,8 @@ public interface IAnswerWorkflowService
 {
     AnswerMutationResult InsertAnswer(AnswerRecord answerRecord);
     AnswerMutationResult UpdateAnswer(AnswerRecord answerRecord);
+    AnswerMutationResult SaveDraftAnswer(AnswerRecord answerRecord);
+    AnswerRecord? GetDraftAnswer(int surveyId, int organizationId);
     UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int organizationId);
     SurveyAnswersResponse GetAnswersResponse(int surveyId, int organizationId, string? type, bool includeAllOrganizationAnswers);
 }

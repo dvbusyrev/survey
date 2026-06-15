@@ -58,6 +58,7 @@ select.form-control,
 .reports-page__quarter-select,
 .help-page__select {
   cursor: pointer;
+  font-weight: 400;
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -81,6 +82,7 @@ select.form-control option,
 .reports-page__quarter-select option,
 .help-page__select option {
   color: var(--text-main);
+  font-weight: 400;
   background: white;
 }
 
@@ -657,6 +659,7 @@ a.btn:focus,
   align-items: center;
   justify-content: space-between;
   gap: 0.625rem;
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
   max-width: 100%;
@@ -702,6 +705,7 @@ a[role="button"]:focus-visible {
 
 .app-checkbox-dropdown__trigger span {
   min-width: 0;
+  font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -819,6 +823,7 @@ a[role="button"]:focus-visible {
   gap: 8px;
   padding: 0.55rem 0.65rem;
   font-size: 0.84rem;
+  font-weight: 400;
   background: rgba(248, 250, 252, 0.98);
   border: 1px solid rgba(203, 213, 225, 0.92);
   border-radius: 10px;
@@ -844,7 +849,7 @@ a[role="button"]:focus-visible {
   margin: 0;
   color: var(--text-main);
   font-size: inherit;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.4;
   text-align: left;
   overflow-wrap: anywhere;

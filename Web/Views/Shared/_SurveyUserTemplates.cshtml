@@ -5,12 +5,16 @@
 </template>
 
 <template id="survey-user-modal-template">
-  <div class="modal" aria-hidden="true">
-    <div class="modal-content">
-      <button type="button" class="modal-close" data-role="close-btn">
-        <i class="fas fa-xmark"></i>
-      </button>
-      <div class="modal-body" data-role="body"></div>
+  <div class="modal user-survey-modal" aria-hidden="true">
+    <div class="modal-content user-survey-modal__content">
+      <div class="modal-header user-survey-modal__header">
+        <h2 class="h2_modal user-survey-modal__title" data-role="title"></h2>
+        <button type="button" class="modal-close" data-role="close-btn">
+          <i class="fas fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body user-survey-modal__body" data-role="body"></div>
+      <div class="modal-footer user-survey-modal__footer" data-role="footer"></div>
     </div>
   </div>
 </template>

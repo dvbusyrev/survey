@@ -87,6 +87,46 @@ public class AnswerWorkflowController : Controller
         }
     }
 
+    [HttpPost("answers/draft")]
+    public IActionResult SaveDraftAnswer([FromBody] AnswerRecord answerData)
+    {
+        if (answerData == null)
+        {
+            return BadRequest(new OperationResponse { Error = "Данные черновика отсутствуют." });
+        }
+
+        var accessResult = EnsureAnswerSubmissionAccess(answerData.IdSurvey, answerData.OrganizationId);
+        if (accessResult != null)
+        {
+            return accessResult;
+        }
+
+        try
+        {
+            var result = _answerWorkflowService.SaveDraftAnswer(answerData);
+            if (!result.Success)
+            {
+                if (result.NotFound)
+                {
+                    return NotFound(new OperationResponse { Error = result.Error });
+                }
+
+                return BadRequest(new OperationResponse { Error = result.Error });
+            }
+
+            return Ok(new OperationResponse
+            {
+                Success = true,
+                Message = "Черновик сохранён."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при сохранении черновика ответа");
+            return StatusCode(500, new OperationResponse { Error = $"Ошибка при сохранении черновика: {ex.Message}" });
+        }
+    }
+
     [HttpGet("answers/{idSurvey}/{idOrganization}/{type?}")]
     public IActionResult Answers(int idSurvey, int idOrganization = 0, string type = "regular")
     {

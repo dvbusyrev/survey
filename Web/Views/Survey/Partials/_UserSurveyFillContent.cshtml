@@ -4,53 +4,86 @@
     var pageModel = Model ?? new MainProject.Web.ViewModels.UserSurveyFillContentViewModel();
     var survey = pageModel.Survey ?? new MainProject.Domain.Entities.Survey();
     var questions = pageModel.Questions ?? Array.Empty<MainProject.Application.DTO.SurveyQuestionItem>();
-    var description = string.IsNullOrWhiteSpace(survey.Description)
-        ? "Пожалуйста, оцените каждый вопрос по шкале от 1 до 5."
-        : survey.Description;
+    var nameText = string.IsNullOrWhiteSpace(survey.NameSurvey) ? "Анкета" : survey.NameSurvey;
+    var descriptionText = string.IsNullOrWhiteSpace(survey.Description) ? "Описание не указано" : survey.Description;
+    var draftAnswer = pageModel.DraftAnswer;
+    var isDraftSigned = !string.IsNullOrWhiteSpace(draftAnswer?.Csp);
+    var draftAnswers = (draftAnswer?.Answers ?? new List<MainProject.Application.UseCases.Answers.AnswerPayloadItem>())
+        .GroupBy(answer => answer.QuestionId)
+        .ToDictionary(group => group.Key, group => group.First());
 }
 
 <div class="app-page app-page--narrow survey-editor-page"
      data-role="survey-fill-page"
      data-survey-id="@survey.IdSurvey"
-     data-organization-id="@pageModel.OrganizationId">
-    <header class="app-page__intro">
-        <h1 class="app-page__title">@(!string.IsNullOrWhiteSpace(survey.NameSurvey) ? survey.NameSurvey : "Анкета")</h1>
-        <p class="app-page__description">@description</p>
-    </header>
-        <div class="error-message u-hidden" data-role="error">
-            <span data-role="error-text"></span>
+     data-organization-id="@pageModel.OrganizationId"
+     data-is-draft-signed="@(isDraftSigned ? "true" : "false")">
+    <div class="error-message u-hidden" data-role="error">
+        <span data-role="error-text"></span>
+    </div>
+
+    <div class="answers-modal__info-block">
+        <div class="answers-modal__field-label">Название</div>
+        <div class="answers-modal__info-text">@nameText</div>
+    </div>
+
+    <div class="answers-modal__info-block">
+        <div class="answers-modal__field-label">Описание</div>
+        <div class="answers-modal__info-text">@descriptionText</div>
+    </div>
+
+    <div class="answers-modal__info-block answers-modal__signature-block" data-role="signature-info">
+        <div class="answers-modal__field-label">Подпись</div>
+        <div class="answers-modal__signature-text @(isDraftSigned ? "signed" : "not-signed")" data-role="signature-status">
+            @(isDraftSigned ? "Подписана" : "Нет подписи")
         </div>
-        <div class="survey-user-question-list" data-role="questions">
-            @foreach (var question in questions)
-            {
-                <section class="app-page__section survey-user-question-card user-survey-question"
-                         data-role="survey-question"
-                         data-question-id="@question.Id">
-                    <h3 class="survey-editor-page__section-title" data-role="question-title">@question.Text</h3>
-                    <div class="rating-buttons" data-role="ratings">
-                        @for (var rating = 1; rating <= 5; rating += 1)
-                        {
-                            <button type="button"
-                                    class="btn_crit"
-                                    data-role="rating-button"
-                                    data-rating="@rating">
-                                @rating
-                            </button>
-                        }
-                    </div>
-                    <div class="comment-container u-hidden" data-role="comment-block">
-                        <label class="comment-label">Ваш комментарий</label>
-                        <textarea class="form-control"
-                                  data-role="comment-input"
-                                  placeholder="Напишите комментарий"></textarea>
-                    </div>
-                </section>
-            }
-        </div>
-        <div class="button-container">
-            <button type="button" class="modal_btn modal_btn-primary" data-role="submit">
-                <span data-role="submit-label">Отправить ответы</span>
-            </button>
-            <button type="button" class="modal_btn modal_btn-secondary" data-role="cancel-btn">Отмена</button>
-        </div>
+    </div>
+
+    <div class="survey-user-question-list" data-role="questions">
+        @foreach (var question in questions)
+        {
+            var questionId = question.Id.ToString();
+            draftAnswers.TryGetValue(questionId, out var savedAnswer);
+            var savedRating = savedAnswer?.Rating;
+            var savedComment = savedAnswer?.Comment ?? string.Empty;
+            var showComment = savedRating.HasValue && savedRating.Value < 5;
+
+            <section class="answers-modal__info-block survey-user-question-card user-survey-question"
+                     data-role="survey-question"
+                     data-question-id="@question.Id">
+                <div class="answers-modal__field-label">Вопрос</div>
+                <div class="answers-modal__info-text" data-role="question-title">@question.Text</div>
+                <div class="rating-buttons" data-role="ratings">
+                    @for (var rating = 1; rating <= 5; rating += 1)
+                    {
+                        <button type="button"
+                                class="btn_crit @(savedRating == rating ? "active" : null)"
+                                data-role="rating-button"
+                                data-rating="@rating">
+                            @rating
+                        </button>
+                    }
+                </div>
+                <div class="comment-container @(showComment ? null : "u-hidden")" data-role="comment-block">
+                    <label class="comment-label">Ваш комментарий</label>
+                    <textarea class="form-control"
+                              data-role="comment-input"
+                              placeholder="Напишите комментарий">@savedComment</textarea>
+                </div>
+            </section>
+        }
+    </div>
+
+    <div class="button-container" data-role="body-actions">
+        <button type="button"
+                class="modal_btn modal_btn-primary"
+                data-role="draft-sign-button"
+                disabled="@(isDraftSigned ? "disabled" : null)">
+            @(isDraftSigned ? "Подписано" : "Подписать")
+        </button>
+        <button type="button" class="modal_btn modal_btn-secondary" data-role="cancel-btn">Отмена</button>
+        <button type="button" class="modal_btn modal_btn-primary" data-role="submit">
+            <span data-role="submit-label">Отправить ответы</span>
+        </button>
+    </div>
 </div>

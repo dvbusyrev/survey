@@ -25,6 +25,12 @@
   backdrop-filter: blur(10px);
   pointer-events: auto;
   animation: toast-slide-in 0.2s ease-out;
+  will-change: opacity, transform;
+}
+
+.site-toast--closing {
+  pointer-events: none;
+  animation: toast-slide-out 0.22s ease-in forwards;
 }
 
 .site-toast--success {
@@ -178,6 +184,18 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
   }
 }
 

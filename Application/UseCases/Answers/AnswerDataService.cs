@@ -113,6 +113,35 @@ public sealed class AnswerDataService
         return answerRecord;
     }
 
+    public AnswerRecord? GetDraftRecord(int surveyId, int organizationId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        var draftRecord = connection.QueryFirstOrDefault<AnswerRecord>(
+            @"SELECT
+                  d.id_answer_draft AS IdAnswer,
+                  d.id_organization_survey AS IdOrganizationSurvey,
+                  os.id_organization AS OrganizationId,
+                  os.id_survey,
+                  d.draft_date AS CompletionDate,
+                  d.csp,
+                  d.signed_content AS SignedContent
+              FROM public.answer_draft d
+              INNER JOIN public.organization_survey os
+                  ON os.id_organization_survey = d.id_organization_survey
+              WHERE os.id_survey = @surveyId
+                AND os.id_organization = @organizationId",
+            new { surveyId, organizationId });
+
+        if (draftRecord == null)
+        {
+            return null;
+        }
+
+        AttachDraftItems(connection, new[] { draftRecord });
+        return draftRecord;
+    }
+
     public IReadOnlyList<AnswerRecord> GetAnswerRecords(int surveyId, int? organizationId = null)
     {
         using var connection = _connectionFactory.CreateConnection();
@@ -202,24 +231,31 @@ public sealed class AnswerDataService
             throw new AnswerAlreadySignedException();
         }
 
+        var signature = string.IsNullOrWhiteSpace(answerRecord.Csp) ? null : answerRecord.Csp;
         var idAnswer = connection.ExecuteScalar<int>(
             @"INSERT INTO public.answer (
                   id_organization_survey,
-                  completion_date
+                  completion_date,
+                  csp,
+                  signed_content
               )
               VALUES (
                   @assignmentId,
-                  @completionDate
+                  @completionDate,
+                  @signature,
+                  @signedContent
               )
               ON CONFLICT (id_organization_survey) DO UPDATE
               SET completion_date = EXCLUDED.completion_date,
-                  csp = NULL,
-                  signed_content = NULL
+                  csp = EXCLUDED.csp,
+                  signed_content = EXCLUDED.signed_content
               RETURNING id_answer",
             new
             {
                 assignmentId = assignmentId.Value,
-                completionDate = DateTime.Now
+                completionDate = DateTime.Now,
+                signature,
+                signedContent = answerRecord.SignedContent
             },
             transaction);
 
@@ -314,6 +350,86 @@ public sealed class AnswerDataService
         return rowsAffected > 0;
     }
 
+    public bool SaveDraftRecord(AnswerRecord answerRecord)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        using var transaction = connection.BeginTransaction();
+
+        var items = BuildNormalizedAnswerItems(connection, transaction, answerRecord.IdSurvey, answerRecord.Answers);
+        var assignmentId = GetAssignmentIdForUpdate(
+            connection,
+            transaction,
+            answerRecord.IdSurvey,
+            answerRecord.OrganizationId);
+
+        if (!assignmentId.HasValue)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        var draftId = connection.ExecuteScalar<int>(
+            @"INSERT INTO public.answer_draft (
+                  id_organization_survey,
+                  draft_date,
+                  csp,
+                  signed_content
+              )
+              VALUES (
+                  @assignmentId,
+                  @draftDate,
+                  NULL,
+                  NULL
+              )
+              ON CONFLICT (id_organization_survey) DO UPDATE
+              SET draft_date = EXCLUDED.draft_date,
+                  csp = NULL,
+                  signed_content = NULL
+              RETURNING id_answer_draft",
+            new
+            {
+                assignmentId = assignmentId.Value,
+                draftDate = DateTime.Now
+            },
+            transaction);
+
+        ReplaceDraftItems(connection, transaction, draftId, items);
+        transaction.Commit();
+
+        return true;
+    }
+
+    public bool UpdateDraftSignature(int surveyId, int organizationId, string signature, byte[]? signedContent)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        var rowsAffected = connection.Execute(
+            @"UPDATE public.answer_draft d
+              SET csp = @signature,
+                  signed_content = @signedContent
+              FROM public.organization_survey os
+              WHERE os.id_organization_survey = d.id_organization_survey
+                AND os.id_organization = @organizationId
+                AND os.id_survey = @surveyId
+                AND COALESCE(BTRIM(d.csp), '') = ''",
+            new { signature, signedContent, organizationId, surveyId });
+
+        return rowsAffected > 0;
+    }
+
+    public void DeleteDraftRecord(int surveyId, int organizationId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        connection.Execute(
+            @"DELETE FROM public.answer_draft d
+              USING public.organization_survey os
+              WHERE os.id_organization_survey = d.id_organization_survey
+                AND os.id_organization = @organizationId
+                AND os.id_survey = @surveyId",
+            new { surveyId, organizationId });
+    }
+
     private static IReadOnlyList<AnswerItemRow> BuildNormalizedAnswerItems(
         global::Npgsql.NpgsqlConnection connection,
         global::Npgsql.NpgsqlTransaction transaction,
@@ -400,6 +516,49 @@ public sealed class AnswerDataService
         }
     }
 
+    private static void AttachDraftItems(
+        global::Npgsql.NpgsqlConnection connection,
+        IEnumerable<AnswerRecord> answers)
+    {
+        var answerList = answers.ToList();
+        if (answerList.Count == 0)
+        {
+            return;
+        }
+
+        var draftIds = answerList.Select(a => a.IdAnswer).Distinct().ToArray();
+        var rows = connection.Query<AnswerItemLookupRow>(
+            @"SELECT
+                  id_answer_draft AS AnswerId,
+                  question_order AS QuestionOrder,
+                  question_text AS QuestionText,
+                  rating AS Rating,
+                  comment AS Comment
+              FROM public.answer_draft_item
+              WHERE id_answer_draft = ANY(@draftIds)
+              ORDER BY id_answer_draft, question_order",
+            new { draftIds });
+
+        var answerLookup = rows
+            .GroupBy(row => row.AnswerId)
+            .ToDictionary(
+                group => group.Key,
+                group => (List<AnswerPayloadItem>)group
+                    .Select(row => new AnswerPayloadItem
+                    {
+                        QuestionId = row.QuestionOrder.ToString(),
+                        QuestionText = row.QuestionText,
+                        Rating = row.Rating,
+                        Comment = row.Comment
+                    })
+                    .ToList());
+
+        foreach (var answer in answerList)
+        {
+            answer.Answers = answerLookup.GetValueOrDefault(answer.IdAnswer, new List<AnswerPayloadItem>());
+        }
+    }
+
     private static void ReplaceAnswerItems(
         global::Npgsql.NpgsqlConnection connection,
         global::Npgsql.NpgsqlTransaction transaction,
@@ -423,6 +582,38 @@ public sealed class AnswerDataService
                 new
                 {
                     answerId,
+                    questionOrder = item.QuestionOrder,
+                    questionText = item.QuestionText,
+                    rating = item.Rating,
+                    comment = item.Comment
+                },
+                transaction);
+        }
+    }
+
+    private static void ReplaceDraftItems(
+        global::Npgsql.NpgsqlConnection connection,
+        global::Npgsql.NpgsqlTransaction transaction,
+        int draftId,
+        IReadOnlyList<AnswerItemRow> items)
+    {
+        connection.Execute(
+            "DELETE FROM public.answer_draft_item WHERE id_answer_draft = @draftId",
+            new { draftId },
+            transaction);
+
+        foreach (var item in items)
+        {
+            connection.Execute(
+                @"INSERT INTO public.answer_draft_item (id_answer_draft, question_order, question_text, rating, comment)
+                  VALUES (@draftId, @questionOrder, @questionText, @rating, @comment)
+                  ON CONFLICT (id_answer_draft, question_order) DO UPDATE
+                  SET question_text = EXCLUDED.question_text,
+                      rating = EXCLUDED.rating,
+                      comment = EXCLUDED.comment",
+                new
+                {
+                    draftId,
                     questionOrder = item.QuestionOrder,
                     questionText = item.QuestionText,
                     rating = item.Rating,

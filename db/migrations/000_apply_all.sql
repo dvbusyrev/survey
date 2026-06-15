@@ -36,3 +36,4 @@ COMMIT;
 \ir 022_store_signed_answer_content.sql
 \ir 023_add_theme_config.sql
 \ir 024_add_theme_palette_controls.sql
+\ir 025_add_answer_drafts.sql

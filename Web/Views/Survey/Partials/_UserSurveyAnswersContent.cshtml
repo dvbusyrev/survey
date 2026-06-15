@@ -5,6 +5,18 @@
     var survey = pageModel.Survey ?? new MainProject.Application.DTO.SurveyAnswersSurveyViewModel();
     var answerGroups = pageModel.Answers ?? Array.Empty<MainProject.Application.DTO.SurveyAnswerResultViewModel>();
     var isSigned = !string.IsNullOrWhiteSpace(survey.Csp) || answerGroups.Any(answer => answer.IsSigned);
+    var firstAnswerGroup = answerGroups.FirstOrDefault();
+    var signatureInfo = answerGroups
+        .Select(answer => answer.SignatureInfo)
+        .FirstOrDefault(info => info?.IsSigned == true);
+    var nameText = string.IsNullOrWhiteSpace(survey.Name) ? "Без названия" : survey.Name;
+    var descriptionText = string.IsNullOrWhiteSpace(survey.Description) ? "Описание не указано" : survey.Description;
+    var dateText = !string.IsNullOrWhiteSpace(firstAnswerGroup?.Date) ? firstAnswerGroup!.Date : "Дата не указана";
+    var statusText = answerGroups.Any(group => group.Answers.Count > 0) ? "Пройдена" : "Не пройдена";
+    var signatureStatusText = isSigned ? "Подписана" : "Нет подписи";
+    var signedByText = !string.IsNullOrWhiteSpace(signatureInfo?.SignedBy) ? signatureInfo!.SignedBy : "Не удалось определить";
+    var signatureCheckText = !string.IsNullOrWhiteSpace(signatureInfo?.Status) ? signatureInfo!.Status : "Проверка недоступна";
+    var hasCertificateDates = !string.IsNullOrWhiteSpace(signatureInfo?.ValidFrom) || !string.IsNullOrWhiteSpace(signatureInfo?.ValidTo);
 }
 
 <div class="app-page app-page--narrow survey-editor-page"
@@ -12,19 +24,57 @@
      data-survey-id="@survey.Id"
      data-organization-id="@pageModel.OrganizationId"
      data-is-signed="@(isSigned ? "true" : "false")">
-    <header class="app-page__intro">
-        <h1 class="app-page__title">Ответы на анкету: @(!string.IsNullOrWhiteSpace(survey.Name) ? survey.Name : "Анкета")</h1>
-        <p class="app-page__description">Ниже вы можете посмотреть заполненные ответы и скачать файл анкеты.</p>
-    </header>
+    <div class="answers-modal__info-block">
+        <div class="answers-modal__field-label">Название</div>
+        <div class="answers-modal__info-text">@nameText</div>
+    </div>
 
-    <section class="app-page__section @(isSigned ? string.Empty : "u-hidden")" data-role="signature-info">
-        <div class="survey-user-signature-status">
-            Подпись:
-            <span data-role="signature-status" class="@(isSigned ? "signed" : "not-signed")">
-                @(isSigned ? "Подписана" : "Нет подписи")
-            </span>
+    <div class="answers-modal__info-block">
+        <div class="answers-modal__field-label">Описание</div>
+        <div class="answers-modal__info-text">@descriptionText</div>
+    </div>
+
+    <div class="answers-modal__info-block">
+        <div class="answers-modal__field-label">Статус</div>
+        <div class="answers-modal__info-text">@statusText</div>
+    </div>
+
+    <div class="answers-modal__info-block answers-modal__date-block">
+        <div class="answers-modal__field-label">Дата</div>
+        <div class="answers-modal__date-text">@dateText</div>
+    </div>
+
+    <div class="answers-modal__info-block answers-modal__signature-block" data-role="signature-info">
+        <div class="answers-modal__field-label">Подпись</div>
+        <div class="answers-modal__signature-text @(isSigned ? "signed" : "not-signed")" data-role="signature-status">
+            @if (isSigned)
+            {
+                <div class="answers-modal__signature-line">
+                    <span class="answers-modal__signature-line-label">Статус:</span>
+                    <span class="answers-modal__signature-line-value">@signatureStatusText</span>
+                </div>
+                <div class="answers-modal__signature-line">
+                    <span class="answers-modal__signature-line-label">Проверка:</span>
+                    <span class="answers-modal__signature-line-value">@signatureCheckText</span>
+                </div>
+                <div class="answers-modal__signature-line">
+                    <span class="answers-modal__signature-line-label">Подписант:</span>
+                    <span class="answers-modal__signature-line-value">@signedByText</span>
+                </div>
+                @if (hasCertificateDates)
+                {
+                    <div class="answers-modal__signature-line">
+                        <span class="answers-modal__signature-line-label">Сертификат:</span>
+                        <span class="answers-modal__signature-line-value">Действует @(string.IsNullOrWhiteSpace(signatureInfo?.ValidFrom) ? "не указано" : signatureInfo!.ValidFrom) - @(string.IsNullOrWhiteSpace(signatureInfo?.ValidTo) ? "не указано" : signatureInfo!.ValidTo)</span>
+                    </div>
+                }
+            }
+            else
+            {
+                @signatureStatusText
+            }
         </div>
-    </section>
+    </div>
 
     @if (answerGroups.Count == 0)
     {
@@ -34,38 +84,33 @@
     }
     else
     {
-        <div data-role="answers-content">
-            @foreach (var group in answerGroups)
-            {
-                <div class="survey-user-answer-group">
-                    <div class="survey-user-answer-date">
-                        Дата заполнения: @(!string.IsNullOrWhiteSpace(group.Date) ? group.Date : "Дата не указана")
-                    </div>
-                    <table class="surveys-table" data-role="main-table">
-                        <thead>
-                            <tr class="table_tr">
-                                <th class="table-th--start">Вопрос</th>
-                                <th>Оценка</th>
-                                <th class="table-th--end">Комментарий</th>
+        <div class="answers-table-container table-responsive answers-modal__table-wrap" data-role="answers-content">
+            <table class="answers-table answers-modal__table" data-role="main-table" data-disable-column-sort="true">
+                <thead>
+                    <tr class="table_tr">
+                        <th class="table-th--start">Вопрос</th>
+                        <th class="answers-modal__rating-column">Оценка</th>
+                        <th class="table-th--end">Комментарий</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var group in answerGroups)
+                    {
+                        foreach (var answer in group.Answers)
+                        {
+                            <tr>
+                                <td class="question-cell">@answer.QuestionText</td>
+                                <td class="rating-cell">@answer.Rating</td>
+                                <td class="comment-cell">@(!string.IsNullOrWhiteSpace(answer.Comment) ? answer.Comment : "Без комментария")</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var answer in group.Answers)
-                            {
-                                <tr>
-                                    <td>@answer.QuestionText</td>
-                                    <td><span class="rating-badge">@answer.Rating</span></td>
-                                    <td>@(!string.IsNullOrWhiteSpace(answer.Comment) ? answer.Comment : "Без комментария")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+                        }
+                    }
+                </tbody>
+            </table>
         </div>
     }
     
-    <div class="button-container survey-user-answer-actions">
+    <div class="button-container survey-user-answer-actions" data-role="body-actions">
         <div data-role="sign-actions">
             <button type="button"
                     class="modal_btn modal_btn-primary"
@@ -74,6 +119,6 @@
                 @(isSigned ? "Подписано" : "Подписать")
             </button>
         </div>
-        <button type="button" class="modal_btn modal_btn-primary" data-role="download-btn">Скачать файл с анкетой</button>
+        <button type="button" class="modal_btn modal_btn-secondary" data-role="download-btn">Скачать ответы</button>
     </div>
 </div>

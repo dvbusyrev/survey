@@ -175,7 +175,7 @@ export function getMonthLabel(month) {
     return monthMap[month] || month;
 }
 
-export function mountSurveyUserModal(host, { mountBody, onClose }) {
+export function mountSurveyUserModal(host, { title = '', subtitle = '', mountBody, onClose }) {
     const template = document.getElementById('survey-user-modal-template');
     if (!host || !template?.content?.firstElementChild) {
         return null;
@@ -185,7 +185,28 @@ export function mountSurveyUserModal(host, { mountBody, onClose }) {
     const modalNode = template.content.firstElementChild.cloneNode(true);
     const modalContent = modalNode.querySelector('.modal-content');
     const closeButton = modalNode.querySelector('[data-role="close-btn"]');
+    const titleNode = modalNode.querySelector('[data-role="title"]');
     const bodyHost = modalNode.querySelector('[data-role="body"]');
+    const footerHost = modalNode.querySelector('[data-role="footer"]');
+
+    if (titleNode) {
+        titleNode.replaceChildren();
+
+        if (subtitle) {
+            const mainLine = document.createElement('span');
+            mainLine.className = 'answers-modal__title-main';
+            mainLine.textContent = title;
+
+            const nameLine = document.createElement('span');
+            nameLine.className = 'answers-modal__title-name';
+            nameLine.textContent = subtitle;
+
+            titleNode.appendChild(mainLine);
+            titleNode.appendChild(nameLine);
+        } else {
+            titleNode.textContent = title;
+        }
+    }
 
     const handleEscape = (event) => {
         if (event.key === 'Escape') {
@@ -197,7 +218,7 @@ export function mountSurveyUserModal(host, { mountBody, onClose }) {
     modalContent?.addEventListener('click', (event) => event.stopPropagation());
     closeButton?.addEventListener('click', () => onClose?.());
     const bodyCleanup = typeof mountBody === 'function' && bodyHost
-        ? mountBody(bodyHost)
+        ? mountBody(bodyHost, footerHost)
         : null;
 
     host.appendChild(modalNode);

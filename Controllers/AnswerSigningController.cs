@@ -82,6 +82,68 @@ public class AnswerSigningController : Controller
         }
     }
 
+    [HttpGet("draft-signatures/{id}/{idOrganization}")]
+    public IActionResult GetDraftSigningData(int id, int idOrganization)
+    {
+        var accessResult = EnsureAnswerSubmissionAccess(id, idOrganization);
+        if (accessResult != null)
+        {
+            return accessResult;
+        }
+
+        try
+        {
+            return Json(_answerSigningService.GetDraftSigningData(id, idOrganization));
+        }
+        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
+        {
+            return Conflict(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при получении данных черновика для подписи");
+            return StatusCode(500, "Ошибка при получении данных черновика для подписи");
+        }
+    }
+
+    [HttpPost("draft-signatures/{id}/{idOrganization}")]
+    public IActionResult CspDraftAnswer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] AnswerSignatureSaveRequest request)
+    {
+        var accessResult = EnsureAnswerSubmissionAccess(id, idOrganization);
+        if (accessResult != null)
+        {
+            return accessResult;
+        }
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Signature))
+            {
+                return BadRequest("Signature не может быть пустым.");
+            }
+
+            if (!_answerSigningService.SaveDraftSignature(id, idOrganization, request))
+            {
+                return NotFound("Черновик для обновления не найден.");
+            }
+
+            return Ok("Черновик успешно подписан.");
+        }
+        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
+        {
+            return Conflict(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка при обновлении подписи черновика ответа");
+            return StatusCode(500, $"Ошибка при обновлении черновика: {ex.Message}");
+        }
+    }
+
     private IActionResult? EnsureAnswerRecordAccess(int surveyId, int requestedOrganizationId)
     {
         if (!_answerAccessService.IsAuthenticated)
@@ -90,6 +152,21 @@ public class AnswerSigningController : Controller
         }
 
         if (!_answerAccessService.CanAccessAnswerRecord(surveyId, requestedOrganizationId))
+        {
+            return Forbid();
+        }
+
+        return null;
+    }
+
+    private IActionResult? EnsureAnswerSubmissionAccess(int surveyId, int requestedOrganizationId)
+    {
+        if (!_answerAccessService.IsAuthenticated)
+        {
+            return Challenge();
+        }
+
+        if (!_answerAccessService.CanSubmitAnswer(surveyId, requestedOrganizationId))
         {
             return Forbid();
         }

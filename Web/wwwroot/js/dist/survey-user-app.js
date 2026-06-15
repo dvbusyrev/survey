@@ -657,20 +657,25 @@
     }
     return cadesPluginLoadPromise;
   }
-  async function CSP(id, organizationId) {
+  async function CSP(id, organizationId, options = {}) {
     try {
-      const page = getAnswersPageContainer(document);
-      if (page?.dataset.isSigned === "true") {
+      const signatureMode = options.mode === "draft" ? "draft" : "answer";
+      const page = signatureMode === "draft" ? getFillPageContainer(options.source || document) : getAnswersPageContainer(options.source || document);
+      const signedDatasetKey = signatureMode === "draft" ? "isDraftSigned" : "isSigned";
+      if (page?.dataset[signedDatasetKey] === "true") {
         showError("Анкета уже подписана и не может быть подписана повторно.");
         return;
       }
+      if (typeof options.beforeSign === "function") {
+        await options.beforeSign();
+      }
       await ensureCadesPluginLoaded();
       await checkCSPAvailable();
-      const dataToSign = await getDataForSignature(id, organizationId);
+      const dataToSign = await getDataForSignature(id, organizationId, signatureMode);
       const signature = await createDigitalSignature(dataToSign);
-      await sendSignatureToServer(id, organizationId, signature, dataToSign);
-      updateUISuccess();
-      if (typeof window.refreshSurveyUserPageData === "function") {
+      await sendSignatureToServer(id, organizationId, signature, dataToSign, signatureMode);
+      updateUISuccess(signatureMode, page);
+      if (signatureMode !== "draft" && typeof window.refreshSurveyUserPageData === "function") {
         await window.refreshSurveyUserPageData({ preserveFilters: true });
       }
     } catch (error) {
@@ -717,8 +722,9 @@
     await cadesplugin.CreateObjectAsync("CAdESCOM.Store");
     return true;
   }
-  async function getDataForSignature(id, organizationId) {
-    const response = await fetch(`/signatures/${id}/${organizationId}`);
+  async function getDataForSignature(id, organizationId, mode = "answer") {
+    const route = mode === "draft" ? "draft-signatures" : "signatures";
+    const response = await fetch(`/${route}/${id}/${organizationId}`);
     if (!response.ok) {
       const error = await response.text();
       throw new Error(error || "Ошибка получения данных");
@@ -840,14 +846,15 @@
       throw error;
     }
   }
-  async function sendSignatureToServer(id, organizationId, signature, dataToSign) {
+  async function sendSignatureToServer(id, organizationId, signature, dataToSign, mode = "answer") {
     const request = { signature };
     if (dataToSign && typeof dataToSign === "object") {
       request.signedContent = dataToSign.content || "";
       request.contentEncoding = dataToSign.contentEncoding || "utf8";
       request.detached = Boolean(dataToSign.detached);
     }
-    const response = await fetch(`/signatures/${id}/${organizationId}`, {
+    const route = mode === "draft" ? "draft-signatures" : "signatures";
+    const response = await fetch(`/${route}/${id}/${organizationId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request)
@@ -857,8 +864,12 @@
       throw new Error(error || "Ошибка сервера");
     }
   }
-  function updateUISuccess() {
-    applySignedState(document, true);
+  function updateUISuccess(mode = "answer", source = document) {
+    applySignedState(source || document, true, mode);
+    if (typeof window.siteNotify === "function") {
+      window.siteNotify("Документ успешно подписан", "success", { title: "Успешно" });
+      return;
+    }
     const notification = document.createElement("div");
     notification.className = "csp-notification success";
     const icon = document.createElement("span");
@@ -894,28 +905,55 @@
     }
     return document.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
   }
-  function applySignedState(source, isSigned) {
-    const page = getAnswersPageContainer(source);
+  function getFillPageContainer(source) {
+    if (source instanceof Element) {
+      const closestPage = source.closest('[data-role="survey-fill-page"]');
+      if (closestPage) {
+        return closestPage;
+      }
+    }
+    if (source && typeof source.querySelector === "function") {
+      const nestedPage = source.querySelector('[data-role="survey-fill-page"]');
+      if (nestedPage) {
+        return nestedPage;
+      }
+    }
+    return document.querySelector('[data-role="survey-fill-page"]');
+  }
+  function applySignedState(source, isSigned, mode = "answer") {
+    const isDraftMode = mode === "draft";
+    const page = isDraftMode ? getFillPageContainer(source) : getAnswersPageContainer(source);
     if (!page) {
       return;
     }
-    page.dataset.isSigned = isSigned ? "true" : "false";
+    if (isDraftMode) {
+      page.dataset.isDraftSigned = isSigned ? "true" : "false";
+    } else {
+      page.dataset.isSigned = isSigned ? "true" : "false";
+    }
     const signatureInfo = page.querySelector('[data-role="signature-info"]');
     const signatureStatus = page.querySelector('[data-role="signature-status"]');
     if (signatureInfo) {
-      signatureInfo.classList.toggle("u-hidden", !isSigned);
-      signatureInfo.classList.toggle("is-hidden", !isSigned);
+      signatureInfo.classList.remove("u-hidden", "is-hidden");
     }
     if (signatureStatus) {
       signatureStatus.textContent = isSigned ? "Подписана" : "Нет подписи";
       signatureStatus.classList.toggle("signed", isSigned);
       signatureStatus.classList.toggle("not-signed", !isSigned);
     }
-    const signButton = page.querySelector('[data-role="sign-button"], [data-role-sign-button="true"]');
-    if (signButton instanceof HTMLButtonElement) {
-      signButton.disabled = isSigned;
-      signButton.textContent = isSigned ? "Подписано" : "Подписать";
-    }
+    const signButtons = isDraftMode ? /* @__PURE__ */ new Set([
+      ...page.querySelectorAll('[data-role="draft-sign-button"]'),
+      ...document.querySelectorAll('[data-role="draft-sign-button"]')
+    ]) : /* @__PURE__ */ new Set([
+      ...page.querySelectorAll('[data-role="sign-button"], [data-role-sign-button="true"]'),
+      ...document.querySelectorAll('[data-role="sign-button"][data-survey-id], [data-role-sign-button="true"][data-survey-id]')
+    ]);
+    signButtons.forEach((signButton) => {
+      if (signButton instanceof HTMLButtonElement) {
+        signButton.disabled = isSigned;
+        signButton.textContent = isSigned ? "Подписано" : "Подписать";
+      }
+    });
   }
   window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organizationId, triggerElement) {
     const page = getAnswersPageContainer(triggerElement);
@@ -958,6 +996,25 @@
     errorNode.textContent = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
     host.replaceChildren(errorNode);
   }
+  function createSurveyModalFooterButton({ role, text, variant = "secondary", disabled = false, labelRole = "" }) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `modal_btn modal_btn-${variant}`;
+    button.dataset.role = role;
+    button.disabled = disabled;
+    if (labelRole) {
+      const label = document.createElement("span");
+      label.dataset.role = labelRole;
+      label.textContent = text;
+      button.appendChild(label);
+    } else {
+      button.textContent = text;
+    }
+    return button;
+  }
+  function clearSurveyModalFooter(footerHost) {
+    footerHost?.replaceChildren();
+  }
   async function fetchModalContentHtml(url, fallbackMessage) {
     const response = await fetch(url, {
       headers: {
@@ -981,7 +1038,7 @@
       "Не удалось загрузить ответы по анкете"
     );
   };
-  window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organizationId, userRole, onBack, onSubmitted, initialHtml }) {
+  window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organizationId, userRole, onBack, onSubmitted, initialHtml, footerHost }) {
     if (!host) {
       return null;
     }
@@ -989,16 +1046,23 @@
     const answers = {};
     let loading = false;
     let error = null;
+    let draftSaveTimer = 0;
     let refs = {
       page: null,
       errorBlock: null,
       errorText: null,
+      draftSignButton: null,
       submitButton: null,
       submitLabel: null,
       cancelButton: null
     };
     function getQuestionNodes() {
       return Array.from(host.querySelectorAll('[data-role="survey-question"]'));
+    }
+    function getCurrentSurveyId() {
+      const rawValue = refs.page?.dataset.surveyId || host.querySelector('[data-role="survey-fill-page"]')?.dataset.surveyId || survey?.id_survey || survey?.IdSurvey || survey?.idSurvey || survey?.Id || survey?.id || 0;
+      const numericValue = Number(rawValue);
+      return Number.isFinite(numericValue) ? numericValue : 0;
     }
     function renderError() {
       if (!refs.errorBlock || !refs.errorText) {
@@ -1027,6 +1091,119 @@
       }
       refs.submitLabel.textContent = "Отправить ответы";
     }
+    function buildPayloadAnswers({ requireComplete = false } = {}) {
+      const payloadAnswers = [];
+      const questionNodes = getQuestionNodes();
+      questionNodes.forEach((questionNode) => {
+        const questionId = questionNode.dataset.questionId || "";
+        const questionText = questionNode.querySelector('[data-role="question-title"]')?.textContent?.trim() || "";
+        const answer = answers[questionId] || {};
+        const rating = Number(answer.rating || 0);
+        const comment = String(answer.comment || "").trim();
+        if (!rating && !comment && !requireComplete) {
+          return;
+        }
+        if (requireComplete && (!Number.isFinite(rating) || rating < 1 || rating > 5)) {
+          throw new Error("Необходимо ответить на все вопросы анкеты.");
+        }
+        if (requireComplete && rating < 5 && !comment) {
+          throw new Error("Для оценки ниже 5 требуется комментарий.");
+        }
+        payloadAnswers.push({
+          question_id: questionId,
+          question_text: questionText,
+          rating: rating || null,
+          comment
+        });
+      });
+      if (requireComplete && payloadAnswers.length !== questionNodes.length) {
+        throw new Error("Необходимо ответить на все вопросы анкеты.");
+      }
+      return payloadAnswers;
+    }
+    function updateDraftSignedState(isSigned) {
+      if (refs.page) {
+        refs.page.dataset.isDraftSigned = isSigned ? "true" : "false";
+      }
+      applySignedState(refs.page || host, isSigned, "draft");
+    }
+    async function saveDraft({ showErrorOnFailure = false } = {}) {
+      const payloadAnswers = buildPayloadAnswers();
+      if (payloadAnswers.length === 0) {
+        return true;
+      }
+      const surveyId = getCurrentSurveyId();
+      if (surveyId <= 0 || organizationId <= 0) {
+        const message = "Не удалось определить анкету для сохранения черновика.";
+        if (showErrorOnFailure) {
+          throw new Error(message);
+        }
+        console.error(message);
+        return false;
+      }
+      const response = await fetch("/answers/draft", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+          id_survey: surveyId,
+          id_organization: organizationId,
+          answers: payloadAnswers
+        })
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const message = errorData?.error || "Ошибка при сохранении черновика";
+        if (showErrorOnFailure) {
+          throw new Error(message);
+        }
+        console.error(message);
+        return false;
+      }
+      return true;
+    }
+    function scheduleDraftSave() {
+      if (draftSaveTimer) {
+        window.clearTimeout(draftSaveTimer);
+      }
+      draftSaveTimer = window.setTimeout(() => {
+        draftSaveTimer = 0;
+        saveDraft().catch((err) => console.error("Ошибка при сохранении черновика:", err));
+      }, 450);
+    }
+    function renderFooter2() {
+      if (!footerHost) {
+        return {};
+      }
+      const isDraftSigned = refs.page?.dataset.isDraftSigned === "true" || host.querySelector('[data-role="survey-fill-page"]')?.dataset.isDraftSigned === "true";
+      const signButton = createSurveyModalFooterButton({
+        role: "draft-sign-button",
+        text: isDraftSigned ? "Подписано" : "Подписать",
+        variant: "primary",
+        disabled: isDraftSigned
+      });
+      const cancelButton = createSurveyModalFooterButton({
+        role: "cancel-btn",
+        text: "Отмена",
+        variant: "secondary"
+      });
+      const submitButton = createSurveyModalFooterButton({
+        role: "submit",
+        text: "Отправить ответы",
+        variant: "primary",
+        labelRole: "submit-label"
+      });
+      signButton.classList.add("survey-user-modal__footer-left");
+      footerHost.replaceChildren(signButton, cancelButton, submitButton);
+      return {
+        draftSignButton: signButton,
+        cancelButton,
+        submitButton,
+        submitLabel: submitButton.querySelector('[data-role="submit-label"]')
+      };
+    }
     function updateQuestionState(questionId, questionElement) {
       const answer = answers[questionId] || {};
       questionElement.querySelectorAll('[data-role="rating-button"]').forEach((button) => {
@@ -1048,6 +1225,15 @@
       if (!questionId) {
         return;
       }
+      const activeButton = questionElement.querySelector('[data-role="rating-button"].active');
+      const activeRating = Number(activeButton?.dataset.rating || 0);
+      const commentInput = questionElement.querySelector('[data-role="comment-input"]');
+      if (activeRating > 0 || commentInput?.value) {
+        answers[questionId] = {
+          rating: activeRating || null,
+          comment: commentInput?.value || ""
+        };
+      }
       questionElement.querySelectorAll('[data-role="rating-button"]').forEach((button) => {
         button.addEventListener("click", () => {
           error = null;
@@ -1057,18 +1243,21 @@
             rating,
             comment: rating < 5 ? answers[questionId]?.comment || "" : ""
           };
+          updateDraftSignedState(false);
           renderError();
           updateQuestionState(questionId, questionElement);
+          scheduleDraftSave();
         });
       });
-      const commentInput = questionElement.querySelector('[data-role="comment-input"]');
       commentInput?.addEventListener("input", (event) => {
         error = null;
         answers[questionId] = {
           ...answers[questionId],
           comment: event.target.value
         };
+        updateDraftSignedState(false);
         renderError();
+        scheduleDraftSave();
       });
       updateQuestionState(questionId, questionElement);
     }
@@ -1078,16 +1267,11 @@
         error = null;
         renderError();
         renderSubmitState();
-        const payloadAnswers = Object.entries(answers).map(([questionId, answer]) => {
-          const questionNode = getQuestionNodes().find((node) => node.dataset.questionId === questionId);
-          const questionText = questionNode?.querySelector('[data-role="question-title"]')?.textContent?.trim() || "";
-          return {
-            question_id: questionId,
-            question_text: questionText,
-            rating: answer.rating,
-            comment: answer.comment || ""
-          };
-        });
+        const payloadAnswers = buildPayloadAnswers({ requireComplete: true });
+        const surveyId = getCurrentSurveyId();
+        if (surveyId <= 0 || organizationId <= 0) {
+          throw new Error("Не удалось определить анкету для отправки ответов.");
+        }
         const response = await fetch("/answers/create", {
           method: "POST",
           headers: {
@@ -1095,7 +1279,7 @@
             "X-Requested-With": "XMLHttpRequest"
           },
           body: JSON.stringify({
-            id_survey: survey.id_survey,
+            id_survey: surveyId,
             id_organization: organizationId,
             answers: payloadAnswers
           })
@@ -1118,24 +1302,53 @@
         renderSubmitState();
       }
     }
+    async function signDraft() {
+      try {
+        error = null;
+        renderError();
+        buildPayloadAnswers({ requireComplete: true });
+        await saveDraft({ showErrorOnFailure: true });
+        const surveyId = getCurrentSurveyId();
+        if (surveyId <= 0 || organizationId <= 0) {
+          throw new Error("Не удалось определить анкету для подписи.");
+        }
+        await CSP(surveyId, organizationId, {
+          mode: "draft",
+          source: refs.page || host
+        });
+      } catch (err) {
+        error = err?.message || "Не удалось подписать черновик";
+        renderError();
+        showError(error);
+      }
+    }
     function bindPage() {
+      host.querySelector('[data-role="body-actions"]')?.classList.add("u-hidden");
       refs = {
         page: host.querySelector('[data-role="survey-fill-page"]'),
         errorBlock: host.querySelector('[data-role="error"]'),
         errorText: host.querySelector('[data-role="error-text"]'),
-        submitButton: host.querySelector('[data-role="submit"]'),
-        submitLabel: host.querySelector('[data-role="submit-label"]'),
-        cancelButton: host.querySelector('[data-role="cancel-btn"]')
+        draftSignButton: null,
+        submitButton: null,
+        submitLabel: null,
+        cancelButton: null
       };
+      const footerRefs = renderFooter2();
+      refs.draftSignButton = footerRefs.draftSignButton || host.querySelector('[data-role="draft-sign-button"]');
+      refs.submitButton = footerRefs.submitButton || host.querySelector('[data-role="submit"]');
+      refs.submitLabel = footerRefs.submitLabel || host.querySelector('[data-role="submit-label"]');
+      refs.cancelButton = footerRefs.cancelButton || host.querySelector('[data-role="cancel-btn"]');
+      refs.draftSignButton?.addEventListener("click", signDraft);
       refs.submitButton?.addEventListener("click", submitAnswers);
       refs.cancelButton?.addEventListener("click", () => onBack?.());
       getQuestionNodes().forEach(bindQuestion);
+      updateDraftSignedState(refs.page?.dataset.isDraftSigned === "true");
       renderError();
       renderSubmitState();
     }
     const loadFillContent = async () => {
       try {
-        const html = typeof initialHtml === "string" ? initialHtml : await window.fetchSurveyFillContentHtml(survey.id_survey, organizationId);
+        const html = typeof initialHtml === "string" ? initialHtml : await window.fetchSurveyFillContentHtml(getCurrentSurveyId(), organizationId);
         if (destroyed) {
           return;
         }
@@ -1146,12 +1359,17 @@
           return;
         }
         renderHostError(host, err?.message || "Не удалось загрузить анкету");
+        clearSurveyModalFooter(footerHost);
       }
     };
     loadFillContent();
     return () => {
       destroyed = true;
+      if (draftSaveTimer) {
+        window.clearTimeout(draftSaveTimer);
+      }
       host.replaceChildren();
+      clearSurveyModalFooter(footerHost);
     };
   };
   window.createPdfReport = async function(surveyId, organizationId) {
@@ -1198,17 +1416,45 @@
       }
     }
   };
-  window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, organizationId, userRole, onBack, initialHtml }) {
+  window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, organizationId, userRole, onBack, initialHtml, footerHost }) {
     if (!host) {
       return null;
     }
     let destroyed = false;
+    function renderFooter2(page, surveyId, currentOrganizationId) {
+      if (!footerHost) {
+        return {};
+      }
+      const isSigned = page?.dataset.isSigned === "true";
+      const signButton = createSurveyModalFooterButton({
+        role: "sign-button",
+        text: isSigned ? "Подписано" : "Подписать",
+        variant: "primary",
+        disabled: isSigned
+      });
+      const downloadButton = createSurveyModalFooterButton({
+        role: "download-btn",
+        text: "Скачать ответы",
+        variant: "secondary"
+      });
+      signButton.dataset.surveyId = String(surveyId || "");
+      signButton.dataset.organizationId = String(currentOrganizationId || "");
+      downloadButton.dataset.surveyId = String(surveyId || "");
+      downloadButton.dataset.organizationId = String(currentOrganizationId || "");
+      footerHost.replaceChildren(downloadButton, signButton);
+      return {
+        signButton,
+        downloadButton
+      };
+    }
     function bindPage() {
       const page = host.querySelector('[data-role="survey-answers-page"]');
       const surveyId = Number(page?.dataset.surveyId || survey?.id_survey || survey?.idSurvey || survey?.Id || 0);
       const currentOrganizationId = Number(page?.dataset.organizationId || organizationId || 0);
-      const downloadButton = host.querySelector('[data-role="download-btn"]');
-      const signButton = host.querySelector('[data-role="sign-actions"] button');
+      const footerRefs = renderFooter2(page, surveyId, currentOrganizationId);
+      host.querySelector('[data-role="body-actions"]')?.classList.add("u-hidden");
+      const downloadButton = footerRefs.downloadButton || host.querySelector('[data-role="download-btn"]');
+      const signButton = footerRefs.signButton || host.querySelector('[data-role="sign-actions"] button');
       downloadButton?.addEventListener("click", (event) => {
         event.preventDefault();
         if (surveyId > 0 && currentOrganizationId > 0) {
@@ -1239,12 +1485,14 @@
           return;
         }
         renderHostError(host, error?.message || "Не удалось загрузить ответы по анкете");
+        clearSurveyModalFooter(footerHost);
       }
     };
     loadAnswersContent();
     return () => {
       destroyed = true;
       host.replaceChildren();
+      clearSurveyModalFooter(footerHost);
     };
   };
 
@@ -2865,7 +3113,7 @@
     };
     return monthMap[month] || month;
   }
-  function mountSurveyUserModal(host, { mountBody, onClose }) {
+  function mountSurveyUserModal(host, { title = "", subtitle = "", mountBody, onClose }) {
     const template = document.getElementById("survey-user-modal-template");
     if (!host || !template?.content?.firstElementChild) {
       return null;
@@ -2874,7 +3122,24 @@
     const modalNode = template.content.firstElementChild.cloneNode(true);
     const modalContent = modalNode.querySelector(".modal-content");
     const closeButton = modalNode.querySelector('[data-role="close-btn"]');
+    const titleNode = modalNode.querySelector('[data-role="title"]');
     const bodyHost = modalNode.querySelector('[data-role="body"]');
+    const footerHost = modalNode.querySelector('[data-role="footer"]');
+    if (titleNode) {
+      titleNode.replaceChildren();
+      if (subtitle) {
+        const mainLine = document.createElement("span");
+        mainLine.className = "answers-modal__title-main";
+        mainLine.textContent = title;
+        const nameLine = document.createElement("span");
+        nameLine.className = "answers-modal__title-name";
+        nameLine.textContent = subtitle;
+        titleNode.appendChild(mainLine);
+        titleNode.appendChild(nameLine);
+      } else {
+        titleNode.textContent = title;
+      }
+    }
     const handleEscape = (event) => {
       if (event.key === "Escape") {
         onClose?.();
@@ -2883,7 +3148,7 @@
     modalNode.addEventListener("click", () => onClose?.());
     modalContent?.addEventListener("click", (event) => event.stopPropagation());
     closeButton?.addEventListener("click", () => onClose?.());
-    const bodyCleanup = typeof mountBody === "function" && bodyHost ? mountBody(bodyHost) : null;
+    const bodyCleanup = typeof mountBody === "function" && bodyHost ? mountBody(bodyHost, footerHost) : null;
     host.appendChild(modalNode);
     modalNode.classList.add("modal--visible");
     modalNode.setAttribute("aria-hidden", "false");
@@ -2996,6 +3261,11 @@
     function getContentRoot() {
       return contentHost.querySelector('[data-role="survey-user-content"]');
     }
+    function getSurveyName(survey) {
+      return String(
+        survey?.name_survey ?? survey?.NameSurvey ?? survey?.nameSurvey ?? survey?.name ?? survey?.Name ?? ""
+      ).trim() || "Без названия";
+    }
     function getContentRefs() {
       const root = getContentRoot();
       return {
@@ -3069,12 +3339,14 @@
         const initialHtml = modalState.prefetchedHtml;
         modalState.prefetchedHtml = null;
         modalState.fillCleanup = mountSurveyUserModal(fillModalHost, {
+          title: "Заполнение анкеты",
           onClose: handleBackToList,
-          mountBody: (modalBodyHost) => typeof mountSurveyFillPage2 === "function" ? mountSurveyFillPage2(modalBodyHost, {
+          mountBody: (modalBodyHost, modalFooterHost) => typeof mountSurveyFillPage2 === "function" ? mountSurveyFillPage2(modalBodyHost, {
             survey: state.currentSurvey,
             organizationId: initialData.userOrganizationId,
             userRole: initialData.userRole,
             initialHtml,
+            footerHost: modalFooterHost,
             onBack: handleBackToList,
             onSubmitted: () => handleSurveySubmitted(state.currentSurvey)
           }) : null
@@ -3084,12 +3356,14 @@
         const initialHtml = modalState.prefetchedHtml;
         modalState.prefetchedHtml = null;
         modalState.answersCleanup = mountSurveyUserModal(answersModalHost, {
+          title: "Просмотр анкеты",
           onClose: handleBackToList,
-          mountBody: (modalBodyHost) => typeof mountCheckAnswersPage2 === "function" ? mountCheckAnswersPage2(modalBodyHost, {
+          mountBody: (modalBodyHost, modalFooterHost) => typeof mountCheckAnswersPage2 === "function" ? mountCheckAnswersPage2(modalBodyHost, {
             survey: state.currentSurvey,
             organizationId: initialData.userOrganizationId,
             userRole: initialData.userRole,
             initialHtml,
+            footerHost: modalFooterHost,
             onBack: handleBackToList
           }) : null
         });

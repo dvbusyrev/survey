@@ -116,6 +116,17 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
         return contentHost.querySelector('[data-role="survey-user-content"]');
     }
 
+    function getSurveyName(survey) {
+        return String(
+            survey?.name_survey
+            ?? survey?.NameSurvey
+            ?? survey?.nameSurvey
+            ?? survey?.name
+            ?? survey?.Name
+            ?? ''
+        ).trim() || 'Без названия';
+    }
+
     function getContentRefs() {
         const root = getContentRoot();
         return {
@@ -202,13 +213,15 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
             const initialHtml = modalState.prefetchedHtml;
             modalState.prefetchedHtml = null;
             modalState.fillCleanup = mountSurveyUserModal(fillModalHost, {
+                title: 'Заполнение анкеты',
                 onClose: handleBackToList,
-                mountBody: (modalBodyHost) => (typeof mountSurveyFillPage === 'function'
+                mountBody: (modalBodyHost, modalFooterHost) => (typeof mountSurveyFillPage === 'function'
                     ? mountSurveyFillPage(modalBodyHost, {
                         survey: state.currentSurvey,
                         organizationId: initialData.userOrganizationId,
                         userRole: initialData.userRole,
                         initialHtml,
+                        footerHost: modalFooterHost,
                         onBack: handleBackToList,
                         onSubmitted: () => handleSurveySubmitted(state.currentSurvey)
                     })
@@ -220,13 +233,15 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
             const initialHtml = modalState.prefetchedHtml;
             modalState.prefetchedHtml = null;
             modalState.answersCleanup = mountSurveyUserModal(answersModalHost, {
+                title: 'Просмотр анкеты',
                 onClose: handleBackToList,
-                mountBody: (modalBodyHost) => (typeof mountCheckAnswersPage === 'function'
+                mountBody: (modalBodyHost, modalFooterHost) => (typeof mountCheckAnswersPage === 'function'
                     ? mountCheckAnswersPage(modalBodyHost, {
                         survey: state.currentSurvey,
                         organizationId: initialData.userOrganizationId,
                         userRole: initialData.userRole,
                         initialHtml,
+                        footerHost: modalFooterHost,
                         onBack: handleBackToList
                     })
                     : null)

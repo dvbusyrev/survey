@@ -277,16 +277,35 @@
             toast.querySelector('.site-toast__message').textContent = normalizeClientErrorMessage(message);
 
             const closeButton = toast.querySelector('.site-toast__close');
+            let closeTimer = 0;
+            let removeTimer = 0;
             const removeToast = () => {
-                toast.remove();
+                if (!toast.isConnected || toast.classList.contains('site-toast--closing')) {
+                    return;
+                }
+
+                if (closeTimer) {
+                    window.clearTimeout(closeTimer);
+                    closeTimer = 0;
+                }
+
+                toast.classList.add('site-toast--closing');
+                toast.addEventListener('animationend', () => toast.remove(), { once: true });
+                removeTimer = window.setTimeout(() => {
+                    removeTimer = 0;
+                    toast.remove();
+                }, 260);
             };
 
-            closeButton.addEventListener('click', removeToast);
+            closeButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                removeToast();
+            });
             container.appendChild(toast);
 
             const duration = options?.duration ?? 4500;
             if (duration > 0) {
-                window.setTimeout(removeToast, duration);
+                closeTimer = window.setTimeout(removeToast, duration);
             }
         });
     }

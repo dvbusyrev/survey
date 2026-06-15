@@ -26,7 +26,9 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             return validationResult;
         }
 
+        AttachMatchingDraftSignature(answerRecord);
         _answerDataService.InsertAnswerRecord(answerRecord);
+        _answerDataService.DeleteDraftRecord(answerRecord.IdSurvey, answerRecord.OrganizationId);
 
         var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
         if (model == null)
@@ -43,6 +45,35 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             Success = true,
             Model = model
         };
+    }
+
+    public AnswerMutationResult SaveDraftAnswer(AnswerRecord answerRecord)
+    {
+        var validationResult = ValidateDraftAnswer(answerRecord);
+        if (!validationResult.Success)
+        {
+            return validationResult;
+        }
+
+        var saved = _answerDataService.SaveDraftRecord(answerRecord);
+        if (!saved)
+        {
+            return new AnswerMutationResult
+            {
+                NotFound = true,
+                Error = "Назначение анкеты для организации не найдено."
+            };
+        }
+
+        return new AnswerMutationResult
+        {
+            Success = true
+        };
+    }
+
+    public AnswerRecord? GetDraftAnswer(int surveyId, int organizationId)
+    {
+        return _answerDataService.GetDraftRecord(surveyId, organizationId);
     }
 
     public AnswerMutationResult UpdateAnswer(AnswerRecord answerRecord)
@@ -371,6 +402,58 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         };
     }
 
+    private void AttachMatchingDraftSignature(AnswerRecord answerRecord)
+    {
+        var draft = _answerDataService.GetDraftRecord(answerRecord.IdSurvey, answerRecord.OrganizationId);
+        if (draft == null || string.IsNullOrWhiteSpace(draft.Csp))
+        {
+            return;
+        }
+
+        if (!AreAnswersEquivalent(draft.Answers, answerRecord.Answers))
+        {
+            return;
+        }
+
+        answerRecord.Csp = draft.Csp;
+        answerRecord.SignedContent = draft.SignedContent;
+    }
+
+    private static bool AreAnswersEquivalent(IReadOnlyList<AnswerPayloadItem> left, IReadOnlyList<AnswerPayloadItem> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        var leftByQuestion = left.ToDictionary(answer => ParseQuestionOrder(answer.QuestionId));
+        foreach (var rightAnswer in right)
+        {
+            var questionOrder = ParseQuestionOrder(rightAnswer.QuestionId);
+            if (questionOrder <= 0 || !leftByQuestion.TryGetValue(questionOrder, out var leftAnswer))
+            {
+                return false;
+            }
+
+            if (leftAnswer.Rating != rightAnswer.Rating)
+            {
+                return false;
+            }
+
+            if (!string.Equals(NormalizeComment(leftAnswer.Comment), NormalizeComment(rightAnswer.Comment), StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string NormalizeComment(string? comment)
+    {
+        return string.IsNullOrWhiteSpace(comment) ? string.Empty : comment.Trim();
+    }
+
     private AnswerMutationResult ValidateAnswerSubmission(AnswerRecord answerRecord)
     {
         if (answerRecord.IdSurvey <= 0)
@@ -436,6 +519,58 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         if (answeredQuestionOrders.Count != expectedQuestionOrders.Count)
         {
             return CreateValidationFailure("Необходимо ответить на все вопросы анкеты.");
+        }
+
+        return new AnswerMutationResult
+        {
+            Success = true
+        };
+    }
+
+    private AnswerMutationResult ValidateDraftAnswer(AnswerRecord answerRecord)
+    {
+        if (answerRecord.IdSurvey <= 0)
+        {
+            return CreateValidationFailure("Неверный идентификатор анкеты.");
+        }
+
+        if (answerRecord.OrganizationId <= 0)
+        {
+            return CreateValidationFailure("Неверный идентификатор организации.");
+        }
+
+        var survey = _answerDataService.GetSurveyInfo(answerRecord.IdSurvey);
+        if (survey == null)
+        {
+            return new AnswerMutationResult
+            {
+                NotFound = true,
+                Error = "Анкета не найдена."
+            };
+        }
+
+        var expectedQuestionOrders = _answerDataService.GetSurveyQuestions(answerRecord.IdSurvey)
+            .Select(question => question.Id)
+            .ToHashSet();
+
+        var answeredQuestionOrders = new HashSet<int>();
+        foreach (var answer in answerRecord.Answers)
+        {
+            var questionOrder = ParseQuestionOrder(answer.QuestionId);
+            if (questionOrder <= 0 || !expectedQuestionOrders.Contains(questionOrder))
+            {
+                return CreateValidationFailure("Получен ответ на неизвестный вопрос анкеты.");
+            }
+
+            if (!answeredQuestionOrders.Add(questionOrder))
+            {
+                return CreateValidationFailure("Обнаружены повторяющиеся ответы на один и тот же вопрос.");
+            }
+
+            if (answer.Rating.HasValue && (answer.Rating < 1 || answer.Rating > 5))
+            {
+                return CreateValidationFailure("Оценка должна быть от 1 до 5.");
+            }
         }
 
         return new AnswerMutationResult

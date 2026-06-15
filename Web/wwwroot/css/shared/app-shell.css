@@ -442,6 +442,13 @@ nav > ul > li.active:last-child > .nav-link {
   border-radius: var(--radius-md);
 }
 
+.submenu-list li a,
+.submenu-list li > .submenu-link,
+.submenu-list li.active > a,
+.submenu-list li.active > .submenu-link {
+  font-weight: 400;
+}
+
 .submenu-list {
   position: absolute;
   top: 0;

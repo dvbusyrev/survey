@@ -387,6 +387,21 @@
   border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
+.survey-period-filter__popover :is(
+  .survey-period-filter__section-label,
+  .survey-period-filter__mode-button,
+  .survey-period-filter__panel-title,
+  .survey-period-filter__year-button,
+  .survey-period-filter__month-button,
+  .survey-period-filter__calendar-title,
+  .survey-period-filter__weekday,
+  .survey-period-filter__day-button,
+  .survey-period-filter__clear-button,
+  .survey-period-filter__save-button
+) {
+  font-weight: 400;
+}
+
 .survey-period-filter__clear-button:disabled,
 .survey-period-filter__save-button:disabled {
   opacity: 0.55;

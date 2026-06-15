@@ -8,17 +8,20 @@ public class SurveyUserController : Controller
 {
     private readonly ISurveyUserService _surveyUserService;
     private readonly ISurveyArchiveService _surveyArchiveService;
+    private readonly IAnswerWorkflowService _answerWorkflowService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SurveyUserController> _logger;
 
     public SurveyUserController(
         ISurveyUserService surveyUserService,
         ISurveyArchiveService surveyArchiveService,
+        IAnswerWorkflowService answerWorkflowService,
         ICurrentUserService currentUserService,
         ILogger<SurveyUserController> logger)
     {
         _surveyUserService = surveyUserService;
         _surveyArchiveService = surveyArchiveService;
+        _answerWorkflowService = answerWorkflowService;
         _currentUserService = currentUserService;
         _logger = logger;
     }
@@ -197,7 +200,8 @@ public class SurveyUserController : Controller
         {
             Survey = survey,
             OrganizationId = organizationId,
-            Questions = _surveyUserService.GetSurveyQuestions(id)
+            Questions = _surveyUserService.GetSurveyQuestions(id),
+            DraftAnswer = _answerWorkflowService.GetDraftAnswer(id, organizationId)
         };
 
         return PartialView("~/Web/Views/Survey/Partials/_UserSurveyFillContent.cshtml", model);

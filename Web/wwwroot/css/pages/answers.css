@@ -88,7 +88,8 @@
 }
 
 .answers-modal__signature-text,
-.answers-modal__date-text {
+.answers-modal__date-text,
+.answers-modal__info-text {
   display: grid;
   align-content: center;
   width: 100%;
