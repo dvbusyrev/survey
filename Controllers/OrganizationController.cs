@@ -109,6 +109,7 @@ public class OrganizationController : Controller
         }
     }
 
+    [HttpGet("organizations/survey")]
     [HttpGet("organizations/surveys")]
     public IActionResult OrganizationSurveys()
     {
@@ -202,6 +203,7 @@ public class OrganizationController : Controller
         }
     }
 
+    [HttpPost("organizations/survey/end-date")]
     [HttpPost("organizations/surveys/end-date")]
     public IActionResult UpdateOrganizationSurveyEndDates(
         [FromBody] OrganizationSurveyEndDateUpdateRequest? request)

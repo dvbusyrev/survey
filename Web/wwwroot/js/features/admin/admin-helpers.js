@@ -16,18 +16,24 @@
             return 'open_statistics';
         }
 
-        if (normalizedPath === '/surveys/answers') {
+        if (normalizedPath === '/survey/answer' || normalizedPath === '/surveys/answers') {
             return 'list_answers_users';
         }
 
-        if (normalizedPath === '/surveys/archive'
+        if (normalizedPath === '/survey/archive'
+            || normalizedPath === '/surveys/archive'
+            || /^\/survey\/archive\/\d+\/edit$/.test(normalizedPath)
             || /^\/surveys\/archive\/\d+\/edit$/.test(normalizedPath)) {
             return 'archived_surveys';
         }
 
-        if (normalizedPath === '/surveys'
+        if (normalizedPath === '/survey'
+            || normalizedPath === '/surveys'
+            || normalizedPath === '/survey/create'
             || normalizedPath === '/surveys/create'
+            || /^\/survey\/\d+\/edit$/.test(normalizedPath)
             || /^\/surveys\/\d+\/edit$/.test(normalizedPath)
+            || /^\/survey\/\d+\/copy$/.test(normalizedPath)
             || /^\/surveys\/\d+\/copy$/.test(normalizedPath)) {
             return 'get_surveys';
         }
@@ -46,6 +52,11 @@
             return 'archive_list_organizations';
         }
 
+        if (normalizedPath === '/organizations/survey'
+            || normalizedPath === '/organizations/surveys') {
+            return 'organization_surveys';
+        }
+
         if (normalizedPath === '/organizations'
             || normalizedPath === '/organizations/create'
             || /^\/organizations\/\d+\/edit$/.test(normalizedPath)) {
@@ -56,25 +67,28 @@
             return 'reports';
         }
 
-        if (normalizedPath === '/survey-auto-creation') {
+        if (normalizedPath === '/settings/survey-creation' || normalizedPath === '/survey-auto-creation') {
             return 'survey_auto_creation';
         }
 
-        if (normalizedPath === '/theme/configuration'
+        if (normalizedPath === '/settings/theme'
+            || normalizedPath === '/theme/configuration'
             || normalizedPath === '/theme-settings') {
             return 'theme_settings';
         }
 
-        if (normalizedPath === '/event-log') {
+        if (normalizedPath === '/logs' || normalizedPath === '/event-log') {
             return 'get_logs';
         }
 
-        if (normalizedPath === '/mail'
+        if (normalizedPath === '/email'
+            || normalizedPath === '/mail'
             || normalizedPath === '/mail/new') {
             return 'email_new';
         }
 
-        if (normalizedPath === '/mail/configuration'
+        if (normalizedPath === '/settings/email'
+            || normalizedPath === '/mail/configuration'
             || normalizedPath === '/mail-settings') {
             return 'email_settings';
         }

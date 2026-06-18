@@ -174,7 +174,7 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
                 throw new Error(errorData?.error || 'Ошибка при отправке ответов');
             }
 
-            window.location.assign('/my-surveys/archive');
+            window.location.assign('/archive');
         } catch (err) {
             error = err?.message || 'Не удалось отправить ответы';
             renderError();

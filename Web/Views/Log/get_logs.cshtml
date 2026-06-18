@@ -6,9 +6,34 @@
     var logs = pageModel.Logs ?? Array.Empty<MainProject.Domain.Entities.Log>();
     var paginationModel = pageModel.Pagination;
     var loadErrorMessage = ViewData["LogLoadErrorMessage"] as string;
+
+    string? GetExtraValue(MainProject.Domain.Entities.Log log, string propertyName)
+    {
+        return log.ExtraData is Newtonsoft.Json.Linq.JObject details
+               && details.TryGetValue(propertyName, StringComparison.OrdinalIgnoreCase, out var token)
+            ? token?.ToString()
+            : null;
+    }
+
+    long GetLookupId(MainProject.Domain.Entities.Log log)
+    {
+        var lookupId = GetExtraValue(log, "audit_lookup_id");
+        return long.TryParse(lookupId, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : log.IdLog;
+    }
+
+    string GetLookupSourceTable(MainProject.Domain.Entities.Log log)
+    {
+        return GetExtraValue(log, "audit_lookup_source_table")
+            ?? GetExtraValue(log, "source_table")
+            ?? string.Empty;
+    }
+
     var logBootstrapItems = logs.Select(log => new
     {
-        id = log.IdLog,
+        id = GetLookupId(log),
+        sourceTable = GetLookupSourceTable(log),
         date = log.Date.ToString("dd.MM.yyyy HH:mm:ss"),
         user = string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser,
         eventType = string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType,
@@ -34,7 +59,7 @@
         })
 
     <div class="app-page__toolbar survey-list-toolbar">
-        <a class="btn modal_btn modal_btn-primary" href="/event-log/export">Выгрузить журнал событий</a>
+        <a class="btn modal_btn modal_btn-primary" href="/logs/export">Выгрузить журнал событий</a>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
@@ -82,7 +107,9 @@
             {
                 foreach (var log in logs)
                 {
-                    <tr data-log-id="@log.IdLog" tabindex="0" title="Двойной клик для просмотра события">
+                    var lookupId = GetLookupId(log);
+                    var lookupSourceTable = GetLookupSourceTable(log);
+                    <tr data-log-id="@lookupId" data-log-source-table="@lookupSourceTable" tabindex="0" title="Клик для просмотра события">
                         <td class="table-col--date">@log.Date.ToString("dd.MM.yyyy HH:mm:ss")</td>
                         <td class="table-col--user">@(string.IsNullOrWhiteSpace(log.NameUser) ? "Система" : log.NameUser)</td>
                         <td class="table-col--event">@(string.IsNullOrWhiteSpace(log.EventType) ? "—" : log.EventType)</td>

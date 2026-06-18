@@ -82,7 +82,7 @@ public class SurveyArchiveController : Controller
                 return StatusCode(403, new { error = "Раздел архива анкет доступен только пользователям." });
             }
 
-            return Redirect("/surveys");
+            return Redirect("/survey");
         }
 
         if (_currentUserService.UserId != requestedUserId)
@@ -94,6 +94,7 @@ public class SurveyArchiveController : Controller
     }
 
     [Authorize(Roles = AppRoles.Admin)]
+    [HttpGet("survey/archive")]
     [HttpGet("surveys/archive")]
     public IActionResult ArchivedSurveys(
         int page = 1,
@@ -119,6 +120,7 @@ public class SurveyArchiveController : Controller
     }
 
     [Authorize(Roles = AppRoles.Admin)]
+    [HttpGet("survey/archive/{id:int}/edit")]
     [HttpGet("surveys/archive/{id:int}/edit")]
     public IActionResult ArchivedSurveyEdit(
         int id,
@@ -158,6 +160,7 @@ public class SurveyArchiveController : Controller
         }
     }
 
+    [HttpGet("archive")]
     [HttpGet("my-surveys/archive")]
     public IActionResult ArchivedSurveysForUser()
     {
@@ -198,6 +201,7 @@ public class SurveyArchiveController : Controller
         return View("~/Web/Views/Survey/archived_surveys_for_user.cshtml", pageModel);
     }
 
+    [HttpGet("archive/{id:int}")]
     [HttpGet("my-surveys/archive/{id:int}")]
     public IActionResult GetListArchive(
         int id,
@@ -301,6 +305,7 @@ public class SurveyArchiveController : Controller
     }
 
     [Authorize(Roles = AppRoles.Admin)]
+    [HttpPost("survey/archive/copy")]
     [HttpPost("surveys/archive/copy")]
     public async Task<IActionResult> CopyArchivedSurvey([FromBody] ArchiveSurveyCopyRequest request)
     {

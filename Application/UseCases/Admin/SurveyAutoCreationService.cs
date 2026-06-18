@@ -367,7 +367,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         {
             return new NormalizeSurveyAutoCreationRequestResult
             {
-                ValidationError = "Параметры автосоздания не переданы."
+                ValidationError = "Параметры автосоздания не переданы"
             };
         }
 

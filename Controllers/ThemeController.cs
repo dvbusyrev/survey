@@ -15,6 +15,7 @@ public class ThemeController : Controller
         _themeSettingsService = themeSettingsService;
     }
 
+    [HttpGet("settings/theme/data")]
     [HttpGet("theme/settings")]
     public async Task<IActionResult> GetThemeSettings(CancellationToken cancellationToken)
     {
@@ -22,6 +23,7 @@ public class ThemeController : Controller
         return Ok(settings);
     }
 
+    [HttpPost("settings/theme/data")]
     [HttpPost("theme/settings")]
     public async Task<IActionResult> SaveThemeSettings([FromBody] ThemeSettings? settings, CancellationToken cancellationToken)
     {
@@ -40,6 +42,7 @@ public class ThemeController : Controller
         }
     }
 
+    [HttpGet("settings/theme")]
     [HttpGet("theme/configuration")]
     public async Task<IActionResult> UpdateSettings(CancellationToken cancellationToken)
     {
@@ -50,7 +53,7 @@ public class ThemeController : Controller
     [HttpGet("theme-settings")]
     public IActionResult LegacyThemeSettings()
     {
-        return Redirect("/theme/configuration");
+        return Redirect("/settings/theme");
     }
 
     private static string GetDetailedErrorMessage(Exception exception)

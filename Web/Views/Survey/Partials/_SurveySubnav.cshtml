@@ -7,7 +7,7 @@
 
 <div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы анкет">
     <a
-        href="/surveys"
+        href="/survey"
         class="menu-tab @(listActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(listActive ? "true" : "false")"
@@ -15,7 +15,7 @@
         Активные анкеты
     </a>
     <a
-        href="/surveys/answers"
+        href="/survey/answer"
         class="menu-tab @(answersActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(answersActive ? "true" : "false")"
@@ -23,7 +23,7 @@
         Журнал оценок
     </a>
     <a
-        href="/surveys/archive"
+        href="/survey/archive"
         class="menu-tab @(archiveActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(archiveActive ? "true" : "false")"

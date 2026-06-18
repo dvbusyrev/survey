@@ -11,10 +11,10 @@ export function normalizeSurveyUserPathname(pathname) {
 export function buildSurveyUserHistoryEntry(tab) {
     switch (tab) {
         case 'active':
-            return { tab: 'active', url: '/my-surveys' };
+            return { tab: 'active', url: '/survey' };
         case 'archived':
         case 'archived_surveys_for_user':
-            return { tab: 'archived', url: '/my-surveys/archive' };
+            return { tab: 'archived', url: '/archive' };
         case 'help':
             return { tab: 'help', url: '/help' };
         default:
@@ -25,11 +25,11 @@ export function buildSurveyUserHistoryEntry(tab) {
 export function getSurveyUserHistoryEntryFromLocation(pathname) {
     const normalizedPath = normalizeSurveyUserPathname(pathname);
 
-    if (normalizedPath === '/my-surveys') {
+    if (normalizedPath === '/survey' || normalizedPath === '/my-surveys') {
         return buildSurveyUserHistoryEntry('active');
     }
 
-    if (normalizedPath === '/my-surveys/archive') {
+    if (normalizedPath === '/archive' || normalizedPath === '/my-surveys/archive') {
         return buildSurveyUserHistoryEntry('archived');
     }
 
@@ -75,10 +75,14 @@ function parseSnapshotFromContainer(container, template) {
         return null;
     }
 
-    const activeTab = contentRoot.dataset.activeTab === 'archived' ? 'archived' : 'active';
+    const rawActiveTab = contentRoot.dataset.activeTab || 'active';
+    const activeTab = rawActiveTab === 'archived' || rawActiveTab === 'help'
+        ? rawActiveTab
+        : 'active';
     const currentPage = Number(contentRoot.dataset.currentPage || 1);
     const totalPages = Number(contentRoot.dataset.totalPages || 1);
     const totalCount = Number(contentRoot.dataset.totalCount || 0);
+    const activeCount = Number(contentRoot.dataset.activeCount || (activeTab === 'active' ? totalCount : 0));
     const searchTerm = contentRoot.dataset.searchTerm || '';
     const signedOnly = contentRoot.dataset.signedOnly === 'true';
 
@@ -87,6 +91,7 @@ function parseSnapshotFromContainer(container, template) {
         currentPage: Number.isFinite(currentPage) && currentPage > 0 ? currentPage : 1,
         totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
         totalCount: Number.isFinite(totalCount) && totalCount >= 0 ? totalCount : 0,
+        activeCount: Number.isFinite(activeCount) && activeCount >= 0 ? activeCount : 0,
         searchTerm,
         signedOnly,
         surveys: parseSurveyItems(contentRoot),

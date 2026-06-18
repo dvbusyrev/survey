@@ -135,14 +135,14 @@ function submitFormAdd() {
             setModalVisibility('addUserModal', false);
             if (typeof window.handleAdminMutationSuccess === 'function') {
                 window.handleAdminMutationSuccess({
-                    message: data.message || 'Пользователь успешно добавлен.',
+                    message: data.message || 'Пользователь успешно добавлен',
                     tabName: 'get_users',
                     fallbackUrl: '/users'
                 });
                 return;
             }
 
-            window.siteNotify?.(data.message || 'Пользователь успешно добавлен.', 'success');
+            window.siteNotify?.(data.message || 'Пользователь успешно добавлен', 'success');
             navigateAdminTab("get_users", "/users");
         }
     })
@@ -274,7 +274,7 @@ async function loadOrganizations2(selectedOrgId = null) {
     const orgSelect = getSafeElement('editUserOrganization');
     
     try {
-        setSingleOption(orgSelect, 'Загрузка организаций...');
+        setSingleOption(orgSelect, '');
         
         const response = await fetch('/organizations/data');
         if (!response.ok) throw new Error('Не удалось загрузить организации');
@@ -450,14 +450,14 @@ async function updateUser() {
         setModalVisibility(modal, false);
         if (typeof window.handleAdminMutationSuccess === 'function') {
             await window.handleAdminMutationSuccess({
-                message: result.message || 'Пользователь успешно обновлён.',
+                message: result.message || 'Пользователь успешно обновлён',
                 tabName: 'get_users',
                 fallbackUrl: '/users'
             });
             return;
         }
 
-        window.siteNotify?.('Пользователь успешно обновлён.', 'success');
+        window.siteNotify?.('Пользователь успешно обновлён', 'success');
         navigateAdminTab("get_users", "/users");
 
     } catch (error) {

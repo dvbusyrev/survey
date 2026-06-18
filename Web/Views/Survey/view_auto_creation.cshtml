@@ -46,13 +46,13 @@
 
                 <section class="app-page__section reports-page__card survey-auto-creation-page__card">
                     <div class="reports-page__card-header survey-auto-creation-page__header">
-                        @* <h3 class="reports-page__card-title">Параметры автосоздания</h3> *@
-                        <p class="reports-page__card-description">
-                            Статус:
-                            <strong data-role="survey-auto-creation-status">
-                                @(Model?.IsEnabled == true ? "запущено" : "остановлено")
-                            </strong>
-                        </p>
+                        <div class="reports-page__field survey-auto-creation-page__status-field">
+                            <label>Статус</label>
+                            <div class="survey-auto-creation-page__status-control"
+                                 data-role="survey-auto-creation-status">
+                                @(Model?.IsEnabled == true ? "В работе" : "Не запущен")
+                            </div>
+                        </div>
                     </div>
 
                     <div class="survey-auto-creation-page__controls">
@@ -89,7 +89,7 @@
                     </div>
 
                     <div class="survey-auto-creation-page__selection">
-                        <h3 class="survey-auto-creation-page__selection-title">Анкеты</h3>
+                        <div class="survey-auto-creation-page__selection-title">Анкеты</div>
                         <div class="survey-auto-creation-page__selected-list"
                              data-role="survey-auto-creation-selected-list"
                              aria-live="polite"></div>
@@ -104,7 +104,7 @@
                                 <div id="surveyAutoCreationDropdownMenu"
                                      class="app-checkbox-dropdown__menu is-hidden"
                                      data-role="survey-auto-creation-dropdown-menu">
-                                    <div id="surveyAutoCreationModalLoading" class="app-checkbox-empty u-hidden">Загрузка анкет...</div>
+                                    <div id="surveyAutoCreationModalLoading" class="app-checkbox-empty u-hidden" aria-hidden="true"></div>
                                     <div id="surveyAutoCreationModalList" class="app-checkbox-list"></div>
                                 </div>
                             </div>

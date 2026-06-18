@@ -24,9 +24,17 @@
 }
 
 .app-page__intro--title-only {
-  padding: 1rem;
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  width: 100%;
+  padding: 0 0 4px;
+  padding-left: 0;
+  box-sizing: border-box;
   background: transparent;
   border: 0;
+  border-bottom: 1px solid var(--border);
   border-radius: 0;
   box-shadow: none;
 }
@@ -39,7 +47,18 @@
 }
 
 .app-page__intro--title-only .app-page__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--app-button-min-height);
+  margin-right: auto;
+  margin-left: auto;
   margin-bottom: 0;
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .app-page__description {

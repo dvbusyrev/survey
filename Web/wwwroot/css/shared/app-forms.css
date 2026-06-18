@@ -46,7 +46,7 @@ input[type="checkbox"],
   line-height: 1.4;
   background: white;
   border: 1px solid var(--border-dark);
-  border-radius: 8px;
+  border-radius: var(--app-field-radius);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -144,7 +144,7 @@ textarea.form-control {
   overflow: hidden;
   background: #ffffff;
   border: 1px solid var(--border-dark);
-  border-radius: 8px;
+  border-radius: var(--app-field-radius);
 }
 
 .form-group .icon-container {
@@ -256,30 +256,35 @@ textarea.form-control {
 
 .app-date-field {
   position: relative;
-  width: 100%;
+  width: min(14rem, 100%);
   min-width: 0;
   --app-date-icon-size: 1.9rem;
-  --app-date-icon-left: min(calc(0.9rem + 10ch + 0.55rem), calc(100% - var(--app-date-icon-size) - 0.75rem));
+  --app-date-icon-left: 6rem;
 }
 
 .app-native-date-field {
   position: relative;
-  width: 100%;
+  width: min(14rem, 100%);
   min-width: 0;
   --app-date-icon-size: 1.9rem;
-  --app-date-icon-left: min(calc(0.9rem + 10ch + 0.55rem), calc(100% - var(--app-date-icon-size) - 0.75rem));
+  --app-date-icon-left: 6rem;
+}
+
+input[type="date"][data-date-native="true"].form-control,
+input[type="date"][data-date-native="true"].admin-extension-input {
+  width: min(14rem, 100%);
 }
 
 .app-native-date-field__input {
   position: relative;
   z-index: 1;
-  padding-right: 0.9rem;
+  padding-right: calc(100% - var(--app-date-icon-left) + 0.35rem);
 }
 
 .app-native-date-field__button {
   position: absolute;
-  top: 15%;
-  left: 43%;
+  top: 50%;
+  left: var(--app-date-icon-left);
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -292,7 +297,7 @@ textarea.form-control {
   border: 0;
   border-radius: 0.35rem;
   cursor: default;
-  /*transform: translateY(-50%);*/
+  transform: translateY(-50%);
 }
 
 .app-native-date-field__button i {
@@ -319,11 +324,11 @@ textarea.form-control {
   border: 0;
   opacity: 0;
   pointer-events: none;
-  /*transform: translateY(-50%);*/
+  transform: translateY(-50%);
 }
 
 .app-date-field__input {
-  padding-right: 0.9rem;
+  padding-right: calc(100% - var(--app-date-icon-left) + 0.35rem);
 }
 
 .app-date-field__button {
@@ -340,7 +345,7 @@ textarea.form-control {
   border: 0;
   border-radius: 0.35rem;
   cursor: default;
-  /*transform: translateY(-50%);*/
+  transform: translateY(-50%);
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 
@@ -384,7 +389,7 @@ textarea.form-control {
 .app-picker-cursor-suppressed:hover,
 .app-picker-cursor-suppressed:focus,
 .app-picker-cursor-suppressed:focus-visible {
-  cursor: default !important;
+  cursor: default;
 }
 
 .app-date-field:focus-within .app-date-field__button {
@@ -659,7 +664,7 @@ a.btn:focus,
   align-items: center;
   justify-content: space-between;
   gap: 0.625rem;
-  font-weight: 400;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
   max-width: 100%;

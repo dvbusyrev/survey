@@ -72,7 +72,7 @@
         if (state.selectedSurveys.length === 0) {
             const empty = document.createElement('p');
             empty.className = 'survey-auto-creation-page__empty-selection';
-            empty.textContent = 'Анкеты не выбраны.';
+            empty.textContent = 'Анкеты не выбраны';
             host.appendChild(empty);
             return;
         }
@@ -226,7 +226,7 @@
     }
 
     async function loadSurveyOptions() {
-        const response = await fetch('/surveys/data', {
+        const response = await fetch('/survey/data', {
             headers: {
                 Accept: 'application/json'
             }
@@ -346,15 +346,15 @@
     };
 
     window.saveSurveyAutoCreationSettings = function saveSurveyAutoCreationSettings() {
-        return submitAction('/survey-auto-creation/save', collectRequest(), 'Настройки сохранены');
+        return submitAction('/settings/survey-creation/save', collectRequest(), 'Настройки сохранены');
     };
 
     window.startSurveyAutoCreation = function startSurveyAutoCreation() {
-        return submitAction('/survey-auto-creation/start', collectRequest(), 'Автосоздание запущено');
+        return submitAction('/settings/survey-creation/start', collectRequest(), 'Автосоздание запущено');
     };
 
     window.stopSurveyAutoCreation = function stopSurveyAutoCreation() {
-        return submitAction('/survey-auto-creation/stop', undefined, 'Автосоздание остановлено');
+        return submitAction('/settings/survey-creation/stop', undefined, 'Автосоздание остановлено');
     };
 
     window.initSurveyAutoCreationPage = function initSurveyAutoCreationPage() {

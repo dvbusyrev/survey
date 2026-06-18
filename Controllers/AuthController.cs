@@ -28,11 +28,11 @@ public class AuthController : Controller
 
             if (userRole == AppRoles.Admin)
             {
-                return Redirect("/surveys");
+                return Redirect("/survey");
             }
             else if (userRole == AppRoles.User && !string.IsNullOrEmpty(userId))
             {
-                return Redirect("/my-surveys");
+                return Redirect("/survey");
             }
         }
 

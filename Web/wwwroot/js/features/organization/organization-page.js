@@ -262,7 +262,7 @@
             closeOrganizationModal('editOrganizationModal');
             if (typeof window.handleAdminMutationSuccess === 'function') {
                 await window.handleAdminMutationSuccess({
-                    message: successMessage || 'Организация успешно обновлена.',
+                    message: successMessage || 'Организация успешно обновлена',
                     tabName: 'get_organization',
                     fallbackUrl: '/organizations'
                 });
@@ -307,7 +307,7 @@
             const successMessage = await submitOrganizationUpdate(id, payload);
             if (typeof window.handleAdminMutationSuccess === 'function') {
                 await window.handleAdminMutationSuccess({
-                    message: successMessage || 'Организация успешно обновлена.',
+                    message: successMessage || 'Организация успешно обновлена',
                     tabName: 'get_organization',
                     fallbackUrl: '/organizations'
                 });
@@ -343,7 +343,7 @@
 
             if (typeof window.handleAdminMutationSuccess === 'function') {
                 await window.handleAdminMutationSuccess({
-                    message: responseText || 'Организация успешно удалена.',
+                    message: responseText || 'Организация успешно удалена',
                     tabName: 'get_organization',
                     fallbackUrl: '/organizations'
                 });

@@ -7,7 +7,7 @@
 
 <div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы настроек">
     <a
-        href="/mail/configuration"
+        href="/settings/email"
         class="menu-tab @(senderActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(senderActive ? "true" : "false")"
@@ -15,7 +15,7 @@
         Настройка отправителя
     </a>
     <a
-        href="/theme/configuration"
+        href="/settings/theme"
         class="menu-tab @(themeActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(themeActive ? "true" : "false")"
@@ -23,7 +23,7 @@
         Настройка темы
     </a>
     <a
-        href="/survey-auto-creation"
+        href="/settings/survey-creation"
         class="menu-tab @(autoCreationActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(autoCreationActive ? "true" : "false")"

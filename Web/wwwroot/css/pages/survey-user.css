@@ -55,7 +55,7 @@
             width: 100%;
             padding: 0.75rem;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: var(--app-field-radius);
             resize: vertical;
             min-height: 100px;
         }
@@ -371,7 +371,7 @@
         width: 220px; /* Уменьшенная ширина */
         padding: 8px 12px;
         border: 1px solid var(--border);
-        border-radius: var(--radius-md);
+        border-radius: var(--app-field-radius);
         font-size: 0.9rem;
         transition: var(--transition);
         height: 36px; /* Фиксированная высота */
@@ -392,7 +392,7 @@
     color: var(--app-theme-button-text-color);
     border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
     border-radius: var(--radius-md);
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
     font-size: 14px;
@@ -545,6 +545,7 @@
     background-image: none;
     color: var(--app-theme-button-text-color);
     border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
+    font-weight: 700;
 }
 
 .csp-btn-primary:hover {
@@ -555,6 +556,7 @@
     background-color: #ffffff;
     color: var(--text-main);
     border-color: var(--border);
+    font-weight: 500;
 }
 
 .csp-btn-secondary:hover {
@@ -942,7 +944,7 @@
 .filter-group input[type="date"] {
     padding: 8px 12px;
     border: 1px solid #e2e8f0;
-    border-radius: 4px;
+    border-radius: var(--app-field-radius);
     font-size: 14px;
 }
 
@@ -959,7 +961,7 @@
         border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
         border-radius: var(--app-button-radius);
         font-size: var(--app-button-font-size);
-        font-weight: 500;
+        font-weight: 700;
         cursor: pointer;
         transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
         white-space: nowrap;
@@ -972,7 +974,7 @@
     .date-filters input[data-date-format="dd/mm/yyyy"] {
         padding: 6px 8px;
         border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
+        border-radius: var(--app-field-radius);
         font-size: 0.85rem;
         height: 36px; /* Фиксированная высота */
         transition: var(--transition);
@@ -998,6 +1000,7 @@
     border-radius: var(--app-button-radius);
     cursor: pointer;
     font-size: var(--app-button-font-size);
+    font-weight: 700;
     transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
@@ -1136,7 +1139,7 @@
             width: 100%;
             padding: 0.75rem;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: var(--app-field-radius);
             resize: vertical;
             min-height: 100px;
         }
@@ -1514,7 +1517,7 @@
     line-height: 1.4;
     background: #ffffff;
     border: 1px solid var(--border-dark);
-    border-radius: 8px;
+    border-radius: var(--app-field-radius);
     box-sizing: border-box;
 }
 
@@ -1603,6 +1606,7 @@
 
 .btn_crit.active {
     color: var(--app-theme-button-text-color);
+    font-weight: 700;
     background: var(--app-theme-button-color);
     background-image: none;
     border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
@@ -1774,13 +1778,31 @@
     display: none;
 }
 
+#default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table {
+    box-shadow:
+        inset 1px 0 0 var(--border),
+        inset -1px 0 0 var(--border),
+        inset 0 1px 0 var(--border);
+}
+
 .client-surveys-table__row--fillable,
 .client-surveys-table__row--viewable {
     cursor: pointer;
 }
 
-#default_content[data-page="user-surveys"] .surveys-table .client-surveys-table__row:has(+ tr[data-role="survey-filter-empty-row"].is-hidden) td {
+#default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table tbody:has(> tr[data-role="survey-filter-empty-row"].is-hidden:last-child) > tr:nth-last-child(2) td,
+#default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table .client-surveys-table__row:has(+ tr[data-role="survey-filter-empty-row"].is-hidden) td {
     border-bottom: 0;
+}
+
+#default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table tbody:has(> tr[data-role="survey-filter-empty-row"].is-hidden:last-child) > tr:nth-last-child(2) td:first-child,
+#default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table .client-surveys-table__row:has(+ tr[data-role="survey-filter-empty-row"].is-hidden) td:first-child {
+    border-bottom-left-radius: 16px;
+}
+
+#default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table tbody:has(> tr[data-role="survey-filter-empty-row"].is-hidden:last-child) > tr:nth-last-child(2) td:last-child,
+#default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table .client-surveys-table__row:has(+ tr[data-role="survey-filter-empty-row"].is-hidden) td:last-child {
+    border-bottom-right-radius: 16px;
 }
 
 .client-surveys-page__cursor-tooltip {

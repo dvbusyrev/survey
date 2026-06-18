@@ -262,7 +262,7 @@
         }
 
         try {
-            const response = await fetch('/organizations/surveys/end-date', {
+            const response = await fetch('/organizations/survey/end-date', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

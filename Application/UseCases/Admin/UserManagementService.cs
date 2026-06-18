@@ -280,7 +280,7 @@ public sealed class UserManagementService : IUserManagementService
         {
             Success = affectedRows > 0,
             Message = affectedRows > 0
-                ? "Пользователь успешно удален."
+                ? "Пользователь успешно удален"
                 : "Пользователь с указанным ID не найден."
         };
     }
@@ -457,7 +457,7 @@ public sealed class UserManagementService : IUserManagementService
 
         if (string.IsNullOrWhiteSpace(request.FullName))
         {
-            validationError = "ФИО обязательно.";
+            validationError = "ФИО обязательно";
             return false;
         }
 
@@ -525,7 +525,7 @@ public sealed class UserManagementService : IUserManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = "ФИО обязательно.";
+            validationError = "ФИО обязательно";
             return false;
         }
 
@@ -695,17 +695,9 @@ public sealed class UserManagementService : IUserManagementService
                 FROM (
                     SELECT
                         changed_by_user_id,
-                        CASE
-                            WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
-                                THEN (row_data->>'id_survey')::integer
-                            ELSE NULL
-                        END AS SurveyId,
-                        CASE
-                            WHEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey', '') ~ '^[0-9]+$'
-                                THEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey')::integer
-                            ELSE NULL
-                        END AS IdOrganizationSurvey,
-                        COALESCE(row_data->>'csp', '') AS SignatureValue
+                        NULL::integer AS SurveyId,
+                        id_organization_survey AS IdOrganizationSurvey,
+                        COALESCE(csp, '') AS SignatureValue
                     FROM public.answer_l
                 ) audit_raw
                 LEFT JOIN public.organization_survey os
@@ -740,17 +732,9 @@ public sealed class UserManagementService : IUserManagementService
                 FROM (
                     SELECT
                         changed_by_user_id,
-                        CASE
-                            WHEN COALESCE(row_data->>'id_survey', '') ~ '^[0-9]+$'
-                                THEN (row_data->>'id_survey')::integer
-                            ELSE NULL
-                        END AS SurveyId,
-                        CASE
-                            WHEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey', '') ~ '^[0-9]+$'
-                                THEN COALESCE(row_data->>'id_organization_survey', record_pk->>'id_organization_survey')::integer
-                            ELSE NULL
-                        END AS IdOrganizationSurvey,
-                        COALESCE(row_data->>'csp', '') AS SignatureValue
+                        NULL::integer AS SurveyId,
+                        id_organization_survey AS IdOrganizationSurvey,
+                        COALESCE(csp, '') AS SignatureValue
                     FROM public.answer_l
                 ) audit_raw
                 LEFT JOIN public.organization_survey os

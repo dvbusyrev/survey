@@ -15,6 +15,7 @@ public class AnswerAdminController : Controller
         _logger = logger;
     }
 
+    [HttpGet("survey/answer")]
     [HttpGet("surveys/answers")]
     public IActionResult GetListAnswers(
         int page = 1,
@@ -49,6 +50,7 @@ public class AnswerAdminController : Controller
         }
     }
 
+    [HttpGet("survey/{id:int}/signatures")]
     [HttpGet("surveys/{id:int}/signatures")]
     public IActionResult GetSurveySignatures(int id)
     {

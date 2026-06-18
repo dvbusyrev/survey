@@ -76,12 +76,12 @@
                     <td class="action-icons table-col--actions">
                         <div class="action-icons__content">
                             <a class="icon-container"
-                               href="/surveys/@survey.IdSurvey/signatures"
+                               href="/survey/@survey.IdSurvey/signatures"
                                data-survey-id="@survey.IdSurvey"
                                data-survey-name="@(survey.NameSurvey ?? string.Empty)"
                                data-click-call="openSurveyCompletionModalFromTrigger"
                                data-click-pass-element="true"
-                               data-fallback-url="/surveys/@survey.IdSurvey/signatures"
+                               data-fallback-url="/survey/@survey.IdSurvey/signatures"
                                aria-label="Проверить прохождение">
                                 <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
                                 <span class="icon-tooltip">Проверить прохождение</span>
@@ -109,7 +109,7 @@
                                     <span class="icon-tooltip">Копировать</span>
                                 </button>
                                 <a class="icon-container"
-                                   href="/surveys/archive/@survey.IdSurvey/edit"
+                                   href="/survey/archive/@survey.IdSurvey/edit"
                                    aria-label="Посмотреть / обновить">
                                     <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
                                     <span class="icon-tooltip">Посмотреть / обновить</span>
@@ -128,7 +128,7 @@
                                     <span class="icon-tooltip">Копировать</span>
                                 </button>
                                 <a class="icon-container"
-                                   href="/surveys/@survey.IdSurvey/edit"
+                                   href="/survey/@survey.IdSurvey/edit"
                                    aria-label="Посмотреть / обновить">
                                     <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
                                     <span class="icon-tooltip">Посмотреть / обновить</span>

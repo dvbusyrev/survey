@@ -243,7 +243,6 @@ input[type="checkbox"],
     border-radius: var(--app-button-radius);
     font-size: var(--app-button-font-size);
     line-height: 1.2;
-    font-weight: 500;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
     text-transform: none;
@@ -252,12 +251,14 @@ input[type="checkbox"],
 
 .reset-button {
     color: var(--app-theme-font-color);
+    font-weight: 500;
     background: #ffffff;
     border: 1px solid color-mix(in srgb, var(--app-theme-font-color) 18%, transparent 82%);
 }
 
 .submit-button {
     color: var(--app-theme-button-text-color);
+    font-weight: 700;
     background: var(--app-theme-button-color);
     background-image: none;
     border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
@@ -415,6 +416,7 @@ input[type="checkbox"],
     padding: var(--app-button-padding);
     border-radius: var(--app-button-radius);
     font-size: var(--app-button-font-size);
+    font-weight: 700;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }

@@ -157,7 +157,7 @@
                 closeModal();
                 if (typeof window.handleAdminMutationSuccess === 'function') {
                     await window.handleAdminMutationSuccess({
-                        message: responseData.message || 'Доступ успешно продлён.',
+                        message: responseData.message || 'Доступ успешно продлён',
                         tabName: typeof window.resolveCurrentAdminTab === 'function'
                             ? window.resolveCurrentAdminTab()
                             : 'get_surveys',
@@ -166,7 +166,7 @@
                     return;
                 }
 
-                window.siteNotify?.(responseData.message || 'Доступ успешно продлён.', 'success');
+                window.siteNotify?.(responseData.message || 'Доступ успешно продлён', 'success');
                 window.location.reload();
             } catch (submitError) {
                 console.error('Ошибка продления анкеты:', submitError);
@@ -799,45 +799,45 @@
         const recipients = splitEmailRecipients(settings.to);
 
         if (recipients.length === 0) {
-            errors.push('Поле «Кому» должно содержать хотя бы один email.');
+            errors.push('Поле «Кому» должно содержать хотя бы одну эл. почту');
             setEmailInvalidState('email-to', true);
         } else {
             const invalidRecipients = recipients.filter((email) => !isValidEmailAddress(email));
             if (invalidRecipients.length > 0) {
-                errors.push(`Поле «Кому» содержит некорректные email: ${invalidRecipients.join(', ')}.`);
+                errors.push(`Поле «Кому» содержит некорректную эл. почту: ${invalidRecipients.join(', ')}`);
                 setEmailInvalidState('email-to', true);
             }
         }
 
         if (!settings.subject) {
-            errors.push('Поле «Тема» обязательно.');
+            errors.push('Поле «Тема» обязательно');
             setEmailInvalidState('email-subject', true);
         }
 
         if (!settings.content) {
-            errors.push('Поле «Содержание» обязательно.');
+            errors.push('Поле «Содержание» обязательно');
             setEmailInvalidState('email-content', true);
         }
 
         if (!settings.smtpHost) {
-            errors.push('Поле «SMTP сервер» обязательно.');
+            errors.push('Поле «SMTP сервер» обязательно');
             setEmailInvalidState('email-smtp-host', true);
         }
 
         if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
-            errors.push('Поле «Порт SMTP» должно быть числом от 1 до 65535.');
+            errors.push('Поле «Порт SMTP» должно быть числом от 1 до 65535');
             setEmailInvalidState('email-smtp-port', true);
         }
 
         if (!isValidEmailAddress(settings.fromAddress)) {
-            errors.push('Поле «Email отправителя» заполнено некорректно.');
+            errors.push('Поле «Эл. почта отправителя» заполнено некорректно');
             setEmailInvalidState('email-from-address', true);
         }
 
         const hasUserName = Boolean(settings.smtpUserName);
         const hasPassword = Boolean(settings.smtpPassword);
         if (hasUserName !== hasPassword) {
-            errors.push('Логин SMTP и пароль SMTP должны быть заполнены вместе.');
+            errors.push('Логин SMTP и пароль SMTP должны быть заполнены вместе');
             setEmailInvalidState('email-smtp-user-name', true);
             setEmailInvalidState('email-smtp-password', true);
         }
@@ -979,7 +979,7 @@
     }
 
     window.saveEmailSettings = function saveEmailSettings() {
-        return submitEmailSettings('/mail/settings', {
+        return submitEmailSettings('/email/settings', {
             busyButtonId: 'email-save-button',
             busyLabel: 'Сохранение...',
             successTitle: 'Настройки сохранены',
@@ -991,7 +991,7 @@
     };
 
     window.sendEmailMessage = function sendEmailMessage() {
-        return submitEmailSettings('/mail/send', {
+        return submitEmailSettings('/email/send', {
             busyButtonId: 'email-send-button',
             busyLabel: 'Отправка...',
             successTitle: 'Письмо отправлено',
@@ -1035,6 +1035,13 @@
         ['theme-footer-darken-percent', 'footerDarkenPercent', 42],
         ['theme-button-darken-percent', 'buttonDarkenPercent', 42],
         ['theme-surface-tint-opacity-percent', 'surfaceTintOpacityPercent', 59]
+    ];
+
+    const THEME_EFFECT_FIELDS = [
+        ['theme-effect-snow', 'Снег'],
+        ['theme-effect-fireworks', 'Салюты при нажатии'],
+        ['theme-effect-grass', 'Трава'],
+        ['theme-effect-rain', 'Дождь']
     ];
 
     function getThemePercentValue(id, fallback) {
@@ -1119,7 +1126,8 @@
 
     const themeSettingsPageState = {
         savedSettings: null,
-        isMounted: false
+        isMounted: false,
+        effectPickerGlobalBound: false
     };
 
     function hasThemeSettingsForm() {
@@ -1141,6 +1149,66 @@
                 valueNode.textContent = `${settings[propertyName]}%`;
             }
         });
+    }
+
+    function syncThemeEffectsSummary() {
+        const summary = document.getElementById('theme-effects-summary');
+        if (!summary) {
+            return;
+        }
+
+        summary.replaceChildren();
+        const selectedEffects = [];
+
+        THEME_EFFECT_FIELDS.forEach(([fieldId, label]) => {
+            const checkbox = getThemeField(fieldId);
+            const isSelected = Boolean(checkbox?.checked);
+            checkbox?.closest('.app-checkbox-option')?.classList.toggle('selected', isSelected);
+
+            if (isSelected) {
+                selectedEffects.push(label);
+            }
+        });
+
+        if (selectedEffects.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'theme-settings-page__empty-selection';
+            empty.textContent = 'Эффекты не выбраны';
+            summary.appendChild(empty);
+            return;
+        }
+
+        const list = document.createElement('div');
+        list.className = 'theme-settings-page__selected-effects-list';
+        selectedEffects.forEach((label) => {
+            const item = document.createElement('div');
+            item.className = 'theme-settings-page__selected-effect-item';
+            item.appendChild(document.createTextNode(label));
+            list.appendChild(item);
+        });
+        summary.appendChild(list);
+    }
+
+    function setThemeEffectsDropdownOpen(isOpen) {
+        const trigger = getThemeField('theme-effects-toggle');
+        const dropdown = document.getElementById('theme-effects-dropdown');
+        if (!trigger || !dropdown) {
+            return;
+        }
+
+        dropdown.classList.toggle('is-hidden', !isOpen);
+        trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    function syncThemeImageName() {
+        const nameField = getThemeField('theme-background-image-name');
+        const dataField = getThemeField('theme-background-image-data-url');
+        if (!nameField) {
+            return;
+        }
+
+        const fileName = dataField?.dataset?.fileName || '';
+        nameField.value = fileName || (dataField?.value ? 'Изображение загружено' : 'Изображение не выбрано');
     }
 
     function collectThemeSettingsPayload() {
@@ -1177,7 +1245,7 @@
 
         colorFields.forEach(([fieldId, value, label]) => {
             if (!colorRegex.test(String(value || ''))) {
-                errors.push(`Поле «${label}» заполнено некорректно.`);
+                errors.push(`Поле «${label}» заполнено некорректно`);
                 setThemeInvalidState(fieldId, true);
             }
         });
@@ -1236,10 +1304,12 @@
             const hiddenField = getThemeField('theme-background-image-data-url');
             if (hiddenField) {
                 hiddenField.value = dataUrl;
+                hiddenField.dataset.fileName = file.name;
             }
+            syncThemeImageName();
             applyThemeDraftState();
         } catch (error) {
-            showEmailToast(error.message || 'Не удалось загрузить изображение.', 'error', 'Изображение не загружено', { duration: 0 });
+            showEmailToast(error.message || 'Не удалось загрузить изображение', 'error', 'Изображение не загружено', { duration: 0 });
         } finally {
             input.value = '';
         }
@@ -1249,7 +1319,9 @@
         const hiddenField = getThemeField('theme-background-image-data-url');
         if (hiddenField) {
             hiddenField.value = '';
+            delete hiddenField.dataset.fileName;
         }
+        syncThemeImageName();
         applyThemeDraftState();
     }
 
@@ -1289,6 +1361,7 @@
         const imageDataField = getThemeField('theme-background-image-data-url');
         if (imageDataField) {
             imageDataField.value = normalizedSettings.backgroundImageDataUrl;
+            delete imageDataField.dataset.fileName;
         }
 
         const opacityField = getThemeField('theme-background-image-opacity');
@@ -1304,6 +1377,8 @@
         });
 
         syncThemeOpacityLabel(normalizedSettings);
+        syncThemeEffectsSummary();
+        syncThemeImageName();
     }
 
     function applyThemeDraftState() {
@@ -1422,6 +1497,54 @@
         element.addEventListener(eventName, applyThemeDraftState);
     }
 
+    function bindThemeEffectInput(id) {
+        bindThemeInput(id, 'change');
+        const element = getThemeField(id);
+        if (!element || element.dataset.themeEffectSummaryBound === 'true') {
+            return;
+        }
+
+        element.dataset.themeEffectSummaryBound = 'true';
+        element.addEventListener('change', syncThemeEffectsSummary);
+    }
+
+    function bindThemeEffectsPicker() {
+        const trigger = getThemeField('theme-effects-toggle');
+        if (trigger && trigger.dataset.themeEffectsToggleBound !== 'true') {
+            trigger.dataset.themeEffectsToggleBound = 'true';
+            trigger.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const dropdown = document.getElementById('theme-effects-dropdown');
+                setThemeEffectsDropdownOpen(dropdown?.classList.contains('is-hidden'));
+            });
+        }
+
+        if (themeSettingsPageState.effectPickerGlobalBound) {
+            return;
+        }
+
+        themeSettingsPageState.effectPickerGlobalBound = true;
+        document.addEventListener('click', (event) => {
+            const page = document.querySelector('[data-page="theme-settings-page"]');
+            if (!page) {
+                return;
+            }
+
+            const target = event.target;
+            if (target instanceof Element && target.closest('#theme-effects-toggle, #theme-effects-dropdown')) {
+                return;
+            }
+
+            setThemeEffectsDropdownOpen(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                setThemeEffectsDropdownOpen(false);
+            }
+        });
+    }
+
     function bindThemeColorPickerCursor(id) {
         const element = getThemeField(id);
         if (!element || element.dataset.themePickerCursorBound === 'true') {
@@ -1455,16 +1578,15 @@
         bindThemeAction('theme-save-button', window.saveThemeSettings);
         bindThemeAction('theme-reset-button', window.resetThemeSettings);
         bindThemeAction('theme-background-image-clear', clearThemeImage);
+        bindThemeAction('theme-background-image-upload', () => getThemeField('theme-background-image-file')?.click());
         bindThemeInput('theme-font-color');
         bindThemeInput('theme-background-color');
         bindThemeColorPickerCursor('theme-font-color');
         bindThemeColorPickerCursor('theme-background-color');
         bindThemeInput('theme-background-image-opacity');
         THEME_PERCENT_FIELDS.forEach(([fieldId]) => bindThemeInput(fieldId));
-        bindThemeInput('theme-effect-snow', 'change');
-        bindThemeInput('theme-effect-fireworks', 'change');
-        bindThemeInput('theme-effect-grass', 'change');
-        bindThemeInput('theme-effect-rain', 'change');
+        THEME_EFFECT_FIELDS.forEach(([fieldId]) => bindThemeEffectInput(fieldId));
+        bindThemeEffectsPicker();
 
         const fileInput = getThemeField('theme-background-image-file');
         if (fileInput && fileInput.dataset.themeFileBound !== 'true') {

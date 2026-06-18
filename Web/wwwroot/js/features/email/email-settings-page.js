@@ -113,45 +113,45 @@
         const recipients = splitRecipients(settings.to);
 
         if (recipients.length === 0) {
-            errors.push('Поле «Кому» должно содержать хотя бы один email.');
+            errors.push('Поле «Кому» должно содержать хотя бы одну эл. почту');
             setInvalidState(fieldIds.to, true);
         } else {
             const invalidRecipients = recipients.filter(email => !isValidEmail(email));
             if (invalidRecipients.length > 0) {
-                errors.push(`Поле «Кому» содержит некорректные email: ${invalidRecipients.join(', ')}.`);
+                errors.push(`Поле «Кому» содержит некорректную эл. почту: ${invalidRecipients.join(', ')}`);
                 setInvalidState(fieldIds.to, true);
             }
         }
 
         if (!settings.subject) {
-            errors.push('Поле «Тема» обязательно.');
+            errors.push('Поле «Тема» обязательно');
             setInvalidState(fieldIds.subject, true);
         }
 
         if (!settings.content) {
-            errors.push('Поле «Содержание» обязательно.');
+            errors.push('Поле «Содержание» обязательно');
             setInvalidState(fieldIds.content, true);
         }
 
         if (!settings.smtpHost) {
-            errors.push('Поле «SMTP сервер» обязательно.');
+            errors.push('Поле «SMTP сервер» обязательно');
             setInvalidState(fieldIds.smtpHost, true);
         }
 
         if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
-            errors.push('Поле «Порт SMTP» должно быть числом от 1 до 65535.');
+            errors.push('Поле «Порт SMTP» должно быть числом от 1 до 65535');
             setInvalidState(fieldIds.smtpPort, true);
         }
 
         if (!isValidEmail(settings.fromAddress)) {
-            errors.push('Поле «Email отправителя» заполнено некорректно.');
+            errors.push('Поле «Эл. почта отправителя» заполнено некорректно');
             setInvalidState(fieldIds.fromAddress, true);
         }
 
         const hasUserName = Boolean(settings.smtpUserName);
         const hasPassword = Boolean(settings.smtpPassword);
         if (hasUserName !== hasPassword) {
-            errors.push('Логин SMTP и пароль SMTP должны быть заполнены вместе.');
+            errors.push('Логин SMTP и пароль SMTP должны быть заполнены вместе');
             setInvalidState(fieldIds.smtpUserName, true);
             setInvalidState(fieldIds.smtpPassword, true);
         }
@@ -275,7 +275,7 @@
     }
 
     window.saveEmailSettings = function saveEmailSettings() {
-        return postSettings('/mail/settings', {
+        return postSettings('/email/settings', {
             successTitle: 'Настройки сохранены',
             successMessage: 'Настройки электронной почты сохранены.',
             errorTitle: 'Сохранение не выполнено',
@@ -285,7 +285,7 @@
     };
 
     window.sendEmailMessage = function sendEmailMessage() {
-        return postSettings('/mail/send', {
+        return postSettings('/email/send', {
             successTitle: 'Письмо отправлено',
             successMessage: 'Письмо отправлено.',
             errorTitle: 'Письмо не отправлено',

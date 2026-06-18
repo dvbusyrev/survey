@@ -121,7 +121,7 @@ function surveyEditSaveSelectedOrganization() {
                     .filter(text => text !== '')
             };
 
-            const response = await fetch(`/surveys/${surveyId}/update`, {
+            const response = await fetch(`/survey/${surveyId}/update`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -153,7 +153,7 @@ function surveyEditSaveSelectedOrganization() {
                     await window.handleAdminMutationSuccess({
                         message: result.message || 'Анкета успешно обновлена!',
                         tabName: 'get_surveys',
-                        fallbackUrl: '/surveys'
+                        fallbackUrl: '/survey'
                     });
                     return;
                 }
@@ -261,7 +261,7 @@ function surveyEditSaveSelectedOrganization() {
                     if (typeof window.handleAdminMutationSuccess === 'function') {
                         window.handleAdminMutationSuccess({
                             tabName: 'get_surveys',
-                            fallbackUrl: '/surveys'
+                            fallbackUrl: '/survey'
                         });
                         return;
                     }
@@ -287,7 +287,7 @@ function surveyEditSaveSelectedOrganization() {
 
                 document.getElementById('loadingOverlay').style.display = 'flex';
                 
-                fetch('/surveys/' + id + '/copy', {
+                fetch('/survey/' + id + '/copy', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -314,7 +314,7 @@ function surveyEditSaveSelectedOrganization() {
                             return window.handleAdminMutationSuccess({
                                 message: data.message || 'Анкета успешно скопирована!',
                                 tabName: 'get_surveys',
-                                fallbackUrl: '/surveys'
+                                fallbackUrl: '/survey'
                             });
                         }
 

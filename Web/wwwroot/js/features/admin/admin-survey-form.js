@@ -344,38 +344,25 @@
             return;
         }
 
+        container.classList.remove('u-hidden');
+        container.style.display = '';
+        list.replaceChildren();
+
         if (selectedOrganization.length === 0) {
-            container.classList.add('u-hidden');
-            container.style.display = 'none';
-            list.innerHTML = '';
+            const empty = document.createElement('p');
+            empty.className = 'survey-editor-page__empty-selection';
+            empty.textContent = 'Организации не выбраны';
+            list.appendChild(empty);
             if (idsInput) {
                 idsInput.value = '';
             }
             return;
         }
 
-        container.classList.remove('u-hidden');
-        container.style.display = 'block';
-        list.innerHTML = '';
-
         selectedOrganization.forEach((organization) => {
             const item = document.createElement('div');
-            item.className = 'selected-organization-item';
+            item.className = 'survey-editor-page__selected-organization-item';
             item.appendChild(document.createTextNode(organization.name));
-
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.setAttribute('aria-label', 'Убрать организацию');
-            button.addEventListener('click', function () {
-                removeSelectedOrganization(organization.id);
-            });
-
-            const icon = document.createElement('i');
-            icon.className = 'fas fa-xmark';
-            icon.setAttribute('aria-hidden', 'true');
-            button.appendChild(icon);
-
-            item.appendChild(button);
             list.appendChild(item);
         });
 
@@ -434,6 +421,9 @@
         const control = document.createElement('div');
         control.className = 'survey-editor-page__criteria-control';
 
+        const inputWrap = document.createElement('div');
+        inputWrap.className = 'survey-editor-page__criteria-input-wrap';
+
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'form-control criteriy';
@@ -452,13 +442,26 @@
         icon.setAttribute('aria-hidden', 'true');
         removeButton.appendChild(icon);
 
+        const action = document.createElement('div');
+        action.className = 'survey-editor-page__criteria-action';
+
+        const addButton = document.createElement('button');
+        addButton.type = 'button';
+        addButton.className = 'criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline';
+        addButton.dataset.role = 'criteria-add';
+        addButton.dataset.clickCall = document.getElementById('surveyId') ? 'surveyEditAddCriteria' : 'addRowCriteriy';
+        addButton.textContent = 'Добавить критерий';
+
         const error = document.createElement('div');
         error.className = 'error-message';
 
-        control.appendChild(input);
-        control.appendChild(removeButton);
+        inputWrap.appendChild(input);
+        inputWrap.appendChild(removeButton);
+        control.appendChild(inputWrap);
+        action.appendChild(addButton);
         wrapper.appendChild(label);
         wrapper.appendChild(control);
+        wrapper.appendChild(action);
         wrapper.appendChild(error);
 
         return wrapper;
@@ -483,6 +486,21 @@
         }
 
         const container = criterionItem.parentElement;
+        const input = criterionItem.querySelector('.criteriy');
+        const error = criterionItem.querySelector('.error-message');
+        if (container && container.querySelectorAll('.survey-editor-page__criteria-item').length <= 1) {
+            if (input) {
+                input.value = '';
+                input.classList.remove('invalid');
+            }
+            if (error) {
+                error.textContent = '';
+                error.style.display = '';
+            }
+            refreshCriteriaFields(container);
+            return;
+        }
+
         criterionItem.remove();
         refreshCriteriaFields(container);
     }
@@ -721,7 +739,7 @@
             setModalVisible(loadingOverlay, true);
         }
 
-        fetch('/surveys/create', {
+        fetch('/survey/create', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -757,14 +775,14 @@
 
                 if (typeof window.handleAdminMutationSuccess === 'function') {
                     window.handleAdminMutationSuccess({
-                        message: data.message || 'Анкета успешно создана.',
+                        message: data.message || 'Анкета успешно создана',
                         tabName: 'get_surveys',
-                        fallbackUrl: '/surveys'
+                        fallbackUrl: '/survey'
                     });
                     return;
                 }
 
-                showSuccess('Успех', 'Анкета успешно создана.');
+                showSuccess('Успех', 'Анкета успешно создана');
                 window.setTimeout(function () {
                     window.location.reload();
                 }, 2000);

@@ -150,7 +150,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
     {
         if (settings == null)
         {
-            throw new EmailTemplateValidationException(["Параметры письма не переданы."]);
+            throw new EmailTemplateValidationException(["Параметры письма не переданы"]);
         }
 
         var normalized = new EmailTemplateSettings
@@ -172,47 +172,47 @@ public sealed class EmailTemplateService : IEmailTemplateService
 
         if (recipients.Count == 0)
         {
-            errors.Add("Поле \"Кому\" должно содержать хотя бы один email.");
+            errors.Add("Поле \"Кому\" должно содержать хотя бы одну эл. почту");
         }
         else
         {
             var invalidRecipients = recipients.Where(static email => !EmailAddressParser.IsValid(email)).ToArray();
             if (invalidRecipients.Length > 0)
             {
-                errors.Add($"Поле \"Кому\" содержит некорректные email: {string.Join(", ", invalidRecipients)}.");
+                errors.Add($"Поле \"Кому\" содержит некорректную эл. почту: {string.Join(", ", invalidRecipients)}");
             }
         }
 
         if (string.IsNullOrWhiteSpace(normalized.Subject))
         {
-            errors.Add("Поле \"Тема\" обязательно.");
+            errors.Add("Поле \"Тема\" обязательно");
         }
 
         if (string.IsNullOrWhiteSpace(normalized.Content))
         {
-            errors.Add("Поле \"Содержание\" обязательно.");
+            errors.Add("Поле \"Содержание\" обязательно");
         }
 
         if (string.IsNullOrWhiteSpace(normalized.SmtpHost))
         {
-            errors.Add("Поле \"SMTP сервер\" обязательно.");
+            errors.Add("Поле \"SMTP сервер\" обязательно");
         }
 
         if (normalized.SmtpPort < 1 || normalized.SmtpPort > 65535)
         {
-            errors.Add("Поле \"Порт SMTP\" должно быть числом от 1 до 65535.");
+            errors.Add("Поле \"Порт SMTP\" должно быть числом от 1 до 65535");
         }
 
         if (!EmailAddressParser.IsValid(normalized.FromAddress))
         {
-            errors.Add("Поле \"Email отправителя\" заполнено некорректно.");
+            errors.Add("Поле \"Эл. почта отправителя\" заполнено некорректно");
         }
 
         var hasUserName = !string.IsNullOrWhiteSpace(normalized.SmtpUserName);
         var hasPassword = !string.IsNullOrWhiteSpace(normalized.SmtpPassword);
         if (hasUserName != hasPassword)
         {
-            errors.Add("Логин SMTP и пароль SMTP должны быть заполнены вместе.");
+            errors.Add("Логин SMTP и пароль SMTP должны быть заполнены вместе");
         }
 
         if (errors.Count > 0)

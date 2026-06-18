@@ -65,21 +65,21 @@
 
         switch (tab) {
             case 'get_surveys':
-                return buildQueryHistoryEntry(tab, '/surveys', id, { preserveCurrentWhenMissing: id === undefined });
+                return buildQueryHistoryEntry(tab, '/survey', id, { preserveCurrentWhenMissing: id === undefined });
             case 'list_answers_users':
-                return buildQueryHistoryEntry(tab, '/surveys/answers', id, { preserveCurrentWhenMissing: id === undefined });
+                return buildQueryHistoryEntry(tab, '/survey/answer', id, { preserveCurrentWhenMissing: id === undefined });
             case 'archived_surveys':
-                return buildQueryHistoryEntry(tab, '/surveys/archive', id, { preserveCurrentWhenMissing: id === undefined });
+                return buildQueryHistoryEntry(tab, '/survey/archive', id, { preserveCurrentWhenMissing: id === undefined });
             case 'get_survey_signatures':
-                return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/signatures` } : null;
+                return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/signatures` } : null;
             case 'add_survey':
-                return { tab, id: null, url: '/surveys/create' };
+                return { tab, id: null, url: '/survey/create' };
             case 'copy_survey':
-                return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/copy` } : null;
+                return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/copy` } : null;
             case 'update_survey':
-                return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/edit` } : null;
+                return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/edit` } : null;
             case 'update_archived_survey':
-                return surveyId ? { tab, id: surveyId, url: `/surveys/archive/${surveyId}/edit` } : null;
+                return surveyId ? { tab, id: surveyId, url: `/survey/archive/${surveyId}/edit` } : null;
             case 'open_statistics':
                 return { tab, id: null, url: '/statistics' };
             case 'get_users':
@@ -94,7 +94,7 @@
             case 'get_organization':
                 return buildQueryHistoryEntry(tab, '/organizations', id, { preserveCurrentWhenMissing: id === undefined });
             case 'organization_surveys':
-                return { tab, id: null, url: '/organizations/surveys' };
+                return { tab, id: null, url: '/organizations/survey' };
             case 'add_organization':
                 return { tab, id: null, url: '/organizations/create' };
             case 'update_organization':
@@ -104,16 +104,16 @@
             case 'reports':
                 return { tab, id: null, url: '/reports' };
             case 'survey_auto_creation':
-                return { tab, id: null, url: '/survey-auto-creation' };
+                return { tab, id: null, url: '/settings/survey-creation' };
             case 'theme_settings':
-                return { tab, id: null, url: '/theme/configuration' };
+                return { tab, id: null, url: '/settings/theme' };
             case 'get_logs':
-                return buildQueryHistoryEntry(tab, '/event-log', id, { preserveCurrentWhenMissing: id === undefined });
+                return buildQueryHistoryEntry(tab, '/logs', id, { preserveCurrentWhenMissing: id === undefined });
             case 'email':
             case 'email_new':
-                return { tab: tab === 'email' ? 'email_new' : tab, id: null, url: '/mail' };
+                return { tab: tab === 'email' ? 'email_new' : tab, id: null, url: '/email' };
             case 'email_settings':
-                return { tab, id: null, url: '/mail/configuration' };
+                return { tab, id: null, url: '/settings/email' };
             case 'help':
                 return { tab, id: null, url: '/help' };
             default:
@@ -124,19 +124,19 @@
     function getAdminHistoryEntryFromLocation(pathname, search = '') {
         const normalizedPath = normalizePathname(pathname);
 
-        if (normalizedPath === '/surveys') {
+        if (normalizedPath === '/survey' || normalizedPath === '/surveys') {
             return buildAdminHistoryEntry('get_surveys', search || '');
         }
 
-        if (normalizedPath === '/surveys/answers') {
+        if (normalizedPath === '/survey/answer' || normalizedPath === '/surveys/answers') {
             return buildAdminHistoryEntry('list_answers_users', search || '');
         }
 
-        if (normalizedPath === '/surveys/archive') {
+        if (normalizedPath === '/survey/archive' || normalizedPath === '/surveys/archive') {
             return buildAdminHistoryEntry('archived_surveys', search || '');
         }
 
-        if (normalizedPath === '/surveys/create') {
+        if (normalizedPath === '/survey/create' || normalizedPath === '/surveys/create') {
             return buildAdminHistoryEntry('add_survey');
         }
 
@@ -160,7 +160,7 @@
             return buildAdminHistoryEntry('get_organization', search || '');
         }
 
-        if (normalizedPath === '/organizations/surveys') {
+        if (normalizedPath === '/organizations/survey' || normalizedPath === '/organizations/surveys') {
             return buildAdminHistoryEntry('organization_surveys');
         }
 
@@ -176,25 +176,28 @@
             return buildAdminHistoryEntry('reports');
         }
 
-        if (normalizedPath === '/survey-auto-creation') {
+        if (normalizedPath === '/settings/survey-creation' || normalizedPath === '/survey-auto-creation') {
             return buildAdminHistoryEntry('survey_auto_creation');
         }
 
-        if (normalizedPath === '/theme/configuration'
+        if (normalizedPath === '/settings/theme'
+            || normalizedPath === '/theme/configuration'
             || normalizedPath === '/theme-settings') {
             return buildAdminHistoryEntry('theme_settings');
         }
 
-        if (normalizedPath === '/event-log') {
+        if (normalizedPath === '/logs' || normalizedPath === '/event-log') {
             return buildAdminHistoryEntry('get_logs', search || '');
         }
 
-        if (normalizedPath === '/mail'
+        if (normalizedPath === '/email'
+            || normalizedPath === '/mail'
             || normalizedPath === '/mail/new') {
             return buildAdminHistoryEntry('email_new');
         }
 
-        if (normalizedPath === '/mail/configuration'
+        if (normalizedPath === '/settings/email'
+            || normalizedPath === '/mail/configuration'
             || normalizedPath === '/mail-settings') {
             return buildAdminHistoryEntry('email_settings');
         }
@@ -203,22 +206,26 @@
             return buildAdminHistoryEntry('help');
         }
 
-        let match = normalizedPath.match(/^\/surveys\/(\d+)\/signatures$/);
+        let match = normalizedPath.match(/^\/survey\/(\d+)\/signatures$/)
+            || normalizedPath.match(/^\/surveys\/(\d+)\/signatures$/);
         if (match) {
             return buildAdminHistoryEntry('get_survey_signatures', Number(match[1]));
         }
 
-        match = normalizedPath.match(/^\/surveys\/archive\/(\d+)\/edit$/);
+        match = normalizedPath.match(/^\/survey\/archive\/(\d+)\/edit$/)
+            || normalizedPath.match(/^\/surveys\/archive\/(\d+)\/edit$/);
         if (match) {
             return buildAdminHistoryEntry('update_archived_survey', Number(match[1]));
         }
 
-        match = normalizedPath.match(/^\/surveys\/(\d+)\/edit$/);
+        match = normalizedPath.match(/^\/survey\/(\d+)\/edit$/)
+            || normalizedPath.match(/^\/surveys\/(\d+)\/edit$/);
         if (match) {
             return buildAdminHistoryEntry('update_survey', Number(match[1]));
         }
 
-        match = normalizedPath.match(/^\/surveys\/(\d+)\/copy$/);
+        match = normalizedPath.match(/^\/survey\/(\d+)\/copy$/)
+            || normalizedPath.match(/^\/surveys\/(\d+)\/copy$/);
         if (match) {
             return buildAdminHistoryEntry('copy_survey', Number(match[1]));
         }
@@ -824,6 +831,14 @@
                 }
             }, 0);
         }
+
+        if (mountedPage === 'help-page') {
+            window.setTimeout(() => {
+                if (typeof window.initHelpPage === 'function') {
+                    window.initHelpPage(document);
+                }
+            }, 0);
+        }
     };
 
     const setContentMount = (mountFn) => {
@@ -891,7 +906,7 @@
     };
 
     const deleteSurvey = async (surveyId) => {
-        const response = await fetch(`/surveys/${surveyId}/delete`, {
+        const response = await fetch(`/survey/${surveyId}/delete`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1157,7 +1172,7 @@
         }
 
         if (tab === 'get_surveys') {
-            await fetchHtmlPage(buildListRequestUrl('/surveys', resolvedId));
+            await fetchHtmlPage(buildListRequestUrl('/survey', resolvedId));
             setActiveTabAndRefreshNav(tab);
             if (historyMode !== 'none') {
                 syncBrowserHistory(historyEntry, historyMode);
@@ -1177,33 +1192,33 @@
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'list_answers_users':
-                    await fetchHtmlPage(buildListRequestUrl('/surveys/answers', resolvedId));
+                    await fetchHtmlPage(buildListRequestUrl('/survey/answer', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'archived_surveys':
-                    await fetchHtmlPage(buildListRequestUrl('/surveys/archive', resolvedId));
+                    await fetchHtmlPage(buildListRequestUrl('/survey/archive', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'get_survey_signatures':
                     if (!id) throw new Error('ID анкеты не указан.');
-                    await fetchHtmlPage(`/surveys/${id}/signatures`);
+                    await fetchHtmlPage(`/survey/${id}/signatures`);
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'add_survey':
                     if (!(state.activeTab === 'get_surveys'
                         && document.getElementById('surveyEditorModal')
                         && !document.getElementById('surveyId'))) {
-                        await fetchHtmlPage('/surveys');
+                        await fetchHtmlPage('/survey');
                     }
                     setActiveTabAndRefreshNav('get_surveys');
                     openModalWhenReady('surveyEditorModal', window.openAddSurveyModal);
                     break;
                 case 'get_logs':
-                    await fetchHtmlPage(buildListRequestUrl('/event-log', resolvedId));
+                    await fetchHtmlPage(buildListRequestUrl('/logs', resolvedId));
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'download_logs': {
-                    const response = await fetch('/event-log/export');
+                    const response = await fetch('/logs/export');
                     if (!response.ok) {
                         throw new Error(window.getResponseErrorMessage
                             ? window.getResponseErrorMessage(response, 'Ошибка выгрузки логов')
@@ -1229,30 +1244,30 @@
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'organization_surveys':
-                    await fetchHtmlPage('/organizations/surveys');
+                    await fetchHtmlPage('/organizations/survey');
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'copy_survey':
                     if (!resolvedId) throw new Error('ID анкеты не указан.');
-                    await fetchHtmlPage('/surveys');
+                    await fetchHtmlPage('/survey');
                     setActiveTabAndRefreshNav('get_surveys');
                     openModalWhenReady('surveyEditorModal', () => window.openCopySurveyModalById?.(resolvedId, { skipListRefresh: true }));
                     break;
                 case 'update_survey':
                     if (!resolvedId) throw new Error('ID анкеты не указан.');
-                    await fetchHtmlPage(`/surveys/${resolvedId}/edit`);
+                    await fetchHtmlPage(`/survey/${resolvedId}/edit`);
                     setActiveTabAndRefreshNav('get_surveys');
                     openModalWhenReady('surveyEditorModal', window.openEditSurveyModal);
                     break;
                 case 'update_archived_survey':
                     if (!resolvedId) throw new Error('ID анкеты не указан.');
-                    await fetchHtmlPage(`/surveys/archive/${resolvedId}/edit`);
+                    await fetchHtmlPage(`/survey/archive/${resolvedId}/edit`);
                     setActiveTabAndRefreshNav('archived_surveys');
                     openModalWhenReady('surveyEditorModal', window.openEditSurveyModal);
                     break;
                 case 'delete_survey': {
                     const result = await deleteSurvey(state.modal.data?.id_survey);
-                    await fetchHtmlPage('/surveys');
+                    await fetchHtmlPage('/survey');
                     window.siteNotify?.(result.message, 'success');
                     setActiveTabAndRefreshNav('get_surveys');
                     break;
@@ -1316,7 +1331,6 @@
                     setActiveTabAndRefreshNav('get_organization');
                     break;
                 case 'help':
-                    window.open('/help/download', '_blank');
                     await fetchHtmlPage('/help');
                     setActiveTabAndRefreshNav(tab);
                     break;
@@ -1338,20 +1352,20 @@
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'survey_auto_creation':
-                    await fetchHtmlPage('/survey-auto-creation');
+                    await fetchHtmlPage('/settings/survey-creation');
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'theme_settings':
-                    await fetchHtmlPage('/theme/configuration');
+                    await fetchHtmlPage('/settings/theme');
                     setActiveTabAndRefreshNav(tab);
                     break;
                 case 'email':
                 case 'email_new':
-                    await fetchHtmlPage('/mail');
+                    await fetchHtmlPage('/email');
                     setActiveTabAndRefreshNav('email_new');
                     break;
                 case 'email_settings':
-                    await fetchHtmlPage('/mail/configuration');
+                    await fetchHtmlPage('/settings/email');
                     setActiveTabAndRefreshNav('email_settings');
                     break;
                 default:
@@ -1405,7 +1419,7 @@
         try {
             setLoading(true);
             const result = await deleteSurvey(state.modal.data?.id_survey);
-            await fetchHtmlPage('/surveys');
+            await fetchHtmlPage('/survey');
             window.siteNotify?.(result.message, 'success');
             setActiveTabAndRefreshNav('get_surveys');
         } catch (error) {

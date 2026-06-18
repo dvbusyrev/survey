@@ -30,7 +30,7 @@ public sealed class AuthControllerTests
         var result = controller.DisplayAuth();
 
         var redirectResult = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/surveys", redirectResult.Url);
+        Assert.Equal("/survey", redirectResult.Url);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class AuthControllerTests
         var result = controller.DisplayAuth();
 
         var redirectResult = Assert.IsType<RedirectResult>(result);
-        Assert.Equal("/my-surveys", redirectResult.Url);
+        Assert.Equal("/survey", redirectResult.Url);
     }
 
     [Fact]

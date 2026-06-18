@@ -17,7 +17,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
-    <title>@(ViewData["Title"] ?? "Анкетирование")</title>
+    <title>Анкетирование</title>
     @await Html.PartialAsync("~/Web/Views/Shared/_BaseStyles.cshtml")
     @RenderSection("PageStyles", required: false)
     <link rel="stylesheet" href="~/css/shared/app-theme.css" asp-append-version="true" />
@@ -101,22 +101,32 @@
                     const pageAlias = (contentNode.dataset.page || '').toLowerCase();
                     const routeMap = [
                         ['/statistics', 'open_statistics'],
+                        ['/survey/answer', 'list_answers_users'],
                         ['/surveys/answers', 'list_answers_users'],
+                        ['/survey/create', 'add_survey'],
                         ['/surveys/create', 'add_survey'],
+                        ['/survey/archive', 'archived_surveys'],
                         ['/surveys/archive', 'archived_surveys'],
+                        ['/survey', 'get_surveys'],
                         ['/surveys', 'get_surveys'],
                         ['/users/archive', 'archived_users'],
                         ['/users', 'get_users'],
+                        ['/organizations/survey', 'organization_surveys'],
                         ['/organizations/surveys', 'organization_surveys'],
                         ['/organizations/archive', 'archive_list_organizations'],
                         ['/organizations', 'get_organization'],
                         ['/reports', 'reports'],
+                        ['/settings/survey-creation', 'survey_auto_creation'],
                         ['/survey-auto-creation', 'survey_auto_creation'],
+                        ['/settings/theme', 'theme_settings'],
                         ['/theme/configuration', 'theme_settings'],
                         ['/theme-settings', 'theme_settings'],
+                        ['/settings/email', 'email_settings'],
                         ['/mail/configuration', 'email_settings'],
                         ['/mail-settings', 'email_settings'],
+                        ['/email', 'email_new'],
                         ['/mail', 'email_new'],
+                        ['/logs', 'get_logs'],
                         ['/event-log', 'get_logs'],
                         ['/help', 'help']
                     ];

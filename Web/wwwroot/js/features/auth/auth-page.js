@@ -148,12 +148,12 @@
 
             const payload = parseJsonSafely(responseText);
             if (payload?.role === 'admin') {
-                window.location.href = '/surveys';
+                window.location.href = '/survey';
                 return;
             }
 
             if (payload?.role === 'user') {
-                window.location.href = '/my-surveys';
+                window.location.href = '/survey';
                 return;
             }
 

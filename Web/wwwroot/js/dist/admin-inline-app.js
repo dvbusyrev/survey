@@ -294,43 +294,42 @@
           return;
         }
         if (tab === "help") {
-          window.open("/help/download", "_blank");
           window.AppScrollState?.prepareNavigation({ carry: true });
           window.location.href = "/help";
           return;
         }
         if (tab === "download_logs") {
-          window.location.href = "/event-log/export";
+          window.location.href = "/logs/export";
           return;
         }
         if ((tab === "active" || tab === "answers_tab") && userId) {
           window.AppScrollState?.prepareNavigation({ carry: true });
-          window.location.href = "/my-surveys";
+          window.location.href = "/survey";
           return;
         }
         if ((tab === "archived" || tab === "archived_surveys_for_user") && userId) {
           window.AppScrollState?.prepareNavigation({ carry: true });
-          window.location.href = "/my-surveys/archive";
+          window.location.href = "/archive";
           return;
         }
         const routes = {
-          get_surveys: "/surveys",
-          add_survey: "/surveys/create",
-          list_answers_users: "/surveys/answers",
-          archived_surveys: "/surveys/archive",
+          get_surveys: "/survey",
+          add_survey: "/survey/create",
+          list_answers_users: "/survey/answer",
+          archived_surveys: "/survey/archive",
           open_statistics: "/statistics",
           get_users: "/users",
           archived_users: "/users/archive",
           get_organization: "/organizations",
-          organization_surveys: "/organizations/surveys",
+          organization_surveys: "/organizations/survey",
           archive_list_organizations: "/organizations/archive",
           reports: "/reports",
-          survey_auto_creation: "/survey-auto-creation",
-          theme_settings: "/theme/configuration",
-          email: "/mail",
-          email_new: "/mail",
-          email_settings: "/mail/configuration",
-          get_logs: "/event-log"
+          survey_auto_creation: "/settings/survey-creation",
+          theme_settings: "/settings/theme",
+          email: "/email",
+          email_new: "/email",
+          email_settings: "/settings/email",
+          get_logs: "/logs"
         };
         if (routes[tab]) {
           window.AppScrollState?.prepareNavigation({ carry: true });
@@ -665,13 +664,13 @@
           closeModal();
           if (typeof window.handleAdminMutationSuccess === "function") {
             await window.handleAdminMutationSuccess({
-              message: responseData.message || "Доступ успешно продлён.",
+              message: responseData.message || "Доступ успешно продлён",
               tabName: typeof window.resolveCurrentAdminTab === "function" ? window.resolveCurrentAdminTab() : "get_surveys",
               fallbackUrl: window.location.pathname
             });
             return;
           }
-          window.siteNotify?.(responseData.message || "Доступ успешно продлён.", "success");
+          window.siteNotify?.(responseData.message || "Доступ успешно продлён", "success");
           window.location.reload();
         } catch (submitError) {
           console.error("Ошибка продления анкеты:", submitError);
@@ -1219,39 +1218,39 @@
       const errors = [];
       const recipients = splitEmailRecipients(settings.to);
       if (recipients.length === 0) {
-        errors.push("Поле «Кому» должно содержать хотя бы один email.");
+        errors.push("Поле «Кому» должно содержать хотя бы одну эл. почту");
         setEmailInvalidState("email-to", true);
       } else {
         const invalidRecipients = recipients.filter((email) => !isValidEmailAddress(email));
         if (invalidRecipients.length > 0) {
-          errors.push(`Поле «Кому» содержит некорректные email: ${invalidRecipients.join(", ")}.`);
+          errors.push(`Поле «Кому» содержит некорректную эл. почту: ${invalidRecipients.join(", ")}`);
           setEmailInvalidState("email-to", true);
         }
       }
       if (!settings.subject) {
-        errors.push("Поле «Тема» обязательно.");
+        errors.push("Поле «Тема» обязательно");
         setEmailInvalidState("email-subject", true);
       }
       if (!settings.content) {
-        errors.push("Поле «Содержание» обязательно.");
+        errors.push("Поле «Содержание» обязательно");
         setEmailInvalidState("email-content", true);
       }
       if (!settings.smtpHost) {
-        errors.push("Поле «SMTP сервер» обязательно.");
+        errors.push("Поле «SMTP сервер» обязательно");
         setEmailInvalidState("email-smtp-host", true);
       }
       if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
-        errors.push("Поле «Порт SMTP» должно быть числом от 1 до 65535.");
+        errors.push("Поле «Порт SMTP» должно быть числом от 1 до 65535");
         setEmailInvalidState("email-smtp-port", true);
       }
       if (!isValidEmailAddress(settings.fromAddress)) {
-        errors.push("Поле «Email отправителя» заполнено некорректно.");
+        errors.push("Поле «Эл. почта отправителя» заполнено некорректно");
         setEmailInvalidState("email-from-address", true);
       }
       const hasUserName = Boolean(settings.smtpUserName);
       const hasPassword = Boolean(settings.smtpPassword);
       if (hasUserName !== hasPassword) {
-        errors.push("Логин SMTP и пароль SMTP должны быть заполнены вместе.");
+        errors.push("Логин SMTP и пароль SMTP должны быть заполнены вместе");
         setEmailInvalidState("email-smtp-user-name", true);
         setEmailInvalidState("email-smtp-password", true);
       }
@@ -1362,7 +1361,7 @@
       }
     }
     window.saveEmailSettings = function saveEmailSettings() {
-      return submitEmailSettings("/mail/settings", {
+      return submitEmailSettings("/email/settings", {
         busyButtonId: "email-save-button",
         busyLabel: "Сохранение...",
         successTitle: "Настройки сохранены",
@@ -1373,7 +1372,7 @@
       });
     };
     window.sendEmailMessage = function sendEmailMessage() {
-      return submitEmailSettings("/mail/send", {
+      return submitEmailSettings("/email/send", {
         busyButtonId: "email-send-button",
         busyLabel: "Отправка...",
         successTitle: "Письмо отправлено",
@@ -1411,6 +1410,12 @@
       ["theme-footer-darken-percent", "footerDarkenPercent", 42],
       ["theme-button-darken-percent", "buttonDarkenPercent", 42],
       ["theme-surface-tint-opacity-percent", "surfaceTintOpacityPercent", 59]
+    ];
+    const THEME_EFFECT_FIELDS = [
+      ["theme-effect-snow", "Снег"],
+      ["theme-effect-fireworks", "Салюты при нажатии"],
+      ["theme-effect-grass", "Трава"],
+      ["theme-effect-rain", "Дождь"]
     ];
     function getThemePercentValue(id, fallback) {
       const value = Number.parseInt(getThemeField(id)?.value || "", 10);
@@ -1474,7 +1479,8 @@
     }
     const themeSettingsPageState = {
       savedSettings: null,
-      isMounted: false
+      isMounted: false,
+      effectPickerGlobalBound: false
     };
     function hasThemeSettingsForm() {
       return Boolean(
@@ -1492,6 +1498,56 @@
           valueNode.textContent = `${settings[propertyName]}%`;
         }
       });
+    }
+    function syncThemeEffectsSummary() {
+      const summary = document.getElementById("theme-effects-summary");
+      if (!summary) {
+        return;
+      }
+      summary.replaceChildren();
+      const selectedEffects = [];
+      THEME_EFFECT_FIELDS.forEach(([fieldId, label]) => {
+        const checkbox = getThemeField(fieldId);
+        const isSelected = Boolean(checkbox?.checked);
+        checkbox?.closest(".app-checkbox-option")?.classList.toggle("selected", isSelected);
+        if (isSelected) {
+          selectedEffects.push(label);
+        }
+      });
+      if (selectedEffects.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "theme-settings-page__empty-selection";
+        empty.textContent = "Эффекты не выбраны";
+        summary.appendChild(empty);
+        return;
+      }
+      const list = document.createElement("div");
+      list.className = "theme-settings-page__selected-effects-list";
+      selectedEffects.forEach((label) => {
+        const item = document.createElement("div");
+        item.className = "theme-settings-page__selected-effect-item";
+        item.appendChild(document.createTextNode(label));
+        list.appendChild(item);
+      });
+      summary.appendChild(list);
+    }
+    function setThemeEffectsDropdownOpen(isOpen) {
+      const trigger = getThemeField("theme-effects-toggle");
+      const dropdown = document.getElementById("theme-effects-dropdown");
+      if (!trigger || !dropdown) {
+        return;
+      }
+      dropdown.classList.toggle("is-hidden", !isOpen);
+      trigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    }
+    function syncThemeImageName() {
+      const nameField = getThemeField("theme-background-image-name");
+      const dataField = getThemeField("theme-background-image-data-url");
+      if (!nameField) {
+        return;
+      }
+      const fileName = dataField?.dataset?.fileName || "";
+      nameField.value = fileName || (dataField?.value ? "Изображение загружено" : "Изображение не выбрано");
     }
     function collectThemeSettingsPayload() {
       const opacityValue = Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "", 10);
@@ -1523,7 +1579,7 @@
       ];
       colorFields.forEach(([fieldId, value, label]) => {
         if (!colorRegex.test(String(value || ""))) {
-          errors.push(`Поле «${label}» заполнено некорректно.`);
+          errors.push(`Поле «${label}» заполнено некорректно`);
           setThemeInvalidState(fieldId, true);
         }
       });
@@ -1572,10 +1628,12 @@
         const hiddenField = getThemeField("theme-background-image-data-url");
         if (hiddenField) {
           hiddenField.value = dataUrl;
+          hiddenField.dataset.fileName = file.name;
         }
+        syncThemeImageName();
         applyThemeDraftState();
       } catch (error) {
-        showEmailToast(error.message || "Не удалось загрузить изображение.", "error", "Изображение не загружено", { duration: 0 });
+        showEmailToast(error.message || "Не удалось загрузить изображение", "error", "Изображение не загружено", { duration: 0 });
       } finally {
         input.value = "";
       }
@@ -1584,7 +1642,9 @@
       const hiddenField = getThemeField("theme-background-image-data-url");
       if (hiddenField) {
         hiddenField.value = "";
+        delete hiddenField.dataset.fileName;
       }
+      syncThemeImageName();
       applyThemeDraftState();
     }
     function populateThemeForm(settings) {
@@ -1616,6 +1676,7 @@
       const imageDataField = getThemeField("theme-background-image-data-url");
       if (imageDataField) {
         imageDataField.value = normalizedSettings.backgroundImageDataUrl;
+        delete imageDataField.dataset.fileName;
       }
       const opacityField = getThemeField("theme-background-image-opacity");
       if (opacityField) {
@@ -1628,6 +1689,8 @@
         }
       });
       syncThemeOpacityLabel(normalizedSettings);
+      syncThemeEffectsSummary();
+      syncThemeImageName();
     }
     function applyThemeDraftState() {
       if (!hasThemeSettingsForm()) {
@@ -1726,6 +1789,47 @@
       element.dataset.themePreviewBound = "true";
       element.addEventListener(eventName, applyThemeDraftState);
     }
+    function bindThemeEffectInput(id) {
+      bindThemeInput(id, "change");
+      const element = getThemeField(id);
+      if (!element || element.dataset.themeEffectSummaryBound === "true") {
+        return;
+      }
+      element.dataset.themeEffectSummaryBound = "true";
+      element.addEventListener("change", syncThemeEffectsSummary);
+    }
+    function bindThemeEffectsPicker() {
+      const trigger = getThemeField("theme-effects-toggle");
+      if (trigger && trigger.dataset.themeEffectsToggleBound !== "true") {
+        trigger.dataset.themeEffectsToggleBound = "true";
+        trigger.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const dropdown = document.getElementById("theme-effects-dropdown");
+          setThemeEffectsDropdownOpen(dropdown?.classList.contains("is-hidden"));
+        });
+      }
+      if (themeSettingsPageState.effectPickerGlobalBound) {
+        return;
+      }
+      themeSettingsPageState.effectPickerGlobalBound = true;
+      document.addEventListener("click", (event) => {
+        const page = document.querySelector('[data-page="theme-settings-page"]');
+        if (!page) {
+          return;
+        }
+        const target = event.target;
+        if (target instanceof Element && target.closest("#theme-effects-toggle, #theme-effects-dropdown")) {
+          return;
+        }
+        setThemeEffectsDropdownOpen(false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          setThemeEffectsDropdownOpen(false);
+        }
+      });
+    }
     function bindThemeColorPickerCursor(id) {
       const element = getThemeField(id);
       if (!element || element.dataset.themePickerCursorBound === "true") {
@@ -1754,16 +1858,15 @@
       bindThemeAction("theme-save-button", window.saveThemeSettings);
       bindThemeAction("theme-reset-button", window.resetThemeSettings);
       bindThemeAction("theme-background-image-clear", clearThemeImage);
+      bindThemeAction("theme-background-image-upload", () => getThemeField("theme-background-image-file")?.click());
       bindThemeInput("theme-font-color");
       bindThemeInput("theme-background-color");
       bindThemeColorPickerCursor("theme-font-color");
       bindThemeColorPickerCursor("theme-background-color");
       bindThemeInput("theme-background-image-opacity");
       THEME_PERCENT_FIELDS.forEach(([fieldId]) => bindThemeInput(fieldId));
-      bindThemeInput("theme-effect-snow", "change");
-      bindThemeInput("theme-effect-fireworks", "change");
-      bindThemeInput("theme-effect-grass", "change");
-      bindThemeInput("theme-effect-rain", "change");
+      THEME_EFFECT_FIELDS.forEach(([fieldId]) => bindThemeEffectInput(fieldId));
+      bindThemeEffectsPicker();
       const fileInput = getThemeField("theme-background-image-file");
       if (fileInput && fileInput.dataset.themeFileBound !== "true") {
         fileInput.dataset.themeFileBound = "true";
@@ -1845,21 +1948,21 @@
       const organizationId = id ?? modalData?.id_organization ?? modalData?.organizationId ?? null;
       switch (tab) {
         case "get_surveys":
-          return buildQueryHistoryEntry(tab, "/surveys", id, { preserveCurrentWhenMissing: id === void 0 });
+          return buildQueryHistoryEntry(tab, "/survey", id, { preserveCurrentWhenMissing: id === void 0 });
         case "list_answers_users":
-          return buildQueryHistoryEntry(tab, "/surveys/answers", id, { preserveCurrentWhenMissing: id === void 0 });
+          return buildQueryHistoryEntry(tab, "/survey/answer", id, { preserveCurrentWhenMissing: id === void 0 });
         case "archived_surveys":
-          return buildQueryHistoryEntry(tab, "/surveys/archive", id, { preserveCurrentWhenMissing: id === void 0 });
+          return buildQueryHistoryEntry(tab, "/survey/archive", id, { preserveCurrentWhenMissing: id === void 0 });
         case "get_survey_signatures":
-          return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/signatures` } : null;
+          return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/signatures` } : null;
         case "add_survey":
-          return { tab, id: null, url: "/surveys/create" };
+          return { tab, id: null, url: "/survey/create" };
         case "copy_survey":
-          return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/copy` } : null;
+          return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/copy` } : null;
         case "update_survey":
-          return surveyId ? { tab, id: surveyId, url: `/surveys/${surveyId}/edit` } : null;
+          return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/edit` } : null;
         case "update_archived_survey":
-          return surveyId ? { tab, id: surveyId, url: `/surveys/archive/${surveyId}/edit` } : null;
+          return surveyId ? { tab, id: surveyId, url: `/survey/archive/${surveyId}/edit` } : null;
         case "open_statistics":
           return { tab, id: null, url: "/statistics" };
         case "get_users":
@@ -1874,7 +1977,7 @@
         case "get_organization":
           return buildQueryHistoryEntry(tab, "/organizations", id, { preserveCurrentWhenMissing: id === void 0 });
         case "organization_surveys":
-          return { tab, id: null, url: "/organizations/surveys" };
+          return { tab, id: null, url: "/organizations/survey" };
         case "add_organization":
           return { tab, id: null, url: "/organizations/create" };
         case "update_organization":
@@ -1884,16 +1987,16 @@
         case "reports":
           return { tab, id: null, url: "/reports" };
         case "survey_auto_creation":
-          return { tab, id: null, url: "/survey-auto-creation" };
+          return { tab, id: null, url: "/settings/survey-creation" };
         case "theme_settings":
-          return { tab, id: null, url: "/theme/configuration" };
+          return { tab, id: null, url: "/settings/theme" };
         case "get_logs":
-          return buildQueryHistoryEntry(tab, "/event-log", id, { preserveCurrentWhenMissing: id === void 0 });
+          return buildQueryHistoryEntry(tab, "/logs", id, { preserveCurrentWhenMissing: id === void 0 });
         case "email":
         case "email_new":
-          return { tab: tab === "email" ? "email_new" : tab, id: null, url: "/mail" };
+          return { tab: tab === "email" ? "email_new" : tab, id: null, url: "/email" };
         case "email_settings":
-          return { tab, id: null, url: "/mail/configuration" };
+          return { tab, id: null, url: "/settings/email" };
         case "help":
           return { tab, id: null, url: "/help" };
         default:
@@ -1902,16 +2005,16 @@
     }
     function getAdminHistoryEntryFromLocation(pathname, search = "") {
       const normalizedPath = normalizePathname(pathname);
-      if (normalizedPath === "/surveys") {
+      if (normalizedPath === "/survey" || normalizedPath === "/surveys") {
         return buildAdminHistoryEntry("get_surveys", search || "");
       }
-      if (normalizedPath === "/surveys/answers") {
+      if (normalizedPath === "/survey/answer" || normalizedPath === "/surveys/answers") {
         return buildAdminHistoryEntry("list_answers_users", search || "");
       }
-      if (normalizedPath === "/surveys/archive") {
+      if (normalizedPath === "/survey/archive" || normalizedPath === "/surveys/archive") {
         return buildAdminHistoryEntry("archived_surveys", search || "");
       }
-      if (normalizedPath === "/surveys/create") {
+      if (normalizedPath === "/survey/create" || normalizedPath === "/surveys/create") {
         return buildAdminHistoryEntry("add_survey");
       }
       if (normalizedPath === "/statistics") {
@@ -1929,7 +2032,7 @@
       if (normalizedPath === "/organizations") {
         return buildAdminHistoryEntry("get_organization", search || "");
       }
-      if (normalizedPath === "/organizations/surveys") {
+      if (normalizedPath === "/organizations/survey" || normalizedPath === "/organizations/surveys") {
         return buildAdminHistoryEntry("organization_surveys");
       }
       if (normalizedPath === "/organizations/create") {
@@ -1941,37 +2044,37 @@
       if (normalizedPath === "/reports") {
         return buildAdminHistoryEntry("reports");
       }
-      if (normalizedPath === "/survey-auto-creation") {
+      if (normalizedPath === "/settings/survey-creation" || normalizedPath === "/survey-auto-creation") {
         return buildAdminHistoryEntry("survey_auto_creation");
       }
-      if (normalizedPath === "/theme/configuration" || normalizedPath === "/theme-settings") {
+      if (normalizedPath === "/settings/theme" || normalizedPath === "/theme/configuration" || normalizedPath === "/theme-settings") {
         return buildAdminHistoryEntry("theme_settings");
       }
-      if (normalizedPath === "/event-log") {
+      if (normalizedPath === "/logs" || normalizedPath === "/event-log") {
         return buildAdminHistoryEntry("get_logs", search || "");
       }
-      if (normalizedPath === "/mail" || normalizedPath === "/mail/new") {
+      if (normalizedPath === "/email" || normalizedPath === "/mail" || normalizedPath === "/mail/new") {
         return buildAdminHistoryEntry("email_new");
       }
-      if (normalizedPath === "/mail/configuration" || normalizedPath === "/mail-settings") {
+      if (normalizedPath === "/settings/email" || normalizedPath === "/mail/configuration" || normalizedPath === "/mail-settings") {
         return buildAdminHistoryEntry("email_settings");
       }
       if (normalizedPath === "/help") {
         return buildAdminHistoryEntry("help");
       }
-      let match = normalizedPath.match(/^\/surveys\/(\d+)\/signatures$/);
+      let match = normalizedPath.match(/^\/survey\/(\d+)\/signatures$/) || normalizedPath.match(/^\/surveys\/(\d+)\/signatures$/);
       if (match) {
         return buildAdminHistoryEntry("get_survey_signatures", Number(match[1]));
       }
-      match = normalizedPath.match(/^\/surveys\/archive\/(\d+)\/edit$/);
+      match = normalizedPath.match(/^\/survey\/archive\/(\d+)\/edit$/) || normalizedPath.match(/^\/surveys\/archive\/(\d+)\/edit$/);
       if (match) {
         return buildAdminHistoryEntry("update_archived_survey", Number(match[1]));
       }
-      match = normalizedPath.match(/^\/surveys\/(\d+)\/edit$/);
+      match = normalizedPath.match(/^\/survey\/(\d+)\/edit$/) || normalizedPath.match(/^\/surveys\/(\d+)\/edit$/);
       if (match) {
         return buildAdminHistoryEntry("update_survey", Number(match[1]));
       }
-      match = normalizedPath.match(/^\/surveys\/(\d+)\/copy$/);
+      match = normalizedPath.match(/^\/survey\/(\d+)\/copy$/) || normalizedPath.match(/^\/surveys\/(\d+)\/copy$/);
       if (match) {
         return buildAdminHistoryEntry("copy_survey", Number(match[1]));
       }
@@ -2461,6 +2564,13 @@
           }
         }, 0);
       }
+      if (mountedPage === "help-page") {
+        window.setTimeout(() => {
+          if (typeof window.initHelpPage === "function") {
+            window.initHelpPage(document);
+          }
+        }, 0);
+      }
     };
     const setContentMount = (mountFn) => {
       if (contentAdmin.querySelector('.app-page[data-page="theme-settings-page"]') && typeof window.teardownThemeSettingsPage === "function") {
@@ -2517,7 +2627,7 @@
       return response;
     };
     const deleteSurvey = async (surveyId) => {
-      const response = await fetch(`/surveys/${surveyId}/delete`, {
+      const response = await fetch(`/survey/${surveyId}/delete`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2757,7 +2867,7 @@
         window.AppScrollState?.saveCurrentPosition();
       }
       if (tab === "get_surveys") {
-        await fetchHtmlPage(buildListRequestUrl("/surveys", resolvedId));
+        await fetchHtmlPage(buildListRequestUrl("/survey", resolvedId));
         setActiveTabAndRefreshNav(tab);
         if (historyMode !== "none") {
           syncBrowserHistory(historyEntry, historyMode);
@@ -2775,31 +2885,31 @@
             setActiveTabAndRefreshNav(tab);
             break;
           case "list_answers_users":
-            await fetchHtmlPage(buildListRequestUrl("/surveys/answers", resolvedId));
+            await fetchHtmlPage(buildListRequestUrl("/survey/answer", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "archived_surveys":
-            await fetchHtmlPage(buildListRequestUrl("/surveys/archive", resolvedId));
+            await fetchHtmlPage(buildListRequestUrl("/survey/archive", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "get_survey_signatures":
             if (!id) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage(`/surveys/${id}/signatures`);
+            await fetchHtmlPage(`/survey/${id}/signatures`);
             setActiveTabAndRefreshNav(tab);
             break;
           case "add_survey":
             if (!(state.activeTab === "get_surveys" && document.getElementById("surveyEditorModal") && !document.getElementById("surveyId"))) {
-              await fetchHtmlPage("/surveys");
+              await fetchHtmlPage("/survey");
             }
             setActiveTabAndRefreshNav("get_surveys");
             openModalWhenReady("surveyEditorModal", window.openAddSurveyModal);
             break;
           case "get_logs":
-            await fetchHtmlPage(buildListRequestUrl("/event-log", resolvedId));
+            await fetchHtmlPage(buildListRequestUrl("/logs", resolvedId));
             setActiveTabAndRefreshNav(tab);
             break;
           case "download_logs": {
-            const response = await fetch("/event-log/export");
+            const response = await fetch("/logs/export");
             if (!response.ok) {
               throw new Error(window.getResponseErrorMessage ? window.getResponseErrorMessage(response, "Ошибка выгрузки логов") : `Ошибка выгрузки логов: ${response.status}`);
             }
@@ -2823,30 +2933,30 @@
             setActiveTabAndRefreshNav(tab);
             break;
           case "organization_surveys":
-            await fetchHtmlPage("/organizations/surveys");
+            await fetchHtmlPage("/organizations/survey");
             setActiveTabAndRefreshNav(tab);
             break;
           case "copy_survey":
             if (!resolvedId) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage("/surveys");
+            await fetchHtmlPage("/survey");
             setActiveTabAndRefreshNav("get_surveys");
             openModalWhenReady("surveyEditorModal", () => window.openCopySurveyModalById?.(resolvedId, { skipListRefresh: true }));
             break;
           case "update_survey":
             if (!resolvedId) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage(`/surveys/${resolvedId}/edit`);
+            await fetchHtmlPage(`/survey/${resolvedId}/edit`);
             setActiveTabAndRefreshNav("get_surveys");
             openModalWhenReady("surveyEditorModal", window.openEditSurveyModal);
             break;
           case "update_archived_survey":
             if (!resolvedId) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage(`/surveys/archive/${resolvedId}/edit`);
+            await fetchHtmlPage(`/survey/archive/${resolvedId}/edit`);
             setActiveTabAndRefreshNav("archived_surveys");
             openModalWhenReady("surveyEditorModal", window.openEditSurveyModal);
             break;
           case "delete_survey": {
             const result = await deleteSurvey(state.modal.data?.id_survey);
-            await fetchHtmlPage("/surveys");
+            await fetchHtmlPage("/survey");
             window.siteNotify?.(result.message, "success");
             setActiveTabAndRefreshNav("get_surveys");
             break;
@@ -2909,7 +3019,6 @@
             setActiveTabAndRefreshNav("get_organization");
             break;
           case "help":
-            window.open("/help/download", "_blank");
             await fetchHtmlPage("/help");
             setActiveTabAndRefreshNav(tab);
             break;
@@ -2931,20 +3040,20 @@
             setActiveTabAndRefreshNav(tab);
             break;
           case "survey_auto_creation":
-            await fetchHtmlPage("/survey-auto-creation");
+            await fetchHtmlPage("/settings/survey-creation");
             setActiveTabAndRefreshNav(tab);
             break;
           case "theme_settings":
-            await fetchHtmlPage("/theme/configuration");
+            await fetchHtmlPage("/settings/theme");
             setActiveTabAndRefreshNav(tab);
             break;
           case "email":
           case "email_new":
-            await fetchHtmlPage("/mail");
+            await fetchHtmlPage("/email");
             setActiveTabAndRefreshNav("email_new");
             break;
           case "email_settings":
-            await fetchHtmlPage("/mail/configuration");
+            await fetchHtmlPage("/settings/email");
             setActiveTabAndRefreshNav("email_settings");
             break;
           default:
@@ -2979,7 +3088,7 @@
       try {
         setLoading(true);
         const result = await deleteSurvey(state.modal.data?.id_survey);
-        await fetchHtmlPage("/surveys");
+        await fetchHtmlPage("/survey");
         window.siteNotify?.(result.message, "success");
         setActiveTabAndRefreshNav("get_surveys");
       } catch (error) {
@@ -3210,7 +3319,7 @@
         Organizations: (typeof window.getSelectedOrganizations === "function" ? window.getSelectedOrganizations() : surveyEditSelectedOrganization).map((org) => org.id),
         Criteria: Array.from(document.querySelectorAll(".criteriy")).map((input) => input.value.trim()).filter((text) => text !== "")
       };
-      const response = await fetch(`/surveys/${surveyId}/update`, {
+      const response = await fetch(`/survey/${surveyId}/update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -3239,7 +3348,7 @@
           await window.handleAdminMutationSuccess({
             message: result.message || "Анкета успешно обновлена!",
             tabName: "get_surveys",
-            fallbackUrl: "/surveys"
+            fallbackUrl: "/survey"
           });
           return;
         }
@@ -3330,7 +3439,7 @@
       return;
     }
     document.getElementById("loadingOverlay").style.display = "flex";
-    fetch("/surveys/" + id + "/copy", {
+    fetch("/survey/" + id + "/copy", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -3354,7 +3463,7 @@
           return window.handleAdminMutationSuccess({
             message: data.message || "Анкета успешно скопирована!",
             tabName: "get_surveys",
-            fallbackUrl: "/surveys"
+            fallbackUrl: "/survey"
           });
         }
         surveyEditNotify("Анкета успешно скопирована!", "success");

@@ -32,6 +32,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 023_add_theme_config.sql", script);
         Assert.Contains(@"\ir 024_add_theme_palette_controls.sql", script);
         Assert.Contains(@"\ir 025_add_answer_drafts.sql", script);
+        Assert.Contains(@"\ir 026_rebuild_audit_tables_as_structured_snapshots.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -232,6 +233,19 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("audit_old_row_data", script);
         Assert.Contains("audit_new_row_data", script);
         Assert.Contains("VALUES ('019', 'store_audit_old_new_rows')", script);
+    }
+
+    [Fact]
+    public void StructuredAuditTablesMigration_RebuildsAuditStorage()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "026_rebuild_audit_tables_as_structured_snapshots.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS parent_audit_id bigint", script);
+        Assert.Contains("SELECT public.rebuild_structured_audit_table('survey'", script);
+        Assert.Contains("DROP COLUMN IF EXISTS record_pk", script);
+        Assert.Contains("DROP COLUMN IF EXISTS row_data", script);
+        Assert.Contains("EXECUTE FUNCTION public.write_crud_audit('id_config', 'id_survey')", script);
+        Assert.Contains("VALUES ('026', 'rebuild_audit_tables_as_structured_snapshots')", script);
     }
 
     [Fact]

@@ -294,43 +294,42 @@
           return;
         }
         if (tab === "help") {
-          window.open("/help/download", "_blank");
           window.AppScrollState?.prepareNavigation({ carry: true });
           window.location.href = "/help";
           return;
         }
         if (tab === "download_logs") {
-          window.location.href = "/event-log/export";
+          window.location.href = "/logs/export";
           return;
         }
         if ((tab === "active" || tab === "answers_tab") && userId) {
           window.AppScrollState?.prepareNavigation({ carry: true });
-          window.location.href = "/my-surveys";
+          window.location.href = "/survey";
           return;
         }
         if ((tab === "archived" || tab === "archived_surveys_for_user") && userId) {
           window.AppScrollState?.prepareNavigation({ carry: true });
-          window.location.href = "/my-surveys/archive";
+          window.location.href = "/archive";
           return;
         }
         const routes = {
-          get_surveys: "/surveys",
-          add_survey: "/surveys/create",
-          list_answers_users: "/surveys/answers",
-          archived_surveys: "/surveys/archive",
+          get_surveys: "/survey",
+          add_survey: "/survey/create",
+          list_answers_users: "/survey/answer",
+          archived_surveys: "/survey/archive",
           open_statistics: "/statistics",
           get_users: "/users",
           archived_users: "/users/archive",
           get_organization: "/organizations",
-          organization_surveys: "/organizations/surveys",
+          organization_surveys: "/organizations/survey",
           archive_list_organizations: "/organizations/archive",
           reports: "/reports",
-          survey_auto_creation: "/survey-auto-creation",
-          theme_settings: "/theme/configuration",
-          email: "/mail",
-          email_new: "/mail",
-          email_settings: "/mail/configuration",
-          get_logs: "/event-log"
+          survey_auto_creation: "/settings/survey-creation",
+          theme_settings: "/settings/theme",
+          email: "/email",
+          email_new: "/email",
+          email_settings: "/settings/email",
+          get_logs: "/logs"
         };
         if (routes[tab]) {
           window.AppScrollState?.prepareNavigation({ carry: true });
@@ -682,7 +681,7 @@
           const errorData = await response.json().catch(() => null);
           throw new Error(errorData?.error || "Ошибка при отправке ответов");
         }
-        window.location.assign("/my-surveys/archive");
+        window.location.assign("/archive");
       } catch (err) {
         error = err?.message || "Не удалось отправить ответы";
         renderError();

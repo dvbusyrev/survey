@@ -35,30 +35,6 @@ public sealed class LogControllerTests
         Assert.Contains("Не удалось загрузить журнал событий", controller.ViewData["LogLoadErrorMessage"] as string);
     }
 
-    [Fact]
-    public void RedirectLegacyLogs_RedirectsToEventLog()
-    {
-        var controller = new LogController(new StubAuditLogService(Array.Empty<Log>()));
-
-        var result = controller.RedirectLegacyLogs();
-
-        var redirectResult = Assert.IsType<RedirectResult>(result);
-        Assert.True(redirectResult.Permanent);
-        Assert.Equal("/event-log", redirectResult.Url);
-    }
-
-    [Fact]
-    public void RedirectLegacyDumpLogs_RedirectsToEventLogExport()
-    {
-        var controller = new LogController(new StubAuditLogService(Array.Empty<Log>()));
-
-        var result = controller.RedirectLegacyDumpLogs();
-
-        var redirectResult = Assert.IsType<RedirectResult>(result);
-        Assert.True(redirectResult.Permanent);
-        Assert.Equal("/event-log/export", redirectResult.Url);
-    }
-
     private sealed class StubAuditLogService : IAuditLogService
     {
         private readonly IReadOnlyList<Log> _logs;
@@ -83,7 +59,7 @@ public sealed class LogControllerTests
                 SortDirection = sortDirection ?? string.Empty
             };
 
-        public Log? GetLogDetails(long idLog, int currentPage, int pageSize, string? sortBy, string? sortDirection)
+        public Log? GetLogDetails(long idLog, string? sourceTable, int currentPage, int pageSize, string? sortBy, string? sortDirection)
             => _logs.FirstOrDefault(log => log.IdLog == idLog);
 
         public string GenerateLogText(IEnumerable<Log> logs)
@@ -95,7 +71,7 @@ public sealed class LogControllerTests
         public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
             => throw new InvalidOperationException("audit tables are unavailable");
 
-        public Log? GetLogDetails(long idLog, int currentPage, int pageSize, string? sortBy, string? sortDirection)
+        public Log? GetLogDetails(long idLog, string? sourceTable, int currentPage, int pageSize, string? sortBy, string? sortDirection)
             => throw new InvalidOperationException("audit tables are unavailable");
 
         public IReadOnlyList<Log> GetLogs()

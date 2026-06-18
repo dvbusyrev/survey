@@ -18,6 +18,7 @@ public class LogController : Controller
         _auditLogService = auditLogService;
     }
 
+    [HttpGet("logs")]
     [HttpGet("event-log")]
     public IActionResult GetLogs(
         [FromQuery] int page = 1,
@@ -44,12 +45,7 @@ public class LogController : Controller
         }
     }
 
-    [HttpGet("logs")]
-    public IActionResult RedirectLegacyLogs()
-    {
-        return RedirectPermanent("/event-log");
-    }
-
+    [HttpGet("logs/export")]
     [HttpGet("event-log/export")]
     public IActionResult GetDumpLogs()
     {
@@ -70,16 +66,18 @@ public class LogController : Controller
         return File(fileBytes, "text/plain", fileName);
     }
 
+    [HttpGet("logs/details/{idLog:long}")]
     [HttpGet("event-log/details/{idLog:long}")]
     public IActionResult GetLogDetails(
         long idLog,
+        [FromQuery] string? sourceTable = null,
         [FromQuery] int page = 1,
         [FromQuery] string? sortBy = null,
         [FromQuery] string? sortDirection = null)
     {
         try
         {
-            var log = _auditLogService.GetLogDetails(idLog, page, LogsPageSize, sortBy, sortDirection);
+            var log = _auditLogService.GetLogDetails(idLog, sourceTable, page, LogsPageSize, sortBy, sortDirection);
             if (log == null)
             {
                 return NotFound(new { message = "Событие не найдено" });
@@ -91,12 +89,6 @@ public class LogController : Controller
         {
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = $"Не удалось загрузить событие: {ex.Message}" });
         }
-    }
-
-    [HttpGet("logs/export")]
-    public IActionResult RedirectLegacyDumpLogs()
-    {
-        return RedirectPermanent("/event-log/export");
     }
 
     private static object BuildLogDetailsResponse(Log log)

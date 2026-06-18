@@ -10,9 +10,9 @@
   --danger: #ef4444;
   --warning: #f59e0b;
   --info: #3b82f6;
-  --text-main: #343D4B;
-  --text-secondary: rgba(52, 61, 75, 0.72);
-  --text-light: rgba(52, 61, 75, 0.52);
+  --text-main: var(--app-theme-font-color, #343D4B);
+  --text-secondary: var(--app-theme-font-color, #343D4B);
+  --text-light: var(--app-theme-font-color, #343D4B);
   --border: rgba(52, 61, 75, 0.12);
   --border-dark: rgba(52, 61, 75, 0.18);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -22,6 +22,7 @@
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
+  --app-field-radius: 0.5rem;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --header-height: 1.9375rem;
   --page-gap: 0.5rem;
@@ -221,7 +222,7 @@ option,
   color: var(--text-main);
   background: white;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--app-field-radius);
 }
 
 .table-responsive {

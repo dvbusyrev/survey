@@ -786,7 +786,7 @@ async function fetchModalContentHtml(url, fallbackMessage) {
 
 window.fetchSurveyFillContentHtml = function fetchSurveyFillContentHtml(surveyId, organizationId) {
     return fetchModalContentHtml(
-        `/surveys/${surveyId}/organizations/${organizationId}/fill-content`,
+        `/survey/${surveyId}/organizations/${organizationId}/fill-content`,
         'Не удалось загрузить анкету'
     );
 };

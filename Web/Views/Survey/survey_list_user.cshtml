@@ -31,15 +31,15 @@
         CurrentPage = Model.CurrentPage,
         TotalPages = Model.TotalPages,
         ActiveCount = Model.TotalCount,
-        ArchivedCount = (ViewBag.ArchivedTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel)?.ArchivedCount ?? 0,
+        ArchivedCount = 0,
         SearchTerm = Model.SearchTerm
     };
-    var archivedTabContentModel = ViewBag.ArchivedTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel;
 }
 
 @section PageStyles {
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pages/survey-admin-pages.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
 }
 
 @if (!isAuthenticated)
@@ -70,12 +70,6 @@ else
         <div id="chrome-footer"></div>
     </div>
     <script type="application/json" id="survey-user-list-bootstrap">@Html.Raw(surveyListBootstrapJson)</script>
-    @if (archivedTabContentModel is not null)
-    {
-        <template id="survey-user-archived-content-template">
-            @await Html.PartialAsync("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", archivedTabContentModel)
-        </template>
-    }
 }
 
 @section Scripts {

@@ -60,6 +60,7 @@ public class SurveyAdminController : Controller
             BuildSurveyListPage(page, sortBy, sortDirection, organizationIds));
     }
 
+    [HttpGet("survey/data")]
     [HttpGet("surveys/data")]
     public IActionResult GetSurveyOptions()
     {
@@ -76,6 +77,7 @@ public class SurveyAdminController : Controller
         return Json(surveys);
     }
 
+    [HttpGet("survey/create")]
     [HttpGet("surveys/create")]
     public IActionResult AddSurvey(
         int page = 1,
@@ -88,6 +90,7 @@ public class SurveyAdminController : Controller
             BuildSurveyListPage(page, sortBy, sortDirection, organizationIds, openAddSurveyModal: true));
     }
 
+    [HttpPost("survey/create")]
     [HttpPost("surveys/create")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateSurvey([FromBody] SurveyAddRequest? request)
@@ -127,6 +130,7 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpPost("survey/{id:int}/update")]
     [HttpPost("surveys/{id:int}/update")]
     [ValidateAntiForgeryToken]
     public IActionResult UpdateSurvey(int id, [FromBody] SurveyUpdateRequest? model)
@@ -163,6 +167,7 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpPost("survey/active/work-period")]
     [HttpPost("surveys/active/work-period")]
     [ValidateAntiForgeryToken]
     public IActionResult UpdateActiveSurveysWorkPeriod([FromBody] SurveyWorkPeriodRequest? request)
@@ -193,6 +198,7 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpPost("survey/{id:int}/copy")]
     [HttpPost("surveys/{id:int}/copy")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CopySurveySubmission(int id, [FromBody] SurveyCopyRequest? request)
@@ -237,6 +243,7 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpPost("survey/{id:int}/delete")]
     [HttpPost("surveys/{id:int}/delete")]
     public IActionResult DeleteSurvey(int? id, [FromBody] DeleteSurveyRequest? request)
     {
@@ -273,6 +280,7 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpGet("survey/{id:int}/edit")]
     [HttpGet("surveys/{id:int}/edit")]
     public IActionResult UpdateSurveyPage(int id)
     {
@@ -293,6 +301,7 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpGet("survey/{id:int}/copy")]
     [HttpGet("surveys/{id:int}/copy")]
     public IActionResult CopySurvey(int id)
     {
@@ -313,6 +322,7 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpGet("survey/{id:int}/copy-template")]
     [HttpGet("surveys/{id:int}/copy-template")]
     public IActionResult GetSurveyCopyTemplate(int id)
     {

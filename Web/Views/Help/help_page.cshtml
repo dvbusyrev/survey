@@ -1,3 +1,5 @@
+@model MainProject.Web.ViewModels.HelpPageViewModel
+
 @{
     ViewData["Title"] = "Инструкции";
     var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
@@ -23,18 +25,9 @@
             Description = "Здесь можно скачать текущую инструкцию и загрузить новую версию для администраторов или клиентов."
         })
 
-    <div class="app-page__toolbar survey-list-toolbar help-page__actions">
-        <select class="form-control help-page__select"
-                data-change-call="handleSelectChange"
-                data-change-pass-element="true">
-            <option value="" disabled selected>Загрузить новую инструкцию</option>
-            <option value="admin">Для администратора</option>
-            <option value="user">Для клиента</option>
-        </select>
-    </div>
-
-    <section class="app-page__section">
-        <p class="help-page__message">Файл DOCX с инструкцией успешно скачан. Пожалуйста, проверьте загрузки.</p>
+    <section class="app-page__section help-page__instructions">
+        @await Html.PartialAsync("~/Web/Views/Help/_InstructionFileRow.cshtml", Model.AdminInstruction)
+        @await Html.PartialAsync("~/Web/Views/Help/_InstructionFileRow.cshtml", Model.ClientInstruction)
     </section>
 </div>
 

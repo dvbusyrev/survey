@@ -7,20 +7,20 @@ using MainProject.Web.ViewModels;
 public class SurveyUserController : Controller
 {
     private readonly ISurveyUserService _surveyUserService;
-    private readonly ISurveyArchiveService _surveyArchiveService;
+    private readonly ISurveyAdminService _surveyAdminService;
     private readonly IAnswerWorkflowService _answerWorkflowService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SurveyUserController> _logger;
 
     public SurveyUserController(
         ISurveyUserService surveyUserService,
-        ISurveyArchiveService surveyArchiveService,
+        ISurveyAdminService surveyAdminService,
         IAnswerWorkflowService answerWorkflowService,
         ICurrentUserService currentUserService,
         ILogger<SurveyUserController> logger)
     {
         _surveyUserService = surveyUserService;
-        _surveyArchiveService = surveyArchiveService;
+        _surveyAdminService = surveyAdminService;
         _answerWorkflowService = answerWorkflowService;
         _currentUserService = currentUserService;
         _logger = logger;
@@ -40,7 +40,7 @@ public class SurveyUserController : Controller
                 return StatusCode(403, new { error = "Раздел активных анкет доступен только пользователям." });
             }
 
-            return Redirect("/surveys");
+            return Redirect("/survey");
         }
 
         if (_currentUserService.UserId != requestedUserId)
@@ -72,6 +72,30 @@ public class SurveyUserController : Controller
         return null;
     }
 
+    [HttpGet("survey")]
+    public IActionResult Survey(
+        int? page,
+        string? searchTerm,
+        string? date,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null)
+    {
+        if (_currentUserService.IsAdmin)
+        {
+            return View(
+                "~/Web/Views/Survey/get_surveys.cshtml",
+                BuildAdminSurveyListPage(page ?? 1, sortBy, sortDirection, organizationIds));
+        }
+
+        if (!_currentUserService.UserId.HasValue)
+        {
+            return Challenge();
+        }
+
+        return RenderSurveyListPage(_currentUserService.UserId.Value, page, searchTerm, date);
+    }
+
     [HttpGet("my-surveys")]
     public IActionResult MySurveys(int? page, string? searchTerm, string? date)
     {
@@ -81,6 +105,32 @@ public class SurveyUserController : Controller
         }
 
         return RenderSurveyListPage(_currentUserService.UserId.Value, page, searchTerm, date);
+    }
+
+    private SurveyListPageViewModel BuildAdminSurveyListPage(
+        int currentPage = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null)
+    {
+        var pageModel = _surveyAdminService.GetSurveysPage(
+            currentPage,
+            sortBy,
+            sortDirection,
+            organizationIds);
+
+        return new SurveyListPageViewModel
+        {
+            SurveyRows = pageModel.SurveyRows,
+            CurrentPage = pageModel.CurrentPage,
+            TotalPages = pageModel.TotalPages,
+            TotalCount = pageModel.TotalCount,
+            PageSize = pageModel.PageSize,
+            HasExplicitSort = pageModel.HasExplicitSort,
+            SortBy = pageModel.SortBy,
+            SortDirection = pageModel.SortDirection,
+            FilterState = pageModel.FilterState
+        };
     }
 
     private IActionResult RenderSurveyListPage(int id, int? page, string? searchTerm, string? date)
@@ -99,27 +149,12 @@ public class SurveyUserController : Controller
                 return NotFound(new { error = "Клиент не найден" });
             }
 
-            var archivedPageModel = _surveyArchiveService.GetUserArchivePage(
-                id,
-                1,
-                searchTerm: null,
-                date: null,
-                dateFrom: null,
-                dateTo: null,
-                signedOnly: false);
-
-            var activeContentModel = BuildActiveContentModel(
-                pageModel,
-                archivedPageModel?.TotalCount ?? 0);
+            var activeContentModel = BuildActiveContentModel(pageModel, archivedCount: 0);
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
                 return PartialView("~/Web/Views/Survey/Partials/_UserSurveyPageContent.cshtml", activeContentModel);
             }
-
-            ViewBag.ArchivedTabContentModel = BuildArchivedContentModel(
-                archivedPageModel,
-                pageModel.TotalCount);
 
             return View("~/Web/Views/Survey/survey_list_user.cshtml", pageModel);
         }
@@ -151,23 +186,7 @@ public class SurveyUserController : Controller
         };
     }
 
-    private static UserSurveyPageContentViewModel BuildArchivedContentModel(
-        UserSurveyArchivePageViewModel? pageModel,
-        int activeCount)
-    {
-        return new UserSurveyPageContentViewModel
-        {
-            Surveys = pageModel?.ArchivedSurveys ?? Array.Empty<MainProject.Domain.Entities.Survey>(),
-            ActiveTab = "archived",
-            CurrentPage = pageModel?.CurrentPage ?? 1,
-            TotalPages = pageModel?.TotalPages ?? 1,
-            ActiveCount = activeCount,
-            ArchivedCount = pageModel?.TotalCount ?? 0,
-            SearchTerm = pageModel?.SearchTerm ?? string.Empty,
-            SignedOnly = pageModel?.SignedOnly ?? false
-        };
-    }
-
+    [HttpGet("survey/{id:int}/organizations/{organizationId:int}/questions")]
     [HttpGet("surveys/{id:int}/organizations/{organizationId:int}/questions")]
     public IActionResult GetSurveyQuestions(int id, int organizationId)
     {
@@ -181,6 +200,7 @@ public class SurveyUserController : Controller
         return Json(new { questions });
     }
 
+    [HttpGet("survey/{id:int}/organizations/{organizationId:int}/fill-content")]
     [HttpGet("surveys/{id:int}/organizations/{organizationId:int}/fill-content")]
     public IActionResult GetSurveyFillContent(int id, int organizationId)
     {

@@ -1,0 +1,35 @@
+@model MainProject.Web.ViewModels.HelpInstructionInfoViewModel
+
+@{
+    var inputId = $"help-{Model.Type}-file";
+}
+
+<div class="help-page__instruction" data-help-instruction="@Model.Type">
+    <label class="help-page__instruction-label" for="@inputId">@Model.Title</label>
+    <div class="help-page__instruction-row">
+        <input type="text"
+               class="form-control help-page__file-field"
+               id="@inputId"
+               data-help-display="@Model.Type"
+               value="@Model.DisplayText"
+               readonly />
+        <input type="file"
+               class="help-page__file-input"
+               data-help-file-input
+               data-help-type="@Model.Type"
+               data-help-role="@Model.UploadRole"
+               accept=".docx"
+               hidden />
+        <button type="button"
+                class="modal_btn modal_btn-secondary"
+                data-help-upload-trigger
+                data-help-type="@Model.Type">
+            Загрузить новую
+        </button>
+        <a class="modal_btn modal_btn-primary help-page__download"
+           href="@Model.DownloadUrl"
+           download>
+            Скачать инструкцию
+        </a>
+    </div>
+</div>

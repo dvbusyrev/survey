@@ -15,6 +15,7 @@ public class EmailController : Controller
         _emailTemplateService = emailTemplateService;
     }
 
+    [HttpGet("email/settings")]
     [HttpGet("mail/settings")]
     public async Task<IActionResult> GetEmailSettings(CancellationToken cancellationToken)
     {
@@ -22,6 +23,7 @@ public class EmailController : Controller
         return Ok(settings);
     }
 
+    [HttpPost("email/settings")]
     [HttpPost("mail/settings")]
     public async Task<IActionResult> SaveEmailSettings([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
     {
@@ -40,6 +42,7 @@ public class EmailController : Controller
         }
     }
 
+    [HttpPost("email/send")]
     [HttpPost("mail/send")]
     public async Task<IActionResult> SendMessage([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
     {
@@ -68,6 +71,7 @@ public class EmailController : Controller
         }
     }
 
+    [HttpGet("email")]
     [HttpGet("mail")]
     [HttpGet("mail/new")]
     public async Task<IActionResult> NewMessage(CancellationToken cancellationToken)
@@ -76,6 +80,7 @@ public class EmailController : Controller
         return View("new_message", settings);
     }
 
+    [HttpGet("settings/email")]
     [HttpGet("mail/configuration")]
     public async Task<IActionResult> UpdateSettings(CancellationToken cancellationToken)
     {
@@ -86,7 +91,7 @@ public class EmailController : Controller
     [HttpGet("mail-settings")]
     public IActionResult LegacyMailSettings()
     {
-        return Redirect("/mail/configuration");
+        return Redirect("/settings/email");
     }
 
     private static string GetDetailedErrorMessage(Exception exception)

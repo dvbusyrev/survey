@@ -8,7 +8,7 @@
 }
 
 <div class="menu-bar app-page__subnav client-surveys-page__subnav" role="tablist" aria-label="Разделы клиента">
-    <a href="/my-surveys"
+    <a href="/survey"
        class="menu-tab @(activeSurveysActive ? "active-tab" : string.Empty)"
        role="tab"
        aria-selected="@(activeSurveysActive ? "true" : "false")"
@@ -20,7 +20,7 @@
             <span class="count-badge" data-role="active-count">@activeCount</span>
         }
     </a>
-    <a href="/my-surveys/archive"
+    <a href="/archive"
        class="menu-tab @(archiveActive ? "active-tab" : string.Empty)"
        role="tab"
        aria-selected="@(archiveActive ? "true" : "false")"

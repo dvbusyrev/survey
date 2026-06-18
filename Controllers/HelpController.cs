@@ -1,19 +1,32 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
+using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.ViewModels;
+using System.Globalization;
 using System.IO;
-using System.Text;
+using System.Text.Json;
 
 [Authorize]
 public class HelpController : Controller
 {
     private const string HelpDocumentContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    private const string HelpDownloadFileName = "АИС Анкетирование. Инструкция пользователя.docx";
+    private const string AdminGuideType = "admin-guide";
+    private const string UserGuideType = "user-guide";
+    private const string AdminGuideStorageFileName = "admin_survey_guide.docx";
+    private const string UserGuideStorageFileName = "user_survey_guide.docx";
+    private const string AdminGuideDownloadFileName = "АИС Анкетирование. Инструкция администратора.docx";
+    private const string UserGuideDownloadFileName = "АИС Анкетирование. Инструкция пользователя.docx";
 
     private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
+    private readonly ISurveyUserService _surveyUserService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public HelpController(ISurveyUserService surveyUserService, ICurrentUserService currentUserService)
+    {
+        _surveyUserService = surveyUserService;
+        _currentUserService = currentUserService;
+    }
 
     [HttpGet("help/files/{type}")]
     public IActionResult HelpFile(string type)
@@ -25,15 +38,7 @@ public class HelpController : Controller
             return NotFound("Файл DOCX не найден.");
         }
 
-        try
-        {
-            var documentModel = BuildHelpDocument(docxFilePath);
-            return View("help_file", documentModel);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Произошла ошибка: {ex.Message}");
-        }
+        return PhysicalFile(docxFilePath, HelpDocumentContentType, GetDownloadFileName(type));
     }
 
     [HttpGet("help/download/{type?}")]
@@ -49,27 +54,28 @@ public class HelpController : Controller
             return NotFound("Файл DOCX не найден.");
         }
 
-        return PhysicalFile(docxFilePath, HelpDocumentContentType, HelpDownloadFileName);
+        return PhysicalFile(docxFilePath, HelpDocumentContentType, GetDownloadFileName(documentType));
     }
 
     private string GetDefaultHelpDocumentType()
     {
-        return User.IsInRole(AppRoles.Admin) ? "admin-guide" : "user-guide";
+        return User.IsInRole(AppRoles.Admin) ? AdminGuideType : UserGuideType;
     }
 
     private string? ResolveHelpDocumentPath(string type)
     {
         var helpDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
-        var aliases = type?.Trim().ToLowerInvariant() switch
+        var normalizedType = NormalizeHelpDocumentType(type) ?? type?.Trim().ToLowerInvariant();
+        var aliases = normalizedType switch
         {
-            "admin-guide" or "admin_guide" => new[]
+            AdminGuideType => new[]
             {
-                "admin_survey_guide.docx",
+                AdminGuideStorageFileName,
                 "Руководство администратора.docx"
             },
-            "user-guide" or "user_guide" => new[]
+            UserGuideType => new[]
             {
-                "user_survey_guide.docx",
+                UserGuideStorageFileName,
                 "Руководство пользователя.docx"
             },
             "csp-guide" or "csp_guide" or "csp" => new[]
@@ -92,134 +98,206 @@ public class HelpController : Controller
         return null;
     }
 
-    private HelpDocumentViewModel BuildHelpDocument(string docxFilePath)
+    private static string? NormalizeHelpDocumentType(string? type)
     {
-        var documentModel = new HelpDocumentViewModel();
-
-        // Открываем DOCX файл с помощью OpenXML
-        using (WordprocessingDocument document = WordprocessingDocument.Open(docxFilePath, false))
+        return type?.Trim().ToLowerInvariant() switch
         {
-            // Получаем основной текст документа
-            var mainDocumentPart = document.MainDocumentPart;
-            if (mainDocumentPart?.Document?.Body == null)
-            {
-                return documentModel;
-            }
+            "admin-guide" or "admin_guide" or "admin" or "administrator" => AdminGuideType,
+            "user-guide" or "user_guide" or "user" or "client" => UserGuideType,
+            _ => null
+        };
+    }
 
-            Body body = mainDocumentPart.Document.Body;
+    private static string GetStorageFileName(string type)
+    {
+        return NormalizeHelpDocumentType(type) == AdminGuideType
+            ? AdminGuideStorageFileName
+            : UserGuideStorageFileName;
+    }
 
-            // Обрабатываем каждый элемент в документе
-            foreach (var element in body.Elements())
-            {
-                if (element is Paragraph paragraph)
-                {
-                    var paragraphText = GetTextFromParagraph(paragraph).Trim();
-                    if (!string.IsNullOrWhiteSpace(paragraphText))
-                    {
-                        documentModel.Blocks.Add(new HelpParagraphBlock(paragraphText));
-                    }
-                }
-                else if (element is Table table)
-                {
-                    var rows = table.Elements<TableRow>()
-                        .Select(row => (IReadOnlyList<string>)row.Elements<TableCell>()
-                            .Select(GetTextFromTableCell)
-                            .ToList())
-                        .Where(row => row.Count > 0)
-                        .ToList();
+    private static string GetDownloadFileName(string type)
+    {
+        return NormalizeHelpDocumentType(type) == AdminGuideType
+            ? AdminGuideDownloadFileName
+            : UserGuideDownloadFileName;
+    }
 
-                    if (rows.Count > 0)
-                    {
-                        documentModel.Blocks.Add(new HelpTableBlock(rows));
-                    }
-                }
-            }
+    private string GetMetadataPath(string type)
+    {
+        var storageFileName = GetStorageFileName(type);
+        return Path.Combine(_uploadFolder, $"{Path.GetFileNameWithoutExtension(storageFileName)}.meta.json");
+    }
 
-            // Обрабатываем изображения
-            foreach (var imagePart in mainDocumentPart.ImageParts)
-            {
-                using (var imageStream = imagePart.GetStream())
-                {
-                    // Читаем изображение в массив байтов
-                    byte[] imageBytes = new byte[checked((int)imageStream.Length)];
-                    imageStream.ReadExactly(imageBytes);
-
-                    // Преобразуем массив байтов в строку Base64
-                    string base64Image = Convert.ToBase64String(imageBytes);
-
-                    documentModel.Blocks.Add(new HelpImageBlock(
-                        $"data:image/png;base64,{base64Image}",
-                        "Иллюстрация из инструкции"));
-                }
-            }
+    private HelpInstructionFileMetadata? ReadHelpMetadata(string type)
+    {
+        var metadataPath = GetMetadataPath(type);
+        if (!System.IO.File.Exists(metadataPath))
+        {
+            return null;
         }
 
-        return documentModel;
+        try
+        {
+            var json = System.IO.File.ReadAllText(metadataPath);
+            return JsonSerializer.Deserialize<HelpInstructionFileMetadata>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string FormatHelpFileDate(DateTimeOffset value)
+    {
+        return value.ToLocalTime().ToString("dd.MM.yyyy", CultureInfo.GetCultureInfo("ru-RU"));
+    }
+
+    private HelpInstructionInfoViewModel BuildInstructionInfo(string type, string title)
+    {
+        var normalizedType = NormalizeHelpDocumentType(type) ?? UserGuideType;
+        var filePath = ResolveHelpDocumentPath(normalizedType);
+        var hasFile = !string.IsNullOrWhiteSpace(filePath) && System.IO.File.Exists(filePath);
+        var metadata = ReadHelpMetadata(normalizedType);
+        var fallbackDate = hasFile
+            ? new DateTimeOffset(System.IO.File.GetLastWriteTime(filePath!))
+            : DateTimeOffset.Now;
+        var uploadedAt = metadata?.UploadedAt ?? fallbackDate;
+        var fileName = !string.IsNullOrWhiteSpace(metadata?.OriginalFileName)
+            ? metadata.OriginalFileName
+            : GetDownloadFileName(normalizedType);
+
+        return new HelpInstructionInfoViewModel
+        {
+            Type = normalizedType,
+            UploadRole = normalizedType == AdminGuideType ? "admin" : "user",
+            Title = title,
+            FileName = fileName,
+            UploadedAtText = hasFile ? FormatHelpFileDate(uploadedAt) : string.Empty,
+            DownloadUrl = $"/help/download/{normalizedType}",
+            HasFile = hasFile
+        };
+    }
+
+    private HelpPageViewModel BuildAdminHelpPageModel()
+    {
+        return new HelpPageViewModel
+        {
+            AdminInstruction = BuildInstructionInfo(AdminGuideType, "Инструкция для администратора"),
+            ClientInstruction = BuildInstructionInfo(UserGuideType, "Инструкция для клиента")
+        };
     }
 
     [HttpGet("help")]
     public IActionResult HelpPage()
     {
-        return View("help_page");
+        if (!User.IsInRole(AppRoles.Admin))
+        {
+            var documentModel = new HelpDocumentViewModel();
+            ViewData["ClientSurveyActiveCount"] = GetCurrentClientActiveSurveyCount();
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return PartialView("~/Web/Views/Help/_ClientHelpContent.cshtml", documentModel);
+            }
+
+            ViewBag.SurveyUserBootstrapJson = BuildClientSurveyBootstrapJson();
+            return View("client_help_page", documentModel);
+        }
+
+        return View("help_page", BuildAdminHelpPageModel());
+    }
+
+    private int GetCurrentClientActiveSurveyCount()
+    {
+        var userId = _currentUserService.UserId;
+        if (!userId.HasValue || userId.Value <= 0)
+        {
+            return 0;
+        }
+
+        return _surveyUserService.GetActiveSurveysPage(userId.Value, 1, null)?.TotalCount ?? 0;
+    }
+
+    private string BuildClientSurveyBootstrapJson()
+    {
+        var userId = _currentUserService.UserId ?? 0;
+        var userOrganizationId = userId > 0
+            ? _surveyUserService.GetUserOrganizationId(userId) ?? 0
+            : 0;
+        var userName = _currentUserService.UserName;
+        var organizationName = _currentUserService.OrganizationName;
+        var displayName = !string.IsNullOrWhiteSpace(organizationName) && !string.IsNullOrWhiteSpace(userName)
+            ? $"{organizationName}: {userName}"
+            : (!string.IsNullOrWhiteSpace(userName) ? userName : AppRoles.GetDisplayName(_currentUserService.Role));
+
+        return JsonSerializer.Serialize(new
+        {
+            initialTab = "help",
+            userId,
+            userRole = _currentUserService.Role,
+            userOrganizationId,
+            displayName,
+            userName,
+            organizationName
+        });
     }
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpPost("help/upload")]
-    public async Task<IActionResult> UploadInstruction(IFormFile file, string role)
+    public async Task<IActionResult> UploadInstruction(IFormFile file, string? role, string? type)
     {
         if (file == null || file.Length == 0)
         {
             return BadRequest("Файл не выбран.");
         }
 
-        if (string.IsNullOrEmpty(role) || (role != "admin" && role != "administrator" && role != "user"))
+        var documentType = NormalizeHelpDocumentType(type) ?? NormalizeHelpDocumentType(role);
+        if (string.IsNullOrWhiteSpace(documentType))
         {
-            return BadRequest("Неверная роль.");
+            return BadRequest("Неверный тип инструкции.");
         }
 
-        // Определяем имя файла в зависимости от роли
-        string fileName = (role == "admin" || role == "administrator")
-            ? "admin_survey_guide" + Path.GetExtension(file.FileName)
-            : "user_survey_guide" + Path.GetExtension(file.FileName);
+        if (!string.Equals(Path.GetExtension(file.FileName), ".docx", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("Можно загрузить только файл DOCX.");
+        }
 
-        // Убеждаемся, что папка существует
         if (!Directory.Exists(_uploadFolder))
         {
             Directory.CreateDirectory(_uploadFolder);
         }
 
+        var originalFileName = Path.GetFileName(file.FileName);
+        if (string.IsNullOrWhiteSpace(originalFileName))
+        {
+            originalFileName = GetDownloadFileName(documentType);
+        }
+
+        var fileName = GetStorageFileName(documentType);
         string filePath = Path.Combine(_uploadFolder, fileName);
 
-        // Сохраняем файл
         using (var stream = new FileStream(filePath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
         }
 
-        return Ok(new { message = "Файл успешно загружен.", fileName });
-    }
+        var metadata = new HelpInstructionFileMetadata(originalFileName, DateTimeOffset.Now);
+        await System.IO.File.WriteAllTextAsync(
+            GetMetadataPath(documentType),
+            JsonSerializer.Serialize(metadata));
 
-    private string GetTextFromParagraph(Paragraph paragraph)
-    {
-        StringBuilder textBuilder = new StringBuilder();
+        var model = BuildInstructionInfo(
+            documentType,
+            documentType == AdminGuideType ? "Инструкция для администратора" : "Инструкция для клиента");
 
-        foreach (var run in paragraph.Elements<Run>())
+        return Ok(new
         {
-            textBuilder.Append(run.InnerText);
-        }
-
-        return textBuilder.ToString();
+            message = "Файл успешно загружен.",
+            fileName = model.FileName,
+            uploadedAt = model.UploadedAtText,
+            displayText = model.DisplayText
+        });
     }
 
-    private string GetTextFromTableCell(TableCell cell)
-    {
-        StringBuilder textBuilder = new StringBuilder();
-
-        foreach (var paragraph in cell.Elements<Paragraph>())
-        {
-            textBuilder.Append(GetTextFromParagraph(paragraph));
-        }
-
-        return textBuilder.ToString();
-    }
+    private sealed record HelpInstructionFileMetadata(string OriginalFileName, DateTimeOffset UploadedAt);
 }

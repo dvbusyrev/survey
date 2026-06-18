@@ -60,7 +60,7 @@
 
 .organization-surveys-page__content-section {
   display: grid;
-  gap: 0.6rem;
+  gap: 1.6rem;
 }
 
 .organization-surveys-page__field-title {
@@ -93,8 +93,12 @@
   max-width: 100%;
 }
 
-.organization-surveys-page__actions .modal_btn {
-  font-weight: 400;
+.organization-surveys-page__actions .modal_btn-primary {
+  font-weight: 700;
+}
+
+.organization-surveys-page__actions .modal_btn-secondary {
+  font-weight: 500;
 }
 
 .organization-surveys-page__actions .form-group {

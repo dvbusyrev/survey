@@ -188,7 +188,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
         return new OperationResult
         {
             Success = true,
-            Message = "Организация успешно создана.",
+            Message = "Организация успешно создана",
             EntityId = organizationId,
             ShouldReload = true
         };
@@ -274,7 +274,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
         {
             Success = affectedRows > 0,
             Message = affectedRows > 0
-                ? "Организация успешно удалена."
+                ? "Организация успешно удалена"
                 : "Произошла ошибка при удалении организации."
         };
     }
@@ -476,22 +476,45 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
     {
         var sql = new StringBuilder(
             """
+            WITH latest_assignment AS (
+                SELECT
+                    ranked.id_organization,
+                    ranked.id_survey,
+                    ranked.name_survey,
+                    ranked.date_end,
+                    ranked.id_organization_survey
+                FROM (
+                    SELECT
+                        os.id_organization,
+                        os.id_survey,
+                        os.id_organization_survey,
+                        os.date_begin,
+                        os.date_end,
+                        s.name_survey,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY os.id_organization, LOWER(BTRIM(s.name_survey))
+                            ORDER BY os.date_begin DESC, os.id_survey DESC, os.id_organization_survey DESC
+                        ) AS assignment_rank
+                    FROM public.organization_survey os
+                    INNER JOIN public.survey s
+                        ON s.id_survey = os.id_survey
+                ) ranked
+                WHERE ranked.assignment_rank = 1
+                  AND NOT EXISTS (
+                        SELECT 1
+                        FROM public.answer a
+                        WHERE a.id_organization_survey = ranked.id_organization_survey
+                  )
+            )
             SELECT
                 o.id_organization AS OrganizationId,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
-                s.id_survey AS survey_id,
-                s.name_survey AS survey_name,
-                os.date_end AS assignment_date_end
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
+                latest_assignment.id_survey AS SurveyId,
+                latest_assignment.name_survey AS SurveyName,
+                latest_assignment.date_end AS AssignmentDateEnd
             FROM public.organization o
-            LEFT JOIN public.organization_survey os
-                ON os.id_organization = o.id_organization
-               AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.answer a
-                    WHERE a.id_organization_survey = os.id_organization_survey
-               )
-            LEFT JOIN public.survey s
-                ON s.id_survey = os.id_survey
+            LEFT JOIN latest_assignment
+                ON latest_assignment.id_organization = o.id_organization
             WHERE (o.date_end IS NULL OR o.date_end >= CURRENT_DATE)
             """);
 
@@ -500,7 +523,7 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
             sql.AppendLine("  AND o.id_organization = ANY(@organizationIds)");
         }
 
-        sql.AppendLine("ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name), s.name_survey;");
+        sql.AppendLine("ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name), latest_assignment.name_survey NULLS LAST;");
 
         return connection.Query<OrganizationSurveyAssignmentRow>(
             sql.ToString(),
@@ -726,21 +749,9 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                         COALESCE(audit_raw.survey_id, os.id_survey) AS survey_id
                     FROM (
                         SELECT
-                            CASE
-                                WHEN COALESCE(record_pk->>'id_organization', row_data->>'id_organization', '') ~ '^[0-9]+$'
-                                    THEN COALESCE(record_pk->>'id_organization', row_data->>'id_organization')::integer
-                                ELSE NULL
-                            END AS id_organization,
-                            CASE
-                                WHEN COALESCE(record_pk->>'id_survey', row_data->>'id_survey', '') ~ '^[0-9]+$'
-                                    THEN COALESCE(record_pk->>'id_survey', row_data->>'id_survey')::integer
-                                ELSE NULL
-                            END AS survey_id,
-                            CASE
-                                WHEN COALESCE(record_pk->>'id_organization_survey', row_data->>'id_organization_survey', '') ~ '^[0-9]+$'
-                                    THEN COALESCE(record_pk->>'id_organization_survey', row_data->>'id_organization_survey')::integer
-                                ELSE NULL
-                            END AS id_organization_survey
+                            id_organization,
+                            id_survey AS survey_id,
+                            id_organization_survey
                         FROM public.organization_survey_l
                     ) audit_raw
                     LEFT JOIN public.organization_survey os
@@ -793,18 +804,10 @@ public sealed class OrganizationManagementService : IOrganizationManagementServi
                     ) AS user_name
                 FROM (
                     SELECT DISTINCT
-                        CASE
-                            WHEN COALESCE(record_pk->>'id_user', row_data->>'id_user', '') ~ '^[0-9]+$'
-                                THEN COALESCE(record_pk->>'id_user', row_data->>'id_user')::integer
-                            ELSE NULL
-                        END AS user_id,
-                        CASE
-                            WHEN COALESCE(row_data->>'id_organization', record_pk->>'id_organization', '') ~ '^[0-9]+$'
-                                THEN COALESCE(row_data->>'id_organization', record_pk->>'id_organization')::integer
-                            ELSE NULL
-                        END AS id_organization,
-                        row_data->>'full_name' AS full_name,
-                        COALESCE(row_data->>'login', row_data->>'name_user') AS user_name
+                        id_user AS user_id,
+                        id_organization,
+                        full_name,
+                        login AS user_name
                     FROM public.app_user_l
                 ) audit_row
                 LEFT JOIN public.app_user u

@@ -67,19 +67,25 @@
 
     function isArchiveSurveyListRoute(path) {
         const currentPath = String(path || window.location.pathname || '').toLowerCase();
-        return currentPath === '/surveys/archive' || /\/surveys\/archive\/\d+\/edit$/.test(currentPath);
+        return currentPath === '/survey/archive'
+            || currentPath === '/surveys/archive'
+            || /\/survey\/archive\/\d+\/edit$/.test(currentPath)
+            || /\/surveys\/archive\/\d+\/edit$/.test(currentPath);
     }
 
     function resolveSurveyListTarget(path) {
         return isArchiveSurveyListRoute(path)
-            ? { tabName: 'archived_surveys', fallbackUrl: '/surveys/archive' }
-            : { tabName: 'get_surveys', fallbackUrl: '/surveys' };
+            ? { tabName: 'archived_surveys', fallbackUrl: '/survey/archive' }
+            : { tabName: 'get_surveys', fallbackUrl: '/survey' };
     }
 
     function isSurveyEditorRoute(path) {
         const currentPath = String(path || window.location.pathname || '').toLowerCase();
-        return currentPath === '/surveys/create'
+        return currentPath === '/survey/create'
+            || currentPath === '/surveys/create'
+            || /\/survey\/\d+\/edit$/.test(currentPath)
             || /\/surveys\/\d+\/edit$/.test(currentPath)
+            || /\/survey\/archive\/\d+\/edit$/.test(currentPath)
             || /\/surveys\/archive\/\d+\/edit$/.test(currentPath);
     }
 
@@ -186,7 +192,7 @@
     }
 
     async function fetchSurveyCopyTemplate(surveyId) {
-        const response = await fetch(`/surveys/${surveyId}/copy-template`, {
+        const response = await fetch(`/survey/${surveyId}/copy-template`, {
             headers: {
                 Accept: 'application/json'
             }
@@ -291,8 +297,8 @@
             }
 
             const editUrl = isArchiveSurveyListRoute()
-                ? `/surveys/archive/${survey.id_survey}/edit`
-                : `/surveys/${survey.id_survey}/edit`;
+                ? `/survey/archive/${survey.id_survey}/edit`
+                : `/survey/${survey.id_survey}/edit`;
             window.location.assign(editUrl);
         } catch (error) {
             window.siteNotify?.(error.message || 'Не удалось открыть редактирование анкеты.', 'error');
@@ -300,18 +306,18 @@
     }
 
     function handleSurveyCreateSuccess(result) {
-        window.siteNotify?.(result?.message || 'Анкета успешно создана.', 'success');
+        window.siteNotify?.(result?.message || 'Анкета успешно создана', 'success');
         closeSurveyEditorModal();
         if (!refreshSurveyListPreservingScroll()) {
-            window.location.assign('/surveys');
+            window.location.assign('/survey');
         }
     }
 
     function handleSurveyUpdateSuccess(result) {
-        window.siteNotify?.(result?.message || 'Анкета успешно обновлена.', 'success');
+        window.siteNotify?.(result?.message || 'Анкета успешно обновлена', 'success');
         closeSurveyEditorModal();
         if (!refreshSurveyListPreservingScroll()) {
-            window.location.assign('/surveys');
+            window.location.assign('/survey');
         }
     }
 
@@ -449,7 +455,7 @@
     }
 
     async function loadSurveySignaturesContent(survey) {
-        const response = await fetch(`/surveys/${survey.id_survey}/signatures`, {
+        const response = await fetch(`/survey/${survey.id_survey}/signatures`, {
             cache: 'no-store',
             headers: {
                 'X-Admin-Inline-Request': 'true'
@@ -589,7 +595,7 @@
                 return;
             }
 
-            const response = await fetch(`/surveys/${survey.id_survey}/delete`, {
+            const response = await fetch(`/survey/${survey.id_survey}/delete`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -613,7 +619,7 @@
             const target = resolveSurveyListTarget();
             if (typeof window.handleAdminMutationSuccess === 'function') {
                 await window.handleAdminMutationSuccess({
-                    message: payload?.message || 'Анкета успешно удалена.',
+                    message: payload?.message || 'Анкета успешно удалена',
                     tabName: target.tabName,
                     fallbackUrl: target.fallbackUrl
                 });
@@ -635,12 +641,15 @@
     });
 
     window.setTimeout(function () {
-        if (window.location.pathname.toLowerCase() === '/surveys/create') {
+        if (window.location.pathname.toLowerCase() === '/survey/create'
+            || window.location.pathname.toLowerCase() === '/surveys/create') {
             openAddSurveyModal();
             return;
         }
 
-        if (/\/surveys\/\d+\/edit$/i.test(window.location.pathname)
+        if (/\/survey\/\d+\/edit$/i.test(window.location.pathname)
+            || /\/surveys\/\d+\/edit$/i.test(window.location.pathname)
+            || /\/survey\/archive\/\d+\/edit$/i.test(window.location.pathname)
             || /\/surveys\/archive\/\d+\/edit$/i.test(window.location.pathname)) {
             openEditSurveyModal();
         }

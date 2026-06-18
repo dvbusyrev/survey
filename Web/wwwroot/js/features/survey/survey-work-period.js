@@ -296,7 +296,7 @@
         if (typeof window.refreshAdminUi === 'function') {
             await window.refreshAdminUi({
                 tabName: 'get_surveys',
-                fallbackUrl: '/surveys',
+                fallbackUrl: '/survey',
                 options: {
                     force: true,
                     historyMode: 'replace',
@@ -315,7 +315,7 @@
             return;
         }
 
-        window.location.assign('/surveys');
+        window.location.assign('/survey');
     }
 
     async function saveWorkPeriod(instance) {
@@ -332,7 +332,7 @@
         render(instance);
 
         try {
-            const response = await fetch('/surveys/active/work-period', {
+            const response = await fetch('/survey/active/work-period', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',

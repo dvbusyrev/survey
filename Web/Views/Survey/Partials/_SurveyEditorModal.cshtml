@@ -82,62 +82,62 @@
                     }
                 </div>
 
-                <div class="form-group">
+                <div class="form-group survey-editor-page__organization-field">
                     <label>Организации</label>
-                    <div >
-                        @if (isEditMode)
-                        {
-                            <input type="hidden" id="selectedOrganizationIds" value="@string.Join(",", editPage!.SelectedOrganizationIds)" />
-                        }
-                        <div class="selected-organization survey-editor-page__selected-organizations"
-                             data-role="selected-organizations-container">
-                            <div class="survey-editor-page__selected-organizations-list"
-                                 data-role="selected-organizations-list"></div>
+                    @if (isEditMode)
+                    {
+                        <input type="hidden" id="selectedOrganizationIds" value="@string.Join(",", editPage!.SelectedOrganizationIds)" />
+                    }
+                    <div class="survey-editor-page__selected-organizations"
+                         data-role="selected-organizations-container">
+                        <div class="survey-editor-page__selected-organizations-list"
+                             data-role="selected-organizations-list">
+                            <p class="survey-editor-page__empty-selection">Организации не выбраны</p>
                         </div>
                     </div>
-                </div>
-                <div class="survey-editor-page__actions">
-                    <div class="app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__organization-dropdown"
-                         data-role="organization-dropdown">
-                        <button type="button"
-                                class="criteria-btn criteria-btn--info app-checkbox-dropdown__trigger"
-                                data-role="organization-dropdown-trigger"
-                                data-click-call="toggleOrganizationDropdown">
-                            Выбрать организацию
-                        </button>
-                        <div id="organizationDropdownMenu"
-                             class="app-checkbox-dropdown__menu app-checkbox-dropdown__menu--inline is-hidden"
-                             data-role="organization-dropdown-menu">
-                            @if (isEditMode)
-                            {
-                                <div class="app-checkbox-list" id="organizationList">
-                                    @foreach (var organization in editPage!.AllOrganization)
-                                    {
-                                        var isSelected = editPage.SelectedOrganizationIds.Contains(organization.Id);
-                                        <div class="app-checkbox-option@(isSelected ? " selected" : string.Empty)"
-                                             data-click-call="surveyEditToggleOrganizationSelection"
-                                             data-click-pass-element="true"
-                                             data-role="organization-option"
-                                             data-id="@organization.Id"
-                                             data-name="@organization.Name"
-                                             data-selected="@(isSelected ? "true" : "false")">
-                                            <input type="checkbox"
-                                                   class="app-checkbox-input"
-                                                   id="org-@organization.Id"
-                                                   @(isSelected ? "checked" : null) />
-                                            <label class="app-checkbox-text" for="org-@organization.Id">@organization.Name</label>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <div id="loadingOrgs" class="survey-loading-block u-hidden">
-                                    <div class="spinner"></div>
-                                    <p class="survey-loading-label">Загрузка организаций...</p>
-                                </div>
-                                <div id="organizationList" class="app-checkbox-list u-hidden"></div>
-                            }
+
+                    <div class="survey-editor-page__organization-action">
+                        <div class="app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__organization-dropdown"
+                             data-role="organization-dropdown">
+                            <button type="button"
+                                    class="criteria-btn criteria-btn--info app-checkbox-dropdown__trigger"
+                                    data-role="organization-dropdown-trigger"
+                                    data-click-call="toggleOrganizationDropdown">
+                                Выбрать организацию
+                            </button>
+                            <div id="organizationDropdownMenu"
+                                 class="app-checkbox-dropdown__menu app-checkbox-dropdown__menu--inline is-hidden"
+                                 data-role="organization-dropdown-menu">
+                                @if (isEditMode)
+                                {
+                                    <div class="app-checkbox-list" id="organizationList">
+                                        @foreach (var organization in editPage!.AllOrganization)
+                                        {
+                                            var isSelected = editPage.SelectedOrganizationIds.Contains(organization.Id);
+                                            <div class="app-checkbox-option@(isSelected ? " selected" : string.Empty)"
+                                                 data-click-call="surveyEditToggleOrganizationSelection"
+                                                 data-click-pass-element="true"
+                                                 data-role="organization-option"
+                                                 data-id="@organization.Id"
+                                                 data-name="@organization.Name"
+                                                 data-selected="@(isSelected ? "true" : "false")">
+                                                <input type="checkbox"
+                                                       class="app-checkbox-input"
+                                                       id="org-@organization.Id"
+                                                       @(isSelected ? "checked" : null) />
+                                                <label class="app-checkbox-text" for="org-@organization.Id">@organization.Name</label>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div id="loadingOrgs" class="survey-loading-block u-hidden">
+                                        <div class="spinner"></div>
+                                    </div>
+                                    <div id="organizationList" class="app-checkbox-list u-hidden"></div>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -146,7 +146,7 @@
             <section class="app-page__section app-page__stack survey-editor-page__criteria-step"
                      data-role="criteria-step">
                 <div class="survey-editor-page__criteria-list" data-role="criteria-list">
-                    @if (isEditMode)
+                    @if (isEditMode && editPage!.Criteria.Count > 0)
                     {
                         @for (var index = 0; index < editPage!.Criteria.Count; index++)
                         {
@@ -155,18 +155,28 @@
                             <div class="form-group survey-editor-page__criteria-item">
                                 <label for="criterion@criterionNumber">Критерий №@criterionNumber:</label>
                                 <div class="survey-editor-page__criteria-control">
-                                    <input type="text"
-                                           class="form-control criteriy"
-                                           id="criterion@criterionNumber"
-                                           value="@criterion"
-                                           placeholder="Введите критерий оценки"
-                                           required />
+                                    <div class="survey-editor-page__criteria-input-wrap">
+                                        <input type="text"
+                                               class="form-control criteriy"
+                                               id="criterion@criterionNumber"
+                                               value="@criterion"
+                                               placeholder="Введите критерий оценки"
+                                               required />
+                                        <button type="button"
+                                                class="survey-editor-page__criteria-remove"
+                                                aria-label="Удалить критерий №@criterionNumber"
+                                                data-click-call="removeSurveyCriterion"
+                                                data-click-pass-element="true">
+                                            <i class="fas fa-trash" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="survey-editor-page__criteria-action">
                                     <button type="button"
-                                            class="survey-editor-page__criteria-remove"
-                                            aria-label="Удалить критерий №@criterionNumber"
-                                            data-click-call="removeSurveyCriterion"
-                                            data-click-pass-element="true">
-                                        <i class="fas fa-trash" aria-hidden="true"></i>
+                                            class="criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline"
+                                            data-role="criteria-add"
+                                            data-click-call="surveyEditAddCriteria">
+                                        Добавить критерий
                                     </button>
                                 </div>
                                 <div class="error-message"></div>
@@ -178,31 +188,32 @@
                         <div class="form-group survey-editor-page__criteria-item">
                             <label for="criterion1">Критерий №1:</label>
                             <div class="survey-editor-page__criteria-control">
-                                <input type="text"
-                                       class="form-control criteriy"
-                                       id="criterion1"
-                                       placeholder="Введите критерий оценки"
-                                       required />
+                                <div class="survey-editor-page__criteria-input-wrap">
+                                    <input type="text"
+                                           class="form-control criteriy"
+                                           id="criterion1"
+                                           placeholder="Введите критерий оценки"
+                                           required />
+                                    <button type="button"
+                                            class="survey-editor-page__criteria-remove"
+                                            aria-label="Удалить критерий №1"
+                                            data-click-call="removeSurveyCriterion"
+                                            data-click-pass-element="true">
+                                        <i class="fas fa-trash" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="survey-editor-page__criteria-action">
                                 <button type="button"
-                                        class="survey-editor-page__criteria-remove"
-                                        aria-label="Удалить критерий №1"
-                                        data-click-call="removeSurveyCriterion"
-                                        data-click-pass-element="true">
-                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                        class="criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline"
+                                        data-role="criteria-add"
+                                        data-click-call="@(isEditMode ? "surveyEditAddCriteria" : "addRowCriteriy")">
+                                    Добавить критерий
                                 </button>
                             </div>
                             <div class="error-message"></div>
                         </div>
                     }
-                </div>
-
-                <div class="survey-editor-page__actions">
-                    <button type="button"
-                            class="criteria-btn criteria-btn--info"
-                            data-role="criteria-add"
-                            data-click-call="@(isEditMode ? "surveyEditAddCriteria" : "addRowCriteriy")">
-                        Добавить критерий
-                    </button>
                 </div>
             </section>
         </div>

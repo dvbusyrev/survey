@@ -18,6 +18,7 @@ public class SurveyAutoCreationController : Controller
         _logger = logger;
     }
 
+    [HttpGet("settings/survey-creation")]
     [HttpGet("survey-auto-creation")]
     public async Task<IActionResult> ViewPage(CancellationToken cancellationToken)
     {
@@ -25,6 +26,7 @@ public class SurveyAutoCreationController : Controller
         return View("~/Web/Views/Survey/view_auto_creation.cshtml", model);
     }
 
+    [HttpPost("settings/survey-creation/save")]
     [HttpPost("survey-auto-creation/save")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save([FromBody] SurveyAutoCreationSettingsRequest? request, CancellationToken cancellationToken)
@@ -46,6 +48,7 @@ public class SurveyAutoCreationController : Controller
         }
     }
 
+    [HttpPost("settings/survey-creation/start")]
     [HttpPost("survey-auto-creation/start")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Start([FromBody] SurveyAutoCreationSettingsRequest? request, CancellationToken cancellationToken)
@@ -67,6 +70,7 @@ public class SurveyAutoCreationController : Controller
         }
     }
 
+    [HttpPost("settings/survey-creation/stop")]
     [HttpPost("survey-auto-creation/stop")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Stop(CancellationToken cancellationToken)

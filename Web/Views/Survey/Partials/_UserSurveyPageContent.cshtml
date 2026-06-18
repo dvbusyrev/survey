@@ -15,6 +15,8 @@
      data-current-page="@pageModel.CurrentPage"
      data-total-pages="@pageModel.TotalPages"
      data-total-count="@(pageModel.IsArchive ? pageModel.ArchivedCount : pageModel.ActiveCount)"
+     data-active-count="@pageModel.ActiveCount"
+     data-is-archive="@(pageModel.IsArchive ? "true" : "false")"
      data-search-term="@pageModel.SearchTerm"
      data-signed-only="@(pageModel.SignedOnly ? "true" : "false")">
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_ClientSurveySubnav.cshtml")
@@ -38,7 +40,7 @@
     }
 
     <section class="app-page__section u-hidden" data-role="loading">
-        <div class="loading">Загрузка анкет...</div>
+        <div class="loading" aria-hidden="true"></div>
     </section>
 
     <div data-role="table-section">

@@ -245,6 +245,7 @@ body {
 .answers-page__action-button {
   background: var(--app-theme-button-color) !important;
   border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%) !important;
+  font-weight: 700 !important;
 }
 
 .modal_btn-primary:hover,
@@ -268,6 +269,27 @@ body {
 
 .modal_btn-secondary {
   font-weight: 500 !important;
+}
+
+.survey-period-filter__trigger,
+.csp-btn-secondary,
+.app-checkbox-dropdown__trigger:not(.modal_btn-primary),
+.reset-filter-btn,
+.pagination-button {
+  font-weight: 500 !important;
+}
+
+.survey-period-filter__clear-button,
+.survey-period-filter__save-button,
+.survey-period-filter__mode-button.is-active,
+.csp-btn-primary,
+.filter-date,
+.filter-button,
+.search-button,
+.user-surveys-page__search-button,
+.btn_crit.active,
+.remove-btn {
+  font-weight: 700 !important;
 }
 
 .logout-button:hover,
@@ -421,7 +443,7 @@ a[role="button"],
   -webkit-tap-highlight-color: transparent;
 }
 
-button:not(.password-toggle-btn):active,
+button:not(.password-toggle-btn):not(.app-native-date-field__button):not(.app-date-field__button):active,
 a[role="button"]:active,
 .btn:active,
 .modal_btn:active,
