@@ -12,6 +12,7 @@ public sealed class ThemeSettings
     public bool EffectGrass { get; set; }
     public bool EffectRain { get; set; }
     public string BackgroundImageDataUrl { get; set; } = string.Empty;
+    public string BackgroundImageFileName { get; set; } = string.Empty;
     public int BackgroundImageOpacity { get; set; } = 35;
     public int SoftLightenPercent { get; set; }
     public int HeaderDarkenPercent { get; set; } = 42;

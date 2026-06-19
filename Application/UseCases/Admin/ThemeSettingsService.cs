@@ -10,7 +10,7 @@ namespace MainProject.Application.UseCases.Admin;
 public sealed class ThemeSettingsService : IThemeSettingsService
 {
     private const int DefaultConfigId = 1;
-    private const int MaxBackgroundImageLength = 4_000_000;
+    private const int MaxBackgroundImageBytes = 4_000_000;
     private const string DefaultFontColor = "#343D4B";
     private const string DefaultBackgroundColor = "#B2A8FF";
     private const int DefaultDetailsBrightness = 59;
@@ -18,13 +18,14 @@ public sealed class ThemeSettingsService : IThemeSettingsService
     private const string DefaultGradientStartColor = "#B2A8FF";
     private const string DefaultGradientEndColor = "#B2A8FF";
     private static readonly Regex HexColorRegex = new("^#[0-9A-Fa-f]{6}$", RegexOptions.Compiled);
-    private static readonly string[] AllowedImagePrefixes =
-    [
-        "data:image/png;base64,",
-        "data:image/jpeg;base64,",
-        "data:image/jpg;base64,",
-        "data:image/webp;base64,"
-    ];
+    private static readonly IReadOnlyDictionary<string, string> DefaultImageFileNamesByContentType =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["image/png"] = "background-image.png",
+            ["image/jpeg"] = "background-image.jpg",
+            ["image/jpg"] = "background-image.jpg",
+            ["image/webp"] = "background-image.webp"
+        };
 
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<ThemeSettingsService> _logger;
@@ -56,6 +57,9 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                         effect_fireworks AS EffectFireworks,
                         effect_grass AS EffectGrass,
                         effect_rain AS EffectRain,
+                        background_image AS BackgroundImage,
+                        background_image_file_name AS BackgroundImageFileName,
+                        background_image_content_type AS BackgroundImageContentType,
                         background_image_data_url AS BackgroundImageDataUrl,
                         background_image_opacity AS BackgroundImageOpacity,
                         soft_lighten_percent AS SoftLightenPercent,
@@ -77,6 +81,10 @@ public sealed class ThemeSettingsService : IThemeSettingsService
             }
 
             var isLegacyDarkenScale = row.ButtonStrongDarkenPercent != CurrentThemeScaleMarker;
+            var backgroundImageDataUrl = BuildBackgroundImageDataUrl(
+                row.BackgroundImage,
+                row.BackgroundImageContentType,
+                row.BackgroundImageDataUrl);
 
             return ApplyDerivedGradientColors(new ThemeSettings
             {
@@ -89,7 +97,8 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                 EffectFireworks = row.EffectFireworks,
                 EffectGrass = row.EffectGrass,
                 EffectRain = row.EffectRain,
-                BackgroundImageDataUrl = NormalizeBackgroundImage(row.BackgroundImageDataUrl),
+                BackgroundImageDataUrl = backgroundImageDataUrl,
+                BackgroundImageFileName = NormalizeBackgroundImageFileName(row.BackgroundImageFileName, backgroundImageDataUrl),
                 BackgroundImageOpacity = NormalizeOpacity(row.BackgroundImageOpacity),
                 SoftLightenPercent = NormalizePercent(row.SoftLightenPercent),
                 HeaderDarkenPercent = NormalizeBrightnessPercent(row.HeaderDarkenPercent, isLegacyDarkenScale),
@@ -111,6 +120,7 @@ public sealed class ThemeSettingsService : IThemeSettingsService
     public async Task SaveAsync(ThemeSettings settings, CancellationToken cancellationToken = default)
     {
         var normalized = NormalizeAndValidate(settings);
+        var backgroundImage = ParseBackgroundImage(normalized.BackgroundImageDataUrl, normalized.BackgroundImageFileName);
 
         using var connection = _connectionFactory.CreateConnection();
         await connection.ExecuteAsync(
@@ -128,6 +138,9 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                     effect_fireworks,
                     effect_grass,
                     effect_rain,
+                    background_image,
+                    background_image_file_name,
+                    background_image_content_type,
                     background_image_data_url,
                     background_image_opacity,
                     soft_lighten_percent,
@@ -149,6 +162,9 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                     @EffectFireworks,
                     @EffectGrass,
                     @EffectRain,
+                    @BackgroundImage,
+                    @BackgroundImageFileName,
+                    @BackgroundImageContentType,
                     @BackgroundImageDataUrl,
                     @BackgroundImageOpacity,
                     @SoftLightenPercent,
@@ -169,6 +185,9 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                     effect_fireworks = EXCLUDED.effect_fireworks,
                     effect_grass = EXCLUDED.effect_grass,
                     effect_rain = EXCLUDED.effect_rain,
+                    background_image = EXCLUDED.background_image,
+                    background_image_file_name = EXCLUDED.background_image_file_name,
+                    background_image_content_type = EXCLUDED.background_image_content_type,
                     background_image_data_url = EXCLUDED.background_image_data_url,
                     background_image_opacity = EXCLUDED.background_image_opacity,
                     soft_lighten_percent = EXCLUDED.soft_lighten_percent,
@@ -190,7 +209,10 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                     normalized.EffectFireworks,
                     normalized.EffectGrass,
                     normalized.EffectRain,
-                    normalized.BackgroundImageDataUrl,
+                    BackgroundImage = backgroundImage.Bytes,
+                    BackgroundImageFileName = backgroundImage.FileName,
+                    BackgroundImageContentType = backgroundImage.ContentType,
+                    BackgroundImageDataUrl = string.Empty,
                     normalized.BackgroundImageOpacity,
                     normalized.SoftLightenPercent,
                     normalized.HeaderDarkenPercent,
@@ -221,6 +243,7 @@ public sealed class ThemeSettingsService : IThemeSettingsService
             EffectGrass = settings.EffectGrass,
             EffectRain = settings.EffectRain,
             BackgroundImageDataUrl = NormalizeBackgroundImage(settings.BackgroundImageDataUrl),
+            BackgroundImageFileName = NormalizeBackgroundImageFileName(settings.BackgroundImageFileName, settings.BackgroundImageDataUrl),
             BackgroundImageOpacity = NormalizeOpacity(settings.BackgroundImageOpacity),
             SoftLightenPercent = NormalizePercent(settings.SoftLightenPercent),
             HeaderDarkenPercent = NormalizePercent(settings.HeaderDarkenPercent),
@@ -235,18 +258,7 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         ValidateColor(normalized.FontColor, "Цвет шрифта", errors);
         ValidateColor(normalized.BackgroundColor, "Цвет фона", errors);
 
-        if (!string.IsNullOrEmpty(normalized.BackgroundImageDataUrl))
-        {
-            if (!AllowedImagePrefixes.Any(prefix => normalized.BackgroundImageDataUrl.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
-            {
-                errors.Add("Фоновое изображение должно быть PNG, JPEG или WebP.");
-            }
-
-            if (normalized.BackgroundImageDataUrl.Length > MaxBackgroundImageLength)
-            {
-                errors.Add("Фоновое изображение слишком большое. Уменьшите файл.");
-            }
-        }
+        ParseBackgroundImage(normalized.BackgroundImageDataUrl, normalized.BackgroundImageFileName, errors);
 
         if (normalized.BackgroundImageOpacity < 0 || normalized.BackgroundImageOpacity > 100)
         {
@@ -283,6 +295,97 @@ public sealed class ThemeSettingsService : IThemeSettingsService
     private static string NormalizeBackgroundImage(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+    }
+
+    private static string NormalizeBackgroundImageFileName(string? value, string? backgroundImageDataUrl)
+    {
+        var normalized = Path.GetFileName((value ?? string.Empty).Trim());
+        if (!string.IsNullOrWhiteSpace(normalized))
+        {
+            return normalized.Length <= 255 ? normalized : normalized[..255];
+        }
+
+        var contentType = GetContentTypeFromDataUrl(backgroundImageDataUrl);
+        return GetDefaultImageFileName(contentType);
+    }
+
+    private static BackgroundImagePayload ParseBackgroundImage(
+        string? dataUrl,
+        string? fileName,
+        ICollection<string>? errors = null)
+    {
+        var normalizedDataUrl = NormalizeBackgroundImage(dataUrl);
+        if (string.IsNullOrWhiteSpace(normalizedDataUrl))
+        {
+            return new BackgroundImagePayload(null, string.Empty, string.Empty);
+        }
+
+        var separatorIndex = normalizedDataUrl.IndexOf(',', StringComparison.Ordinal);
+        var contentType = GetContentTypeFromDataUrl(normalizedDataUrl);
+        if (separatorIndex < 0 || !DefaultImageFileNamesByContentType.ContainsKey(contentType))
+        {
+            errors?.Add("Фоновое изображение должно быть PNG, JPEG или WebP.");
+            return new BackgroundImagePayload(null, string.Empty, string.Empty);
+        }
+
+        try
+        {
+            var bytes = Convert.FromBase64String(normalizedDataUrl[(separatorIndex + 1)..]);
+            if (bytes.Length > MaxBackgroundImageBytes)
+            {
+                errors?.Add("Фоновое изображение слишком большое. Уменьшите файл.");
+                return new BackgroundImagePayload(null, string.Empty, string.Empty);
+            }
+
+            return new BackgroundImagePayload(
+                bytes,
+                NormalizeBackgroundImageFileName(fileName, normalizedDataUrl),
+                NormalizeImageContentType(contentType));
+        }
+        catch (FormatException)
+        {
+            errors?.Add("Фоновое изображение заполнено некорректно.");
+            return new BackgroundImagePayload(null, string.Empty, string.Empty);
+        }
+    }
+
+    private static string BuildBackgroundImageDataUrl(byte[]? imageBytes, string? contentType, string? legacyDataUrl)
+    {
+        var normalizedContentType = NormalizeImageContentType(contentType);
+        if (imageBytes is { Length: > 0 } && DefaultImageFileNamesByContentType.ContainsKey(normalizedContentType))
+        {
+            return $"data:{normalizedContentType};base64,{Convert.ToBase64String(imageBytes)}";
+        }
+
+        return NormalizeBackgroundImage(legacyDataUrl);
+    }
+
+    private static string GetContentTypeFromDataUrl(string? dataUrl)
+    {
+        var normalized = NormalizeBackgroundImage(dataUrl);
+        if (!normalized.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        var contentTypeEnd = normalized.IndexOf(";base64,", StringComparison.OrdinalIgnoreCase);
+        return contentTypeEnd > 5
+            ? NormalizeImageContentType(normalized[5..contentTypeEnd])
+            : string.Empty;
+    }
+
+    private static string NormalizeImageContentType(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized == "image/jpg" ? "image/jpeg" : normalized;
+    }
+
+    private static string GetDefaultImageFileName(string? contentType)
+    {
+        var normalizedContentType = NormalizeImageContentType(contentType);
+        return DefaultImageFileNamesByContentType.TryGetValue(normalizedContentType, out var fileName)
+            ? fileName
+            : string.Empty;
     }
 
     private static int NormalizeOpacity(int value)
@@ -475,6 +578,9 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         public bool EffectFireworks { get; init; }
         public bool EffectGrass { get; init; }
         public bool EffectRain { get; init; }
+        public byte[]? BackgroundImage { get; init; }
+        public string BackgroundImageFileName { get; init; } = string.Empty;
+        public string BackgroundImageContentType { get; init; } = string.Empty;
         public string BackgroundImageDataUrl { get; init; } = string.Empty;
         public int BackgroundImageOpacity { get; init; }
         public int SoftLightenPercent { get; init; }
@@ -484,4 +590,6 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         public int ButtonStrongDarkenPercent { get; init; }
         public int SurfaceTintOpacityPercent { get; init; }
     }
+
+    private sealed record BackgroundImagePayload(byte[]? Bytes, string FileName, string ContentType);
 }

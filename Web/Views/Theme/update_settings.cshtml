@@ -98,7 +98,7 @@
                             <input type="text"
                                    class="form-control theme-settings-page__file-field"
                                    id="theme-background-image-name"
-                                   value="@(string.IsNullOrWhiteSpace(settings.BackgroundImageDataUrl) ? "Изображение не выбрано" : "Изображение загружено")"
+                                   value="@(string.IsNullOrWhiteSpace(settings.BackgroundImageFileName) ? "Изображение не выбрано" : settings.BackgroundImageFileName)"
                                    readonly />
                             <input type="file"
                                    class="theme-settings-page__file-input"
@@ -108,9 +108,11 @@
                             <input type="hidden"
                                    id="theme-background-image-data-url"
                                    value="@settings.BackgroundImageDataUrl" />
+                            <input type="hidden"
+                                   id="theme-background-image-file-name"
+                                   value="@settings.BackgroundImageFileName" />
                             <div class="theme-settings-page__file-actions">
                                 <button type="button" id="theme-background-image-upload" class="modal_btn modal_btn-primary">Загрузить изображение</button>
-                                <button type="button" id="theme-background-image-clear" class="modal_btn modal_btn-secondary">Убрать изображение</button>
                             </div>
                         </div>
                     </div>

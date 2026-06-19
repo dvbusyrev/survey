@@ -197,6 +197,10 @@
   color: var(--text-main);
 }
 
+.reports-page[data-page="reports"] .reports-page__card-title {
+  font-weight: 400;
+}
+
 .reports-page__card-description,
 .reports-page__empty-text {
 margin-bottom: 3%;
@@ -231,7 +235,8 @@ margin-top: 0;
 
 .reports-page__submit {
 grid-column: 1 / -1;
-width: 100%;
+justify-self: end;
+width: auto;
 }
 
 .reports-page__empty-state {

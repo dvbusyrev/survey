@@ -35,6 +35,9 @@ What this does:
 - applies `022_store_signed_answer_content`
 - applies `023_add_theme_config`
 - applies `024_add_theme_palette_controls`
+- applies `025_add_answer_drafts`
+- applies `026_rebuild_audit_tables_as_structured_snapshots`
+- applies `027_store_theme_background_image_blob`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -64,3 +67,6 @@ Migration sources:
 - `022_store_signed_answer_content` stores the exact signed PDF bytes so detached signatures are archived with the same content that was signed
 - `023_add_theme_config` creates theme settings storage and audit logging for interface appearance
 - `024_add_theme_palette_controls` adds configurable shade and tint controls for derived theme colors
+- `025_add_answer_drafts` stores unfinished client survey answers by organization assignment
+- `026_rebuild_audit_tables_as_structured_snapshots` rebuilds audit tables as structured snapshots
+- `027_store_theme_background_image_blob` stores the theme background image as `bytea` with the original file name

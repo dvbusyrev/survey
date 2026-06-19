@@ -1,4 +1,6 @@
 .theme-settings-page__layout {
+  --theme-settings-control-height: 3rem;
+  --theme-settings-row-height: 4.625rem;
   align-items: start;
 }
 
@@ -9,6 +11,7 @@
 .theme-settings-page__form {
   display: grid;
   gap: 1.5rem;
+  grid-template-rows: repeat(6, var(--theme-settings-row-height)) auto;
 }
 
 .theme-settings-page__notice {
@@ -21,7 +24,8 @@
 }
 
 .theme-settings-page__main-row {
-  min-height: calc(3rem + 0.5rem + 1.1rem);
+  height: var(--theme-settings-row-height);
+  min-height: 0;
 }
 
 .theme-settings-page__form-group > label,
@@ -43,7 +47,8 @@
 .theme-settings-page__color-input {
   width: 100%;
   min-width: 0;
-  min-height: 3rem;
+  height: var(--theme-settings-control-height);
+  min-height: var(--theme-settings-control-height);
   margin-top: 0;
   padding: 0;
   background: transparent;
@@ -96,6 +101,8 @@
 
 .theme-settings-page__file-field[readonly] {
   width: 100%;
+  height: var(--theme-settings-control-height);
+  min-height: var(--theme-settings-control-height);
   margin-top: 0;
   background: #ffffff;
   cursor: default;
@@ -129,7 +136,8 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
-  min-height: 3rem;
+  height: var(--theme-settings-control-height);
+  min-height: var(--theme-settings-control-height);
   margin-top: 0;
 }
 
@@ -160,27 +168,35 @@
 
 .theme-settings-page__effects-picker {
   display: grid;
-  gap: 0.55rem;
+  gap: 0;
   min-width: 0;
+}
+
+.theme-settings-page__form-group--effects > label {
+  margin-bottom: 0;
 }
 
 .theme-settings-page__selected-effects {
   width: 100%;
   min-width: 0;
-  min-height: 3rem;
+  min-height: 44px;
+  margin-top: 15px;
   padding: 0.75rem 0.9rem;
   color: var(--text-main);
   background: #ffffff;
   border: 1px solid var(--border-dark);
   border-radius: var(--app-field-radius);
+  overflow: hidden;
 }
 
 .theme-settings-page__selected-effects-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.625rem;
+  gap: 10px;
   min-height: 1.4em;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .theme-settings-page__empty-selection {
@@ -193,10 +209,11 @@
 
 .theme-settings-page__selected-effect-item {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  min-height: 2.5rem;
+  min-height: 40px;
   max-width: 100%;
-  padding: 0 1rem;
+  padding: 0 16px;
   color: var(--text-main);
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -204,10 +221,23 @@
   border-radius: 999px;
 }
 
+.theme-settings-page__selected-effects-text {
+  display: block;
+  min-width: 0;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .theme-settings-page__effects-action {
   display: flex;
   justify-content: flex-start;
   min-width: 0;
+  margin-top: 0.55rem;
 }
 
 .theme-settings-page__effects-trigger {
@@ -225,12 +255,12 @@
 .theme-settings-page__preview-list {
   display: grid;
   gap: 1.5rem;
+  grid-template-rows: repeat(6, var(--theme-settings-row-height));
   min-width: 0;
 }
 
 .theme-settings-page__preview-row {
   display: grid;
-  gap: 0.5rem;
   min-width: 0;
 }
 
@@ -238,7 +268,8 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  min-height: 3rem;
+  height: var(--theme-settings-control-height);
+  min-height: var(--theme-settings-control-height);
   padding: 0.75rem 0.9rem;
   color: var(--text-main);
   font-family: inherit;
@@ -270,13 +301,16 @@
   border-color: color-mix(in srgb, var(--app-theme-footer-color) 82%, transparent 18%);
 }
 
-.theme-settings-page__preview-button {
-  width: max-content;
-  max-width: 100%;
-}
+/*.theme-settings-page__preview-button {*/
+/*  width: auto;*/
+/*  min-width: 8.5rem;*/
+/*  max-width: 100%;*/
+/*  min-height: var(--theme-settings-control-height);*/
+/*}*/
 
 .theme-settings-page__preview-table {
   width: 100%;
+  height: var(--theme-settings-control-height);
   min-width: 0;
   color: var(--text-main);
   background: #ffffff;
@@ -288,7 +322,8 @@
 }
 
 .theme-settings-page__preview-table th {
-  padding: 0.75rem 0.9rem;
+  height: var(--theme-settings-control-height);
+  padding: 0 0.9rem;
   color: var(--app-theme-detail-text-color);
   font-size: 0.95rem;
   font-weight: 700;
@@ -298,6 +333,16 @@
 }
 
 @media (max-width: 760px) {
+  .theme-settings-page__form,
+  .theme-settings-page__preview-list {
+    grid-template-rows: none;
+  }
+
+  .theme-settings-page__main-row {
+    height: auto;
+    min-height: var(--theme-settings-row-height);
+  }
+
   .theme-settings-page__shade-row {
     grid-template-columns: 1fr;
     gap: 0.35rem;

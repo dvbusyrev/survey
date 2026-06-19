@@ -38,3 +38,4 @@ COMMIT;
 \ir 024_add_theme_palette_controls.sql
 \ir 025_add_answer_drafts.sql
 \ir 026_rebuild_audit_tables_as_structured_snapshots.sql
+\ir 027_store_theme_background_image_blob.sql

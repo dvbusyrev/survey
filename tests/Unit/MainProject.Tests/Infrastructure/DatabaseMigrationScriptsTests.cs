@@ -317,6 +317,20 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("VALUES ('025', 'add_answer_drafts')", script);
     }
 
+    [Fact]
+    public void ThemeBackgroundImageBlobMigration_AddsBinaryImageStorage()
+    {
+        var applyAllScript = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "000_apply_all.sql"));
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "027_store_theme_background_image_blob.sql"));
+
+        Assert.Contains(@"\ir 027_store_theme_background_image_blob.sql", applyAllScript);
+        Assert.Contains("background_image bytea", script);
+        Assert.Contains("background_image_file_name text", script);
+        Assert.Contains("background_image_content_type text", script);
+        Assert.Contains("ALTER TABLE public.theme_config_l", script);
+        Assert.Contains("VALUES ('027', 'store_theme_background_image_blob')", script);
+    }
+
     private static string GetRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

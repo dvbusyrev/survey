@@ -59,41 +59,6 @@
                 <div class="reports-page__grid">
                     <section class="app-page__section reports-page__card">
                         <div class="reports-page__card-header">
-                            <h3 class="reports-page__card-title">Отчёт за квартал</h3>
-                        </div>
-
-                        <div class="reports-page__controls">
-                            <div class="reports-page__field">
-                                <label for="reportQuarter">Квартал</label>
-                                <select id="reportQuarter" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
-                                    @for (var quarter = 1; quarter <= 4; quarter++)
-                                    {
-                                        <option value="@quarter">@quarter</option>
-                                    }
-                                </select>
-                            </div>
-
-                            <div class="reports-page__field">
-                                <label for="reportQuarterYear">Год</label>
-                                <select id="reportQuarterYear" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
-                                    @foreach (var year in availableYears)
-                                    {
-                                        <option value="@year">@year</option>
-                                    }
-                                </select>
-                            </div>
-
-                            <button type="button"
-                                    class="btn modal_btn-primary reports-page__submit"
-                                    data-click-call="submitQuarterlyReport"
-                                    @(hasAvailableYears ? null : "disabled")>
-                                Сформировать отчёт
-                            </button>
-                        </div>
-                    </section>
-
-                    <section class="app-page__section reports-page__card">
-                        <div class="reports-page__card-header">
                             <h3 class="reports-page__card-title">Отчёт за месяц</h3>
                         </div>
 
@@ -121,6 +86,41 @@
                             <button type="button"
                                     class="btn modal_btn-primary reports-page__submit"
                                     data-click-call="submitMonthlyReport"
+                                    @(hasAvailableYears ? null : "disabled")>
+                                Сформировать отчёт
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="app-page__section reports-page__card">
+                        <div class="reports-page__card-header">
+                            <h3 class="reports-page__card-title">Отчёт за квартал</h3>
+                        </div>
+
+                        <div class="reports-page__controls">
+                            <div class="reports-page__field">
+                                <label for="reportQuarter">Квартал</label>
+                                <select id="reportQuarter" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
+                                    @for (var quarter = 1; quarter <= 4; quarter++)
+                                    {
+                                        <option value="@quarter">@quarter</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="reports-page__field">
+                                <label for="reportQuarterYear">Год</label>
+                                <select id="reportQuarterYear" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
+                                    @foreach (var year in availableYears)
+                                    {
+                                        <option value="@year">@year</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <button type="button"
+                                    class="btn modal_btn-primary reports-page__submit"
+                                    data-click-call="submitQuarterlyReport"
                                     @(hasAvailableYears ? null : "disabled")>
                                 Сформировать отчёт
                             </button>

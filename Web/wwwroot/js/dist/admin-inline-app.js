@@ -1431,13 +1431,21 @@
       }
       return window.__appThemeDraftSettings?.backgroundImageDataUrl || window.__appThemeSavedSettings?.backgroundImageDataUrl || window.__appThemeSettings?.backgroundImageDataUrl || "";
     }
+    function getThemeImageFileNamePayloadValue() {
+      const fileNameField = getThemeField("theme-background-image-file-name");
+      if (fileNameField) {
+        return fileNameField.value || "";
+      }
+      return window.__appThemeDraftSettings?.backgroundImageFileName || window.__appThemeSavedSettings?.backgroundImageFileName || window.__appThemeSettings?.backgroundImageFileName || "";
+    }
     function hasThemePayloadValue(rawSettings, camelName, pascalName) {
       return Boolean(rawSettings && typeof rawSettings === "object") && (Object.prototype.hasOwnProperty.call(rawSettings, camelName) || Object.prototype.hasOwnProperty.call(rawSettings, pascalName));
     }
     function normalizeThemeSettingsPayload(rawSettings) {
       const normalizedSource = hasThemePayloadValue(rawSettings, "backgroundImageDataUrl", "BackgroundImageDataUrl") ? rawSettings : {
         ...rawSettings || {},
-        backgroundImageDataUrl: getThemeImagePayloadValue()
+        backgroundImageDataUrl: getThemeImagePayloadValue(),
+        backgroundImageFileName: getThemeImageFileNamePayloadValue()
       };
       if (typeof window.toCamelThemeSettings === "function") {
         return window.toCamelThemeSettings(normalizedSource);
@@ -1451,6 +1459,7 @@
         effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
         effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
         backgroundImageDataUrl: normalizedSource.backgroundImageDataUrl || normalizedSource.BackgroundImageDataUrl || "",
+        backgroundImageFileName: normalizedSource.backgroundImageFileName || normalizedSource.BackgroundImageFileName || "",
         backgroundImageOpacity: Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "35", 10) || 35,
         softLightenPercent: 0,
         headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
@@ -1521,15 +1530,10 @@
         summary.appendChild(empty);
         return;
       }
-      const list = document.createElement("div");
-      list.className = "theme-settings-page__selected-effects-list";
-      selectedEffects.forEach((label) => {
-        const item = document.createElement("div");
-        item.className = "theme-settings-page__selected-effect-item";
-        item.appendChild(document.createTextNode(label));
-        list.appendChild(item);
-      });
-      summary.appendChild(list);
+      const text = document.createElement("span");
+      text.className = "theme-settings-page__selected-effects-text";
+      text.textContent = selectedEffects.join(", ");
+      summary.appendChild(text);
     }
     function setThemeEffectsDropdownOpen(isOpen) {
       const trigger = getThemeField("theme-effects-toggle");
@@ -1543,11 +1547,22 @@
     function syncThemeImageName() {
       const nameField = getThemeField("theme-background-image-name");
       const dataField = getThemeField("theme-background-image-data-url");
+      const fileNameField = getThemeField("theme-background-image-file-name");
       if (!nameField) {
         return;
       }
-      const fileName = dataField?.dataset?.fileName || "";
-      nameField.value = fileName || (dataField?.value ? "Изображение загружено" : "Изображение не выбрано");
+      const fileName = fileNameField?.value || "";
+      nameField.value = fileName || getDefaultThemeImageFileName(dataField?.value) || "Изображение не выбрано";
+    }
+    function getDefaultThemeImageFileName(dataUrl) {
+      const normalizedDataUrl = String(dataUrl || "").trim().toLowerCase();
+      if (normalizedDataUrl.startsWith("data:image/webp;base64,")) {
+        return "background-image.webp";
+      }
+      if (normalizedDataUrl.startsWith("data:image/jpeg;base64,") || normalizedDataUrl.startsWith("data:image/jpg;base64,")) {
+        return "background-image.jpg";
+      }
+      return normalizedDataUrl.startsWith("data:image/png;base64,") ? "background-image.png" : "";
     }
     function collectThemeSettingsPayload() {
       const opacityValue = Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "", 10);
@@ -1560,6 +1575,7 @@
         effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
         effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
         backgroundImageDataUrl: getThemeImagePayloadValue(),
+        backgroundImageFileName: getThemeImageFileNamePayloadValue(),
         backgroundImageOpacity: Number.isFinite(opacityValue) ? opacityValue : 0,
         softLightenPercent: 0,
         headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
@@ -1628,7 +1644,10 @@
         const hiddenField = getThemeField("theme-background-image-data-url");
         if (hiddenField) {
           hiddenField.value = dataUrl;
-          hiddenField.dataset.fileName = file.name;
+        }
+        const fileNameField = getThemeField("theme-background-image-file-name");
+        if (fileNameField) {
+          fileNameField.value = file.name;
         }
         syncThemeImageName();
         applyThemeDraftState();
@@ -1637,15 +1656,6 @@
       } finally {
         input.value = "";
       }
-    }
-    function clearThemeImage() {
-      const hiddenField = getThemeField("theme-background-image-data-url");
-      if (hiddenField) {
-        hiddenField.value = "";
-        delete hiddenField.dataset.fileName;
-      }
-      syncThemeImageName();
-      applyThemeDraftState();
     }
     function populateThemeForm(settings) {
       const normalizedSettings = normalizeThemeSettingsPayload(settings);
@@ -1676,7 +1686,10 @@
       const imageDataField = getThemeField("theme-background-image-data-url");
       if (imageDataField) {
         imageDataField.value = normalizedSettings.backgroundImageDataUrl;
-        delete imageDataField.dataset.fileName;
+      }
+      const imageFileNameField = getThemeField("theme-background-image-file-name");
+      if (imageFileNameField) {
+        imageFileNameField.value = normalizedSettings.backgroundImageFileName || getDefaultThemeImageFileName(normalizedSettings.backgroundImageDataUrl);
       }
       const opacityField = getThemeField("theme-background-image-opacity");
       if (opacityField) {
@@ -1857,7 +1870,6 @@
       themeSettingsPageState.isMounted = true;
       bindThemeAction("theme-save-button", window.saveThemeSettings);
       bindThemeAction("theme-reset-button", window.resetThemeSettings);
-      bindThemeAction("theme-background-image-clear", clearThemeImage);
       bindThemeAction("theme-background-image-upload", () => getThemeField("theme-background-image-file")?.click());
       bindThemeInput("theme-font-color");
       bindThemeInput("theme-background-color");
