@@ -198,8 +198,8 @@
                 surveyName.textContent = `Анкета: "${survey?.name_survey || ''}"`;
             }
             if (errorNode) {
-                errorNode.textContent = error || '';
-                errorNode.style.display = error ? 'block' : 'none';
+                errorNode.textContent = '';
+                errorNode.style.display = 'none';
             }
 
             const showRows = !loading && organizations.length > 0;
@@ -336,6 +336,11 @@
             } catch (fetchError) {
                 console.error('Ошибка загрузки организаций:', fetchError);
                 error = fetchError.message || 'Не удалось загрузить список организаций';
+                if (typeof window.siteNotify === 'function') {
+                    window.siteNotify(error, 'error', { title: 'Ошибка' });
+                } else {
+                    window.alert(error);
+                }
             } finally {
                 loading = false;
                 render();
@@ -644,10 +649,6 @@
             }
 
             if (error) {
-                const errorNode = document.createElement('div');
-                errorNode.className = 'error';
-                errorNode.textContent = `Ошибка: ${error}`;
-                host.appendChild(errorNode);
                 return;
             }
 
@@ -679,6 +680,11 @@
             } catch (loadError) {
                 console.error('Ошибка загрузки статистики:', loadError);
                 error = loadError.message || 'Не удалось загрузить данные статистики.';
+                if (typeof window.siteNotify === 'function') {
+                    window.siteNotify(error, 'error', { title: 'Ошибка' });
+                } else {
+                    window.alert(error);
+                }
             } finally {
                 loading = false;
                 render();
@@ -1101,7 +1107,6 @@
         return {
             fontColor: getThemeTrimmedValue('theme-font-color') || '#343D4B',
             backgroundColor: getThemeTrimmedValue('theme-background-color') || '#B2A8FF',
-            gradientEnabled: false,
             effectSnow: Boolean(getThemeField('theme-effect-snow')?.checked),
             effectFireworks: Boolean(getThemeField('theme-effect-fireworks')?.checked),
             effectGrass: Boolean(getThemeField('theme-effect-grass')?.checked),
@@ -1109,11 +1114,9 @@
             backgroundImageDataUrl: normalizedSource.backgroundImageDataUrl || normalizedSource.BackgroundImageDataUrl || '',
             backgroundImageFileName: normalizedSource.backgroundImageFileName || normalizedSource.BackgroundImageFileName || '',
             backgroundImageOpacity: Number.parseInt(getThemeField('theme-background-image-opacity')?.value || '35', 10) || 35,
-            softLightenPercent: 0,
             headerDarkenPercent: getThemePercentValue('theme-header-darken-percent', 42),
             footerDarkenPercent: getThemePercentValue('theme-footer-darken-percent', 42),
             buttonDarkenPercent: getThemePercentValue('theme-button-darken-percent', 42),
-            buttonStrongDarkenPercent: 50,
             surfaceTintOpacityPercent: getThemePercentValue('theme-surface-tint-opacity-percent', 59)
         };
     }
@@ -1245,7 +1248,6 @@
         return {
             fontColor: getThemeTrimmedValue('theme-font-color'),
             backgroundColor: getThemeTrimmedValue('theme-background-color'),
-            gradientEnabled: false,
             effectSnow: Boolean(getThemeField('theme-effect-snow')?.checked),
             effectFireworks: Boolean(getThemeField('theme-effect-fireworks')?.checked),
             effectGrass: Boolean(getThemeField('theme-effect-grass')?.checked),
@@ -1253,11 +1255,9 @@
             backgroundImageDataUrl: getThemeImagePayloadValue(),
             backgroundImageFileName: getThemeImageFileNamePayloadValue(),
             backgroundImageOpacity: Number.isFinite(opacityValue) ? opacityValue : 0,
-            softLightenPercent: 0,
             headerDarkenPercent: getThemePercentValue('theme-header-darken-percent', 42),
             footerDarkenPercent: getThemePercentValue('theme-footer-darken-percent', 42),
             buttonDarkenPercent: getThemePercentValue('theme-button-darken-percent', 42),
-            buttonStrongDarkenPercent: 50,
             surfaceTintOpacityPercent: getThemePercentValue('theme-surface-tint-opacity-percent', 59)
         };
     }

@@ -201,7 +201,7 @@ public sealed class AuditLogService : IAuditLogService
         string? sortDirection,
         bool stripDetails)
     {
-        var normalizedPageSize = pageSize > 0 ? pageSize : 25;
+        var normalizedPageSize = pageSize > 0 ? pageSize : AppListPaging.DefaultPageSize;
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeSortField(hasExplicitSort ? sortBy : null);
         var normalizedSortDirection = hasExplicitSort
@@ -209,7 +209,7 @@ public sealed class AuditLogService : IAuditLogService
             : NormalizeSortDirection(null, normalizedSortBy);
         using var connection = _connectionFactory.CreateConnection();
         var metadata = LoadAuditMetadata(connection);
-        var totalCount = GetAuditRowCount(connection, metadata.AvailableAuditTables);
+        var totalCount = GetAuditEventCount(connection, metadata.AvailableAuditTables);
         var totalPages = totalCount == 0
             ? 1
             : (int)Math.Ceiling((double)totalCount / normalizedPageSize);
@@ -464,9 +464,9 @@ public sealed class AuditLogService : IAuditLogService
         return new AuditMetadata(availableAuditTables, sourceColumnOrders);
     }
 
-    private static int GetAuditRowCount(IDbConnection connection, IReadOnlyCollection<string> availableAuditTables)
+    private static int GetAuditEventCount(IDbConnection connection, IReadOnlyCollection<string> availableAuditTables)
     {
-        var countSql = BuildAuditCountSql(availableAuditTables);
+        var countSql = BuildAuditEventCountSql(availableAuditTables);
         if (string.IsNullOrWhiteSpace(countSql))
         {
             return 0;
@@ -492,17 +492,16 @@ public sealed class AuditLogService : IAuditLogService
         }
 
         var offset = Math.Max(0, (currentPage - 1) * pageSize);
-        var candidateLimit = string.Equals(sortBy, AuditLogSortFields.Date, StringComparison.Ordinal)
-            ? offset + (pageSize * 4)
-            : pageSize;
-
+        // A single event can contain several audit rows, so fetch a wider per-table window
+        // before grouping date-sorted entries into the requested page.
+        var candidateLimit = Math.Max(offset + pageSize, pageSize * 25);
         return connection.Query<AuditLogRow>(
                 pageSql,
                 new
                 {
                     Offset = offset,
-                    Limit = pageSize * 4,
-                    CandidateLimit = Math.Max(candidateLimit, pageSize)
+                    Limit = pageSize,
+                    CandidateLimit = candidateLimit
                 })
             .ToList();
     }
@@ -1929,15 +1928,11 @@ public sealed class AuditLogService : IAuditLogService
             """;
     }
 
-    private static string? BuildAuditCountSql(IReadOnlyCollection<string> availableAuditTables)
+    private static string? BuildAuditEventCountSql(IReadOnlyCollection<string> availableAuditTables)
     {
         var unionParts = AuditSources
             .Where(source => availableAuditTables.Contains(source.AuditTableName))
-            .Select(source =>
-                $$"""
-                    SELECT COUNT(*)::bigint AS row_count
-                    FROM public.{{source.AuditTableName}}
-                """)
+            .Select(source => BuildStructuredAuditSelect(source, includeDetails: false, dateDirection: null, limitPerSource: false))
             .ToArray();
 
         if (unionParts.Length == 0)
@@ -1946,10 +1941,11 @@ public sealed class AuditLogService : IAuditLogService
         }
 
         return $$"""
-            SELECT COALESCE(SUM(row_count), 0)::bigint
-            FROM (
+            WITH audit_entries AS (
                 {{string.Join("\n                UNION ALL\n", unionParts)}}
-            ) audit_counts;
+            )
+            SELECT COUNT(DISTINCT {{BuildAuditEventKeyExpression("audit_entries")}})::bigint
+            FROM audit_entries;
             """;
     }
 
@@ -2050,6 +2046,36 @@ public sealed class AuditLogService : IAuditLogService
         }
 
         return $$"""
+            WITH audit_entries AS (
+                {{string.Join("\n                UNION ALL\n", unionParts)}}
+            ),
+            event_entries AS (
+                SELECT
+                    audit_entries.*,
+                    {{BuildAuditEventKeyExpression("audit_entries")}} AS event_key
+                FROM audit_entries
+            ),
+            event_groups AS (
+                SELECT
+                    event_key,
+                    MAX(changed_at) AS changed_at,
+                    MAX(source_order) AS source_order,
+                    MAX(id_audit) AS id_audit,
+                    MAX(changed_by_user_id) AS changed_by_user_id,
+                    MAX(operation) AS operation,
+                    MIN(source_table) AS source_table
+                FROM event_entries
+                GROUP BY event_key
+            ),
+            event_page AS (
+                SELECT event_groups.event_key
+                FROM event_groups
+                LEFT JOIN public.app_user actor
+                    ON actor.id_user = event_groups.changed_by_user_id
+                ORDER BY {{BuildAuditEventPageOrderBy(sortBy, sortDirection)}}
+                OFFSET @Offset
+                LIMIT @Limit
+            )
             SELECT
                 audit_entries.source_table AS SourceTable,
                 audit_entries.source_order AS SourceOrder,
@@ -2067,15 +2093,70 @@ public sealed class AuditLogService : IAuditLogService
                 audit_entries.row_data_json AS RowDataJson,
                 audit_entries.old_row_data_json AS OldRowDataJson,
                 audit_entries.new_row_data_json AS NewRowDataJson
-            FROM (
-                {{string.Join("\n                UNION ALL\n", unionParts)}}
-            ) audit_entries
+            FROM event_entries audit_entries
+            INNER JOIN event_page
+                ON event_page.event_key = audit_entries.event_key
             LEFT JOIN public.app_user actor
                 ON actor.id_user = audit_entries.changed_by_user_id
             ORDER BY {{BuildAuditPageOrderBy(sortBy, sortDirection)}}
-            OFFSET @Offset
-            LIMIT @Limit;
             """;
+    }
+
+    private static string BuildAuditEventKeyExpression(string tableAlias)
+    {
+        return $"""
+            CASE
+                WHEN NULLIF({tableAlias}.related_kind, '') IS NOT NULL
+                     AND NULLIF({tableAlias}.related_id, '') IS NOT NULL
+                    THEN CONCAT(
+                        'related|',
+                        {tableAlias}.related_kind,
+                        '|',
+                        {tableAlias}.related_id,
+                        '|',
+                        COALESCE({tableAlias}.changed_by_user_id::text, ''),
+                        '|',
+                        {tableAlias}.changed_at::text)
+                ELSE CONCAT('audit|', {tableAlias}.source_table, '|', {tableAlias}.id_audit::text)
+            END
+            """;
+    }
+
+    private static string BuildAuditEventPageOrderBy(string sortBy, string sortDirection)
+    {
+        var direction = string.Equals(sortDirection, "asc", StringComparison.Ordinal) ? "ASC" : "DESC";
+
+        return sortBy switch
+        {
+            AuditLogSortFields.User => $"""
+                COALESCE(actor.full_name, actor.login, '') {direction},
+                event_groups.changed_at DESC,
+                event_groups.source_order DESC,
+                event_groups.id_audit DESC
+                """,
+            AuditLogSortFields.Event => $"""
+                CASE event_groups.operation
+                    WHEN 'INSERT' THEN 'Добавление'
+                    WHEN 'UPDATE' THEN 'Изменение'
+                    WHEN 'DELETE' THEN 'Удаление'
+                    ELSE event_groups.operation
+                END {direction},
+                event_groups.changed_at DESC,
+                event_groups.source_order DESC,
+                event_groups.id_audit DESC
+                """,
+            AuditLogSortFields.Description => $"""
+                event_groups.source_table {direction},
+                event_groups.changed_at DESC,
+                event_groups.source_order DESC,
+                event_groups.id_audit DESC
+                """,
+            _ => $"""
+                event_groups.changed_at {direction},
+                event_groups.source_order {direction},
+                event_groups.id_audit {direction}
+                """
+        };
     }
 
     private static string BuildAuditPageOrderBy(string sortBy, string sortDirection)

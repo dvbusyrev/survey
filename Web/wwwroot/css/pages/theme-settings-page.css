@@ -8,6 +8,10 @@
   gap: 1.5rem;
 }
 
+.theme-settings-page__card .reports-page__card-title {
+  font-weight: 400;
+}
+
 .theme-settings-page__form {
   display: grid;
   gap: 1.5rem;
@@ -124,6 +128,19 @@
   justify-content: flex-start;
 }
 
+.theme-settings-page__file-actions .modal_btn,
+.theme-settings-page__effects-trigger,
+.theme-settings-page__preview-button,
+.theme-settings-page__actions .modal_btn {
+  box-sizing: border-box;
+  height: var(--app-button-min-height);
+  min-height: var(--app-button-min-height);
+  padding: var(--app-button-padding);
+  font-size: var(--app-button-font-size);
+  line-height: 1;
+  border-radius: var(--app-button-radius);
+}
+
 .theme-settings-page__field-note {
   margin: 0;
   color: var(--text-secondary);
@@ -177,26 +194,27 @@
 }
 
 .theme-settings-page__selected-effects {
+  display: flex;
+  align-items: center;
   width: 100%;
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--theme-settings-control-height);
   margin-top: 15px;
-  padding: 0.75rem 0.9rem;
+  padding: 0.25rem 0.9rem;
   color: var(--text-main);
   background: #ffffff;
   border: 1px solid var(--border-dark);
   border-radius: var(--app-field-radius);
-  overflow: hidden;
 }
 
 .theme-settings-page__selected-effects-list {
   display: flex;
-  flex-wrap: nowrap;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  min-height: 1.4em;
+  min-height: calc(var(--theme-settings-control-height) - 0.5rem);
   min-width: 0;
-  overflow: hidden;
 }
 
 .theme-settings-page__empty-selection {
@@ -211,9 +229,9 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  min-height: 40px;
+  min-height: 2rem;
   max-width: 100%;
-  padding: 0 16px;
+  padding: 0 0.75rem;
   color: var(--text-main);
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -301,12 +319,16 @@
   border-color: color-mix(in srgb, var(--app-theme-footer-color) 82%, transparent 18%);
 }
 
-/*.theme-settings-page__preview-button {*/
-/*  width: auto;*/
-/*  min-width: 8.5rem;*/
-/*  max-width: 100%;*/
-/*  min-height: var(--theme-settings-control-height);*/
-/*}*/
+.theme-settings-page__preview-button-field {
+  justify-content: flex-start;
+  padding: 0.25rem;
+}
+
+.theme-settings-page__preview-button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+}
 
 .theme-settings-page__preview-table {
   width: 100%;
@@ -326,7 +348,7 @@
   padding: 0 0.9rem;
   color: var(--app-theme-detail-text-color);
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.35;
   text-align: left;
   background: var(--app-theme-table-header-background);

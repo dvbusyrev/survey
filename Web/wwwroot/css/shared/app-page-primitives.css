@@ -53,7 +53,7 @@
 .answers-table th {
   padding: 12px 15px;
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .answers-table td {

@@ -305,24 +305,15 @@ window.AdminArchives = (function () {
       openPreparedAnswersModal(modal);
     } catch (error) {
       console.error('Ошибка:', error);
-      clearNode(container);
-      title.textContent = 'Ошибка загрузки ответов';
-      const errorWrap = document.createElement('div');
-      errorWrap.className = 'error-message';
-      const p1 = document.createElement('p');
-      p1.textContent = 'Ошибка загрузки данных:';
-      const br1 = document.createElement('br');
-      const p2 = document.createElement('p');
-      const strong = document.createElement('strong');
-      strong.textContent = typeof window.normalizeClientErrorMessage === 'function'
+      const message = typeof window.normalizeClientErrorMessage === 'function'
         ? window.normalizeClientErrorMessage(error.message || 'Неизвестная ошибка')
         : (error.message || 'Неизвестная ошибка');
-      p2.appendChild(strong);
-      errorWrap.appendChild(p1);
-      errorWrap.appendChild(br1);
-      errorWrap.appendChild(p2);
-      container.appendChild(errorWrap);
-      openPreparedAnswersModal(modal);
+
+      if (typeof window.siteNotify === 'function') {
+        window.siteNotify(message, 'error', { title: 'Ошибка загрузки ответов' });
+      } else {
+        window.alert(message);
+      }
     }
   }
 

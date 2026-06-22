@@ -990,10 +990,9 @@
     return range.createContextualFragment(html);
   }
   function renderHostError(host, message) {
-    const errorNode = document.createElement("div");
-    errorNode.className = "error-message";
-    errorNode.textContent = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
-    host.replaceChildren(errorNode);
+    const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
+    host.replaceChildren();
+    showError(safeMessage);
   }
   function createSurveyModalFooterButton({ role, text, variant = "secondary", disabled = false, labelRole = "" }) {
     const button = document.createElement("button");
@@ -1063,17 +1062,15 @@
       const numericValue = Number(rawValue);
       return Number.isFinite(numericValue) ? numericValue : 0;
     }
-    function renderError() {
-      if (!refs.errorBlock || !refs.errorText) {
-        return;
+    function renderError(options = {}) {
+      const shouldNotify = options.notify === true;
+      if (refs.errorBlock && refs.errorText) {
+        refs.errorText.textContent = "";
+        refs.errorBlock.classList.add("u-hidden");
       }
-      if (error) {
-        refs.errorText.textContent = error;
-        refs.errorBlock.classList.remove("u-hidden");
-        return;
+      if (shouldNotify && error) {
+        showError(error);
       }
-      refs.errorText.textContent = "";
-      refs.errorBlock.classList.add("u-hidden");
     }
     function renderSubmitState() {
       if (!refs.submitButton || !refs.submitLabel) {
@@ -1295,7 +1292,7 @@
         });
       } catch (err) {
         error = err?.message || "Не удалось отправить ответы";
-        renderError();
+        renderError({ notify: true });
       } finally {
         loading = false;
         renderSubmitState();
@@ -1317,8 +1314,7 @@
         });
       } catch (err) {
         error = err?.message || "Не удалось подписать черновик";
-        renderError();
-        showError(error);
+        renderError({ notify: true });
       }
     }
     function bindPage() {
@@ -3476,11 +3472,18 @@
       }
     }
     function setError(message) {
-      const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
       const refs = getContentRefs();
-      refs.errorWrap?.classList.toggle("u-hidden", !safeMessage);
-      if (refs.errorText) {
-        refs.errorText.textContent = safeMessage || "";
+      refs.errorText && (refs.errorText.textContent = "");
+      refs.errorWrap?.classList.add("u-hidden");
+      const rawMessage = String(message || "").trim();
+      if (!rawMessage) {
+        return;
+      }
+      const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(rawMessage) : rawMessage;
+      if (typeof window.siteNotify === "function") {
+        window.siteNotify(safeMessage, "error", { title: "Ошибка" });
+      } else {
+        window.alert(safeMessage);
       }
     }
     function populateDateFilters() {

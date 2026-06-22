@@ -303,10 +303,11 @@
             });
             container.appendChild(toast);
 
-            const duration = options?.duration ?? 4500;
-            if (duration > 0) {
-                closeTimer = window.setTimeout(removeToast, duration);
-            }
+            const requestedDuration = Number(options?.duration);
+            const duration = Number.isFinite(requestedDuration) && requestedDuration > 0
+                ? requestedDuration
+                : 5000;
+            closeTimer = window.setTimeout(removeToast, duration);
         });
     }
 

@@ -152,19 +152,8 @@
             || document.getElementById('surveyAutoCreationDropdownMenu');
     }
 
-    function updateCheckboxListHeight(container) {
-        const list = container?.querySelector('.app-checkbox-list');
-        if (!list) {
-            return;
-        }
-
-        const listTop = list.getBoundingClientRect().top;
-        const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
-        list.style.setProperty('--app-checkbox-list-max-height', `${availableHeight}px`);
-    }
-
-    function scheduleCheckboxListHeightUpdate(container) {
-        window.requestAnimationFrame(() => updateCheckboxListHeight(container));
+    function getSurveyDropdownTrigger() {
+        return getSurveyDropdown()?.querySelector('[data-click-call="toggleSurveyAutoCreationSurveyDropdown"]');
     }
 
     function setSurveyDropdownVisible(isVisible) {
@@ -175,9 +164,6 @@
 
         getSurveyDropdown()?.classList.toggle('is-open', isVisible);
         menu.classList.toggle('is-hidden', !isVisible);
-        if (isVisible) {
-            scheduleCheckboxListHeightUpdate(menu);
-        }
         return true;
     }
 
@@ -194,7 +180,6 @@
         setSurveyDropdownVisible(true);
         if (state.availableSurveys) {
             renderSurveyModalList();
-            scheduleCheckboxListHeightUpdate(menu);
             return;
         }
 
@@ -202,7 +187,6 @@
         try {
             await loadSurveyOptions();
             renderSurveyModalList();
-            scheduleCheckboxListHeightUpdate(menu);
         } catch (error) {
             closeSurveyDropdown();
             showToast(error instanceof Error ? error.message : 'Не удалось загрузить список анкет.', 'error', { title: 'Ошибка' });
@@ -311,19 +295,24 @@
         }
     }
 
-    document.addEventListener('click', function (event) {
+    function closeSurveyDropdownOnOutsidePointer(event) {
         const dropdown = getSurveyDropdown();
         const menu = getSurveyDropdownMenu();
         if (!dropdown || !menu || menu.classList.contains('is-hidden')) {
             return;
         }
 
-        if (dropdown.contains(event.target)) {
+        const trigger = getSurveyDropdownTrigger();
+        if (menu.contains(event.target) || trigger?.contains(event.target)) {
             return;
         }
 
         closeSurveyDropdown();
-    });
+    }
+
+    // Capture phase keeps this reliable when another interactive component stops click propagation.
+    document.addEventListener('pointerdown', closeSurveyDropdownOnOutsidePointer, true);
+    document.addEventListener('click', closeSurveyDropdownOnOutsidePointer, true);
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') {

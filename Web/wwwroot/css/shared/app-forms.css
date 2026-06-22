@@ -617,7 +617,7 @@ a.btn:focus,
 .modal_btn-primary {
   position: relative;
   color: var(--app-theme-button-text-color);
-  font-weight: 700;
+  font-weight: 400;
   background: var(--app-theme-button-color);
   background-image: none;
   border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);

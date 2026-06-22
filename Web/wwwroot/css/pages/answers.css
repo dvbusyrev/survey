@@ -305,7 +305,7 @@
   background-image: none;
   color: var(--app-theme-button-text-color);
   font-size: var(--app-button-font-size);
-  font-weight: 700;
+  font-weight: 400;
   border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
   border-radius: var(--app-button-radius);
   cursor: pointer;
@@ -377,6 +377,11 @@
 .answers-page__statistics-note-title,
 .answers-page__statistics-title {
   color: var(--text-main);
+  font-weight: 400;
+}
+
+.answers-page__statistics .app-page__intro--title-only .app-page__title {
+  font-weight: 400;
 }
 
 .answers-page__statistics-note-title {

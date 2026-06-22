@@ -11,9 +11,6 @@
     const DEFAULTS = {
         fontColor: '#343D4B',
         backgroundColor: '#B2A8FF',
-        gradientEnabled: false,
-        gradientStartColor: '#B2A8FF',
-        gradientEndColor: '#B2A8FF',
         effectSnow: false,
         effectFireworks: false,
         effectGrass: false,
@@ -21,11 +18,9 @@
         backgroundImageDataUrl: '',
         backgroundImageFileName: '',
         backgroundImageOpacity: 35,
-        softLightenPercent: 0,
         headerDarkenPercent: 42,
         footerDarkenPercent: 42,
         buttonDarkenPercent: 42,
-        buttonStrongDarkenPercent: 50,
         surfaceTintOpacityPercent: 59
     };
     const LEGACY_PERSISTED_THEME_STORAGE_KEY = 'app-theme-settings';
@@ -87,7 +82,6 @@
             backgroundColor: settings.backgroundColor,
             backgroundImageDataUrl: getImageSignature(settings.backgroundImageDataUrl),
             backgroundImageOpacity: settings.backgroundImageOpacity,
-            softLightenPercent: settings.softLightenPercent,
             headerDarkenPercent: settings.headerDarkenPercent,
             footerDarkenPercent: settings.footerDarkenPercent,
             buttonDarkenPercent: settings.buttonDarkenPercent,
@@ -103,9 +97,6 @@
         return {
             fontColor: normalizeHexColor(raw.fontColor || raw.FontColor, DEFAULTS.fontColor),
             backgroundColor: normalizeHexColor(raw.backgroundColor || raw.BackgroundColor, DEFAULTS.backgroundColor),
-            gradientEnabled: false,
-            gradientStartColor: normalizeHexColor(raw.gradientStartColor || raw.GradientStartColor, DEFAULTS.gradientStartColor),
-            gradientEndColor: normalizeHexColor(raw.gradientEndColor || raw.GradientEndColor, DEFAULTS.gradientEndColor),
             effectSnow: Boolean(raw.effectSnow ?? raw.EffectSnow),
             effectFireworks: Boolean(raw.effectFireworks ?? raw.EffectFireworks),
             effectGrass: Boolean(raw.effectGrass ?? raw.EffectGrass),
@@ -113,11 +104,9 @@
             backgroundImageDataUrl: normalizeImageDataUrl(raw.backgroundImageDataUrl || raw.BackgroundImageDataUrl),
             backgroundImageFileName: String(raw.backgroundImageFileName || raw.BackgroundImageFileName || '').trim(),
             backgroundImageOpacity: clampOpacity(raw.backgroundImageOpacity ?? raw.BackgroundImageOpacity),
-            softLightenPercent: clampPercent(raw.softLightenPercent ?? raw.SoftLightenPercent, DEFAULTS.softLightenPercent),
             headerDarkenPercent: clampPercent(raw.headerDarkenPercent ?? raw.HeaderDarkenPercent, DEFAULTS.headerDarkenPercent),
             footerDarkenPercent: clampPercent(raw.footerDarkenPercent ?? raw.FooterDarkenPercent, DEFAULTS.footerDarkenPercent),
             buttonDarkenPercent: clampPercent(raw.buttonDarkenPercent ?? raw.ButtonDarkenPercent, DEFAULTS.buttonDarkenPercent),
-            buttonStrongDarkenPercent: DEFAULTS.buttonStrongDarkenPercent,
             surfaceTintOpacityPercent: clampPercent(raw.surfaceTintOpacityPercent ?? raw.SurfaceTintOpacityPercent, DEFAULTS.surfaceTintOpacityPercent)
         };
     }

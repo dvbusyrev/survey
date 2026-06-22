@@ -68,10 +68,6 @@ function ensureValidDateInput(target, label, options = {}) {
 }
 
 function submitFormAdd() {
-    const messageElement = document.getElementById('message');
-    messageElement.textContent = '';
-    messageElement.className = '';
-
     if (!document.getElementById('username').value){
         showAdminToast('Введите никнейм пользователя!');
         return;
@@ -129,22 +125,23 @@ function submitFormAdd() {
     })
     .then(response => response.json())
     .then(data => {
-        messageElement.textContent = data.message;
-        messageElement.className = data.success ? 'success-message' : 'error-message';
-        if (data.success) {
-            setModalVisibility('addUserModal', false);
-            if (typeof window.handleAdminMutationSuccess === 'function') {
-                window.handleAdminMutationSuccess({
-                    message: data.message || 'Пользователь успешно добавлен',
-                    tabName: 'get_users',
-                    fallbackUrl: '/users'
-                });
-                return;
-            }
-
-            window.siteNotify?.(data.message || 'Пользователь успешно добавлен', 'success');
-            navigateAdminTab("get_users", "/users");
+        if (!data.success) {
+            showAdminToast(data.message || data.error || 'Не удалось добавить пользователя');
+            return;
         }
+
+        setModalVisibility('addUserModal', false);
+        if (typeof window.handleAdminMutationSuccess === 'function') {
+            window.handleAdminMutationSuccess({
+                message: data.message || 'Пользователь успешно добавлен',
+                tabName: 'get_users',
+                fallbackUrl: '/users'
+            });
+            return;
+        }
+
+        window.siteNotify?.(data.message || 'Пользователь успешно добавлен', 'success');
+        navigateAdminTab("get_users", "/users");
     })
     .catch(error => {
         console.error("Ошибка:", error);
@@ -465,13 +462,7 @@ async function updateUser() {
         const safeErrorMessage = typeof window.normalizeClientErrorMessage === 'function'
             ? window.normalizeClientErrorMessage(error.message)
             : error.message;
-        const messageContainer = document.querySelector('#editUserModal .message');
-        if (messageContainer) {
-            messageContainer.textContent = safeErrorMessage;
-            messageContainer.style.color = 'red';
-        } else {
-            showAdminToast(`Ошибка: ${safeErrorMessage}`);
-        }
+        showAdminToast(`Ошибка: ${safeErrorMessage}`);
     }
 }
 
@@ -508,7 +499,9 @@ function openAddOrganizationModal() {
 async function createOrganization() {
     const form = document.getElementById('organizationForm');
     const messageDiv = document.getElementById('message');
-    messageDiv.style.display = 'none';
+    if (messageDiv) {
+        messageDiv.style.display = 'none';
+    }
 
     if (!document.getElementById('Name').value)
 {
@@ -556,35 +549,29 @@ async function createOrganization() {
         // 4. Обрабатываем ответ
         const result = await response.json();
         
-        // 5. Показываем результат
-        messageDiv.textContent = result.success 
-            ? 'Организация успешно создана!' 
-            : 'Ошибка: ' + (result.error || 'Неизвестная ошибка');
-        if (result.success) {
-            closeOrganizationModal('addOrganizationModal');
-            if (typeof window.handleAdminMutationSuccess === 'function') {
-                await window.handleAdminMutationSuccess({
-                    message: result.message || 'Организация успешно создана!',
-                    tabName: 'get_organization',
-                    fallbackUrl: '/organizations'
-                });
-                return;
-            }
-
-            navigateAdminTab("get_organization", "/organizations");
-            showAdminToast('Организация успешно создана!', 'success');
+        if (!result.success) {
+            showAdminToast(result.error || result.message || 'Не удалось создать организацию');
+            return;
         }
-        
-        messageDiv.className = result.success ? 'alert alert-success' : 'alert alert-danger';
-        messageDiv.style.display = 'block';
+
+        closeOrganizationModal('addOrganizationModal');
+        if (typeof window.handleAdminMutationSuccess === 'function') {
+            await window.handleAdminMutationSuccess({
+                message: result.message || 'Организация успешно создана!',
+                tabName: 'get_organization',
+                fallbackUrl: '/organizations'
+            });
+            return;
+        }
+
+        navigateAdminTab("get_organization", "/organizations");
+        showAdminToast('Организация успешно создана!', 'success');
 
     } catch (error) {
         const safeErrorMessage = typeof window.normalizeClientErrorMessage === 'function'
             ? window.normalizeClientErrorMessage(error.message)
             : error.message;
-        messageDiv.textContent = 'Ошибка при отправке: ' + safeErrorMessage;
-        messageDiv.className = 'alert alert-danger';
-        messageDiv.style.display = 'block';
+        showAdminToast(`Ошибка при отправке: ${safeErrorMessage}`);
         console.error('Ошибка:', error);
     }
 }

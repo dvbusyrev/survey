@@ -51,16 +51,15 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
     }
 
     function renderError() {
-        if (!refs.errorBlock || !refs.errorText) {
-            return;
-        }
+        refs.errorText && (refs.errorText.textContent = '');
+        refs.errorBlock?.classList.add('u-hidden');
 
         if (error) {
-            refs.errorText.textContent = error;
-            refs.errorBlock.classList.remove('u-hidden');
-        } else {
-            refs.errorText.textContent = '';
-            refs.errorBlock.classList.add('u-hidden');
+            if (typeof window.siteNotify === 'function') {
+                window.siteNotify(error, 'error', { title: 'Ошибка' });
+            } else {
+                window.alert(error);
+            }
         }
     }
 

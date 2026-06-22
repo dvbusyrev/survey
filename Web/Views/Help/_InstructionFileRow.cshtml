@@ -20,16 +20,18 @@
                data-help-role="@Model.UploadRole"
                accept=".docx"
                hidden />
-        <button type="button"
-                class="modal_btn modal_btn-secondary"
-                data-help-upload-trigger
-                data-help-type="@Model.Type">
-            Загрузить новую
-        </button>
-        <a class="modal_btn modal_btn-primary help-page__download"
-           href="@Model.DownloadUrl"
-           download>
-            Скачать инструкцию
-        </a>
+        <div class="help-page__instruction-actions">
+            <button type="button"
+                    class="modal_btn modal_btn-secondary"
+                    data-help-upload-trigger
+                    data-help-type="@Model.Type">
+                Загрузить новую
+            </button>
+            <a class="modal_btn modal_btn-primary help-page__download"
+               href="@Model.DownloadUrl"
+               download>
+                Скачать инструкцию
+            </a>
+        </div>
     </div>
 </div>

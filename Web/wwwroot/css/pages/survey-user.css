@@ -76,7 +76,7 @@
             font-size: var(--app-button-font-size);
             border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
             border-radius: var(--app-button-radius);
-            font-weight: 600;
+            font-weight: 400;
             cursor: pointer;
             transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
         }
@@ -386,16 +386,17 @@
 .filter-date {
   -webkit-appearance: none;
   appearance: none;
-  padding: 6px 12px;
+    min-height: var(--app-button-min-height);
+    padding: var(--app-button-padding);
     background-color: var(--app-theme-button-color);
     background-image: none;
     color: var(--app-theme-button-text-color);
     border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
-    border-radius: var(--radius-md);
-    font-weight: 700;
+    border-radius: var(--app-button-radius);
+    font-weight: 400;
     cursor: pointer;
     transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
-    font-size: 14px;
+    font-size: var(--app-button-font-size);
     width: auto;
 }
 
@@ -545,7 +546,7 @@
     background-image: none;
     color: var(--app-theme-button-text-color);
     border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .csp-btn-primary:hover {
@@ -961,7 +962,7 @@
         border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
         border-radius: var(--app-button-radius);
         font-size: var(--app-button-font-size);
-        font-weight: 700;
+        font-weight: 400;
         cursor: pointer;
         transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
         white-space: nowrap;
@@ -1000,7 +1001,7 @@
     border-radius: var(--app-button-radius);
     cursor: pointer;
     font-size: var(--app-button-font-size);
-    font-weight: 700;
+    font-weight: 400;
     transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
@@ -1160,7 +1161,7 @@
             font-size: var(--app-button-font-size);
             border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
             border-radius: var(--app-button-radius);
-            font-weight: 600;
+            font-weight: 400;
             cursor: pointer;
             transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
         }
@@ -1606,7 +1607,7 @@
 
 .btn_crit.active {
     color: var(--app-theme-button-text-color);
-    font-weight: 700;
+    font-weight: 400;
     background: var(--app-theme-button-color);
     background-image: none;
     border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);

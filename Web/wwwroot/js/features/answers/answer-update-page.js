@@ -7,8 +7,6 @@
     const surveyId = Number.parseInt(page.dataset.surveyId || '', 10);
     const organizationId = Number.parseInt(page.dataset.organizationId || '', 10);
     const errorBox = document.getElementById('error-message');
-    const errorText = document.getElementById('error-text');
-    const closeErrorButton = document.getElementById('close-error');
     const saveButton = document.getElementById('saveUpdatedAnswers');
 
     function hideError() {
@@ -21,13 +19,13 @@
         const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
             ? window.normalizeClientErrorMessage(message)
             : message;
-        if (errorText) {
-            errorText.textContent = safeMessage;
+        hideError();
+        if (typeof window.siteNotify === 'function') {
+            window.siteNotify(safeMessage, 'error', { title: 'Ошибка' });
+            return;
         }
 
-        if (errorBox) {
-            errorBox.style.visibility = 'visible';
-        }
+        window.alert(safeMessage);
     }
 
     function updateCommentVisibility(questionContainer, ratingValue) {
@@ -187,10 +185,6 @@
     page.addEventListener('input', function () {
         hideError();
     });
-
-    if (closeErrorButton) {
-        closeErrorButton.addEventListener('click', hideError);
-    }
 
     if (saveButton) {
         saveButton.addEventListener('click', submitUpdatedAnswers);

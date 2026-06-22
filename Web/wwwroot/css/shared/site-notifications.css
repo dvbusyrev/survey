@@ -154,7 +154,7 @@
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
   font-size: var(--app-button-font-size);
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
   border: 1px solid transparent;
   border-radius: var(--app-button-radius);

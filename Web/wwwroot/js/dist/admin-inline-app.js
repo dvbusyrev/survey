@@ -699,8 +699,8 @@
           surveyName.textContent = `Анкета: "${survey?.name_survey || ""}"`;
         }
         if (errorNode) {
-          errorNode.textContent = error || "";
-          errorNode.style.display = error ? "block" : "none";
+          errorNode.textContent = "";
+          errorNode.style.display = "none";
         }
         const showRows = !loading && organizations.length > 0;
         if (rowsContainer) {
@@ -808,6 +808,11 @@
         } catch (fetchError) {
           console.error("Ошибка загрузки организаций:", fetchError);
           error = fetchError.message || "Не удалось загрузить список организаций";
+          if (typeof window.siteNotify === "function") {
+            window.siteNotify(error, "error", { title: "Ошибка" });
+          } else {
+            window.alert(error);
+          }
         } finally {
           loading = false;
           render();
@@ -1091,10 +1096,6 @@
           return;
         }
         if (error) {
-          const errorNode = document.createElement("div");
-          errorNode.className = "error";
-          errorNode.textContent = `Ошибка: ${error}`;
-          host.appendChild(errorNode);
           return;
         }
         const template = document.getElementById("admin-statistics-template");
@@ -1121,6 +1122,11 @@
         } catch (loadError) {
           console.error("Ошибка загрузки статистики:", loadError);
           error = loadError.message || "Не удалось загрузить данные статистики.";
+          if (typeof window.siteNotify === "function") {
+            window.siteNotify(error, "error", { title: "Ошибка" });
+          } else {
+            window.alert(error);
+          }
         } finally {
           loading = false;
           render();
@@ -1453,7 +1459,6 @@
       return {
         fontColor: getThemeTrimmedValue("theme-font-color") || "#343D4B",
         backgroundColor: getThemeTrimmedValue("theme-background-color") || "#B2A8FF",
-        gradientEnabled: false,
         effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
         effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
         effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
@@ -1461,11 +1466,9 @@
         backgroundImageDataUrl: normalizedSource.backgroundImageDataUrl || normalizedSource.BackgroundImageDataUrl || "",
         backgroundImageFileName: normalizedSource.backgroundImageFileName || normalizedSource.BackgroundImageFileName || "",
         backgroundImageOpacity: Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "35", 10) || 35,
-        softLightenPercent: 0,
         headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
         footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 42),
         buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 42),
-        buttonStrongDarkenPercent: 50,
         surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 59)
       };
     }
@@ -1530,10 +1533,15 @@
         summary.appendChild(empty);
         return;
       }
-      const text = document.createElement("span");
-      text.className = "theme-settings-page__selected-effects-text";
-      text.textContent = selectedEffects.join(", ");
-      summary.appendChild(text);
+      const list = document.createElement("div");
+      list.className = "theme-settings-page__selected-effects-list";
+      selectedEffects.forEach((label) => {
+        const item = document.createElement("div");
+        item.className = "theme-settings-page__selected-effect-item";
+        item.appendChild(document.createTextNode(label));
+        list.appendChild(item);
+      });
+      summary.appendChild(list);
     }
     function setThemeEffectsDropdownOpen(isOpen) {
       const trigger = getThemeField("theme-effects-toggle");
@@ -1569,7 +1577,6 @@
       return {
         fontColor: getThemeTrimmedValue("theme-font-color"),
         backgroundColor: getThemeTrimmedValue("theme-background-color"),
-        gradientEnabled: false,
         effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
         effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
         effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
@@ -1577,11 +1584,9 @@
         backgroundImageDataUrl: getThemeImagePayloadValue(),
         backgroundImageFileName: getThemeImageFileNamePayloadValue(),
         backgroundImageOpacity: Number.isFinite(opacityValue) ? opacityValue : 0,
-        softLightenPercent: 0,
         headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
         footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 42),
         buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 42),
-        buttonStrongDarkenPercent: 50,
         surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 59)
       };
     }

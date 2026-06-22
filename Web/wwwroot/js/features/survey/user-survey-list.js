@@ -384,14 +384,22 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
     }
 
     function setError(message) {
-        const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
-            ? window.normalizeClientErrorMessage(message)
-            : message;
         const refs = getContentRefs();
-        refs.errorWrap?.classList.toggle('u-hidden', !safeMessage);
+        refs.errorText && (refs.errorText.textContent = '');
+        refs.errorWrap?.classList.add('u-hidden');
 
-        if (refs.errorText) {
-            refs.errorText.textContent = safeMessage || '';
+        const rawMessage = String(message || '').trim();
+        if (!rawMessage) {
+            return;
+        }
+
+        const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
+            ? window.normalizeClientErrorMessage(rawMessage)
+            : rawMessage;
+        if (typeof window.siteNotify === 'function') {
+            window.siteNotify(safeMessage, 'error', { title: 'Ошибка' });
+        } else {
+            window.alert(safeMessage);
         }
     }
 

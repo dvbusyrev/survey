@@ -739,12 +739,11 @@ function createHtmlFragment(html) {
 }
 
 function renderHostError(host, message) {
-    const errorNode = document.createElement('div');
-    errorNode.className = 'error-message';
-    errorNode.textContent = typeof window.normalizeClientErrorMessage === 'function'
+    const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
         ? window.normalizeClientErrorMessage(message)
         : message;
-    host.replaceChildren(errorNode);
+    host.replaceChildren();
+    showError(safeMessage);
 }
 
 function createSurveyModalFooterButton({ role, text, variant = 'secondary', disabled = false, labelRole = '' }) {
@@ -835,19 +834,16 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
         return Number.isFinite(numericValue) ? numericValue : 0;
     }
 
-    function renderError() {
-        if (!refs.errorBlock || !refs.errorText) {
-            return;
+    function renderError(options = {}) {
+        const shouldNotify = options.notify === true;
+        if (refs.errorBlock && refs.errorText) {
+            refs.errorText.textContent = '';
+            refs.errorBlock.classList.add('u-hidden');
         }
 
-        if (error) {
-            refs.errorText.textContent = error;
-            refs.errorBlock.classList.remove('u-hidden');
-            return;
+        if (shouldNotify && error) {
+            showError(error);
         }
-
-        refs.errorText.textContent = '';
-        refs.errorBlock.classList.add('u-hidden');
     }
 
     function renderSubmitState() {
@@ -1112,7 +1108,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
             });
         } catch (err) {
             error = err?.message || 'Не удалось отправить ответы';
-            renderError();
+            renderError({ notify: true });
         } finally {
             loading = false;
             renderSubmitState();
@@ -1136,8 +1132,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
             });
         } catch (err) {
             error = err?.message || 'Не удалось подписать черновик';
-            renderError();
-            showError(error);
+            renderError({ notify: true });
         }
     }
 

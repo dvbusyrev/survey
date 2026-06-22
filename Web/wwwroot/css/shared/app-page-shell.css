@@ -61,6 +61,13 @@
   text-align: center;
 }
 
+.app-page[data-page="mail-compose"] .app-page__intro--title-only .app-page__title,
+.app-page[data-page="reports"] .app-page__intro--title-only .app-page__title,
+.app-page[data-page="get_logs"] .app-page__intro--title-only .app-page__title,
+.app-page[data-page="help-page"] .app-page__intro--title-only .app-page__title {
+  font-weight: 400;
+}
+
 .app-page__description {
   color: var(--text-secondary);
   font-size: 1rem;

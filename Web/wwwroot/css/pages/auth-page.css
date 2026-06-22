@@ -1,7 +1,7 @@
 :root {
     font-size: 149.25%;
-    --app-button-min-height: 1.26rem;
-    --app-button-padding: 0.45rem 0.9rem;
+    --app-button-min-height: 2rem;
+    --app-button-padding: 0.45rem 0.8rem;
     --app-button-font-size: 0.72rem;
     --app-button-radius: 0.335rem;
 }
@@ -257,8 +257,8 @@ input[type="checkbox"],
 }
 
 .submit-button {
-    color: var(--app-theme-button-text-color);
-    font-weight: 700;
+  color: var(--app-theme-button-text-color);
+  font-weight: 400;
     background: var(--app-theme-button-color);
     background-image: none;
     border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
@@ -416,7 +416,7 @@ input[type="checkbox"],
     padding: var(--app-button-padding);
     border-radius: var(--app-button-radius);
     font-size: var(--app-button-font-size);
-    font-weight: 700;
+    font-weight: 400;
     cursor: pointer;
     transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }

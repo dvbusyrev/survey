@@ -30,7 +30,7 @@
 
 .remove-btn {
   color: var(--app-theme-button-text-color);
-  font-weight: 700;
+  font-weight: 400;
   background: var(--app-theme-button-color);
   background-image: none;
   border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
@@ -431,7 +431,7 @@
   .modal-content table
 ) th {
   color: var(--text-main);
-  font-weight: 600;
+  font-weight: 400;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: normal;
