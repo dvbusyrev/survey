@@ -10,44 +10,35 @@ namespace MainProject.Application.UseCases.Surveys;
 public sealed class SurveyUserService : ISurveyUserService
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ISurveyAssignmentRepository _assignmentRepository;
 
-    public SurveyUserService(IDbConnectionFactory connectionFactory)
+    public SurveyUserService(
+        IDbConnectionFactory connectionFactory,
+        ISurveyAssignmentRepository assignmentRepository)
     {
         _connectionFactory = connectionFactory;
+        _assignmentRepository = assignmentRepository;
     }
 
     public int? GetUserOrganizationId(int userId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        return connection.ExecuteScalar<int?>(
-            "SELECT id_organization FROM public.app_user WHERE id_user = @userId",
-            new { userId });
+        return _assignmentRepository.GetUserOrganizationId(connection, userId);
     }
 
     public bool IsSurveyAssignedToOrganization(int surveyId, int organizationId)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        return connection.ExecuteScalar<bool>(
-            @"SELECT EXISTS (
-                  SELECT 1
-                  FROM public.organization_survey os
-                  WHERE os.id_survey = @surveyId
-                    AND os.id_organization = @organizationId
-                    AND os.date_begin <= CURRENT_DATE
-                    AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
-              )",
-            new { surveyId, organizationId });
+        return _assignmentRepository.IsActiveAssignment(connection, surveyId, organizationId);
     }
 
     public UserSurveyListPageViewModel? GetActiveSurveysPage(int userId, int currentPage, string? searchTerm)
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var userOrganizationId = connection.ExecuteScalar<int?>(
-            "SELECT id_organization FROM public.app_user WHERE id_user = @userId",
-            new { userId });
+        var userOrganizationId = _assignmentRepository.GetUserOrganizationId(connection, userId);
 
         if (!userOrganizationId.HasValue)
         {
@@ -56,64 +47,22 @@ public sealed class SurveyUserService : ISurveyUserService
 
         const int pageSize = 10;
         var normalizedSearchTerm = searchTerm?.Trim() ?? string.Empty;
-        var hasSearch = !string.IsNullOrWhiteSpace(normalizedSearchTerm);
-        var parameters = new DynamicParameters();
-        parameters.Add("userOrganizationId", userOrganizationId.Value);
-        parameters.Add("hasSearch", hasSearch);
-        parameters.Add("searchPattern", $"%{normalizedSearchTerm}%");
-        parameters.Add("offset", Math.Max(currentPage - 1, 0) * pageSize);
-        parameters.Add("pageSize", pageSize);
-
-        const string baseSql = @"
-            FROM (
-                SELECT
-                    s.id_survey,
-                    s.name_survey,
-                    s.description,
-                    os.date_begin,
-                    os.date_end
-                FROM public.survey s
-                INNER JOIN public.organization_survey os
-                    ON os.id_survey = s.id_survey
-                WHERE os.id_organization = @userOrganizationId
-                  AND os.date_begin <= CURRENT_DATE
-                  AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM public.answer a
-                      INNER JOIN public.organization_survey aos
-                          ON aos.id_organization_survey = a.id_organization_survey
-                      WHERE aos.id_organization = @userOrganizationId
-                        AND aos.id_survey = s.id_survey
-                  )
-            ) AS accessible
-            WHERE (@hasSearch = FALSE OR accessible.name_survey ILIKE @searchPattern)";
-
-        var totalCount = connection.ExecuteScalar<int>(
-            $"SELECT COUNT(*) {baseSql}",
-            parameters);
-
-        var surveys = connection.Query<Survey>(
-            $@"SELECT
-                    id_survey,
-                    name_survey,
-                    description,
-                    date_begin,
-                    date_end
-               {baseSql}
-               ORDER BY id_survey DESC
-               OFFSET @offset
-               LIMIT @pageSize",
-            parameters).ToList();
+        var pageData = _assignmentRepository.GetActiveUserSurveyPage(
+            connection,
+            userOrganizationId.Value,
+            normalizedSearchTerm,
+            pageSize,
+            Math.Max(currentPage - 1, 0) * pageSize);
+        var surveys = pageData.Surveys.ToList();
 
         foreach (var survey in surveys)
         {
             survey.OrganizationId = userOrganizationId.Value;
         }
 
-        var totalPages = totalCount == 0
+        var totalPages = pageData.TotalCount == 0
             ? 1
-            : (int)Math.Ceiling((double)totalCount / pageSize);
+            : (int)Math.Ceiling((double)pageData.TotalCount / pageSize);
 
         return new UserSurveyListPageViewModel
         {
@@ -121,7 +70,7 @@ public sealed class SurveyUserService : ISurveyUserService
             UserOrganizationId = userOrganizationId.Value,
             CurrentPage = Math.Max(currentPage, 1),
             TotalPages = totalPages,
-            TotalCount = totalCount,
+            TotalCount = pageData.TotalCount,
             SearchTerm = normalizedSearchTerm
         };
     }

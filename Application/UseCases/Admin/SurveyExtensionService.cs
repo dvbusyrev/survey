@@ -10,11 +10,16 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<SurveyExtensionService> _logger;
+    private readonly ISurveyAssignmentRepository _assignmentRepository;
 
-    public SurveyExtensionService(IDbConnectionFactory connectionFactory, ILogger<SurveyExtensionService> logger)
+    public SurveyExtensionService(
+        IDbConnectionFactory connectionFactory,
+        ILogger<SurveyExtensionService> logger,
+        ISurveyAssignmentRepository assignmentRepository)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
+        _assignmentRepository = assignmentRepository;
     }
 
     public OperationResult SaveExtensions(SurveyExtensionRequest request)
@@ -53,30 +58,12 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
             {
                 var endDate = DateTime.Parse(extension.ExtendedUntil).Date;
 
-                affectedAssignments += connection.Execute(
-                    """
-                    INSERT INTO public.organization_survey (
-                        id_organization,
-                        id_survey,
-                        date_end
-                    )
-                    SELECT
-                        @organizationId,
-                        s.id_survey,
-                        @endDate::date
-                    FROM public.survey s
-                    WHERE s.id_survey = @surveyId
-                    ON CONFLICT (id_organization, id_survey) DO UPDATE
-                    SET
-                        date_end = EXCLUDED.date_end;
-                    """,
-                    new
-                    {
-                        surveyId = request.SurveyId,
-                        organizationId = extension.OrganizationId,
-                        endDate
-                    },
-                    transaction);
+                affectedAssignments += _assignmentRepository.UpsertSurveyEndDate(
+                    connection,
+                    transaction,
+                    request.SurveyId,
+                    extension.OrganizationId,
+                    endDate);
             }
 
             if (affectedAssignments == 0)

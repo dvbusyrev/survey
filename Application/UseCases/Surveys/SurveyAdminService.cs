@@ -1,4 +1,3 @@
-﻿using System.Data;
 using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
@@ -13,10 +12,14 @@ namespace MainProject.Application.UseCases.Surveys;
 public sealed class SurveyAdminService : ISurveyAdminService
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ISurveyAssignmentRepository _assignmentRepository;
 
-    public SurveyAdminService(IDbConnectionFactory connectionFactory)
+    public SurveyAdminService(
+        IDbConnectionFactory connectionFactory,
+        ISurveyAssignmentRepository assignmentRepository)
     {
         _connectionFactory = connectionFactory;
+        _assignmentRepository = assignmentRepository;
     }
 
     public SurveyListPageViewModel GetSurveysPage(
@@ -34,34 +37,17 @@ public sealed class SurveyAdminService : ISurveyAdminService
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeSurveySortDirection(null, normalizedSortBy);
 
-        var parameters = new DynamicParameters();
-        parameters.Add("selectedOrganizationIds", selectedOrganizationIds.ToArray());
-        parameters.Add("hasOrganizationFilter", selectedOrganizationIds.Count > 0);
-
-        var organizationOptions = GetActiveSurveyOrganizationOptions(connection);
-        var totalCount = connection.ExecuteScalar<int>(
-            $"{ActiveSurveyRowsCte} SELECT COUNT(*) FROM survey_rows WHERE {BuildSurveyOrganizationFilterPredicate()};",
-            parameters);
+        var organizationOptions = BuildSelectionOptions(
+            _assignmentRepository.GetActiveOrganizationOptions(connection));
+        var totalCount = _assignmentRepository.CountActiveSurveys(connection, selectedOrganizationIds);
         var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
-        parameters.Add("pageSize", pageWindow.PageSize);
-        parameters.Add("offset", pageWindow.Offset);
-
-        var pageRows = connection.Query<SurveyTablePageRow>(
-            $"""
-            {ActiveSurveyRowsCte}
-            SELECT
-                id_survey AS IdSurvey,
-                name_survey AS NameSurvey,
-                date_begin AS DateBegin,
-                date_end AS DateEnd,
-                organization_ids AS OrganizationIds,
-                organization_names AS OrganizationNames
-            FROM survey_rows
-            WHERE {BuildSurveyOrganizationFilterPredicate()}
-            ORDER BY {BuildSurveyOrderBy(normalizedSortBy, normalizedSortDirection)}
-            LIMIT @pageSize OFFSET @offset;
-            """,
-            parameters).ToList();
+        var pageRows = _assignmentRepository.GetActiveSurveyPage(
+            connection,
+            selectedOrganizationIds,
+            normalizedSortBy,
+            normalizedSortDirection,
+            pageWindow.PageSize,
+            pageWindow.Offset);
 
         return new SurveyListPageViewModel
         {
@@ -86,38 +72,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
     public List<Survey> GetSurveys()
     {
         using var connection = _connectionFactory.CreateConnection();
-
-        const string sql = @"
-            SELECT
-                s.id_survey,
-                s.name_survey,
-                ss.date_begin,
-                ss.date_end,
-                COALESCE(
-                    (
-                        SELECT string_agg(
-                            COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name),
-                            ', '
-                        )
-                        FROM public.organization_survey os
-                        INNER JOIN public.organization o
-                            ON o.id_organization = os.id_organization
-                        WHERE os.id_survey = s.id_survey
-                    ),
-                    'Не указано'
-                ) AS organization_name
-            FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-            WHERE EXISTS (
-                SELECT 1
-                FROM public.organization_survey os
-                WHERE os.id_survey = s.id_survey
-                  AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
-            )
-            ORDER BY s.id_survey DESC;";
-
-        var surveys = connection.Query<Survey>(sql).ToList();
+        var surveys = _assignmentRepository.GetActiveSurveySummaries(connection).ToList();
         AttachSurveyQuestions(connection, surveys);
         return surveys;
     }
@@ -157,7 +112,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
                 transaction);
 
             await ReplaceSurveyQuestionsAsync(connection, transaction, newSurveyId, questionRows);
-            await InsertOrganizationSurveyAssignmentsAsync(
+            await _assignmentRepository.UpsertSurveyAssignmentsAsync(
                 connection,
                 transaction,
                 newSurveyId,
@@ -184,18 +139,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var survey = connection.QueryFirstOrDefault<Survey>(
-            @"SELECT
-                s.id_survey,
-                s.name_survey,
-                COALESCE(ss.date_begin, CURRENT_DATE) AS date_begin,
-                ss.date_end AS date_end,
-                s.description
-              FROM public.survey s
-              LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-              WHERE s.id_survey = @id",
-            new { id });
+        var survey = _assignmentRepository.GetSurveyWithSchedule(connection, id);
 
         if (survey == null)
         {
@@ -204,31 +148,8 @@ public sealed class SurveyAdminService : ISurveyAdminService
 
         AttachSurveyQuestions(connection, new[] { survey });
 
-        var allOrganization = connection.Query<OrganizationSelectionItem>(
-            @"SELECT
-                  id_organization AS Id,
-                  COALESCE(NULLIF(organization_short_name, ''), organization_name) AS Name
-              FROM public.organization
-              WHERE date_end IS NULL
-                 OR date_end >= CURRENT_DATE
-                 OR id_organization IN (
-                      SELECT id_organization
-                      FROM public.organization_survey
-                      WHERE id_survey = @surveyId
-                  )
-              ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name)",
-            new { surveyId = id }).ToList();
-
-        var selectedOrganization = connection.Query<OrganizationSelectionItem>(
-            @"SELECT
-                  o.id_organization AS Id,
-                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS Name
-              FROM public.organization_survey os
-              INNER JOIN public.organization o
-                  ON o.id_organization = os.id_organization
-              WHERE os.id_survey = @surveyId
-              ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)",
-            new { surveyId = id }).ToList();
+        var allOrganization = _assignmentRepository.GetAvailableOrganizationsForSurvey(connection, id);
+        var selectedOrganization = _assignmentRepository.GetSelectedOrganizationsForSurvey(connection, id);
 
         return new SurveyEditPageViewModel
         {
@@ -289,13 +210,13 @@ public sealed class SurveyAdminService : ISurveyAdminService
             ReplaceSurveyQuestionsAsync(connection, transaction, id, questionRows)
                 .GetAwaiter()
                 .GetResult();
-            SynchronizeOrganizationSurveyAssignments(
+            _assignmentRepository.ReplaceSurveyAssignmentsAsync(
                 connection,
                 transaction,
                 id,
                 organizationIds,
                 startDate,
-                endDate);
+                endDate).GetAwaiter().GetResult();
             transaction.Commit();
 
             return new SurveyCommandResult
@@ -343,29 +264,11 @@ public sealed class SurveyAdminService : ISurveyAdminService
 
         try
         {
-            var affectedSurveyCount = connection.ExecuteScalar<int>(
-                @"WITH active_survey AS (
-                      SELECT DISTINCT id_survey
-                      FROM public.organization_survey
-                      WHERE date_end IS NULL OR date_end >= CURRENT_DATE
-                  ),
-                  updated AS (
-                      UPDATE public.organization_survey os
-                      SET
-                          date_begin = @DateBegin,
-                          date_end = @DateEnd
-                      FROM active_survey active
-                      WHERE os.id_survey = active.id_survey
-                      RETURNING os.id_survey
-                  )
-                  SELECT COUNT(DISTINCT id_survey)
-                  FROM updated",
-                new
-                {
-                    DateBegin = request.DateBegin.Date,
-                    DateEnd = request.DateEnd.Date
-                },
-                transaction);
+            var affectedSurveyCount = _assignmentRepository.UpdateActiveSurveyPeriod(
+                connection,
+                transaction,
+                request.DateBegin,
+                request.DateEnd);
 
             transaction.Commit();
 
@@ -388,18 +291,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var survey = connection.QueryFirstOrDefault<Survey>(
-            @"SELECT
-                  s.id_survey,
-                  s.name_survey,
-                  s.description,
-                  COALESCE(ss.date_begin, CURRENT_DATE) AS date_begin,
-                  ss.date_end AS date_end
-              FROM public.survey s
-              LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-              WHERE s.id_survey = @id",
-            new { id });
+        var survey = _assignmentRepository.GetSurveyWithSchedule(connection, id);
 
         if (survey != null)
         {
@@ -469,14 +361,12 @@ public sealed class SurveyAdminService : ISurveyAdminService
                 },
                 transaction);
 
-            var organizationIds = (await connection.QueryAsync<int>(
-                @"SELECT id_organization
-                  FROM public.organization_survey
-                  WHERE id_survey = @OldId",
-                new { OldId = id },
-                transaction)).ToArray();
+            var organizationIds = await _assignmentRepository.GetOrganizationIdsAsync(
+                connection,
+                transaction,
+                id);
 
-            await InsertOrganizationSurveyAssignmentsAsync(
+            await _assignmentRepository.UpsertSurveyAssignmentsAsync(
                 connection,
                 transaction,
                 newSurveyId,
@@ -725,66 +615,6 @@ public sealed class SurveyAdminService : ISurveyAdminService
         }
     }
 
-    private static void SynchronizeOrganizationSurveyAssignments(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        int surveyId,
-        IEnumerable<int> organizationIds,
-        DateTime dateBegin,
-        DateTime dateEnd)
-    {
-        var normalizedOrganizationIds = organizationIds.Distinct().ToArray();
-
-        connection.Execute(
-            @"DELETE FROM public.organization_survey
-              WHERE id_survey = @surveyId
-                AND NOT (id_organization = ANY(@organizationIds))",
-            new
-            {
-                surveyId,
-                organizationIds = normalizedOrganizationIds
-            },
-            transaction);
-
-        InsertOrganizationSurveyAssignmentsAsync(
-                connection,
-                transaction,
-                surveyId,
-                normalizedOrganizationIds,
-                dateBegin,
-                dateEnd)
-            .GetAwaiter()
-            .GetResult();
-    }
-
-    private static async Task InsertOrganizationSurveyAssignmentsAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        int surveyId,
-        IEnumerable<int> organizationIds,
-        DateTime dateBegin,
-        DateTime dateEnd)
-    {
-        foreach (var organizationId in organizationIds.Distinct())
-        {
-            await connection.ExecuteAsync(
-                @"INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
-                  VALUES (@organizationId, @surveyId, @dateBegin, @dateEnd)
-                  ON CONFLICT (id_organization, id_survey) DO UPDATE
-                  SET
-                      date_begin = EXCLUDED.date_begin,
-                      date_end = EXCLUDED.date_end",
-                new
-                {
-                    organizationId,
-                    surveyId,
-                    dateBegin = dateBegin.Date,
-                    dateEnd = dateEnd.Date
-                },
-                transaction);
-        }
-    }
-
     private static IReadOnlyList<string> GetCriteria(
         NpgsqlConnection connection,
         int surveyId)
@@ -868,72 +698,7 @@ public sealed class SurveyAdminService : ISurveyAdminService
             .ToList();
     }
 
-    private const string ActiveSurveyRowsCte = """
-        WITH survey_rows AS (
-            SELECT
-                s.id_survey,
-                s.name_survey,
-                ss.date_begin,
-                ss.date_end,
-                COALESCE(
-                    ARRAY(
-                        SELECT DISTINCT os2.id_organization
-                        FROM public.organization_survey os2
-                        WHERE os2.id_survey = s.id_survey
-                          AND os2.id_organization IS NOT NULL
-                        ORDER BY os2.id_organization
-                    ),
-                    ARRAY[]::integer[]
-                ) AS organization_ids,
-                COALESCE(
-                    ARRAY(
-                        SELECT DISTINCT COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
-                        FROM public.organization_survey os2
-                        INNER JOIN public.organization o2
-                            ON o2.id_organization = os2.id_organization
-                        WHERE os2.id_survey = s.id_survey
-                          AND COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name) IS NOT NULL
-                        ORDER BY COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
-                    ),
-                    ARRAY[]::text[]
-                ) AS organization_names
-            FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-            WHERE EXISTS (
-                SELECT 1
-                FROM public.organization_survey active_os
-                WHERE active_os.id_survey = s.id_survey
-                  AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
-            )
-        )
-        """;
-
-    private static IReadOnlyList<SelectionOption> GetActiveSurveyOrganizationOptions(IDbConnection connection)
-    {
-        return BuildSelectionOptions(connection.Query<SelectionOption>(
-            """
-            SELECT DISTINCT
-                o.id_organization AS Id,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS Name
-            FROM public.organization_survey os
-            INNER JOIN public.organization o
-                ON o.id_organization = os.id_organization
-            WHERE EXISTS (
-                SELECT 1
-                FROM public.organization_survey active_os
-                WHERE active_os.id_survey = os.id_survey
-                  AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
-            );
-            """));
-    }
-
-    private static string BuildSurveyOrganizationFilterPredicate()
-    {
-        return "(@hasOrganizationFilter = false OR organization_ids && @selectedOrganizationIds)";
-    }
-
-    private static SurveyTableRowViewModel MapSurveyTablePageRow(SurveyTablePageRow row)
+    private static SurveyTableRowViewModel MapSurveyTablePageRow(SurveyAssignmentTableRow row)
     {
         return new SurveyTableRowViewModel
         {
@@ -943,21 +708,6 @@ public sealed class SurveyAdminService : ISurveyAdminService
             DateEnd = row.DateEnd,
             OrganizationIds = row.OrganizationIds ?? Array.Empty<int>(),
             OrganizationNames = row.OrganizationNames ?? Array.Empty<string>()
-        };
-    }
-
-    private static string BuildSurveyOrderBy(string sortBy, string sortDirection)
-    {
-        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
-            ? "DESC"
-            : "ASC";
-
-        return sortBy switch
-        {
-            SurveyListSortFields.Name => $"name_survey {direction}, id_survey DESC",
-            SurveyListSortFields.DateBegin => $"date_begin {direction} NULLS LAST, id_survey DESC",
-            SurveyListSortFields.DateEnd => $"date_end {direction} NULLS LAST, id_survey DESC",
-            _ => "id_survey DESC"
         };
     }
 
@@ -1055,16 +805,6 @@ public sealed class SurveyAdminService : ISurveyAdminService
         public DateTime? DateEnd { get; init; }
         public int OrganizationId { get; init; }
         public string? OrganizationName { get; init; }
-    }
-
-    private sealed class SurveyTablePageRow
-    {
-        public int IdSurvey { get; init; }
-        public string? NameSurvey { get; init; }
-        public DateTime DateBegin { get; init; }
-        public DateTime? DateEnd { get; init; }
-        public int[]? OrganizationIds { get; init; }
-        public string[]? OrganizationNames { get; init; }
     }
 
     private static async Task ReplaceSurveyQuestionsAsync(

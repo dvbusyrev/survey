@@ -7,10 +7,12 @@ namespace MainProject.Application.UseCases.Answers;
 public sealed class AnswerSigningService : IAnswerSigningService
 {
     private readonly AnswerDataService _answerDataService;
+    private readonly IClock _clock;
 
-    public AnswerSigningService(AnswerDataService answerDataService)
+    public AnswerSigningService(AnswerDataService answerDataService, IClock clock)
     {
         _answerDataService = answerDataService;
+        _clock = clock;
     }
 
     public AnswerSigningPayload GetSigningData(int surveyId, int organizationId)
@@ -92,7 +94,7 @@ public sealed class AnswerSigningService : IAnswerSigningService
             throw new AnswerAlreadySignedException();
         }
 
-        draftRecord.CompletionDate ??= DateTime.Now;
+        draftRecord.CompletionDate ??= _clock.Now;
         var pdfBytes = AnswerPdfDocumentBuilder.BuildPdfContent(survey, new[] { draftRecord });
         return new AnswerSigningPayload
         {

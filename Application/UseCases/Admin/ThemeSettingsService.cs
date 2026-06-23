@@ -1,8 +1,7 @@
 using System.Text.RegularExpressions;
-using Dapper;
 using MainProject.Application.Contracts;
+using MainProject.Application.DTO.Configuration;
 using MainProject.Application.DTO.Theme;
-using MainProject.Infrastructure.Persistence;
 using Npgsql;
 
 namespace MainProject.Application.UseCases.Admin;
@@ -23,47 +22,22 @@ public sealed class ThemeSettingsService : IThemeSettingsService
             ["image/webp"] = "background-image.webp"
         };
 
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IThemeConfigRepository _themeConfigRepository;
     private readonly ILogger<ThemeSettingsService> _logger;
 
     public ThemeSettingsService(
-        IDbConnectionFactory connectionFactory,
+        IThemeConfigRepository themeConfigRepository,
         ILogger<ThemeSettingsService> logger)
     {
-        _connectionFactory = connectionFactory;
+        _themeConfigRepository = themeConfigRepository;
         _logger = logger;
     }
 
     public async Task<ThemeSettings> GetAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
         try
         {
-            var row = await connection.QueryFirstOrDefaultAsync<ThemeSettingsRow>(
-                new CommandDefinition(
-                    """
-                    SELECT
-                        font_color AS FontColor,
-                        background_color AS BackgroundColor,
-                        effect_snow AS EffectSnow,
-                        effect_fireworks AS EffectFireworks,
-                        effect_grass AS EffectGrass,
-                        effect_rain AS EffectRain,
-                        background_image AS BackgroundImage,
-                        background_image_file_name AS BackgroundImageFileName,
-                        background_image_content_type AS BackgroundImageContentType,
-                        background_image_opacity AS BackgroundImageOpacity,
-                        header_darken_percent AS HeaderDarkenPercent,
-                        footer_darken_percent AS FooterDarkenPercent,
-                        button_darken_percent AS ButtonDarkenPercent,
-                        surface_tint_opacity_percent AS SurfaceTintOpacityPercent
-                    FROM public.theme_config
-                    WHERE id_config = @configId
-                    LIMIT 1;
-                    """,
-                    new { configId = DefaultConfigId },
-                    cancellationToken: cancellationToken));
+            var row = await _themeConfigRepository.GetAsync(DefaultConfigId, cancellationToken);
 
             if (row == null)
             {
@@ -103,82 +77,26 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         var normalized = NormalizeAndValidate(settings);
         var backgroundImage = ParseBackgroundImage(normalized.BackgroundImageDataUrl, normalized.BackgroundImageFileName);
 
-        using var connection = _connectionFactory.CreateConnection();
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                INSERT INTO public.theme_config
-                (
-                    id_config,
-                    font_color,
-                    background_color,
-                    effect_snow,
-                    effect_fireworks,
-                    effect_grass,
-                    effect_rain,
-                    background_image,
-                    background_image_file_name,
-                    background_image_content_type,
-                    background_image_opacity,
-                    header_darken_percent,
-                    footer_darken_percent,
-                    button_darken_percent,
-                    surface_tint_opacity_percent
-                )
-                VALUES
-                (
-                    @ConfigId,
-                    @FontColor,
-                    @BackgroundColor,
-                    @EffectSnow,
-                    @EffectFireworks,
-                    @EffectGrass,
-                    @EffectRain,
-                    @BackgroundImage,
-                    @BackgroundImageFileName,
-                    @BackgroundImageContentType,
-                    @BackgroundImageOpacity,
-                    @HeaderDarkenPercent,
-                    @FooterDarkenPercent,
-                    @ButtonDarkenPercent,
-                    @SurfaceTintOpacityPercent
-                )
-                ON CONFLICT (id_config) DO UPDATE
-                SET
-                    font_color = EXCLUDED.font_color,
-                    background_color = EXCLUDED.background_color,
-                    effect_snow = EXCLUDED.effect_snow,
-                    effect_fireworks = EXCLUDED.effect_fireworks,
-                    effect_grass = EXCLUDED.effect_grass,
-                    effect_rain = EXCLUDED.effect_rain,
-                    background_image = EXCLUDED.background_image,
-                    background_image_file_name = EXCLUDED.background_image_file_name,
-                    background_image_content_type = EXCLUDED.background_image_content_type,
-                    background_image_opacity = EXCLUDED.background_image_opacity,
-                    header_darken_percent = EXCLUDED.header_darken_percent,
-                    footer_darken_percent = EXCLUDED.footer_darken_percent,
-                    button_darken_percent = EXCLUDED.button_darken_percent,
-                    surface_tint_opacity_percent = EXCLUDED.surface_tint_opacity_percent;
-                """,
-                new
-                {
-                    ConfigId = DefaultConfigId,
-                    normalized.FontColor,
-                    normalized.BackgroundColor,
-                    normalized.EffectSnow,
-                    normalized.EffectFireworks,
-                    normalized.EffectGrass,
-                    normalized.EffectRain,
-                    BackgroundImage = backgroundImage.Bytes,
-                    BackgroundImageFileName = backgroundImage.FileName,
-                    BackgroundImageContentType = backgroundImage.ContentType,
-                    normalized.BackgroundImageOpacity,
-                    normalized.HeaderDarkenPercent,
-                    normalized.FooterDarkenPercent,
-                    normalized.ButtonDarkenPercent,
-                    normalized.SurfaceTintOpacityPercent
-                },
-                cancellationToken: cancellationToken));
+        await _themeConfigRepository.SaveAsync(
+            DefaultConfigId,
+            new ThemeConfigRecord
+            {
+                FontColor = normalized.FontColor,
+                BackgroundColor = normalized.BackgroundColor,
+                EffectSnow = normalized.EffectSnow,
+                EffectFireworks = normalized.EffectFireworks,
+                EffectGrass = normalized.EffectGrass,
+                EffectRain = normalized.EffectRain,
+                BackgroundImage = backgroundImage.Bytes,
+                BackgroundImageFileName = backgroundImage.FileName,
+                BackgroundImageContentType = backgroundImage.ContentType,
+                BackgroundImageOpacity = normalized.BackgroundImageOpacity,
+                HeaderDarkenPercent = normalized.HeaderDarkenPercent,
+                FooterDarkenPercent = normalized.FooterDarkenPercent,
+                ButtonDarkenPercent = normalized.ButtonDarkenPercent,
+                SurfaceTintOpacityPercent = normalized.SurfaceTintOpacityPercent
+            },
+            cancellationToken);
     }
 
     private static ThemeSettings NormalizeAndValidate(ThemeSettings? settings)
@@ -356,24 +274,6 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         {
             errors.Add($"Поле «{fieldName}» должно быть от 0 до 100.");
         }
-    }
-
-    private sealed class ThemeSettingsRow
-    {
-        public string FontColor { get; init; } = string.Empty;
-        public string BackgroundColor { get; init; } = string.Empty;
-        public bool EffectSnow { get; init; }
-        public bool EffectFireworks { get; init; }
-        public bool EffectGrass { get; init; }
-        public bool EffectRain { get; init; }
-        public byte[]? BackgroundImage { get; init; }
-        public string BackgroundImageFileName { get; init; } = string.Empty;
-        public string BackgroundImageContentType { get; init; } = string.Empty;
-        public int BackgroundImageOpacity { get; init; }
-        public int HeaderDarkenPercent { get; init; }
-        public int FooterDarkenPercent { get; init; }
-        public int ButtonDarkenPercent { get; init; }
-        public int SurfaceTintOpacityPercent { get; init; }
     }
 
     private sealed record BackgroundImagePayload(byte[]? Bytes, string FileName, string ContentType);

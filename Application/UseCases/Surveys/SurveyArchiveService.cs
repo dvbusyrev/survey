@@ -1,4 +1,3 @@
-﻿using System.Data;
 using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
@@ -12,10 +11,14 @@ namespace MainProject.Application.UseCases.Surveys;
 public sealed class SurveyArchiveService : ISurveyArchiveService
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ISurveyAssignmentRepository _assignmentRepository;
 
-    public SurveyArchiveService(IDbConnectionFactory connectionFactory)
+    public SurveyArchiveService(
+        IDbConnectionFactory connectionFactory,
+        ISurveyAssignmentRepository assignmentRepository)
     {
         _connectionFactory = connectionFactory;
+        _assignmentRepository = assignmentRepository;
     }
 
     public SurveyArchivePageViewModel GetAdminArchivedSurveysPage(
@@ -40,40 +43,27 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeSurveyArchiveSortDirection(null, normalizedSortBy);
 
-        var parameters = new DynamicParameters();
-        parameters.Add("selectedOrganizationIds", selectedOrganizationIds.ToArray());
-        parameters.Add("hasOrganizationFilter", selectedOrganizationIds.Count > 0);
-        parameters.Add("selectedSurveyIds", selectedSurveyIds.ToArray());
-        parameters.Add("hasSurveyFilter", selectedSurveyIds.Count > 0);
-        parameters.Add("hasDateFilter", bounds.Start.HasValue && bounds.End.HasValue);
-        parameters.Add("dateStart", bounds.Start);
-        parameters.Add("dateEnd", bounds.End);
-
-        var organizationOptions = GetArchivedSurveyOrganizationOptions(connection);
-        var surveyOptions = GetArchivedSurveyOptions(connection);
-        var totalCount = connection.ExecuteScalar<int>(
-            $"{ArchivedSurveyRowsCte} SELECT COUNT(*) FROM survey_rows WHERE {BuildArchivedSurveyFilterPredicate()};",
-            parameters);
+        var organizationOptions = BuildSelectionOptions(
+            _assignmentRepository.GetArchivedOrganizationOptions(connection));
+        var surveyOptions = BuildSelectionOptions(
+            _assignmentRepository.GetArchivedSurveyOptions(connection));
+        var totalCount = _assignmentRepository.CountArchivedSurveys(
+            connection,
+            selectedOrganizationIds,
+            selectedSurveyIds,
+            bounds.Start,
+            bounds.End);
         var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
-        parameters.Add("pageSize", pageWindow.PageSize);
-        parameters.Add("offset", pageWindow.Offset);
-
-        var pageRows = connection.Query<SurveyArchiveTablePageRow>(
-            $"""
-            {ArchivedSurveyRowsCte}
-            SELECT
-                id_survey AS IdSurvey,
-                name_survey AS NameSurvey,
-                date_begin AS DateBegin,
-                date_end AS DateEnd,
-                organization_ids AS OrganizationIds,
-                organization_names AS OrganizationNames
-            FROM survey_rows
-            WHERE {BuildArchivedSurveyFilterPredicate()}
-            ORDER BY {BuildSurveyArchiveOrderBy(normalizedSortBy, normalizedSortDirection)}
-            LIMIT @pageSize OFFSET @offset;
-            """,
-            parameters).ToList();
+        var pageRows = _assignmentRepository.GetArchivedSurveyPage(
+            connection,
+            selectedOrganizationIds,
+            selectedSurveyIds,
+            bounds.Start,
+            bounds.End,
+            normalizedSortBy,
+            normalizedSortDirection,
+            pageWindow.PageSize,
+            pageWindow.Offset);
 
         return new SurveyArchivePageViewModel
         {
@@ -114,9 +104,7 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
     {
         using var connection = _connectionFactory.CreateConnection();
 
-        var userOrganizationId = connection.ExecuteScalar<int?>(
-            "SELECT id_organization FROM public.app_user WHERE id_user = @userId",
-            new { userId });
+        var userOrganizationId = _assignmentRepository.GetUserOrganizationId(connection, userId);
 
         if (!userOrganizationId.HasValue)
         {
@@ -129,100 +117,47 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         var normalizedDateFrom = dateFrom?.Trim() ?? string.Empty;
         var normalizedDateTo = dateTo?.Trim() ?? string.Empty;
 
-        var filters = new List<string>();
-        var parameters = new DynamicParameters();
-        parameters.Add("userOrganizationId", userOrganizationId.Value);
-        parameters.Add("searchPattern", string.IsNullOrWhiteSpace(normalizedSearchTerm) ? null : $"%{normalizedSearchTerm}%");
-        parameters.Add("offset", Math.Max(currentPage - 1, 0) * pageSize);
-        parameters.Add("pageSize", pageSize);
-
-        if (!string.IsNullOrWhiteSpace(normalizedSearchTerm))
-        {
-            filters.Add("archived.name_survey ILIKE @searchPattern");
-        }
-
+        DateTime? exactCompletionDate = null;
+        DateTime? completionDateFrom = null;
+        DateTime? completionDateTo = null;
         if (DateOnly.TryParse(normalizedDate, out var exactDate))
         {
-            filters.Add("archived.completion_date::date = @exactDate");
-            parameters.Add("exactDate", exactDate.ToDateTime(TimeOnly.MinValue));
+            exactCompletionDate = exactDate.ToDateTime(TimeOnly.MinValue);
         }
         else
         {
             if (DateTime.TryParse(normalizedDateFrom, out var parsedDateFrom))
             {
-                filters.Add("archived.completion_date >= @dateFrom");
-                parameters.Add("dateFrom", parsedDateFrom);
+                completionDateFrom = parsedDateFrom;
             }
 
             if (DateTime.TryParse(normalizedDateTo, out var parsedDateTo))
             {
-                filters.Add("archived.completion_date <= @dateTo");
-                parameters.Add("dateTo", parsedDateTo);
+                completionDateTo = parsedDateTo;
             }
         }
 
-        if (signedOnly)
-        {
-            filters.Add("COALESCE(archived.csp, '') <> ''");
-        }
-
-        var whereClause = filters.Count == 0
-            ? string.Empty
-            : "WHERE " + string.Join(" AND ", filters);
-
-        const string archivedSql = @"
-            FROM (
-                SELECT
-                    s.id_survey,
-                    s.name_survey,
-                    s.description,
-                    COALESCE(os.date_begin, ss.date_begin) AS date_begin,
-                    COALESCE(os.date_end, ss.date_end) AS date_end,
-                    a.completion_date,
-                    a.csp,
-                    os.id_organization AS OrganizationId
-                FROM public.survey s
-                INNER JOIN public.organization_survey os
-                    ON os.id_survey = s.id_survey
-                INNER JOIN public.answer a
-                    ON a.id_organization_survey = os.id_organization_survey
-                LEFT JOIN public.survey_schedule ss
-                    ON ss.id_survey = s.id_survey
-                WHERE os.id_organization = @userOrganizationId
-            ) AS archived";
-
-        var totalCount = connection.ExecuteScalar<int>(
-            $"SELECT COUNT(*) {archivedSql} {whereClause}",
-            parameters);
-
-        var archivedSurveys = connection.Query<Survey>(
-            $@"SELECT
-                    archived.id_survey,
-                    archived.name_survey,
-                    archived.description,
-                    archived.date_begin,
-                    archived.date_end,
-                    archived.completion_date,
-                    archived.csp,
-                    archived.OrganizationId
-               {archivedSql}
-               {whereClause}
-               ORDER BY archived.completion_date DESC
-               OFFSET @offset
-               LIMIT @pageSize",
-            parameters).ToList();
-
-        var totalPages = totalCount == 0
+        var pageData = _assignmentRepository.GetUserArchivePage(
+            connection,
+            userOrganizationId.Value,
+            normalizedSearchTerm,
+            exactCompletionDate,
+            completionDateFrom,
+            completionDateTo,
+            signedOnly,
+            pageSize,
+            Math.Max(currentPage - 1, 0) * pageSize);
+        var totalPages = pageData.TotalCount == 0
             ? 1
-            : (int)Math.Ceiling((double)totalCount / pageSize);
+            : (int)Math.Ceiling((double)pageData.TotalCount / pageSize);
 
         return new UserSurveyArchivePageViewModel
         {
-            ArchivedSurveys = archivedSurveys,
+            ArchivedSurveys = pageData.Surveys,
             UserOrganizationId = userOrganizationId.Value,
             CurrentPage = Math.Max(currentPage, 1),
             TotalPages = totalPages,
-            TotalCount = totalCount,
+            TotalCount = pageData.TotalCount,
             SearchTerm = normalizedSearchTerm,
             DateFrom = normalizedDateFrom,
             DateTo = normalizedDateTo,
@@ -233,52 +168,7 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
     public IReadOnlyList<ArchivedSurvey> GetAdminArchivedSurveys()
     {
         using var connection = _connectionFactory.CreateConnection();
-
-        const string sql = @"
-            SELECT
-                s.id_survey,
-                ss.date_begin AS date_begin,
-                ss.date_end AS date_end,
-                s.name_survey,
-                COALESCE(
-                    (
-                        SELECT string_agg(
-                            COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name),
-                            ', '
-                            ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)
-                        )
-                        FROM public.organization_survey os
-                        INNER JOIN public.organization o
-                            ON o.id_organization = os.id_organization
-                        WHERE os.id_survey = s.id_survey
-                    ),
-                    'Не указано'
-                ) AS organization_name,
-                s.description
-            FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-            WHERE EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey os
-                    WHERE os.id_survey = s.id_survey
-                )
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.answer a
-                    INNER JOIN public.organization_survey aos
-                        ON aos.id_organization_survey = a.id_organization_survey
-                    WHERE aos.id_survey = s.id_survey
-                )
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey os
-                    WHERE os.id_survey = s.id_survey
-                      AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
-                )
-            ORDER BY id_survey DESC";
-
-        return connection.Query<ArchivedSurvey>(sql).ToList();
+        return _assignmentRepository.GetAdminArchivedSurveySummaries(connection);
     }
 
     private static List<SurveyTableRowViewModel> BuildSurveyTableRows(IEnumerable<SurveyArchiveAssignmentRow> rows)
@@ -313,121 +203,7 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
             .ToList();
     }
 
-    private const string ArchivedSurveyRowsCte = """
-        WITH survey_rows AS (
-            SELECT
-                s.id_survey,
-                s.name_survey,
-                ss.date_begin,
-                ss.date_end,
-                COALESCE(
-                    ARRAY(
-                        SELECT DISTINCT os2.id_organization
-                        FROM public.organization_survey os2
-                        WHERE os2.id_survey = s.id_survey
-                          AND os2.id_organization IS NOT NULL
-                        ORDER BY os2.id_organization
-                    ),
-                    ARRAY[]::integer[]
-                ) AS organization_ids,
-                COALESCE(
-                    ARRAY(
-                        SELECT DISTINCT COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
-                        FROM public.organization_survey os2
-                        INNER JOIN public.organization o2
-                            ON o2.id_organization = os2.id_organization
-                        WHERE os2.id_survey = s.id_survey
-                          AND COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name) IS NOT NULL
-                        ORDER BY COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
-                    ),
-                    ARRAY[]::text[]
-                ) AS organization_names
-            FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-            WHERE EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey existing_os
-                    WHERE existing_os.id_survey = s.id_survey
-                )
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.answer a
-                    INNER JOIN public.organization_survey answered_os
-                        ON answered_os.id_organization_survey = a.id_organization_survey
-                    WHERE answered_os.id_survey = s.id_survey
-                )
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey active_os
-                    WHERE active_os.id_survey = s.id_survey
-                      AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
-                )
-        )
-        """;
-
-    private static IReadOnlyList<SelectionOption> GetArchivedSurveyOrganizationOptions(IDbConnection connection)
-    {
-        return BuildSelectionOptions(connection.Query<SelectionOption>(
-            """
-            SELECT DISTINCT
-                o.id_organization AS Id,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS Name
-            FROM public.organization_survey os
-            INNER JOIN public.organization o
-                ON o.id_organization = os.id_organization
-            WHERE EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey existing_os
-                    WHERE existing_os.id_survey = os.id_survey
-                )
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.answer a
-                    INNER JOIN public.organization_survey answered_os
-                        ON answered_os.id_organization_survey = a.id_organization_survey
-                    WHERE answered_os.id_survey = os.id_survey
-                )
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey active_os
-                    WHERE active_os.id_survey = os.id_survey
-                      AND (active_os.date_end IS NULL OR active_os.date_end >= CURRENT_DATE)
-                );
-            """));
-    }
-
-    private static IReadOnlyList<SelectionOption> GetArchivedSurveyOptions(IDbConnection connection)
-    {
-        return BuildSelectionOptions(connection.Query<SelectionOption>(
-            $"""
-            {ArchivedSurveyRowsCte}
-            SELECT
-                id_survey AS Id,
-                name_survey AS Name
-            FROM survey_rows;
-            """));
-    }
-
-    private static string BuildArchivedSurveyFilterPredicate()
-    {
-        return """
-            (@hasOrganizationFilter = false OR organization_ids && @selectedOrganizationIds)
-            AND (@hasSurveyFilter = false OR id_survey = ANY(@selectedSurveyIds))
-            AND (
-                @hasDateFilter = false
-                OR (
-                    date_end IS NOT NULL
-                    AND date_begin::date >= @dateStart
-                    AND date_begin::date <= @dateEnd
-                    AND date_end::date >= @dateStart
-                    AND date_end::date <= @dateEnd
-                )
-            )
-            """;
-    }
-
-    private static SurveyTableRowViewModel MapSurveyArchiveTablePageRow(SurveyArchiveTablePageRow row)
+    private static SurveyTableRowViewModel MapSurveyArchiveTablePageRow(SurveyAssignmentTableRow row)
     {
         return new SurveyTableRowViewModel
         {
@@ -437,21 +213,6 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
             DateEnd = row.DateEnd,
             OrganizationIds = row.OrganizationIds ?? Array.Empty<int>(),
             OrganizationNames = row.OrganizationNames ?? Array.Empty<string>()
-        };
-    }
-
-    private static string BuildSurveyArchiveOrderBy(string sortBy, string sortDirection)
-    {
-        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
-            ? "DESC"
-            : "ASC";
-
-        return sortBy switch
-        {
-            SurveyArchiveSortFields.Name => $"name_survey {direction}, id_survey DESC",
-            SurveyArchiveSortFields.DateBegin => $"date_begin {direction} NULLS LAST, id_survey DESC",
-            SurveyArchiveSortFields.DateEnd => $"date_end {direction} NULLS LAST, id_survey DESC",
-            _ => "id_survey DESC"
         };
     }
 
@@ -610,37 +371,10 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         using var connection = _connectionFactory.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
-        var archivedSurvey = await connection.QueryFirstOrDefaultAsync<ArchivedSurvey>(
-            @"SELECT
-                  s.id_survey,
-                  ss.date_begin AS date_begin,
-                  ss.date_end AS date_end,
-                  s.name_survey,
-                  s.description
-              FROM public.survey s
-              LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-              WHERE s.id_survey = @surveyId
-                AND EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey os
-                    WHERE os.id_survey = s.id_survey
-                )
-                AND EXISTS (
-                    SELECT 1
-                    FROM public.answer a
-                    INNER JOIN public.organization_survey aos
-                        ON aos.id_organization_survey = a.id_organization_survey
-                    WHERE aos.id_survey = s.id_survey
-                )
-                AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey os
-                    WHERE os.id_survey = s.id_survey
-                      AND (os.date_end IS NULL OR os.date_end >= CURRENT_DATE)
-                )",
-            new { surveyId = request.SurveyId },
-            transaction);
+        var archivedSurvey = await _assignmentRepository.GetArchivedSurveyForCopyAsync(
+            connection,
+            transaction,
+            request.SurveyId);
 
         if (archivedSurvey == null)
         {
@@ -698,13 +432,4 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         public string? OrganizationName { get; init; }
     }
 
-    private sealed class SurveyArchiveTablePageRow
-    {
-        public int IdSurvey { get; init; }
-        public string? NameSurvey { get; init; }
-        public DateTime DateBegin { get; init; }
-        public DateTime? DateEnd { get; init; }
-        public int[]? OrganizationIds { get; init; }
-        public string[]? OrganizationNames { get; init; }
-    }
 }

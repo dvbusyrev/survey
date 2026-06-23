@@ -1,8 +1,7 @@
 using System.Globalization;
-using System.Data;
 using System.Text;
-using Dapper;
 using MainProject.Application.Contracts;
+using MainProject.Application.DTO.Audit;
 using MainProject.Application.Support;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Persistence;
@@ -14,128 +13,7 @@ namespace MainProject.Application.UseCases.Admin;
 public sealed class AuditLogService : IAuditLogService
 {
     private const string RedactedValue = "[REDACTED]";
-    private const string AuditRowJsonExclusions = """
-        - 'id_audit'
-        - 'operation'
-        - 'changed_at'
-        - 'changed_by_user_id'
-        - 'parent_audit_id'
-        """;
     private static readonly StringComparer AuditLogStringComparer = StringComparer.Create(new CultureInfo("ru-RU"), true);
-    private static readonly AuditSourceDefinition[] AuditSources =
-    [
-        new(
-            "app_user",
-            "app_user_l",
-            ["id_user"],
-            "COALESCE(NULLIF(current_row.full_name, ''), NULLIF(current_row.login, ''), 'ID ' || current_row.id_user::text)",
-            "current_row.id_user::text",
-            "NULL::text",
-            "NULL::text"),
-        new(
-            "organization",
-            "organization_l",
-            ["id_organization"],
-            "COALESCE(NULLIF(current_row.organization_name, ''), 'ID ' || current_row.id_organization::text)",
-            "current_row.id_organization::text",
-            "NULL::text",
-            "NULL::text"),
-        new(
-            "survey",
-            "survey_l",
-            ["id_survey"],
-            "COALESCE(NULLIF(current_row.name_survey, ''), 'Анкета ' || current_row.id_survey::text)",
-            "current_row.id_survey::text",
-            "'survey'::text",
-            "current_row.id_survey::text"),
-        new(
-            "survey_question",
-            "survey_question_l",
-            ["id_question"],
-            "COALESCE(NULLIF(current_row.question_text, ''), 'Вопрос ' || current_row.question_order::text || ' анкеты ' || current_row.id_survey::text)",
-            "current_row.id_question::text",
-            "'survey'::text",
-            "current_row.id_survey::text"),
-        new(
-            "organization_survey",
-            "organization_survey_l",
-            ["id_organization_survey"],
-            "'Организация ' || current_row.id_organization::text || ' / анкета ' || current_row.id_survey::text",
-            "current_row.id_organization_survey::text",
-            "'survey'::text",
-            "current_row.id_survey::text"),
-        new(
-            "answer",
-            "answer_l",
-            ["id_answer"],
-            "'Ответ ' || current_row.id_answer::text || ', назначение ' || current_row.id_organization_survey::text",
-            "current_row.id_answer::text",
-            "'answer'::text",
-            "current_row.id_answer::text"),
-        new(
-            "answer_item",
-            "answer_item_l",
-            ["id_item"],
-            "'Вопрос ' || current_row.question_order::text || ' ответа ' || current_row.id_answer::text",
-            "current_row.id_item::text",
-            "'answer'::text",
-            "current_row.id_answer::text"),
-        new(
-            "auto_creation_config",
-            "auto_creation_config_l",
-            ["id_config"],
-            "'Конфигурация ' || current_row.id_config::text",
-            "current_row.id_config::text",
-            "'auto_creation_config'::text",
-            "current_row.id_config::text"),
-        new(
-            "survey_auto_creation_config",
-            "survey_auto_creation_config_l",
-            ["id_config", "id_survey"],
-            "'Конфигурация ' || current_row.id_config::text || ' / анкета ' || current_row.id_survey::text",
-            "current_row.id_config::text || ', ' || current_row.id_survey::text",
-            "'auto_creation_config'::text",
-            "current_row.id_config::text"),
-        new(
-            "email_config",
-            "email_config_l",
-            ["id_config"],
-            "'Почтовая конфигурация ' || current_row.id_config::text",
-            "current_row.id_config::text",
-            "'email_config'::text",
-            "current_row.id_config::text"),
-        new(
-            "theme_config",
-            "theme_config_l",
-            ["id_config"],
-            "'Конфигурация темы ' || current_row.id_config::text",
-            "current_row.id_config::text",
-            "'theme_config'::text",
-            "current_row.id_config::text")
-    ];
-
-    private static readonly Dictionary<string, int> AuditSourceOrder = AuditSources
-        .Select((source, index) => new { source.SourceTable, Index = index })
-        .ToDictionary(item => item.SourceTable, item => item.Index, StringComparer.OrdinalIgnoreCase);
-
-    private static readonly HashSet<string> SurveyChainTables = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "survey",
-        "survey_question",
-        "organization_survey"
-    };
-
-    private static readonly HashSet<string> AnswerChainTables = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "answer",
-        "answer_item"
-    };
-
-    private static readonly HashSet<string> AutoCreationConfigChainTables = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "auto_creation_config",
-        "survey_auto_creation_config"
-    };
 
     private static readonly HashSet<string> SensitiveFieldNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -157,11 +35,11 @@ public sealed class AuditLogService : IAuditLogService
         "user_update"
     };
 
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IAuditLogRepository _auditLogRepository;
 
-    public AuditLogService(IDbConnectionFactory connectionFactory)
+    public AuditLogService(IAuditLogRepository auditLogRepository)
     {
-        _connectionFactory = connectionFactory;
+        _auditLogRepository = auditLogRepository;
     }
 
     public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
@@ -176,19 +54,17 @@ public sealed class AuditLogService : IAuditLogService
             return null;
         }
 
-        using var connection = _connectionFactory.CreateConnection();
-        var metadata = LoadAuditMetadata(connection);
-        var rows = GetAuditDetailRows(connection, metadata.AvailableAuditTables, idLog, sourceTable);
-        if (rows.Count == 0)
+        var result = _auditLogRepository.GetDetails(idLog, sourceTable);
+        if (result.Rows.Count == 0)
         {
             return null;
         }
 
-        var logs = MapAuditRows(rows, metadata.SourceColumnOrders, reconstructPreviousSnapshots: false);
+        var logs = MapAuditRows(result.Rows, result.SourceColumnOrders, reconstructPreviousSnapshots: false);
         var log = logs.FirstOrDefault(log => log.IdLog == idLog) ?? logs.FirstOrDefault();
         if (log != null)
         {
-            EnrichAnswerContext(connection, log);
+            EnrichAnswerContext(log);
         }
 
         return log;
@@ -207,23 +83,19 @@ public sealed class AuditLogService : IAuditLogService
         var normalizedSortDirection = hasExplicitSort
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeSortDirection(null, normalizedSortBy);
-        using var connection = _connectionFactory.CreateConnection();
-        var metadata = LoadAuditMetadata(connection);
-        var totalCount = GetAuditEventCount(connection, metadata.AvailableAuditTables);
+        var totalCount = _auditLogRepository.GetEventCount();
         var totalPages = totalCount == 0
             ? 1
             : (int)Math.Ceiling((double)totalCount / normalizedPageSize);
         var normalizedPage = Math.Clamp(currentPage, 1, totalPages);
-        var pageRows = GetAuditPageRows(
-            connection,
-            metadata.AvailableAuditTables,
+        var pageRead = _auditLogRepository.GetPage(
             normalizedPage,
             normalizedPageSize,
             normalizedSortBy,
             normalizedSortDirection,
             includeDetails: !stripDetails);
         var pageLogs = SortLogsForPage(
-                MapAuditRows(pageRows, metadata.SourceColumnOrders, reconstructPreviousSnapshots: false),
+                MapAuditRows(pageRead.Rows, pageRead.SourceColumnOrders, reconstructPreviousSnapshots: false),
                 normalizedSortBy,
                 normalizedSortDirection)
             .Take(normalizedPageSize)
@@ -248,16 +120,8 @@ public sealed class AuditLogService : IAuditLogService
 
     public IReadOnlyList<Log> GetLogs()
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var metadata = LoadAuditMetadata(connection);
-        var auditSql = BuildAuditSql(metadata.AvailableAuditTables);
-        if (string.IsNullOrWhiteSpace(auditSql))
-        {
-            return Array.Empty<Log>();
-        }
-
-        var rows = connection.Query<AuditLogRow>(auditSql).ToList();
-        var groupedLogs = MapAuditRows(rows, metadata.SourceColumnOrders, reconstructPreviousSnapshots: true);
+        var result = _auditLogRepository.GetAll();
+        var groupedLogs = MapAuditRows(result.Rows, result.SourceColumnOrders, reconstructPreviousSnapshots: true);
         AssignDisplayLogIds(groupedLogs);
 
         return groupedLogs
@@ -443,111 +307,7 @@ public sealed class AuditLogService : IAuditLogService
 
     private static string GetDescriptionValue(Log log) => string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description!;
 
-    private static AuditMetadata LoadAuditMetadata(IDbConnection connection)
-    {
-        var availableAuditTables = connection.Query<string>(
-                ExistingAuditTablesSql,
-                new { TableNames = AuditSources.Select(source => source.AuditTableName).ToArray() })
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var sourceColumnOrders = connection.Query<SourceColumnOrderRow>(
-                SourceColumnOrderSql,
-                new { TableNames = AuditSources.Select(source => source.SourceTable).ToArray() })
-            .GroupBy(row => row.TableName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<string>)group
-                    .OrderBy(row => row.OrdinalPosition)
-                    .Select(row => row.ColumnName)
-                    .ToArray(),
-                StringComparer.OrdinalIgnoreCase);
-
-        return new AuditMetadata(availableAuditTables, sourceColumnOrders);
-    }
-
-    private static int GetAuditEventCount(IDbConnection connection, IReadOnlyCollection<string> availableAuditTables)
-    {
-        var countSql = BuildAuditEventCountSql(availableAuditTables);
-        if (string.IsNullOrWhiteSpace(countSql))
-        {
-            return 0;
-        }
-
-        var count = connection.QuerySingle<long>(countSql);
-        return count > int.MaxValue ? int.MaxValue : (int)count;
-    }
-
-    private static IReadOnlyList<AuditLogRow> GetAuditPageRows(
-        IDbConnection connection,
-        IReadOnlyCollection<string> availableAuditTables,
-        int currentPage,
-        int pageSize,
-        string sortBy,
-        string sortDirection,
-        bool includeDetails)
-    {
-        var pageSql = BuildAuditPageSql(availableAuditTables, sortBy, sortDirection, includeDetails);
-        if (string.IsNullOrWhiteSpace(pageSql))
-        {
-            return [];
-        }
-
-        var offset = Math.Max(0, (currentPage - 1) * pageSize);
-        // A single event can contain several audit rows, so fetch a wider per-table window
-        // before grouping date-sorted entries into the requested page.
-        var candidateLimit = Math.Max(offset + pageSize, pageSize * 25);
-        return connection.Query<AuditLogRow>(
-                pageSql,
-                new
-                {
-                    Offset = offset,
-                    Limit = pageSize,
-                    CandidateLimit = candidateLimit
-                })
-            .ToList();
-    }
-
-    private static IReadOnlyList<AuditLogRow> GetAuditDetailRows(
-        IDbConnection connection,
-        IReadOnlyCollection<string> availableAuditTables,
-        long idAudit,
-        string? sourceTable)
-    {
-        var detailSql = BuildAuditDetailSql(availableAuditTables, sourceTable);
-        if (string.IsNullOrWhiteSpace(detailSql))
-        {
-            return [];
-        }
-
-        var directRows = connection.Query<AuditLogRow>(detailSql, new { IdAudit = idAudit }).ToList();
-        var primaryRow = directRows.FirstOrDefault();
-        if (primaryRow == null
-            || string.IsNullOrWhiteSpace(primaryRow.RelatedKind)
-            || string.IsNullOrWhiteSpace(primaryRow.RelatedId))
-        {
-            return directRows;
-        }
-
-        var relatedSql = BuildAuditRelatedRowsSql(availableAuditTables);
-        if (string.IsNullOrWhiteSpace(relatedSql))
-        {
-            return directRows;
-        }
-
-        var relatedRows = connection.Query<AuditLogRow>(
-                relatedSql,
-                new
-                {
-                    primaryRow.ChangedAt,
-                    primaryRow.ChangedByUserId,
-                    primaryRow.RelatedKind,
-                    primaryRow.RelatedId
-                })
-            .ToList();
-
-        return relatedRows.Count > 0 ? relatedRows : directRows;
-    }
-
-    private static void EnrichAnswerContext(IDbConnection connection, Log log)
+    private void EnrichAnswerContext(Log log)
     {
         if (log.ExtraData is not JObject details)
         {
@@ -561,22 +321,13 @@ public sealed class AuditLogService : IAuditLogService
 
         var idOrganizationSurvey = FindDetailValue(details, "id_organization_survey");
         var idAnswer = FindDetailValue(details, "id_answer");
-        AnswerContextRow? context = null;
-
-        if (int.TryParse(idOrganizationSurvey, NumberStyles.Integer, CultureInfo.InvariantCulture, out var organizationSurveyId))
-        {
-            context = connection.QuerySingleOrDefault<AnswerContextRow>(
-                AnswerContextByOrganizationSurveySql,
-                new { IdOrganizationSurvey = organizationSurveyId });
-        }
-
-        if (context == null
-            && int.TryParse(idAnswer, NumberStyles.Integer, CultureInfo.InvariantCulture, out var answerId))
-        {
-            context = connection.QuerySingleOrDefault<AnswerContextRow>(
-                AnswerContextByAnswerSql,
-                new { IdAnswer = answerId });
-        }
+        var organizationSurveyId = int.TryParse(idOrganizationSurvey, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedOrganizationSurveyId)
+            ? parsedOrganizationSurveyId
+            : (int?)null;
+        var answerId = int.TryParse(idAnswer, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedAnswerId)
+            ? parsedAnswerId
+            : (int?)null;
+        var context = _auditLogRepository.GetAnswerContext(organizationSurveyId, answerId);
 
         if (context == null)
         {
@@ -1050,73 +801,20 @@ public sealed class AuditLogService : IAuditLogService
         var recordPk = details["record_pk"] as JObject;
         var rowData = details["row_data"] as JObject;
 
-        if (AutoCreationConfigChainTables.Contains(sourceTable))
+        var source = AuditLogTableRegistry.Find(sourceTable);
+        if (source?.ChainKind == null || source.ChainIdentifierColumn == null)
         {
-            var configId = ExtractConfigId(recordPk, rowData);
-            return string.IsNullOrWhiteSpace(configId)
-                ? null
-                : new AuditLogGroupKey("auto_creation_config", configId, log.IdUser, log.Date.Ticks);
+            return null;
         }
 
-        if (AnswerChainTables.Contains(sourceTable))
+        var relatedId = ExtractValue(rowData, source.ChainIdentifierColumn)
+            ?? ExtractValue(recordPk, source.ChainIdentifierColumn);
+        if (!string.IsNullOrWhiteSpace(relatedId))
         {
-            var answerId = ExtractAnswerId(sourceTable, recordPk, rowData);
-            return string.IsNullOrWhiteSpace(answerId)
-                ? null
-                : new AuditLogGroupKey("answer", answerId, log.IdUser, log.Date.Ticks);
-        }
-
-        if (SurveyChainTables.Contains(sourceTable))
-        {
-            var surveyId = ExtractSurveyId(sourceTable, recordPk, rowData);
-            return string.IsNullOrWhiteSpace(surveyId)
-                ? null
-                : new AuditLogGroupKey("survey", surveyId, log.IdUser, log.Date.Ticks);
-        }
-
-        if (string.Equals(sourceTable, "email_config", StringComparison.OrdinalIgnoreCase))
-        {
-            var configId = ExtractConfigId(recordPk, rowData);
-            return string.IsNullOrWhiteSpace(configId)
-                ? null
-                : new AuditLogGroupKey("email_config", configId, log.IdUser, log.Date.Ticks);
-        }
-
-        if (string.Equals(sourceTable, "theme_config", StringComparison.OrdinalIgnoreCase))
-        {
-            var configId = ExtractConfigId(recordPk, rowData);
-            return string.IsNullOrWhiteSpace(configId)
-                ? null
-                : new AuditLogGroupKey("theme_config", configId, log.IdUser, log.Date.Ticks);
+            return new AuditLogGroupKey(source.ChainKind, relatedId, log.IdUser, log.Date.Ticks);
         }
 
         return null;
-    }
-
-    private static string? ExtractSurveyId(string sourceTable, JObject? recordPk, JObject? rowData)
-    {
-        return sourceTable switch
-        {
-            "survey" => ExtractValue(rowData, "id_survey") ?? ExtractValue(recordPk, "id_survey"),
-            "survey_question" => ExtractValue(rowData, "id_survey") ?? ExtractValue(recordPk, "id_survey"),
-            "organization_survey" => ExtractValue(rowData, "id_survey") ?? ExtractValue(recordPk, "id_survey"),
-            _ => null
-        };
-    }
-
-    private static string? ExtractAnswerId(string sourceTable, JObject? recordPk, JObject? rowData)
-    {
-        return sourceTable switch
-        {
-            "answer" => ExtractValue(rowData, "id_answer") ?? ExtractValue(recordPk, "id_answer"),
-            "answer_item" => ExtractValue(rowData, "id_answer") ?? ExtractValue(recordPk, "id_answer"),
-            _ => null
-        };
-    }
-
-    private static string? ExtractConfigId(JObject? recordPk, JObject? rowData)
-    {
-        return ExtractValue(rowData, "id_config") ?? ExtractValue(recordPk, "id_config");
     }
 
     private static string DetermineGroupOperation(IReadOnlyList<Log> orderedLogs)
@@ -1132,15 +830,7 @@ public sealed class AuditLogService : IAuditLogService
 
     private static Log ChoosePrimaryLog(IReadOnlyList<Log> orderedLogs, string groupKind)
     {
-        var preferredSourceTable = groupKind switch
-        {
-            "survey" => "survey",
-            "answer" => "answer",
-            "auto_creation_config" => "auto_creation_config",
-            "email_config" => "email_config",
-            "theme_config" => "theme_config",
-            _ => string.Empty
-        };
+        var preferredSourceTable = AuditLogTableRegistry.FindGroup(groupKind)?.PrimarySourceTable ?? string.Empty;
 
         return orderedLogs.FirstOrDefault(log =>
             string.Equals(ExtractValue(log.ExtraData as JObject, "source_table"), preferredSourceTable, StringComparison.OrdinalIgnoreCase))
@@ -1155,28 +845,13 @@ public sealed class AuditLogService : IAuditLogService
             return primaryLog.TargetName!;
         }
 
-        return groupKey.Kind switch
-        {
-            "survey" => $"Анкета {groupKey.RelatedId}",
-            "answer" => $"Ответ {groupKey.RelatedId}",
-            "auto_creation_config" => $"Конфигурация {groupKey.RelatedId}",
-            "email_config" => $"Почтовая конфигурация {groupKey.RelatedId}",
-            "theme_config" => $"Конфигурация темы {groupKey.RelatedId}",
-            _ => groupKey.RelatedId
-        };
+        var group = AuditLogTableRegistry.FindGroup(groupKey.Kind);
+        return group == null ? groupKey.RelatedId : $"{group.FallbackTargetPrefix} {groupKey.RelatedId}";
     }
 
     private static string GetGroupTargetType(string groupKind)
     {
-        return groupKind switch
-        {
-            "survey" => "Анкета",
-            "answer" => "Ответ",
-            "auto_creation_config" => "Настройка автосоздания",
-            "email_config" => "Почтовая настройка",
-            "theme_config" => "Настройка темы",
-            _ => "Запись"
-        };
+        return AuditLogTableRegistry.FindGroup(groupKind)?.EntityName ?? "Запись";
     }
 
     private static List<Log> SortLogs(IEnumerable<Log> logs)
@@ -1202,17 +877,12 @@ public sealed class AuditLogService : IAuditLogService
         }
 
         var sourceTable = ExtractValue(details, "source_table");
-        return sourceTable != null && AuditSourceOrder.TryGetValue(sourceTable, out var tableOrder)
-            ? tableOrder
-            : int.MaxValue;
+        return AuditLogTableRegistry.GetSourceOrder(sourceTable);
     }
 
     private static int GetAuditSourceOrder(string? sourceTable)
     {
-        return !string.IsNullOrWhiteSpace(sourceTable)
-               && AuditSourceOrder.TryGetValue(sourceTable, out var tableOrder)
-            ? tableOrder
-            : int.MaxValue;
+        return AuditLogTableRegistry.GetSourceOrder(sourceTable);
     }
 
     private static int GetItemSourceOrder(JObject? item)
@@ -1721,21 +1391,7 @@ public sealed class AuditLogService : IAuditLogService
 
     private static string GetEntityName(string sourceTable)
     {
-        return sourceTable switch
-        {
-            "app_user" => "Пользователь",
-            "organization" => "Организация",
-            "survey" => "Анкета",
-            "survey_question" => "Критерий анкеты",
-            "answer" => "Ответ",
-            "answer_item" => "Строка ответа",
-            "organization_survey" => "Назначение анкеты",
-            "auto_creation_config" => "Настройка автосоздания",
-            "survey_auto_creation_config" => "Связь автосоздания и анкеты",
-            "email_config" => "Почтовая настройка",
-            "theme_config" => "Настройка темы",
-            _ => sourceTable
-        };
+        return AuditLogTableRegistry.Find(sourceTable)?.EntityName ?? sourceTable;
     }
 
     private static string GetOperationName(string operation)
@@ -1813,486 +1469,8 @@ public sealed class AuditLogService : IAuditLogService
 
     private static string? BuildAuditSql(IReadOnlyCollection<string> availableAuditTables)
     {
-        var unionParts = AuditSources
-            .Where(source => availableAuditTables.Contains(source.AuditTableName))
-            .Select(source => BuildStructuredAuditSelect(source, includeDetails: true, dateDirection: null, limitPerSource: false))
-            .ToArray();
-
-        if (unionParts.Length == 0)
-        {
-            return null;
-        }
-
-        return $$"""
-            SELECT
-                audit_entries.source_table AS SourceTable,
-                audit_entries.source_order AS SourceOrder,
-                audit_entries.id_audit AS IdAudit,
-                audit_entries.parent_audit_id AS ParentAuditId,
-                audit_entries.operation AS Operation,
-                audit_entries.changed_at AS ChangedAt,
-                audit_entries.changed_by_user_id AS ChangedByUserId,
-                COALESCE(actor.full_name, actor.login) AS ActorName,
-                audit_entries.target_name AS TargetName,
-                audit_entries.target_id AS TargetId,
-                audit_entries.related_kind AS RelatedKind,
-                audit_entries.related_id AS RelatedId,
-                audit_entries.record_pk_json AS RecordPkJson,
-                audit_entries.row_data_json AS RowDataJson,
-                audit_entries.old_row_data_json AS OldRowDataJson,
-                audit_entries.new_row_data_json AS NewRowDataJson
-            FROM (
-                {{string.Join("\n                UNION ALL\n", unionParts)}}
-            ) audit_entries
-            LEFT JOIN public.app_user actor
-                ON actor.id_user = audit_entries.changed_by_user_id
-            ORDER BY audit_entries.changed_at DESC, audit_entries.source_order DESC, audit_entries.id_audit DESC;
-            """;
+        return AuditLogQueryBuilder.BuildAuditSql(availableAuditTables);
     }
-
-    private static string? BuildAuditDetailSql(IReadOnlyCollection<string> availableAuditTables, string? sourceTable)
-    {
-        var sourceTableName = sourceTable?.Trim();
-        var sources = AuditSources
-            .Where(source => availableAuditTables.Contains(source.AuditTableName))
-            .Where(source => string.IsNullOrWhiteSpace(sourceTableName)
-                             || string.Equals(source.SourceTable, sourceTableName, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
-        if (sources.Length == 0 && !string.IsNullOrWhiteSpace(sourceTableName))
-        {
-            sources = AuditSources
-                .Where(source => availableAuditTables.Contains(source.AuditTableName))
-                .ToArray();
-        }
-
-        var unionParts = sources
-            .Select(source => BuildStructuredAuditSelect(source, includeDetails: true, dateDirection: null, limitPerSource: false))
-            .ToArray();
-
-        return unionParts.Length == 0
-            ? null
-            : BuildAuditRowsSql(
-                unionParts,
-                "audit_entries.id_audit = @IdAudit",
-                "ORDER BY audit_entries.changed_at DESC, audit_entries.source_order DESC, audit_entries.id_audit DESC LIMIT 1;");
-    }
-
-    private static string? BuildAuditRelatedRowsSql(IReadOnlyCollection<string> availableAuditTables)
-    {
-        var unionParts = AuditSources
-            .Where(source => availableAuditTables.Contains(source.AuditTableName))
-            .Select(source => BuildStructuredAuditSelect(source, includeDetails: true, dateDirection: null, limitPerSource: false))
-            .ToArray();
-
-        return unionParts.Length == 0
-            ? null
-            : BuildAuditRowsSql(
-                unionParts,
-                """
-                audit_entries.changed_at = @ChangedAt
-                AND COALESCE(audit_entries.changed_by_user_id, -1) = COALESCE(@ChangedByUserId, -1)
-                AND audit_entries.related_kind = @RelatedKind
-                AND audit_entries.related_id = @RelatedId
-                """,
-                "ORDER BY audit_entries.changed_at ASC, audit_entries.source_order ASC, audit_entries.id_audit ASC;");
-    }
-
-    private static string BuildAuditRowsSql(string[] unionParts, string whereClause, string orderByClause)
-    {
-        return $$"""
-            SELECT
-                audit_entries.source_table AS SourceTable,
-                audit_entries.source_order AS SourceOrder,
-                audit_entries.id_audit AS IdAudit,
-                audit_entries.parent_audit_id AS ParentAuditId,
-                audit_entries.operation AS Operation,
-                audit_entries.changed_at AS ChangedAt,
-                audit_entries.changed_by_user_id AS ChangedByUserId,
-                COALESCE(actor.full_name, actor.login) AS ActorName,
-                audit_entries.target_name AS TargetName,
-                audit_entries.target_id AS TargetId,
-                audit_entries.related_kind AS RelatedKind,
-                audit_entries.related_id AS RelatedId,
-                audit_entries.record_pk_json AS RecordPkJson,
-                audit_entries.row_data_json AS RowDataJson,
-                audit_entries.old_row_data_json AS OldRowDataJson,
-                audit_entries.new_row_data_json AS NewRowDataJson
-            FROM (
-                {{string.Join("\n                UNION ALL\n", unionParts)}}
-            ) audit_entries
-            LEFT JOIN public.app_user actor
-                ON actor.id_user = audit_entries.changed_by_user_id
-            WHERE {{whereClause}}
-            {{orderByClause}}
-            """;
-    }
-
-    private static string? BuildAuditEventCountSql(IReadOnlyCollection<string> availableAuditTables)
-    {
-        var unionParts = AuditSources
-            .Where(source => availableAuditTables.Contains(source.AuditTableName))
-            .Select(source => BuildStructuredAuditSelect(source, includeDetails: false, dateDirection: null, limitPerSource: false))
-            .ToArray();
-
-        if (unionParts.Length == 0)
-        {
-            return null;
-        }
-
-        return $$"""
-            WITH audit_entries AS (
-                {{string.Join("\n                UNION ALL\n", unionParts)}}
-            )
-            SELECT COUNT(DISTINCT {{BuildAuditEventKeyExpression("audit_entries")}})::bigint
-            FROM audit_entries;
-            """;
-    }
-
-    private static string BuildStructuredAuditSelect(
-        AuditSourceDefinition source,
-        bool includeDetails,
-        string? dateDirection,
-        bool limitPerSource)
-    {
-        var sourceOrder = AuditSourceOrder[source.SourceTable];
-        var sourceTableExpression = $"'{source.SourceTable}'::text";
-        var recordPkExpression = BuildRecordPkJsonExpression(source);
-        var currentRowDataExpression = BuildAuditRowDataJsonExpression("current_row");
-        var parentRowDataExpression = BuildAuditRowDataJsonExpression("parent_row");
-        var detailsProjection = includeDetails
-            ? $$"""
-                {{recordPkExpression}}::text AS record_pk_json,
-                {{currentRowDataExpression}}::text AS row_data_json,
-                CASE
-                    WHEN current_row.operation = 'DELETE' THEN {{currentRowDataExpression}}
-                    WHEN current_row.operation = 'UPDATE' AND parent_row.id_audit IS NOT NULL THEN {{parentRowDataExpression}}
-                    ELSE NULL::jsonb
-                END::text AS old_row_data_json,
-                CASE
-                    WHEN current_row.operation IN ('INSERT', 'UPDATE') THEN {{currentRowDataExpression}}
-                    ELSE NULL::jsonb
-                END::text AS new_row_data_json
-                """
-            : """
-                NULL::text AS record_pk_json,
-                NULL::text AS row_data_json,
-                NULL::text AS old_row_data_json,
-                NULL::text AS new_row_data_json
-                """;
-        var sourceFrom = limitPerSource
-            ? $$"""
-                (
-                    SELECT *
-                    FROM public.{{source.AuditTableName}}
-                    ORDER BY changed_at {{dateDirection}}, id_audit {{dateDirection}}
-                    LIMIT @CandidateLimit
-                ) current_row
-                """
-            : $"public.{source.AuditTableName} current_row";
-
-        return $$"""
-            SELECT
-                {{sourceTableExpression}} AS source_table,
-                {{sourceOrder}}::integer AS source_order,
-                current_row.id_audit,
-                current_row.parent_audit_id,
-                current_row.operation,
-                current_row.changed_at,
-                current_row.changed_by_user_id,
-                {{source.TargetNameSql}} AS target_name,
-                {{source.TargetIdSql}} AS target_id,
-                {{source.RelatedKindSql}} AS related_kind,
-                {{source.RelatedIdSql}} AS related_id,
-                {{detailsProjection}}
-            FROM {{sourceFrom}}
-            LEFT JOIN public.{{source.AuditTableName}} parent_row
-                ON parent_row.id_audit = current_row.parent_audit_id
-            """;
-    }
-
-    private static string BuildRecordPkJsonExpression(AuditSourceDefinition source)
-    {
-        var parts = source.PrimaryKeyColumns
-            .Select(column => $"'{column}', current_row.{column}")
-            .ToArray();
-
-        return parts.Length == 0
-            ? "'{}'::jsonb"
-            : $"jsonb_build_object({string.Join(", ", parts)})";
-    }
-
-    private static string BuildAuditRowDataJsonExpression(string tableAlias)
-    {
-        return $"(to_jsonb({tableAlias}) {AuditRowJsonExclusions})";
-    }
-
-    private static string? BuildAuditPageSql(
-        IReadOnlyCollection<string> availableAuditTables,
-        string sortBy,
-        string sortDirection,
-        bool includeDetails)
-    {
-        var isDateSort = string.Equals(sortBy, AuditLogSortFields.Date, StringComparison.Ordinal);
-        var dateDirection = string.Equals(sortDirection, "asc", StringComparison.Ordinal) ? "ASC" : "DESC";
-        var unionParts = AuditSources
-            .Where(source => availableAuditTables.Contains(source.AuditTableName))
-            .Select(source => BuildStructuredAuditSelect(source, includeDetails, dateDirection, isDateSort))
-            .ToArray();
-
-        if (unionParts.Length == 0)
-        {
-            return null;
-        }
-
-        return $$"""
-            WITH audit_entries AS (
-                {{string.Join("\n                UNION ALL\n", unionParts)}}
-            ),
-            event_entries AS (
-                SELECT
-                    audit_entries.*,
-                    {{BuildAuditEventKeyExpression("audit_entries")}} AS event_key
-                FROM audit_entries
-            ),
-            event_groups AS (
-                SELECT
-                    event_key,
-                    MAX(changed_at) AS changed_at,
-                    MAX(source_order) AS source_order,
-                    MAX(id_audit) AS id_audit,
-                    MAX(changed_by_user_id) AS changed_by_user_id,
-                    MAX(operation) AS operation,
-                    MIN(source_table) AS source_table
-                FROM event_entries
-                GROUP BY event_key
-            ),
-            event_page AS (
-                SELECT event_groups.event_key
-                FROM event_groups
-                LEFT JOIN public.app_user actor
-                    ON actor.id_user = event_groups.changed_by_user_id
-                ORDER BY {{BuildAuditEventPageOrderBy(sortBy, sortDirection)}}
-                OFFSET @Offset
-                LIMIT @Limit
-            )
-            SELECT
-                audit_entries.source_table AS SourceTable,
-                audit_entries.source_order AS SourceOrder,
-                audit_entries.id_audit AS IdAudit,
-                audit_entries.parent_audit_id AS ParentAuditId,
-                audit_entries.operation AS Operation,
-                audit_entries.changed_at AS ChangedAt,
-                audit_entries.changed_by_user_id AS ChangedByUserId,
-                COALESCE(actor.full_name, actor.login) AS ActorName,
-                audit_entries.target_name AS TargetName,
-                audit_entries.target_id AS TargetId,
-                audit_entries.related_kind AS RelatedKind,
-                audit_entries.related_id AS RelatedId,
-                audit_entries.record_pk_json AS RecordPkJson,
-                audit_entries.row_data_json AS RowDataJson,
-                audit_entries.old_row_data_json AS OldRowDataJson,
-                audit_entries.new_row_data_json AS NewRowDataJson
-            FROM event_entries audit_entries
-            INNER JOIN event_page
-                ON event_page.event_key = audit_entries.event_key
-            LEFT JOIN public.app_user actor
-                ON actor.id_user = audit_entries.changed_by_user_id
-            ORDER BY {{BuildAuditPageOrderBy(sortBy, sortDirection)}}
-            """;
-    }
-
-    private static string BuildAuditEventKeyExpression(string tableAlias)
-    {
-        return $"""
-            CASE
-                WHEN NULLIF({tableAlias}.related_kind, '') IS NOT NULL
-                     AND NULLIF({tableAlias}.related_id, '') IS NOT NULL
-                    THEN CONCAT(
-                        'related|',
-                        {tableAlias}.related_kind,
-                        '|',
-                        {tableAlias}.related_id,
-                        '|',
-                        COALESCE({tableAlias}.changed_by_user_id::text, ''),
-                        '|',
-                        {tableAlias}.changed_at::text)
-                ELSE CONCAT('audit|', {tableAlias}.source_table, '|', {tableAlias}.id_audit::text)
-            END
-            """;
-    }
-
-    private static string BuildAuditEventPageOrderBy(string sortBy, string sortDirection)
-    {
-        var direction = string.Equals(sortDirection, "asc", StringComparison.Ordinal) ? "ASC" : "DESC";
-
-        return sortBy switch
-        {
-            AuditLogSortFields.User => $"""
-                COALESCE(actor.full_name, actor.login, '') {direction},
-                event_groups.changed_at DESC,
-                event_groups.source_order DESC,
-                event_groups.id_audit DESC
-                """,
-            AuditLogSortFields.Event => $"""
-                CASE event_groups.operation
-                    WHEN 'INSERT' THEN 'Добавление'
-                    WHEN 'UPDATE' THEN 'Изменение'
-                    WHEN 'DELETE' THEN 'Удаление'
-                    ELSE event_groups.operation
-                END {direction},
-                event_groups.changed_at DESC,
-                event_groups.source_order DESC,
-                event_groups.id_audit DESC
-                """,
-            AuditLogSortFields.Description => $"""
-                event_groups.source_table {direction},
-                event_groups.changed_at DESC,
-                event_groups.source_order DESC,
-                event_groups.id_audit DESC
-                """,
-            _ => $"""
-                event_groups.changed_at {direction},
-                event_groups.source_order {direction},
-                event_groups.id_audit {direction}
-                """
-        };
-    }
-
-    private static string BuildAuditPageOrderBy(string sortBy, string sortDirection)
-    {
-        var direction = string.Equals(sortDirection, "asc", StringComparison.Ordinal) ? "ASC" : "DESC";
-
-        return sortBy switch
-        {
-            AuditLogSortFields.User => $"""
-                COALESCE(actor.full_name, actor.login, '') {direction},
-                audit_entries.changed_at DESC,
-                audit_entries.source_order DESC,
-                audit_entries.id_audit DESC
-                """,
-            AuditLogSortFields.Event => $"""
-                CASE audit_entries.operation
-                    WHEN 'INSERT' THEN 'Добавление'
-                    WHEN 'UPDATE' THEN 'Изменение'
-                    WHEN 'DELETE' THEN 'Удаление'
-                    ELSE audit_entries.operation
-                END {direction},
-                audit_entries.changed_at DESC,
-                audit_entries.source_order DESC,
-                audit_entries.id_audit DESC
-                """,
-            AuditLogSortFields.Description => $"""
-                audit_entries.source_table {direction},
-                audit_entries.changed_at DESC,
-                audit_entries.source_order DESC,
-                audit_entries.id_audit DESC
-                """,
-            _ => $"""
-                audit_entries.changed_at {direction},
-                audit_entries.source_order {direction},
-                audit_entries.id_audit {direction}
-                """
-        };
-    }
-
-    private const string ExistingAuditTablesSql = """
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-          AND table_name = ANY(@TableNames);
-        """;
-
-    private const string SourceColumnOrderSql = """
-        SELECT
-            table_name AS TableName,
-            column_name AS ColumnName,
-            ordinal_position AS OrdinalPosition
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = ANY(@TableNames)
-        ORDER BY table_name, ordinal_position;
-        """;
-
-    private const string AnswerContextByOrganizationSurveySql = """
-        SELECT
-            os.id_survey AS IdSurvey,
-            s.name_survey AS SurveyName,
-            os.id_organization AS IdOrganization,
-            o.organization_name AS OrganizationName
-        FROM public.organization_survey os
-        LEFT JOIN public.survey s
-            ON s.id_survey = os.id_survey
-        LEFT JOIN public.organization o
-            ON o.id_organization = os.id_organization
-        WHERE os.id_organization_survey = @IdOrganizationSurvey
-        LIMIT 1;
-        """;
-
-    private const string AnswerContextByAnswerSql = """
-        SELECT
-            os.id_survey AS IdSurvey,
-            s.name_survey AS SurveyName,
-            os.id_organization AS IdOrganization,
-            o.organization_name AS OrganizationName
-        FROM public.answer a
-        INNER JOIN public.organization_survey os
-            ON os.id_organization_survey = a.id_organization_survey
-        LEFT JOIN public.survey s
-            ON s.id_survey = os.id_survey
-        LEFT JOIN public.organization o
-            ON o.id_organization = os.id_organization
-        WHERE a.id_answer = @IdAnswer
-        LIMIT 1;
-        """;
-
-    private sealed class AuditLogRow
-    {
-        public string SourceTable { get; init; } = string.Empty;
-        public int SourceOrder { get; init; }
-        public long IdAudit { get; init; }
-        public long? ParentAuditId { get; init; }
-        public string Operation { get; init; } = string.Empty;
-        public DateTime ChangedAt { get; init; }
-        public int? ChangedByUserId { get; init; }
-        public string? ActorName { get; init; }
-        public string? TargetName { get; init; }
-        public string? TargetId { get; init; }
-        public string? RelatedKind { get; init; }
-        public string? RelatedId { get; init; }
-        public string? RecordPkJson { get; init; }
-        public string? RowDataJson { get; init; }
-        public string? OldRowDataJson { get; init; }
-        public string? NewRowDataJson { get; init; }
-    }
-
-    private sealed record AuditMetadata(
-        HashSet<string> AvailableAuditTables,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> SourceColumnOrders);
-
-    private sealed class SourceColumnOrderRow
-    {
-        public string TableName { get; init; } = string.Empty;
-        public string ColumnName { get; init; } = string.Empty;
-        public int OrdinalPosition { get; init; }
-    }
-
-    private sealed class AnswerContextRow
-    {
-        public int IdSurvey { get; init; }
-        public string? SurveyName { get; init; }
-        public int IdOrganization { get; init; }
-        public string? OrganizationName { get; init; }
-    }
-
-    private sealed record AuditSourceDefinition(
-        string SourceTable,
-        string AuditTableName,
-        IReadOnlyList<string> PrimaryKeyColumns,
-        string TargetNameSql,
-        string TargetIdSql,
-        string RelatedKindSql,
-        string RelatedIdSql);
 
     private sealed record AuditLogGroupCandidate(int Index, Log Log, AuditLogGroupKey? GroupKey);
 

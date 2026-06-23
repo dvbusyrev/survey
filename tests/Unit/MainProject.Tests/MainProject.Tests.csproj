@@ -21,4 +21,8 @@
     <ProjectReference Include="../../../main_project.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../../Integration/**/*.cs" LinkBase="Integration" />
+  </ItemGroup>
+
 </Project>

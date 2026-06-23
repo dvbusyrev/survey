@@ -19,11 +19,19 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
 
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<SurveyAutoCreationService> _logger;
+    private readonly IClock _clock;
+    private readonly ISurveyAssignmentRepository _assignmentRepository;
 
-    public SurveyAutoCreationService(IDbConnectionFactory connectionFactory, ILogger<SurveyAutoCreationService> logger)
+    public SurveyAutoCreationService(
+        IDbConnectionFactory connectionFactory,
+        ILogger<SurveyAutoCreationService> logger,
+        IClock clock,
+        ISurveyAssignmentRepository assignmentRepository)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
+        _clock = clock;
+        _assignmentRepository = assignmentRepository;
     }
 
     public async Task<SurveyAutoCreationPageViewModel> GetPageModelAsync(CancellationToken cancellationToken = default)
@@ -157,7 +165,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        var today = DateTime.Today;
+        var today = _clock.Today.Date;
         if (!TryParseDayOfWeek(config.CreationDayName, out var creationDayOfWeek)
             || !TryParseDayOfWeek(config.BeginDayName, out var beginDayOfWeek)
             || !SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(today.Year, today.Month, config.CreationWeekNumber, creationDayOfWeek, out var creationDate)
@@ -661,7 +669,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         };
     }
 
-    private static async Task<bool> CopySurveyTemplateAsync(
+    private async Task<bool> CopySurveyTemplateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
@@ -689,37 +697,13 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         }
 
         var copyName = $"{originalSurvey.NameSurvey} (Копия)";
-        var alreadyCreated = await connection.ExecuteScalarAsync<bool>(
-            new CommandDefinition(
-                """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM public.survey copy
-                    WHERE copy.name_survey = @CopyName
-                      AND (
-                          EXISTS (
-                              SELECT 1
-                              FROM public.organization_survey os
-                              WHERE os.id_survey = copy.id_survey
-                                AND os.date_begin = @StartDate
-                                AND os.date_end IS NOT DISTINCT FROM @EndDate::date
-                          )
-                          OR NOT EXISTS (
-                              SELECT 1
-                              FROM public.organization_survey os
-                              WHERE os.id_survey = copy.id_survey
-                          )
-                      )
-                );
-                """,
-                new
-                {
-                    CopyName = copyName,
-                    StartDate = startDate.Date,
-                    EndDate = endDate?.Date
-                },
-                transaction,
-                cancellationToken: cancellationToken));
+        var alreadyCreated = await _assignmentRepository.HasSurveyWithScheduleAsync(
+            connection,
+            transaction,
+            copyName,
+            startDate,
+            endDate,
+            cancellationToken);
 
         if (alreadyCreated)
         {
@@ -759,40 +743,19 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
                 transaction,
                 cancellationToken: cancellationToken));
 
-        var organizationIds = (await connection.QueryAsync<int>(
-            new CommandDefinition(
-                """
-                SELECT id_organization
-                FROM public.organization_survey
-                WHERE id_survey = @SourceSurveyId
-                ORDER BY id_organization;
-                """,
-                new { SourceSurveyId = surveyId },
-                transaction,
-                cancellationToken: cancellationToken))).ToArray();
-
-        foreach (var organizationId in organizationIds.Distinct())
-        {
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
-                    VALUES (@OrganizationId, @SurveyId, @DateBegin, @DateEnd)
-                    ON CONFLICT (id_organization, id_survey) DO UPDATE
-                    SET
-                        date_begin = EXCLUDED.date_begin,
-                        date_end = EXCLUDED.date_end;
-                    """,
-                    new
-                    {
-                        OrganizationId = organizationId,
-                        SurveyId = newSurveyId,
-                        DateBegin = startDate.Date,
-                        DateEnd = endDate?.Date
-                    },
-                    transaction,
-                    cancellationToken: cancellationToken));
-        }
+        var organizationIds = await _assignmentRepository.GetOrganizationIdsAsync(
+            connection,
+            transaction,
+            surveyId,
+            cancellationToken);
+        await _assignmentRepository.UpsertSurveyAssignmentsAsync(
+            connection,
+            transaction,
+            newSurveyId,
+            organizationIds,
+            startDate,
+            endDate,
+            cancellationToken);
 
         return true;
     }

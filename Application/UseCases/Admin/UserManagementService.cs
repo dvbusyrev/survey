@@ -1,10 +1,9 @@
 using System.Text.RegularExpressions;
 using System.Text;
-using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.DTO.User;
 using MainProject.Application.Support;
-using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.Security;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
@@ -14,12 +13,12 @@ namespace MainProject.Application.UseCases.Admin;
 
 public sealed class UserManagementService : IUserManagementService
 {
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IUserRepository _userRepository;
     private static readonly PasswordHasher<string> PasswordHasher = new();
 
-    public UserManagementService(IDbConnectionFactory connectionFactory)
+    public UserManagementService(IUserRepository userRepository)
     {
-        _connectionFactory = connectionFactory;
+        _userRepository = userRepository;
     }
 
     public UserListPageViewModel GetActiveUsersPage(
@@ -57,25 +56,14 @@ public sealed class UserManagementService : IUserManagementService
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeUserSortDirection(null, normalizedSortBy);
 
-        using var connection = _connectionFactory.CreateConnection();
-        var totalCount = connection.ExecuteScalar<int>(GetUserCountSql(includeArchived));
+        var totalCount = _userRepository.Count(includeArchived);
         var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
-        var users = connection.Query<User>(
-            $"""
-            {GetUserPageSelectSql(includeArchived)}
-            ORDER BY {BuildUserOrderBy(normalizedSortBy, normalizedSortDirection)}
-            LIMIT @pageSize OFFSET @offset;
-            """,
-            new
-            {
-                pageSize = pageWindow.PageSize,
-                offset = pageWindow.Offset
-            }).ToList();
+        var users = _userRepository.GetPage(includeArchived, normalizedSortBy, normalizedSortDirection, pageWindow.PageSize, pageWindow.Offset);
 
         return new UserListPageViewModel
         {
             Users = users,
-            Organizations = GetOrganizationOptions(),
+            Organizations = _userRepository.GetActiveOrganizationOptions(),
             OpenAddUserModal = openAddUserModal,
             CurrentPage = pageWindow.CurrentPage,
             TotalPages = pageWindow.TotalPages,
@@ -90,27 +78,7 @@ public sealed class UserManagementService : IUserManagementService
 
     public User? GetUserById(int id)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        return connection.QueryFirstOrDefault<User>(
-            """
-            SELECT
-                u.id_user,
-                u.full_name,
-                u.login AS NameUser,
-                u.email,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
-                COALESCE(u.id_organization, 0) AS OrganizationId,
-                u.role AS NameRole,
-                u.date_begin,
-                u.date_end,
-                u.password AS HashPassword
-            FROM public.app_user u
-            LEFT JOIN public.organization o
-                ON u.id_organization = o.id_organization
-            WHERE u.id_user = @id;
-            """,
-            new { id });
+        return _userRepository.GetById(id);
     }
 
     public OperationResult CreateUser(UserSaveRequest request)
@@ -131,42 +99,15 @@ public sealed class UserManagementService : IUserManagementService
             };
         }
 
-        using var connection = _connectionFactory.CreateConnection();
-
-        var affectedRows = connection.Execute(
-            """
-            INSERT INTO public.app_user (
-                id_organization,
-                login,
-                full_name,
-                role,
-                password,
-                email,
-                date_begin,
-                date_end
-            )
-            VALUES (
-                @organizationId,
-                @userName,
-                @fullName,
-                @role,
-                @hashPassword,
-                @email,
-                @dateBegin,
-                @dateEnd
-            );
-            """,
-            new
-            {
-                organizationId,
-                userName = request.Username.Trim(),
-                fullName = request.FullName.Trim(),
-                role = normalizedRole,
-                hashPassword = PasswordHasher.HashPassword(request.Username.Trim(), request.Password),
-                email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-                dateBegin,
-                dateEnd
-            });
+        var affectedRows = _userRepository.Create(new UserWriteModel(
+            organizationId,
+            request.Username.Trim(),
+            request.FullName.Trim(),
+            normalizedRole,
+            PasswordHasher.HashPassword(request.Username.Trim(), request.Password),
+            string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+            dateBegin,
+            dateEnd));
 
         return new OperationResult
         {
@@ -189,41 +130,15 @@ public sealed class UserManagementService : IUserManagementService
             };
         }
 
-        using var connection = _connectionFactory.CreateConnection();
-
-        var sql = """
-            UPDATE public.app_user
-            SET
-                login = @userName,
-                full_name = @fullName,
-                id_organization = @organizationId,
-                role = @role,
-                email = @email,
-                date_begin = @dateBegin,
-                date_end = @dateEnd
-            """;
-
-        if (passwordHash != null)
-        {
-            sql += ", password = @passwordHash";
-        }
-
-        sql += " WHERE id_user = @id";
-
-        var affectedRows = connection.Execute(
-            sql,
-            new
-            {
-                id,
-                userName = request.Username.Trim(),
-                fullName = request.FullName.Trim(),
-                organizationId,
-                role = normalizedRole,
-                email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-                dateBegin,
-                dateEnd,
-                passwordHash
-            });
+        var affectedRows = _userRepository.Update(id, new UserWriteModel(
+            organizationId,
+            request.Username.Trim(),
+            request.FullName.Trim(),
+            normalizedRole,
+            passwordHash,
+            string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+            dateBegin,
+            dateEnd));
 
         return new OperationResult
         {
@@ -236,20 +151,8 @@ public sealed class UserManagementService : IUserManagementService
 
     public OperationResult DeleteUser(int id)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        var user = connection.QueryFirstOrDefault<UserDeleteCandidate>(
-            """
-            SELECT
-                id_user AS IdUser,
-                full_name AS FullName,
-                login AS UserName
-            FROM public.app_user
-            WHERE id_user = @id;
-            """,
-            new { id });
-
-        if (user == null)
+        var result = _userRepository.DeleteIfAllowed(id);
+        if (!result.Found || result.User == null)
         {
             return new OperationResult
             {
@@ -258,28 +161,22 @@ public sealed class UserManagementService : IUserManagementService
             };
         }
 
-        var answeredSurveyNames = GetUserAnsweredSurveyNames(connection, id);
-        var signedSurveyNames = GetUserSignedSurveyNames(connection, id);
-        if (answeredSurveyNames.Count > 0 || signedSurveyNames.Count > 0)
+        if (result.AnsweredSurveyNames.Count > 0 || result.SignedSurveyNames.Count > 0)
         {
             return new OperationResult
             {
                 Success = false,
                 Message = BuildUserDeleteBlockedMessage(
-                    ResolveUserDisplayName(user),
-                    answeredSurveyNames,
-                    signedSurveyNames)
+                    ResolveUserDisplayName(result.User),
+                    result.AnsweredSurveyNames,
+                    result.SignedSurveyNames)
             };
         }
 
-        var affectedRows = connection.Execute(
-            "DELETE FROM public.app_user WHERE id_user = @id;",
-            new { id });
-
         return new OperationResult
         {
-            Success = affectedRows > 0,
-            Message = affectedRows > 0
+            Success = result.Deleted,
+            Message = result.Deleted
                 ? "Пользователь успешно удален"
                 : "Пользователь с указанным ID не найден."
         };
@@ -287,86 +184,9 @@ public sealed class UserManagementService : IUserManagementService
 
     private IReadOnlyList<User> GetUsers(bool includeArchived)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        var sql = includeArchived
-            ? UserQueries.ArchivedUsers
-            : UserQueries.ActiveUsers;
-
-        return connection.Query<User>(sql).ToList();
+        return _userRepository.GetAll(includeArchived);
     }
 
-    private static string GetUserCountSql(bool includeArchived)
-    {
-        return $"""
-            SELECT COUNT(*)
-            FROM public.app_user u
-            WHERE {GetUserArchivePredicate(includeArchived)};
-            """;
-    }
-
-    private static string GetUserPageSelectSql(bool includeArchived)
-    {
-        return $"""
-            SELECT
-                u.id_user,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
-                u.login AS NameUser,
-                u.role AS NameRole,
-                u.password AS HashPassword,
-                u.date_begin,
-                u.date_end,
-                u.full_name,
-                u.email,
-                COALESCE(u.id_organization, 0) AS OrganizationId
-            FROM public.app_user u
-            LEFT JOIN public.organization o
-                ON u.id_organization = o.id_organization
-            WHERE {GetUserArchivePredicate(includeArchived)}
-            """;
-    }
-
-    private static string GetUserArchivePredicate(bool includeArchived)
-    {
-        return includeArchived
-            ? "u.date_end < CURRENT_DATE"
-            : "(u.date_end IS NULL OR u.date_end >= CURRENT_DATE)";
-    }
-
-    private static string BuildUserOrderBy(string sortBy, string sortDirection)
-    {
-        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
-            ? "DESC"
-            : "ASC";
-        var nulls = "NULLS LAST";
-
-        return sortBy switch
-        {
-            UserListSortFields.Organization =>
-                $"COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') {direction}, u.id_user ASC",
-            UserListSortFields.Role =>
-                $"CASE LOWER(COALESCE(u.role, '')) WHEN 'admin' THEN 'Администратор' WHEN 'administrator' THEN 'Администратор' WHEN 'user' THEN 'Клиент' WHEN 'client' THEN 'Клиент' ELSE COALESCE(u.role, '') END {direction}, u.id_user ASC",
-            UserListSortFields.DateBegin => $"u.date_begin {direction} {nulls}, u.id_user ASC",
-            UserListSortFields.DateEnd => $"u.date_end {direction} {nulls}, u.id_user ASC",
-            _ => $"COALESCE(NULLIF(u.full_name, ''), u.login, '') {direction}, u.id_user ASC"
-        };
-    }
-
-    private IReadOnlyList<SelectionOption> GetOrganizationOptions()
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        return connection.Query<SelectionOption>(
-            """
-            SELECT
-                id_organization AS Id,
-                COALESCE(NULLIF(organization_short_name, ''), organization_name) AS Name
-            FROM public.organization
-            WHERE date_end IS NULL
-               OR date_end >= CURRENT_DATE
-            ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name);
-            """).ToList();
-    }
 
     private static List<User> SortUsers(IEnumerable<User> users, string? sortBy, string? sortDirection)
     {
@@ -677,127 +497,5 @@ public sealed class UserManagementService : IUserManagementService
         }
 
         return builder.ToString();
-    }
-
-    private static IReadOnlyList<string> GetUserAnsweredSurveyNames(
-        global::Npgsql.NpgsqlConnection connection,
-        int userId)
-    {
-        return connection.Query<string>(
-            """
-            SELECT DISTINCT
-                COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
-            FROM (
-                SELECT
-                    audit_raw.changed_by_user_id,
-                    COALESCE(audit_raw.SurveyId, os.id_survey) AS SurveyId,
-                    audit_raw.SignatureValue
-                FROM (
-                    SELECT
-                        changed_by_user_id,
-                        NULL::integer AS SurveyId,
-                        id_organization_survey AS IdOrganizationSurvey,
-                        COALESCE(csp, '') AS SignatureValue
-                    FROM public.answer_l
-                ) audit_raw
-                LEFT JOIN public.organization_survey os
-                    ON os.id_organization_survey = audit_raw.IdOrganizationSurvey
-            ) audit_row
-            LEFT JOIN public.survey s
-                ON s.id_survey = audit_row.SurveyId
-            WHERE audit_row.changed_by_user_id = @userId
-              AND audit_row.SurveyId IS NOT NULL
-              AND audit_row.SignatureValue = ''
-            ORDER BY survey_name;
-            """,
-            new { userId })
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static IReadOnlyList<string> GetUserSignedSurveyNames(
-        global::Npgsql.NpgsqlConnection connection,
-        int userId)
-    {
-        return connection.Query<string>(
-            """
-            SELECT DISTINCT
-                COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
-            FROM (
-                SELECT
-                    audit_raw.changed_by_user_id,
-                    COALESCE(audit_raw.SurveyId, os.id_survey) AS SurveyId,
-                    audit_raw.SignatureValue
-                FROM (
-                    SELECT
-                        changed_by_user_id,
-                        NULL::integer AS SurveyId,
-                        id_organization_survey AS IdOrganizationSurvey,
-                        COALESCE(csp, '') AS SignatureValue
-                    FROM public.answer_l
-                ) audit_raw
-                LEFT JOIN public.organization_survey os
-                    ON os.id_organization_survey = audit_raw.IdOrganizationSurvey
-            ) audit_row
-            LEFT JOIN public.survey s
-                ON s.id_survey = audit_row.SurveyId
-            WHERE audit_row.changed_by_user_id = @userId
-              AND audit_row.SurveyId IS NOT NULL
-              AND audit_row.SignatureValue <> ''
-            ORDER BY survey_name;
-            """,
-            new { userId })
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static class UserQueries
-    {
-        public const string ActiveUsers = """
-            SELECT
-                u.id_user,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
-                u.login AS NameUser,
-                u.role AS NameRole,
-                u.password AS HashPassword,
-                u.date_begin,
-                u.date_end,
-                u.full_name,
-                u.email,
-                COALESCE(u.id_organization, 0) AS OrganizationId
-            FROM public.app_user u
-            LEFT JOIN public.organization o
-                ON u.id_organization = o.id_organization
-            WHERE u.date_end IS NULL OR u.date_end >= CURRENT_DATE
-            ORDER BY COALESCE(u.full_name, u.login), u.id_user;
-            """;
-
-        public const string ArchivedUsers = """
-            SELECT
-                u.id_user,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS organization_name,
-                u.login AS NameUser,
-                u.role AS NameRole,
-                u.password AS HashPassword,
-                u.date_begin,
-                u.date_end,
-                u.full_name,
-                u.email,
-                COALESCE(u.id_organization, 0) AS OrganizationId
-            FROM public.app_user u
-            LEFT JOIN public.organization o
-                ON u.id_organization = o.id_organization
-            WHERE u.date_end < CURRENT_DATE
-            ORDER BY COALESCE(u.full_name, u.login), u.id_user;
-            """;
-    }
-
-    private sealed class UserDeleteCandidate
-    {
-        public int IdUser { get; set; }
-        public string? FullName { get; set; }
-        public string? UserName { get; set; }
     }
 }

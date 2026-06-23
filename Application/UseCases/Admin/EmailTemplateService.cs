@@ -1,10 +1,9 @@
-using Dapper;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using MainProject.Application.Contracts;
+using MainProject.Application.DTO.Configuration;
 using MainProject.Application.DTO.Email;
 using MainProject.Infrastructure.External.Email;
-using MainProject.Infrastructure.Persistence;
 
 namespace MainProject.Application.UseCases.Admin;
 
@@ -12,18 +11,18 @@ public sealed class EmailTemplateService : IEmailTemplateService
 {
     private const int DefaultConfigId = 1;
 
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IEmailConfigRepository _emailConfigRepository;
     private readonly IDataProtector _passwordProtector;
     private readonly SmtpEmailSender _emailSender;
     private readonly ILogger<EmailTemplateService> _logger;
 
     public EmailTemplateService(
-        IDbConnectionFactory connectionFactory,
+        IEmailConfigRepository emailConfigRepository,
         IDataProtectionProvider dataProtectionProvider,
         SmtpEmailSender emailSender,
         ILogger<EmailTemplateService> logger)
     {
-        _connectionFactory = connectionFactory;
+        _emailConfigRepository = emailConfigRepository;
         _passwordProtector = dataProtectionProvider.CreateProtector("MainProject.EmailTemplate.SmtpPassword");
         _emailSender = emailSender;
         _logger = logger;
@@ -31,27 +30,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
 
     public async Task<EmailTemplateSettings> GetAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var row = await connection.QueryFirstOrDefaultAsync<EmailTemplateSettingsRow>(
-            new CommandDefinition(
-                """
-                SELECT
-                    recipient_emails AS To,
-                    subject_text AS Subject,
-                    body_text AS Content,
-                    smtp_host AS SmtpHost,
-                    smtp_port AS SmtpPort,
-                    smtp_enable_ssl AS SmtpEnableSsl,
-                    smtp_user_name AS SmtpUserName,
-                    smtp_password AS SmtpPasswordEncrypted,
-                    from_address AS FromAddress,
-                    from_display_name AS FromDisplayName
-                FROM public.email_config
-                WHERE id_config = @configId
-                LIMIT 1;
-                """,
-                new { configId = DefaultConfigId },
-                cancellationToken: cancellationToken));
+        var row = await _emailConfigRepository.GetAsync(DefaultConfigId, cancellationToken);
 
         if (row == null)
         {
@@ -78,66 +57,22 @@ public sealed class EmailTemplateService : IEmailTemplateService
         var normalized = NormalizeAndValidate(settings);
         var encryptedPassword = EncryptPassword(normalized.SmtpPassword);
 
-        using var connection = _connectionFactory.CreateConnection();
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                INSERT INTO public.email_config
-                (
-                    id_config,
-                    recipient_emails,
-                    subject_text,
-                    body_text,
-                    smtp_host,
-                    smtp_port,
-                    smtp_enable_ssl,
-                    smtp_user_name,
-                    smtp_password,
-                    from_address,
-                    from_display_name
-                )
-                VALUES
-                (
-                    @ConfigId,
-                    @To,
-                    @Subject,
-                    @Content,
-                    @SmtpHost,
-                    @SmtpPort,
-                    @SmtpEnableSsl,
-                    @SmtpUserName,
-                    @SmtpPassword,
-                    @FromAddress,
-                    @FromDisplayName
-                )
-                ON CONFLICT (id_config) DO UPDATE
-                SET
-                    recipient_emails = EXCLUDED.recipient_emails,
-                    subject_text = EXCLUDED.subject_text,
-                    body_text = EXCLUDED.body_text,
-                    smtp_host = EXCLUDED.smtp_host,
-                    smtp_port = EXCLUDED.smtp_port,
-                    smtp_enable_ssl = EXCLUDED.smtp_enable_ssl,
-                    smtp_user_name = EXCLUDED.smtp_user_name,
-                    smtp_password = EXCLUDED.smtp_password,
-                    from_address = EXCLUDED.from_address,
-                    from_display_name = EXCLUDED.from_display_name;
-                """,
-                new
-                {
-                    ConfigId = DefaultConfigId,
-                    normalized.To,
-                    normalized.Subject,
-                    normalized.Content,
-                    normalized.SmtpHost,
-                    normalized.SmtpPort,
-                    normalized.SmtpEnableSsl,
-                    normalized.SmtpUserName,
-                    SmtpPassword = encryptedPassword,
-                    normalized.FromAddress,
-                    normalized.FromDisplayName
-                },
-                cancellationToken: cancellationToken));
+        await _emailConfigRepository.SaveAsync(
+            DefaultConfigId,
+            new EmailConfigRecord
+            {
+                To = normalized.To,
+                Subject = normalized.Subject,
+                Content = normalized.Content,
+                SmtpHost = normalized.SmtpHost,
+                SmtpPort = normalized.SmtpPort,
+                SmtpEnableSsl = normalized.SmtpEnableSsl,
+                SmtpUserName = normalized.SmtpUserName,
+                SmtpPasswordEncrypted = encryptedPassword,
+                FromAddress = normalized.FromAddress,
+                FromDisplayName = normalized.FromDisplayName
+            },
+            cancellationToken);
     }
 
     public Task<int> SendAsync(EmailTemplateSettings settings, CancellationToken cancellationToken = default)
@@ -248,17 +183,4 @@ public sealed class EmailTemplateService : IEmailTemplateService
         }
     }
 
-    private sealed class EmailTemplateSettingsRow
-    {
-        public string To { get; init; } = string.Empty;
-        public string Subject { get; init; } = string.Empty;
-        public string Content { get; init; } = string.Empty;
-        public string SmtpHost { get; init; } = string.Empty;
-        public int SmtpPort { get; init; }
-        public bool SmtpEnableSsl { get; init; }
-        public string SmtpUserName { get; init; } = string.Empty;
-        public string SmtpPasswordEncrypted { get; init; } = string.Empty;
-        public string FromAddress { get; init; } = string.Empty;
-        public string FromDisplayName { get; init; } = string.Empty;
-    }
 }

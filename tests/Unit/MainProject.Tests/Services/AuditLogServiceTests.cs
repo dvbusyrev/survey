@@ -1,8 +1,8 @@
 using MainProject.Application.UseCases.Admin;
+using MainProject.Application.DTO.Audit;
+using MainProject.Application.Contracts;
 using MainProject.Domain.Entities;
-using MainProject.Infrastructure.Persistence;
 using Newtonsoft.Json.Linq;
-using Npgsql;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -94,7 +94,7 @@ public sealed class AuditLogServiceTests
     [Fact]
     public void GenerateLogText_FormatsUpdateEntryWithChangedAttributes()
     {
-        var service = new AuditLogService(new ThrowingDbConnectionFactory());
+        var service = new AuditLogService(new ThrowingAuditLogRepository());
         var log = new Log
         {
             IdLog = 12,
@@ -141,7 +141,7 @@ public sealed class AuditLogServiceTests
     [Fact]
     public void GenerateLogText_ExplainsWhyChangedAttributesAreUnavailable()
     {
-        var service = new AuditLogService(new ThrowingDbConnectionFactory());
+        var service = new AuditLogService(new ThrowingAuditLogRepository());
         var log = new Log
         {
             IdLog = 13,
@@ -171,7 +171,7 @@ public sealed class AuditLogServiceTests
     [Fact]
     public void GenerateLogText_FormatsChainEntryAsStructuredBlock()
     {
-        var service = new AuditLogService(new ThrowingDbConnectionFactory());
+        var service = new AuditLogService(new ThrowingAuditLogRepository());
         var logs = new List<Log>
         {
             BuildAuditLog(1, "survey", "INSERT", new DateTime(2026, 4, 20, 14, 30, 15), "7", new JObject
@@ -205,7 +205,7 @@ public sealed class AuditLogServiceTests
     public void GenerateLogText_NormalizesLegacyOrganizationIdentifiersAndDeduplicatesChainItems()
     {
         var changedAt = new DateTime(2026, 4, 20, 14, 30, 15);
-        var service = new AuditLogService(new ThrowingDbConnectionFactory());
+        var service = new AuditLogService(new ThrowingAuditLogRepository());
         var logs = new List<Log>
         {
             BuildAuditLog(1, "survey", "UPDATE", changedAt, "3", new JObject
@@ -242,12 +242,22 @@ public sealed class AuditLogServiceTests
         Assert.Single(Regex.Matches(result, "- organization_survey: 2 \\(ID: 2\\)").Cast<Match>());
     }
 
-    private sealed class ThrowingDbConnectionFactory : IDbConnectionFactory
+    private sealed class ThrowingAuditLogRepository : IAuditLogRepository
     {
-        public NpgsqlConnection CreateConnection()
-        {
-            throw new NotSupportedException("Database access is not used in these tests.");
-        }
+        public int GetEventCount()
+            => throw new NotSupportedException("Database access is not used in these tests.");
+
+        public AuditLogReadResult GetPage(int currentPage, int pageSize, string sortBy, string sortDirection, bool includeDetails)
+            => throw new NotSupportedException("Database access is not used in these tests.");
+
+        public AuditLogReadResult GetDetails(long idAudit, string? sourceTable)
+            => throw new NotSupportedException("Database access is not used in these tests.");
+
+        public AuditLogReadResult GetAll()
+            => throw new NotSupportedException("Database access is not used in these tests.");
+
+        public AuditAnswerContext? GetAnswerContext(int? organizationSurveyId, int? answerId)
+            => throw new NotSupportedException("Database access is not used in these tests.");
     }
 
     private static string? InvokeBuildAuditSql(IReadOnlyCollection<string> availableAuditTables)

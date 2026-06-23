@@ -28,7 +28,6 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
 
         AttachMatchingDraftSignature(answerRecord);
         _answerDataService.InsertAnswerRecord(answerRecord);
-        _answerDataService.DeleteDraftRecord(answerRecord.IdSurvey, answerRecord.OrganizationId);
 
         var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
         if (model == null)

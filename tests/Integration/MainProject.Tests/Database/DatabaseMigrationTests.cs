@@ -33,6 +33,8 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 024_add_theme_palette_controls.sql", script);
         Assert.Contains(@"\ir 025_add_answer_drafts.sql", script);
         Assert.Contains(@"\ir 026_rebuild_audit_tables_as_structured_snapshots.sql", script);
+        Assert.Contains(@"\ir 027_store_theme_background_image_blob.sql", script);
+        Assert.Contains(@"\ir 028_remove_legacy_theme_columns.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -246,6 +248,18 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("DROP COLUMN IF EXISTS row_data", script);
         Assert.Contains("EXECUTE FUNCTION public.write_crud_audit('id_config', 'id_survey')", script);
         Assert.Contains("VALUES ('026', 'rebuild_audit_tables_as_structured_snapshots')", script);
+    }
+
+    [Fact]
+    public void ThemeCleanupMigration_RemovesOnlyLegacyThemeColumns()
+    {
+        var script = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "028_remove_legacy_theme_columns.sql"));
+
+        Assert.Contains("ALTER TABLE public.theme_config", script);
+        Assert.Contains("ALTER TABLE public.theme_config_l", script);
+        Assert.Contains("DROP COLUMN IF EXISTS gradient_enabled", script);
+        Assert.Contains("DROP COLUMN IF EXISTS background_image_data_url", script);
+        Assert.Contains("VALUES ('028', 'remove_legacy_theme_columns')", script);
     }
 
     [Fact]
