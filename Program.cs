@@ -301,36 +301,37 @@ app.Use(async (context, next) =>
     }
 });
 
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        var payload = ApiErrorResponse.Create(context, "Произошла внутренняя ошибка сервера.");
+        var logger = context.RequestServices
+            .GetRequiredService<ILoggerFactory>()
+            .CreateLogger("UnhandledRequest");
+
+        if (exception != null)
+        {
+            logger.LogError(exception, "Необработанная ошибка запроса. TraceId: {TraceId}", payload.TraceId);
+        }
+
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "text/plain; charset=utf-8";
+
+        if (IsApiRequest(context.Request))
+        {
+            context.Response.ContentType = "application/json; charset=utf-8";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
+            return;
+        }
+
+        await context.Response.WriteAsync($"Произошла внутренняя ошибка сервера. Trace ID: {payload.TraceId}");
+    });
+});
+
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler(errorApp =>
-    {
-        errorApp.Run(async context =>
-        {
-            var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-            var payload = ApiErrorResponse.Create(context, "Произошла внутренняя ошибка сервера.");
-            var logger = context.RequestServices
-                .GetRequiredService<ILoggerFactory>()
-                .CreateLogger("UnhandledRequest");
-
-            if (exception != null)
-            {
-                logger.LogError(exception, "Необработанная ошибка запроса. TraceId: {TraceId}", payload.TraceId);
-            }
-
-            context.Response.StatusCode = 500;
-            context.Response.ContentType = "text/plain; charset=utf-8";
-
-            if (IsApiRequest(context.Request))
-            {
-                context.Response.ContentType = "application/json; charset=utf-8";
-                await context.Response.WriteAsync(JsonSerializer.Serialize(payload));
-                return;
-            }
-
-            await context.Response.WriteAsync($"Произошла внутренняя ошибка сервера. Trace ID: {payload.TraceId}");
-        });
-    });
     app.UseHsts();
 }
 

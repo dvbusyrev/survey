@@ -8,6 +8,22 @@ Apply schema changes explicitly with PostgreSQL tooling:
 /opt/homebrew/opt/postgresql@18/bin/psql -d survey_recovered -f db/migrations/000_apply_all.sql
 ```
 
+Windows PowerShell:
+
+```powershell
+.\scripts\apply-migrations.ps1 -ConnectionString "Host=localhost;Port=5432;Database=survey_recovered;Username=postgres;Password=postgres"
+```
+
+If `psql` is not available in `PATH`, pass its full path:
+
+```powershell
+.\scripts\apply-migrations.ps1 -Psql "C:\Program Files\PostgreSQL\16\bin\psql.exe" -ConnectionString "Host=localhost;Port=5432;Database=survey_recovered;Username=postgres;Password=postgres"
+```
+
+If the application log contains errors like `relation "public.app_user" does not exist`
+or `relation "public.theme_config" does not exist`, the application is connected to a
+database where migrations have not been applied yet, or to the wrong database.
+
 What this does:
 
 - creates `public.schema_migrations` if needed
