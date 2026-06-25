@@ -42,19 +42,31 @@ public sealed class AuditLogService : IAuditLogService
         _auditLogRepository = auditLogRepository;
     }
 
-    public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
+    public Task<AuditLogPageViewModel> GetLogsPageAsync(
+        int currentPage,
+        int pageSize,
+        string? sortBy,
+        string? sortDirection,
+        CancellationToken cancellationToken = default)
     {
-        return GetLogsPageInternal(currentPage, pageSize, sortBy, sortDirection, stripDetails: true);
+        return GetLogsPageInternalAsync(currentPage, pageSize, sortBy, sortDirection, stripDetails: true, cancellationToken);
     }
 
-    public Log? GetLogDetails(long idLog, string? sourceTable, int currentPage, int pageSize, string? sortBy, string? sortDirection)
+    public async Task<Log?> GetLogDetailsAsync(
+        long idLog,
+        string? sourceTable,
+        int currentPage,
+        int pageSize,
+        string? sortBy,
+        string? sortDirection,
+        CancellationToken cancellationToken = default)
     {
         if (idLog <= 0)
         {
             return null;
         }
 
-        var result = _auditLogRepository.GetDetails(idLog, sourceTable);
+        var result = await _auditLogRepository.GetDetailsAsync(idLog, sourceTable, cancellationToken);
         if (result.Rows.Count == 0)
         {
             return null;
@@ -64,18 +76,19 @@ public sealed class AuditLogService : IAuditLogService
         var log = logs.FirstOrDefault(log => log.IdLog == idLog) ?? logs.FirstOrDefault();
         if (log != null)
         {
-            EnrichAnswerContext(log);
+            await EnrichAnswerContextAsync(log, cancellationToken);
         }
 
         return log;
     }
 
-    private AuditLogPageViewModel GetLogsPageInternal(
+    private async Task<AuditLogPageViewModel> GetLogsPageInternalAsync(
         int currentPage,
         int pageSize,
         string? sortBy,
         string? sortDirection,
-        bool stripDetails)
+        bool stripDetails,
+        CancellationToken cancellationToken)
     {
         var normalizedPageSize = pageSize > 0 ? pageSize : AppListPaging.DefaultPageSize;
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
@@ -83,17 +96,18 @@ public sealed class AuditLogService : IAuditLogService
         var normalizedSortDirection = hasExplicitSort
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeSortDirection(null, normalizedSortBy);
-        var totalCount = _auditLogRepository.GetEventCount();
+        var totalCount = await _auditLogRepository.GetEventCountAsync(cancellationToken);
         var totalPages = totalCount == 0
             ? 1
             : (int)Math.Ceiling((double)totalCount / normalizedPageSize);
         var normalizedPage = Math.Clamp(currentPage, 1, totalPages);
-        var pageRead = _auditLogRepository.GetPage(
+        var pageRead = await _auditLogRepository.GetPageAsync(
             normalizedPage,
             normalizedPageSize,
             normalizedSortBy,
             normalizedSortDirection,
-            includeDetails: !stripDetails);
+            includeDetails: !stripDetails,
+            cancellationToken);
         var pageLogs = SortLogsForPage(
                 MapAuditRows(pageRead.Rows, pageRead.SourceColumnOrders, reconstructPreviousSnapshots: false),
                 normalizedSortBy,
@@ -118,9 +132,9 @@ public sealed class AuditLogService : IAuditLogService
         };
     }
 
-    public IReadOnlyList<Log> GetLogs()
+    public async Task<IReadOnlyList<Log>> GetLogsAsync(CancellationToken cancellationToken = default)
     {
-        var result = _auditLogRepository.GetAll();
+        var result = await _auditLogRepository.GetAllAsync(cancellationToken);
         var groupedLogs = MapAuditRows(result.Rows, result.SourceColumnOrders, reconstructPreviousSnapshots: true);
         AssignDisplayLogIds(groupedLogs);
 
@@ -307,7 +321,7 @@ public sealed class AuditLogService : IAuditLogService
 
     private static string GetDescriptionValue(Log log) => string.IsNullOrWhiteSpace(log.Description) ? "—" : log.Description!;
 
-    private void EnrichAnswerContext(Log log)
+    private async Task EnrichAnswerContextAsync(Log log, CancellationToken cancellationToken)
     {
         if (log.ExtraData is not JObject details)
         {
@@ -327,7 +341,10 @@ public sealed class AuditLogService : IAuditLogService
         var answerId = int.TryParse(idAnswer, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedAnswerId)
             ? parsedAnswerId
             : (int?)null;
-        var context = _auditLogRepository.GetAnswerContext(organizationSurveyId, answerId);
+        var context = await _auditLogRepository.GetAnswerContextAsync(
+            organizationSurveyId,
+            answerId,
+            cancellationToken);
 
         if (context == null)
         {

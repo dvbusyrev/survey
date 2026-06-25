@@ -1,7 +1,6 @@
-using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
-using MainProject.Infrastructure.Persistence;
+using MainProject.Application.DTO.Read;
 using MainProject.Infrastructure.Security;
 using Microsoft.AspNetCore.Identity;
 
@@ -9,32 +8,20 @@ namespace MainProject.Application.UseCases;
 
 public sealed class AuthService : IAuthService
 {
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IAuthRepository _authRepository;
     private static readonly PasswordHasher<string> PasswordHasher = new();
 
-    public AuthService(IDbConnectionFactory connectionFactory)
+    public AuthService(IAuthRepository authRepository)
     {
-        _connectionFactory = connectionFactory;
+        _authRepository = authRepository;
     }
 
-    public LoginResult Authenticate(string username, string password)
+    public async Task<LoginResult> AuthenticateAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        var user = connection.QueryFirstOrDefault<AuthUserRow>(
-            """
-            SELECT
-                u.id_user AS UserId,
-                u.role AS Role,
-                u.login AS UserName,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS OrganizationName,
-                u.password AS PasswordHash
-            FROM public.app_user u
-            LEFT JOIN public.organization o
-                ON u.id_organization = o.id_organization
-            WHERE u.login = @username;
-            """,
-            new { username });
+        var user = await _authRepository.GetByLoginAsync(username, cancellationToken);
 
         if (user == null)
         {
@@ -70,17 +57,10 @@ public sealed class AuthService : IAuthService
 
         if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
         {
-            connection.Execute(
-                """
-                UPDATE public.app_user
-                SET password = @hash
-                WHERE id_user = @id;
-                """,
-                new
-                {
-                    id = user.UserId,
-                    hash = PasswordHasher.HashPassword(user.UserName, password)
-                });
+            await _authRepository.UpdatePasswordHashAsync(
+                user.UserId,
+                PasswordHasher.HashPassword(user.UserName, password),
+                cancellationToken);
         }
 
         return new LoginResult
@@ -115,14 +95,5 @@ public sealed class AuthService : IAuthService
         }
 
         return PasswordVerificationResult.Failed;
-    }
-
-    private sealed class AuthUserRow
-    {
-        public int UserId { get; init; }
-        public string Role { get; init; } = string.Empty;
-        public string UserName { get; init; } = string.Empty;
-        public string OrganizationName { get; init; } = string.Empty;
-        public string PasswordHash { get; init; } = string.Empty;
     }
 }

@@ -1,0 +1,18 @@
+[Unit]
+Description=AIS Anketirovanie PostgreSQL restore verification
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ais-anketirovanie
+Group=ais-anketirovanie
+EnvironmentFile=/etc/ais-anketirovanie/backup.env
+Environment=GNUPGHOME=/var/lib/ais-anketirovanie/gnupg
+WorkingDirectory=/opt/ais-anketirovanie
+ExecStart=/usr/bin/env bash /opt/ais-anketirovanie/scripts/verify-postgres-backup.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/ais-anketirovanie /var/lib/ais-anketirovanie/gnupg

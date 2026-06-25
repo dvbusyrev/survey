@@ -15,6 +15,7 @@ const TABLE_SELECTOR = [
     '.answers-table',
     '.logs-table'
 ].join(', ');
+const headerHandlers = new WeakMap();
 
 function normalizeText(value) {
     return String(value || '')
@@ -58,7 +59,7 @@ function activateSortLink(link) {
 
 function bindServerSortHeader(header) {
     if (header.dataset.sortReady === 'true' || !isSortableHeader(header)) {
-        return;
+        return null;
     }
 
     const link = header.querySelector('a[href]');
@@ -71,23 +72,37 @@ function bindServerSortHeader(header) {
         header.setAttribute('aria-sort', 'none');
     }
 
-    header.addEventListener('click', (event) => {
+    const onClick = (event) => {
         if (event.target.closest('a[href], button, input, select, textarea, label')) {
             return;
         }
 
         event.preventDefault();
         activateSortLink(link);
-    });
+    };
 
-    header.addEventListener('keydown', (event) => {
+    const onKeydown = (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') {
             return;
         }
 
         event.preventDefault();
         activateSortLink(link);
-    });
+    };
+
+    header.addEventListener('click', onClick);
+    header.addEventListener('keydown', onKeydown);
+    const cleanup = () => {
+        header.removeEventListener('click', onClick);
+        header.removeEventListener('keydown', onKeydown);
+        headerHandlers.delete(header);
+        header.removeAttribute('data-sort-ready');
+        header.removeAttribute('tabindex');
+        header.removeAttribute('role');
+        header.removeAttribute('aria-sort');
+    };
+    headerHandlers.set(header, cleanup);
+    return cleanup;
 }
 
 function mountSortableTable(table) {
@@ -103,12 +118,18 @@ function mountSortableTable(table) {
         .filter(isSortableHeader);
 
     if (headers.length === 0) {
-        table.dataset.columnSortMounted = 'skipped';
-        return;
+        return null;
     }
 
-    headers.forEach(bindServerSortHeader);
+    const cleanups = headers
+        .map(bindServerSortHeader)
+        .filter((cleanup) => typeof cleanup === 'function');
     table.dataset.columnSortMounted = 'server';
+
+    return () => {
+        cleanups.forEach((cleanup) => cleanup());
+        table.removeAttribute('data-column-sort-mounted');
+    };
 }
 
 function mountSortableTables(root = document) {
@@ -125,42 +146,17 @@ function mountSortableTables(root = document) {
     });
 }
 
-function observeTables() {
-    if (!document.body || typeof MutationObserver === 'undefined') {
-        return;
-    }
-
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (!(node instanceof Element)) {
-                    return;
-                }
-
-                if (node.matches?.(TABLE_SELECTOR)) {
-                    mountSortableTable(node);
-                }
-
-                mountSortableTables(node);
-            });
-        });
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-}
-
 window.mountSortableTables = mountSortableTables;
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        mountSortableTables(document);
-        observeTables();
-    }, { once: true });
+if (window.AppPageLifecycle?.register) {
+    window.AppPageLifecycle.register(
+        'table-server-sort',
+        TABLE_SELECTOR,
+        mountSortableTable
+    );
+} else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => mountSortableTables(document), { once: true });
 } else {
     mountSortableTables(document);
-    observeTables();
 }
 })();

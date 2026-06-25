@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.Extensions.Logging;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO.Configuration;
 using MainProject.Application.DTO.Email;
@@ -12,20 +10,14 @@ public sealed class EmailTemplateService : IEmailTemplateService
     private const int DefaultConfigId = 1;
 
     private readonly IEmailConfigRepository _emailConfigRepository;
-    private readonly IDataProtector _passwordProtector;
     private readonly SmtpEmailSender _emailSender;
-    private readonly ILogger<EmailTemplateService> _logger;
 
     public EmailTemplateService(
         IEmailConfigRepository emailConfigRepository,
-        IDataProtectionProvider dataProtectionProvider,
-        SmtpEmailSender emailSender,
-        ILogger<EmailTemplateService> logger)
+        SmtpEmailSender emailSender)
     {
         _emailConfigRepository = emailConfigRepository;
-        _passwordProtector = dataProtectionProvider.CreateProtector("MainProject.EmailTemplate.SmtpPassword");
         _emailSender = emailSender;
-        _logger = logger;
     }
 
     public async Task<EmailTemplateSettings> GetAsync(CancellationToken cancellationToken = default)
@@ -46,7 +38,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
             SmtpPort = row.SmtpPort > 0 ? row.SmtpPort : 587,
             SmtpEnableSsl = row.SmtpEnableSsl,
             SmtpUserName = row.SmtpUserName ?? string.Empty,
-            SmtpPassword = DecryptPassword(row.SmtpPasswordEncrypted),
+            SmtpPassword = row.SmtpPassword ?? string.Empty,
             FromAddress = row.FromAddress ?? string.Empty,
             FromDisplayName = row.FromDisplayName ?? string.Empty
         };
@@ -55,8 +47,6 @@ public sealed class EmailTemplateService : IEmailTemplateService
     public async Task SaveAsync(EmailTemplateSettings settings, CancellationToken cancellationToken = default)
     {
         var normalized = NormalizeAndValidate(settings);
-        var encryptedPassword = EncryptPassword(normalized.SmtpPassword);
-
         await _emailConfigRepository.SaveAsync(
             DefaultConfigId,
             new EmailConfigRecord
@@ -68,7 +58,7 @@ public sealed class EmailTemplateService : IEmailTemplateService
                 SmtpPort = normalized.SmtpPort,
                 SmtpEnableSsl = normalized.SmtpEnableSsl,
                 SmtpUserName = normalized.SmtpUserName,
-                SmtpPasswordEncrypted = encryptedPassword,
+                SmtpPassword = normalized.SmtpPassword,
                 FromAddress = normalized.FromAddress,
                 FromDisplayName = normalized.FromDisplayName
             },
@@ -156,31 +146,6 @@ public sealed class EmailTemplateService : IEmailTemplateService
         }
 
         return normalized;
-    }
-
-    private string EncryptPassword(string password)
-    {
-        return string.IsNullOrWhiteSpace(password)
-            ? string.Empty
-            : _passwordProtector.Protect(password);
-    }
-
-    private string DecryptPassword(string? encryptedPassword)
-    {
-        if (string.IsNullOrWhiteSpace(encryptedPassword))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            return _passwordProtector.Unprotect(encryptedPassword);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Не удалось расшифровать сохранённый SMTP пароль.");
-            return string.Empty;
-        }
     }
 
 }

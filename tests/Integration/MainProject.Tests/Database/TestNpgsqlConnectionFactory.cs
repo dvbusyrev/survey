@@ -5,10 +5,10 @@ namespace MainProject.Tests.Integration.Database;
 
 internal sealed class TestNpgsqlConnectionFactory(PostgreSqlIntegrationFixture fixture) : IDbConnectionFactory
 {
-    public NpgsqlConnection CreateConnection()
+    public async Task<NpgsqlConnection> CreateConnectionAsync(CancellationToken cancellationToken = default)
     {
         var connection = fixture.CreateConnection();
-        connection.Open();
+        await connection.OpenAsync(cancellationToken);
         return connection;
     }
 }

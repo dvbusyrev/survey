@@ -8,9 +8,18 @@ namespace MainProject.Infrastructure.Persistence;
 
 public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
 {
-    public IReadOnlyList<Survey> GetActiveSurveySummaries(NpgsqlConnection connection)
+    private readonly IClock _clock;
+
+    public SurveyAssignmentRepository(IClock clock)
     {
-        return connection.Query<Survey>(
+        _clock = clock;
+    }
+
+    public async Task<IReadOnlyList<Survey>> GetActiveSurveySummariesAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default)
+    {
+        var surveys = await connection.QueryAsync<Survey>(new CommandDefinition(
             """
             SELECT
                 survey.id_survey AS IdSurvey,
@@ -37,20 +46,26 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                 SELECT 1
                 FROM public.organization_survey assignment
                 WHERE assignment.id_survey = survey.id_survey
-                  AND (assignment.date_end IS NULL OR assignment.date_end >= CURRENT_DATE)
+                  AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
             )
             ORDER BY survey.id_survey DESC;
-            """).ToList();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return surveys.AsList();
     }
 
-    public Survey? GetSurveyWithSchedule(NpgsqlConnection connection, int surveyId)
+    public Task<Survey?> GetSurveyWithScheduleAsync(
+        NpgsqlConnection connection,
+        int surveyId,
+        CancellationToken cancellationToken = default)
     {
-        return connection.QueryFirstOrDefault<Survey>(
+        return connection.QueryFirstOrDefaultAsync<Survey>(new CommandDefinition(
             """
             SELECT
                 survey.id_survey AS IdSurvey,
                 survey.name_survey AS NameSurvey,
-                COALESCE(schedule.date_begin, CURRENT_DATE) AS DateBegin,
+                COALESCE(schedule.date_begin, @Today) AS DateBegin,
                 schedule.date_end AS DateEnd,
                 survey.description AS Description
             FROM public.survey survey
@@ -58,21 +73,23 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                 ON schedule.id_survey = survey.id_survey
             WHERE survey.id_survey = @SurveyId;
             """,
-            new { SurveyId = surveyId });
+            new { SurveyId = surveyId, Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<OrganizationSelectionItem> GetAvailableOrganizationsForSurvey(
+    public async Task<IReadOnlyList<OrganizationSelectionItem>> GetAvailableOrganizationsForSurveyAsync(
         NpgsqlConnection connection,
-        int surveyId)
+        int surveyId,
+        CancellationToken cancellationToken = default)
     {
-        return connection.Query<OrganizationSelectionItem>(
+        var organizations = await connection.QueryAsync<OrganizationSelectionItem>(new CommandDefinition(
             """
             SELECT
                 organization.id_organization AS Id,
                 COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS Name
             FROM public.organization organization
             WHERE organization.date_end IS NULL
-               OR organization.date_end >= CURRENT_DATE
+               OR organization.date_end >= @Today
                OR organization.id_organization IN (
                     SELECT id_organization
                     FROM public.organization_survey
@@ -80,14 +97,17 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                )
             ORDER BY COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name);
             """,
-            new { SurveyId = surveyId }).ToList();
+            new { SurveyId = surveyId, Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return organizations.AsList();
     }
 
-    public IReadOnlyList<OrganizationSelectionItem> GetSelectedOrganizationsForSurvey(
+    public async Task<IReadOnlyList<OrganizationSelectionItem>> GetSelectedOrganizationsForSurveyAsync(
         NpgsqlConnection connection,
-        int surveyId)
+        int surveyId,
+        CancellationToken cancellationToken = default)
     {
-        return connection.Query<OrganizationSelectionItem>(
+        var organizations = await connection.QueryAsync<OrganizationSelectionItem>(new CommandDefinition(
             """
             SELECT
                 organization.id_organization AS Id,
@@ -98,21 +118,24 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             WHERE assignment.id_survey = @SurveyId
             ORDER BY COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name);
             """,
-            new { SurveyId = surveyId }).ToList();
+            new { SurveyId = surveyId },
+            cancellationToken: cancellationToken));
+        return organizations.AsList();
     }
 
-    public int UpdateActiveSurveyPeriod(
+    public Task<int> UpdateActiveSurveyPeriodAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         DateTime dateBegin,
-        DateTime dateEnd)
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default)
     {
-        return connection.ExecuteScalar<int>(
+        return connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
             WITH active_survey AS (
                 SELECT DISTINCT id_survey
                 FROM public.organization_survey
-                WHERE date_end IS NULL OR date_end >= CURRENT_DATE
+                WHERE date_end IS NULL OR date_end >= @Today
             ),
             updated AS (
                 UPDATE public.organization_survey assignment
@@ -129,14 +152,18 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             new
             {
                 DateBegin = dateBegin.Date,
-                DateEnd = dateEnd.Date
+                DateEnd = dateEnd.Date,
+                Today = _clock.Today.Date
             },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<ArchivedSurvey> GetAdminArchivedSurveySummaries(NpgsqlConnection connection)
+    public async Task<IReadOnlyList<ArchivedSurvey>> GetAdminArchivedSurveySummariesAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default)
     {
-        return connection.Query<ArchivedSurvey>(
+        var surveys = await connection.QueryAsync<ArchivedSurvey>(new CommandDefinition(
             """
             SELECT
                 survey.id_survey AS IdSurvey,
@@ -177,10 +204,13 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                     SELECT 1
                     FROM public.organization_survey active_assignment
                     WHERE active_assignment.id_survey = survey.id_survey
-                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= CURRENT_DATE)
+                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                 )
             ORDER BY survey.id_survey DESC;
-            """).ToList();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return surveys.AsList();
     }
 
     public async Task<ArchivedSurvey?> GetArchivedSurveyForCopyAsync(
@@ -218,44 +248,51 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                       SELECT 1
                       FROM public.organization_survey active_assignment
                       WHERE active_assignment.id_survey = survey.id_survey
-                        AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= CURRENT_DATE)
+                        AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                   );
                 """,
-                new { SurveyId = surveyId },
+                new { SurveyId = surveyId, Today = _clock.Today.Date },
                 transaction,
                 cancellationToken: cancellationToken));
     }
 
-    public int CountActiveSurveys(NpgsqlConnection connection, IReadOnlyCollection<int> organizationIds)
+    public Task<int> CountActiveSurveysAsync(
+        NpgsqlConnection connection,
+        IReadOnlyCollection<int> organizationIds,
+        CancellationToken cancellationToken = default)
     {
         var parameters = new
         {
             OrganizationIds = organizationIds.ToArray(),
-            HasOrganizationFilter = organizationIds.Count > 0
+            HasOrganizationFilter = organizationIds.Count > 0,
+            Today = _clock.Today.Date
         };
 
-        return connection.ExecuteScalar<int>(
+        return connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"{ActiveSurveyRowsCte} SELECT COUNT(*) FROM survey_rows WHERE {ActiveSurveyFilterPredicate};",
-            parameters);
+            parameters,
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<SurveyAssignmentTableRow> GetActiveSurveyPage(
+    public async Task<IReadOnlyList<SurveyAssignmentTableRow>> GetActiveSurveyPageAsync(
         NpgsqlConnection connection,
         IReadOnlyCollection<int> organizationIds,
         string sortBy,
         string sortDirection,
         int pageSize,
-        int offset)
+        int offset,
+        CancellationToken cancellationToken = default)
     {
         var parameters = new
         {
             OrganizationIds = organizationIds.ToArray(),
             HasOrganizationFilter = organizationIds.Count > 0,
             PageSize = pageSize,
-            Offset = offset
+            Offset = offset,
+            Today = _clock.Today.Date
         };
 
-        return connection.Query<SurveyAssignmentTableRow>(
+        var rows = await connection.QueryAsync<SurveyAssignmentTableRow>(new CommandDefinition(
             $"""
             {ActiveSurveyRowsCte}
             SELECT
@@ -270,12 +307,16 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             ORDER BY {BuildOrderBy(sortBy, sortDirection)}
             LIMIT @PageSize OFFSET @Offset;
             """,
-            parameters).ToArray();
+            parameters,
+            cancellationToken: cancellationToken));
+        return rows.AsList();
     }
 
-    public IReadOnlyList<SelectionOption> GetActiveOrganizationOptions(NpgsqlConnection connection)
+    public async Task<IReadOnlyList<SelectionOption>> GetActiveOrganizationOptionsAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default)
     {
-        return connection.Query<SelectionOption>(
+        var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             """
             SELECT DISTINCT
                 o.id_organization AS Id,
@@ -287,25 +328,30 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                 SELECT 1
                 FROM public.organization_survey active_assignment
                 WHERE active_assignment.id_survey = os.id_survey
-                  AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= CURRENT_DATE)
+                  AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
             );
-            """).ToArray();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return options.AsList();
     }
 
-    public int CountArchivedSurveys(
+    public Task<int> CountArchivedSurveysAsync(
         NpgsqlConnection connection,
         IReadOnlyCollection<int> organizationIds,
         IReadOnlyCollection<int> surveyIds,
         DateTime? dateStart,
-        DateTime? dateEnd)
+        DateTime? dateEnd,
+        CancellationToken cancellationToken = default)
     {
         var parameters = BuildArchivedParameters(organizationIds, surveyIds, dateStart, dateEnd);
-        return connection.ExecuteScalar<int>(
+        return connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"{ArchivedSurveyRowsCte} SELECT COUNT(*) FROM survey_rows WHERE {ArchivedSurveyFilterPredicate};",
-            parameters);
+            parameters,
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<SurveyAssignmentTableRow> GetArchivedSurveyPage(
+    public async Task<IReadOnlyList<SurveyAssignmentTableRow>> GetArchivedSurveyPageAsync(
         NpgsqlConnection connection,
         IReadOnlyCollection<int> organizationIds,
         IReadOnlyCollection<int> surveyIds,
@@ -314,13 +360,14 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
         string sortBy,
         string sortDirection,
         int pageSize,
-        int offset)
+        int offset,
+        CancellationToken cancellationToken = default)
     {
         var parameters = BuildArchivedParameters(organizationIds, surveyIds, dateStart, dateEnd);
         parameters.Add("PageSize", pageSize);
         parameters.Add("Offset", offset);
 
-        return connection.Query<SurveyAssignmentTableRow>(
+        var rows = await connection.QueryAsync<SurveyAssignmentTableRow>(new CommandDefinition(
             $"""
             {ArchivedSurveyRowsCte}
             SELECT
@@ -335,12 +382,16 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             ORDER BY {BuildOrderBy(sortBy, sortDirection)}
             LIMIT @PageSize OFFSET @Offset;
             """,
-            parameters).ToArray();
+            parameters,
+            cancellationToken: cancellationToken));
+        return rows.AsList();
     }
 
-    public IReadOnlyList<SelectionOption> GetArchivedOrganizationOptions(NpgsqlConnection connection)
+    public async Task<IReadOnlyList<SelectionOption>> GetArchivedOrganizationOptionsAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default)
     {
-        return connection.Query<SelectionOption>(
+        var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             """
             SELECT DISTINCT
                 o.id_organization AS Id,
@@ -364,56 +415,71 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                     SELECT 1
                     FROM public.organization_survey active_assignment
                     WHERE active_assignment.id_survey = os.id_survey
-                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= CURRENT_DATE)
+                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                 );
-            """).ToArray();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return options.AsList();
     }
 
-    public IReadOnlyList<SelectionOption> GetArchivedSurveyOptions(NpgsqlConnection connection)
+    public async Task<IReadOnlyList<SelectionOption>> GetArchivedSurveyOptionsAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default)
     {
-        return connection.Query<SelectionOption>(
+        var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             $"""
             {ArchivedSurveyRowsCte}
             SELECT
                 id_survey AS Id,
                 name_survey AS Name
             FROM survey_rows;
-            """).ToArray();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return options.AsList();
     }
 
-    public int? GetUserOrganizationId(NpgsqlConnection connection, int userId)
-    {
-        return connection.ExecuteScalar<int?>(
+    public Task<int?> GetUserOrganizationIdAsync(
+        NpgsqlConnection connection,
+        int userId,
+        CancellationToken cancellationToken = default) =>
+        connection.ExecuteScalarAsync<int?>(new CommandDefinition(
             "SELECT id_organization FROM public.app_user WHERE id_user = @UserId;",
-            new { UserId = userId });
-    }
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
 
-    public bool IsActiveAssignment(NpgsqlConnection connection, int surveyId, int organizationId)
-    {
-        return connection.ExecuteScalar<bool>(
+    public Task<bool> IsActiveAssignmentAsync(
+        NpgsqlConnection connection,
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default) =>
+        connection.ExecuteScalarAsync<bool>(new CommandDefinition(
             """
             SELECT EXISTS (
                 SELECT 1
                 FROM public.organization_survey assignment
                 WHERE assignment.id_survey = @SurveyId
                   AND assignment.id_organization = @OrganizationId
-                  AND assignment.date_begin <= CURRENT_DATE
-                  AND (assignment.date_end IS NULL OR assignment.date_end >= CURRENT_DATE)
+                  AND assignment.date_begin <= @Today
+                  AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
             );
             """,
             new
             {
                 SurveyId = surveyId,
-                OrganizationId = organizationId
-            });
-    }
+                OrganizationId = organizationId,
+                Today = _clock.Today.Date
+            },
+            cancellationToken: cancellationToken));
 
-    public UserSurveyAssignmentPageData GetActiveUserSurveyPage(
+    public async Task<UserSurveyAssignmentPageData> GetActiveUserSurveyPageAsync(
         NpgsqlConnection connection,
         int organizationId,
         string searchTerm,
         int pageSize,
-        int offset)
+        int offset,
+        CancellationToken cancellationToken = default)
     {
         var parameters = new DynamicParameters();
         parameters.Add("OrganizationId", organizationId);
@@ -421,11 +487,13 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
         parameters.Add("SearchPattern", $"%{searchTerm}%");
         parameters.Add("PageSize", pageSize);
         parameters.Add("Offset", offset);
+        parameters.Add("Today", _clock.Today.Date);
 
-        var totalCount = connection.ExecuteScalar<int>(
+        var totalCount = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT COUNT(*) {ActiveUserSurveyBaseSql}",
-            parameters);
-        var surveys = connection.Query<Survey>(
+            parameters,
+            cancellationToken: cancellationToken));
+        var surveys = (await connection.QueryAsync<Survey>(new CommandDefinition(
             $"""
             SELECT
                 id_survey AS IdSurvey,
@@ -438,7 +506,8 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             OFFSET @Offset
             LIMIT @PageSize;
             """,
-            parameters).ToList();
+            parameters,
+            cancellationToken: cancellationToken))).ToList();
 
         return new UserSurveyAssignmentPageData
         {
@@ -447,7 +516,7 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
         };
     }
 
-    public UserSurveyAssignmentPageData GetUserArchivePage(
+    public async Task<UserSurveyAssignmentPageData> GetUserArchivePageAsync(
         NpgsqlConnection connection,
         int organizationId,
         string searchTerm,
@@ -456,7 +525,8 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
         DateTime? completionDateTo,
         bool signedOnly,
         int pageSize,
-        int offset)
+        int offset,
+        CancellationToken cancellationToken = default)
     {
         var filters = new List<string>();
         var parameters = new DynamicParameters();
@@ -498,10 +568,11 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
         var whereClause = filters.Count == 0
             ? string.Empty
             : "WHERE " + string.Join(" AND ", filters);
-        var totalCount = connection.ExecuteScalar<int>(
+        var totalCount = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT COUNT(*) {UserArchiveBaseSql} {whereClause}",
-            parameters);
-        var surveys = connection.Query<Survey>(
+            parameters,
+            cancellationToken: cancellationToken));
+        var surveys = await connection.QueryAsync<Survey>(new CommandDefinition(
             $"""
             SELECT
                 archived.id_survey AS IdSurvey,
@@ -518,12 +589,13 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             OFFSET @Offset
             LIMIT @PageSize;
             """,
-            parameters).ToList();
+            parameters,
+            cancellationToken: cancellationToken));
 
         return new UserSurveyAssignmentPageData
         {
             TotalCount = totalCount,
-            Surveys = surveys
+            Surveys = surveys.AsList()
         };
     }
 
@@ -669,14 +741,15 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                 cancellationToken: cancellationToken));
     }
 
-    public int UpsertSurveyEndDate(
+    public Task<int> UpsertSurveyEndDateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
         int organizationId,
-        DateTime dateEnd)
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default)
     {
-        return connection.Execute(
+        return connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO public.organization_survey (
                 id_organization,
@@ -698,16 +771,17 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                 OrganizationId = organizationId,
                 DateEnd = dateEnd.Date
             },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
     }
 
-    public int? GetAssignmentIdForUpdate(
+    public Task<int?> GetAssignmentIdForUpdateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
-        int organizationId)
-    {
-        return connection.ExecuteScalar<int?>(
+        int organizationId,
+        CancellationToken cancellationToken = default) =>
+        connection.ExecuteScalarAsync<int?>(new CommandDefinition(
             """
             SELECT id_organization_survey
             FROM public.organization_survey
@@ -715,13 +789,9 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
               AND id_survey = @SurveyId
             FOR UPDATE;
             """,
-            new
-            {
-                OrganizationId = organizationId,
-                SurveyId = surveyId
-            },
-            transaction);
-    }
+            new { OrganizationId = organizationId, SurveyId = surveyId },
+            transaction,
+            cancellationToken: cancellationToken));
 
     private static int[] NormalizeOrganizationIds(IEnumerable<int> organizationIds)
         => organizationIds
@@ -730,7 +800,7 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             .OrderBy(static id => id)
             .ToArray();
 
-    private static DynamicParameters BuildArchivedParameters(
+    private DynamicParameters BuildArchivedParameters(
         IReadOnlyCollection<int> organizationIds,
         IReadOnlyCollection<int> surveyIds,
         DateTime? dateStart,
@@ -744,6 +814,7 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
         parameters.Add("HasDateFilter", dateStart.HasValue && dateEnd.HasValue);
         parameters.Add("DateStart", dateStart);
         parameters.Add("DateEnd", dateEnd);
+        parameters.Add("Today", _clock.Today.Date);
         return parameters;
     }
 
@@ -816,7 +887,7 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                 SELECT 1
                 FROM public.organization_survey active_assignment
                 WHERE active_assignment.id_survey = s.id_survey
-                  AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= CURRENT_DATE)
+                  AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
             )
         )
         """;
@@ -869,7 +940,7 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
                     SELECT 1
                     FROM public.organization_survey active_assignment
                     WHERE active_assignment.id_survey = s.id_survey
-                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= CURRENT_DATE)
+                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                 )
         )
         """;
@@ -886,8 +957,8 @@ public sealed class SurveyAssignmentRepository : ISurveyAssignmentRepository
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_survey = s.id_survey
             WHERE assignment.id_organization = @OrganizationId
-              AND assignment.date_begin <= CURRENT_DATE
-              AND (assignment.date_end IS NULL OR assignment.date_end >= CURRENT_DATE)
+              AND assignment.date_begin <= @Today
+              AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
               AND NOT EXISTS (
                   SELECT 1
                   FROM public.answer answer

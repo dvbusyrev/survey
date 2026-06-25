@@ -24,16 +24,21 @@ namespace MainProject.Application.UseCases.Answers;
 public sealed class AnswerExportService : IAnswerExportService
 {
     private readonly AnswerDataService _answerDataService;
+    private readonly IClock _clock;
 
-    public AnswerExportService(AnswerDataService answerDataService)
+    public AnswerExportService(AnswerDataService answerDataService, IClock clock)
     {
         _answerDataService = answerDataService;
+        _clock = clock;
     }
 
-    public AnswerGeneratedFileResult? CreatePdfReport(int surveyId, int organizationId)
+    public async Task<AnswerGeneratedFileResult?> CreatePdfReportAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var answers = _answerDataService.GetAnswerRecords(surveyId, organizationId).ToList();
+        var survey = await _answerDataService.GetSurveyInfoAsync(surveyId, cancellationToken);
+        var answers = (await _answerDataService.GetAnswerRecordsAsync(surveyId, organizationId, cancellationToken)).ToList();
         if (survey == null || answers.Count == 0)
         {
             return null;
@@ -44,14 +49,17 @@ public sealed class AnswerExportService : IAnswerExportService
         {
             Content = pdfBytes,
             ContentType = "application/pdf",
-            FileName = $"{CleanFileName(survey.NameSurvey ?? "Анкета")}_ответы_{DateTime.Now:yyyyMMdd}.pdf"
+            FileName = $"{CleanFileName(survey.NameSurvey ?? "Анкета")}_ответы_{_clock.Now:yyyyMMdd}.pdf"
         };
     }
 
-    public AnswerGeneratedFileResult? CreateSignedArchive(int surveyId, int organizationId)
+    public async Task<AnswerGeneratedFileResult?> CreateSignedArchiveAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var answers = _answerDataService.GetAnswerRecords(surveyId, organizationId).ToList();
+        var survey = await _answerDataService.GetSurveyInfoAsync(surveyId, cancellationToken);
+        var answers = (await _answerDataService.GetAnswerRecordsAsync(surveyId, organizationId, cancellationToken)).ToList();
         if (survey == null || answers.Count == 0)
         {
             return null;
@@ -62,7 +70,7 @@ public sealed class AnswerExportService : IAnswerExportService
             ? signedPdfContent
             : AnswerPdfDocumentBuilder.BuildPdfContent(survey, answers);
         var cleanName = CleanFileName(survey.NameSurvey ?? "Анкета");
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var timestamp = _clock.Now.ToString("yyyyMMdd_HHmmss");
         var pdfFileName = $"{cleanName}_ответы_{timestamp}.pdf";
         var zipFileName = $"{cleanName}_с_подписью_{timestamp}.zip";
         var signature = signedAnswer?.Csp;
@@ -93,21 +101,25 @@ public sealed class AnswerExportService : IAnswerExportService
         };
     }
 
-    public AnswerGeneratedFileResult? CreateSurveyReport(int surveyId, int organizationId, string? type)
+    public async Task<AnswerGeneratedFileResult?> CreateSurveyReportAsync(
+        int surveyId,
+        int organizationId,
+        string? type,
+        CancellationToken cancellationToken = default)
     {
-        var survey = _answerDataService.GetSurveyInfo(surveyId);
-        var questions = _answerDataService.GetSurveyQuestions(surveyId);
+        var survey = await _answerDataService.GetSurveyInfoAsync(surveyId, cancellationToken);
+        var questions = await _answerDataService.GetSurveyQuestionsAsync(surveyId, cancellationToken);
         if (survey == null || questions.Count == 0)
         {
             return null;
         }
-        var rows = _answerDataService.GetAnswerRecords(surveyId, organizationId).ToList();
+        var rows = (await _answerDataService.GetAnswerRecordsAsync(surveyId, organizationId, cancellationToken)).ToList();
         if (rows.Count == 0)
         {
             return null;
         }
 
-        var now = DateTime.Now;
+        var now = _clock.Now;
         var safeSurveyName = CleanFileName(survey.NameSurvey ?? "Анкета");
         var fileName = $"Отчет по анкете {safeSurveyName}.docx";
         var docxBytes = GenerateDocxContent(survey, rows, questions, now);

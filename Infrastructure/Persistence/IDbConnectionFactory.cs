@@ -4,5 +4,5 @@ namespace MainProject.Infrastructure.Persistence;
 
 public interface IDbConnectionFactory
 {
-    NpgsqlConnection CreateConnection();
+    Task<NpgsqlConnection> CreateConnectionAsync(CancellationToken cancellationToken = default);
 }

@@ -5,9 +5,11 @@
     "build": "npm run lint:no-innerhtml && node scripts/build-frontend.mjs",
     "build:frontend": "node scripts/build-frontend.mjs",
     "lint:no-innerhtml": "node scripts/check-no-innerhtml.mjs",
+    "test:smoke": "playwright test",
     "watch:frontend": "node scripts/build-frontend.mjs --watch"
   },
   "devDependencies": {
-    "esbuild": "0.21.5"
+    "@playwright/test": "^1.61.1",
+    "esbuild": "0.28.1"
   }
 }

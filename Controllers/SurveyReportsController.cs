@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 
 [Authorize]
@@ -18,11 +19,11 @@ public class SurveyReportsController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("reports")]
-    public IActionResult ViewReports()
+    public async Task<IActionResult> ViewReports(CancellationToken cancellationToken = default)
     {
         var model = new ReportsPageViewModel
         {
-            AvailableYears = _surveyReportService.GetAvailableReportYears()
+            AvailableYears = await _surveyReportService.GetAvailableReportYearsAsync(cancellationToken)
         };
 
         return View("~/Web/Views/Survey/view_reports.cshtml", model);
@@ -30,58 +31,65 @@ public class SurveyReportsController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("reports/monthly/{id:int}")]
-    public IActionResult CreateMonthlyReport(int id, int idOrganization = 0, string type = "")
+    public async Task<IActionResult> CreateMonthlyReport(
+        int id,
+        int idOrganization = 0,
+        string type = "",
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = _surveyReportService.CreateSurveyMonthlyReport(id, idOrganization);
+            var result = await _surveyReportService.CreateSurveyMonthlyReportAsync(id, idOrganization, cancellationToken);
             return File(result.Content, result.ContentType, result.FileName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при формировании месячного отчёта по анкете {SurveyId}", id);
-            return StatusCode(500, "Произошла ошибка при формировании отчета");
+            return this.SafeError(ex, "Не удалось сформировать отчёт.", $"Ошибка при формировании месячного отчёта по анкете {id}");
         }
     }
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("reports/monthly")]
-    public IActionResult CreateMonthlySummaryReport(int month, int year)
+    public async Task<IActionResult> CreateMonthlySummaryReport(
+        int month,
+        int year,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = _surveyReportService.CreateAllMonthlyReport(month, year);
+            var result = await _surveyReportService.CreateAllMonthlyReportAsync(month, year, cancellationToken);
             return File(result.Content, result.ContentType, result.FileName);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return this.SafeError(ex, "Невозможно сформировать отчёт с указанными параметрами.", "Некорректные параметры месячного отчёта", StatusCodes.Status400BadRequest);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при формировании сводного месячного отчёта");
-            return StatusCode(500, "Произошла ошибка при формировании отчета");
+            return this.SafeError(ex, "Не удалось сформировать отчёт.", "Ошибка при формировании сводного месячного отчёта");
         }
     }
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("reports/quarterly/{quarter}")]
     [HttpGet("reports/quarterly/{quarter}/{year}")]
-    public IActionResult CreateQuarterlyReport(int quarter, int year = 0)
+    public async Task<IActionResult> CreateQuarterlyReport(
+        int quarter,
+        int year = 0,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = _surveyReportService.CreateQuarterlyReport(quarter, year);
+            var result = await _surveyReportService.CreateQuarterlyReportAsync(quarter, year, cancellationToken);
             return File(result.Content, result.ContentType, result.FileName);
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return this.SafeError(ex, "Невозможно сформировать отчёт с указанными параметрами.", "Некорректные параметры квартального отчёта", StatusCodes.Status400BadRequest);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при формировании квартального отчёта за {Quarter} квартал {Year}", quarter, year);
-            return StatusCode(500, "Произошла ошибка при формировании отчета");
+            return this.SafeError(ex, "Не удалось сформировать отчёт.", $"Ошибка при формировании квартального отчёта за {quarter} квартал {year}");
         }
     }
 }

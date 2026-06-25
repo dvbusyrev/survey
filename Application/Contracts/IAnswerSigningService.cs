@@ -4,8 +4,8 @@ namespace MainProject.Application.Contracts;
 
 public interface IAnswerSigningService
 {
-    AnswerSigningPayload GetSigningData(int surveyId, int organizationId);
-    bool SaveSignature(int surveyId, int organizationId, AnswerSignatureSaveRequest request);
-    AnswerSigningPayload GetDraftSigningData(int surveyId, int organizationId);
-    bool SaveDraftSignature(int surveyId, int organizationId, AnswerSignatureSaveRequest request);
+    Task<AnswerSigningPayload> GetSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<bool> SaveSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default);
+    Task<AnswerSigningPayload> GetDraftSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<bool> SaveDraftSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default);
 }

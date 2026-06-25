@@ -5,8 +5,8 @@ public interface IAnswerAccessService
     bool IsAuthenticated { get; }
     bool IsAdmin { get; }
     int? UserId { get; }
-    int? GetCurrentUserOrganizationId();
-    bool CanAccessOrganization(int requestedOrganizationId);
-    bool CanSubmitAnswer(int surveyId, int requestedOrganizationId);
-    bool CanAccessAnswerRecord(int surveyId, int requestedOrganizationId);
+    Task<int?> GetCurrentUserOrganizationIdAsync(CancellationToken cancellationToken = default);
+    Task<bool> CanAccessOrganizationAsync(int requestedOrganizationId, CancellationToken cancellationToken = default);
+    Task<bool> CanSubmitAnswerAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default);
+    Task<bool> CanAccessAnswerRecordAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default);
 }

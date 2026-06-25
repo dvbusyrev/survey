@@ -1,4 +1,3 @@
-﻿using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Infrastructure.Persistence;
@@ -11,34 +10,42 @@ public sealed class SurveyUserService : ISurveyUserService
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ISurveyAssignmentRepository _assignmentRepository;
+    private readonly IAnswerReadRepository _answerReadRepository;
 
     public SurveyUserService(
         IDbConnectionFactory connectionFactory,
-        ISurveyAssignmentRepository assignmentRepository)
+        ISurveyAssignmentRepository assignmentRepository,
+        IAnswerReadRepository answerReadRepository)
     {
         _connectionFactory = connectionFactory;
         _assignmentRepository = assignmentRepository;
+        _answerReadRepository = answerReadRepository;
     }
 
-    public int? GetUserOrganizationId(int userId)
+    public async Task<int?> GetUserOrganizationIdAsync(int userId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        return _assignmentRepository.GetUserOrganizationId(connection, userId);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await _assignmentRepository.GetUserOrganizationIdAsync(connection, userId, cancellationToken);
     }
 
-    public bool IsSurveyAssignedToOrganization(int surveyId, int organizationId)
+    public async Task<bool> IsSurveyAssignedToOrganizationAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        return _assignmentRepository.IsActiveAssignment(connection, surveyId, organizationId);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await _assignmentRepository.IsActiveAssignmentAsync(connection, surveyId, organizationId, cancellationToken);
     }
 
-    public UserSurveyListPageViewModel? GetActiveSurveysPage(int userId, int currentPage, string? searchTerm)
+    public async Task<UserSurveyListPageViewModel?> GetActiveSurveysPageAsync(
+        int userId,
+        int currentPage,
+        string? searchTerm,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var userOrganizationId = _assignmentRepository.GetUserOrganizationId(connection, userId);
+        var userOrganizationId = await _assignmentRepository.GetUserOrganizationIdAsync(connection, userId, cancellationToken);
 
         if (!userOrganizationId.HasValue)
         {
@@ -47,12 +54,13 @@ public sealed class SurveyUserService : ISurveyUserService
 
         const int pageSize = 10;
         var normalizedSearchTerm = searchTerm?.Trim() ?? string.Empty;
-        var pageData = _assignmentRepository.GetActiveUserSurveyPage(
+        var pageData = await _assignmentRepository.GetActiveUserSurveyPageAsync(
             connection,
             userOrganizationId.Value,
             normalizedSearchTerm,
             pageSize,
-            Math.Max(currentPage - 1, 0) * pageSize);
+            Math.Max(currentPage - 1, 0) * pageSize,
+            cancellationToken);
         var surveys = pageData.Surveys.ToList();
 
         foreach (var survey in surveys)
@@ -75,35 +83,11 @@ public sealed class SurveyUserService : ISurveyUserService
         };
     }
 
-    public Survey? GetSurveyInfo(int surveyId)
-    {
-        using var connection = _connectionFactory.CreateConnection();
+    public Task<Survey?> GetSurveyInfoAsync(int surveyId, CancellationToken cancellationToken = default)
+        => _answerReadRepository.GetSurveyAsync(surveyId, cancellationToken);
 
-        return connection.QueryFirstOrDefault<Survey>(
-            @"SELECT
-                  id_survey,
-                  name_survey,
-                  description
-              FROM public.survey
-              WHERE id_survey = @surveyId",
-            new { surveyId });
-    }
-
-    public IReadOnlyList<SurveyQuestionItem> GetSurveyQuestions(int surveyId)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        return connection.Query<SurveyQuestionRow>(
-            @"SELECT question_order AS QuestionOrder, question_text AS QuestionText
-              FROM public.survey_question
-              WHERE id_survey = @surveyId
-              ORDER BY question_order",
-            new { surveyId })
-            .Select(q => new SurveyQuestionItem
-            {
-                Id = q.QuestionOrder,
-                Text = q.QuestionText
-            })
-            .ToList();
-    }
+    public Task<IReadOnlyList<SurveyQuestionItem>> GetSurveyQuestionsAsync(
+        int surveyId,
+        CancellationToken cancellationToken = default)
+        => _answerReadRepository.GetSurveyQuestionsAsync(surveyId, cancellationToken);
 }

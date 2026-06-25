@@ -1,4 +1,3 @@
-using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.Support;
@@ -12,16 +11,19 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ISurveyAssignmentRepository _assignmentRepository;
+    private readonly ISurveyDefinitionRepository _definitionRepository;
 
     public SurveyArchiveService(
         IDbConnectionFactory connectionFactory,
-        ISurveyAssignmentRepository assignmentRepository)
+        ISurveyAssignmentRepository assignmentRepository,
+        ISurveyDefinitionRepository definitionRepository)
     {
         _connectionFactory = connectionFactory;
         _assignmentRepository = assignmentRepository;
+        _definitionRepository = definitionRepository;
     }
 
-    public SurveyArchivePageViewModel GetAdminArchivedSurveysPage(
+    public async Task<SurveyArchivePageViewModel> GetAdminArchivedSurveysPageAsync(
         int currentPage,
         string? sortBy,
         string? sortDirection,
@@ -30,9 +32,10 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         string? year,
         string? month,
         string? dateFrom,
-        string? dateTo)
+        string? dateTo,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var selectedOrganizationIds = ParseSelectedIds(organizationIds);
         var selectedSurveyIds = ParseSelectedIds(surveyIds);
@@ -44,17 +47,18 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
             : NormalizeSurveyArchiveSortDirection(null, normalizedSortBy);
 
         var organizationOptions = BuildSelectionOptions(
-            _assignmentRepository.GetArchivedOrganizationOptions(connection));
+            await _assignmentRepository.GetArchivedOrganizationOptionsAsync(connection, cancellationToken));
         var surveyOptions = BuildSelectionOptions(
-            _assignmentRepository.GetArchivedSurveyOptions(connection));
-        var totalCount = _assignmentRepository.CountArchivedSurveys(
+            await _assignmentRepository.GetArchivedSurveyOptionsAsync(connection, cancellationToken));
+        var totalCount = await _assignmentRepository.CountArchivedSurveysAsync(
             connection,
             selectedOrganizationIds,
             selectedSurveyIds,
             bounds.Start,
-            bounds.End);
+            bounds.End,
+            cancellationToken);
         var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
-        var pageRows = _assignmentRepository.GetArchivedSurveyPage(
+        var pageRows = await _assignmentRepository.GetArchivedSurveyPageAsync(
             connection,
             selectedOrganizationIds,
             selectedSurveyIds,
@@ -63,7 +67,8 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
             normalizedSortBy,
             normalizedSortDirection,
             pageWindow.PageSize,
-            pageWindow.Offset);
+            pageWindow.Offset,
+            cancellationToken);
 
         return new SurveyArchivePageViewModel
         {
@@ -93,18 +98,19 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         };
     }
 
-    public UserSurveyArchivePageViewModel? GetUserArchivePage(
+    public async Task<UserSurveyArchivePageViewModel?> GetUserArchivePageAsync(
         int userId,
         int currentPage,
         string? searchTerm,
         string? date,
         string? dateFrom,
         string? dateTo,
-        bool signedOnly)
+        bool signedOnly,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var userOrganizationId = _assignmentRepository.GetUserOrganizationId(connection, userId);
+        var userOrganizationId = await _assignmentRepository.GetUserOrganizationIdAsync(connection, userId, cancellationToken);
 
         if (!userOrganizationId.HasValue)
         {
@@ -137,7 +143,7 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
             }
         }
 
-        var pageData = _assignmentRepository.GetUserArchivePage(
+        var pageData = await _assignmentRepository.GetUserArchivePageAsync(
             connection,
             userOrganizationId.Value,
             normalizedSearchTerm,
@@ -146,7 +152,8 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
             completionDateTo,
             signedOnly,
             pageSize,
-            Math.Max(currentPage - 1, 0) * pageSize);
+            Math.Max(currentPage - 1, 0) * pageSize,
+            cancellationToken);
         var totalPages = pageData.TotalCount == 0
             ? 1
             : (int)Math.Ceiling((double)pageData.TotalCount / pageSize);
@@ -165,42 +172,10 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         };
     }
 
-    public IReadOnlyList<ArchivedSurvey> GetAdminArchivedSurveys()
+    public async Task<IReadOnlyList<ArchivedSurvey>> GetAdminArchivedSurveysAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return _assignmentRepository.GetAdminArchivedSurveySummaries(connection);
-    }
-
-    private static List<SurveyTableRowViewModel> BuildSurveyTableRows(IEnumerable<SurveyArchiveAssignmentRow> rows)
-    {
-        return rows
-            .GroupBy(row => new
-            {
-                row.IdSurvey,
-                row.NameSurvey,
-                row.DateBegin,
-                row.DateEnd
-            })
-            .Select(group => new SurveyTableRowViewModel
-            {
-                IdSurvey = group.Key.IdSurvey,
-                NameSurvey = group.Key.NameSurvey ?? string.Empty,
-                DateBegin = group.Key.DateBegin,
-                DateEnd = group.Key.DateEnd,
-                OrganizationIds = group
-                    .Where(row => row.OrganizationId > 0)
-                    .Select(row => row.OrganizationId)
-                    .Distinct()
-                    .OrderBy(id => id)
-                    .ToArray(),
-                OrganizationNames = group
-                    .Where(row => !string.IsNullOrWhiteSpace(row.OrganizationName))
-                    .Select(row => row.OrganizationName!.Trim())
-                    .Distinct(AppListPaging.RuStringComparer)
-                    .OrderBy(name => name, AppListPaging.RuStringComparer)
-                    .ToArray()
-            })
-            .ToList();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await _assignmentRepository.GetAdminArchivedSurveySummariesAsync(connection, cancellationToken);
     }
 
     private static SurveyTableRowViewModel MapSurveyArchiveTablePageRow(SurveyAssignmentTableRow row)
@@ -286,23 +261,6 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         return (ArchiveDateFilterType.None, null, string.Empty, null, null);
     }
 
-    private static bool MatchesDateBounds(
-        SurveyTableRowViewModel row,
-        DateTime? startDate,
-        DateTime? endDate)
-    {
-        if (!startDate.HasValue || !endDate.HasValue)
-        {
-            return true;
-        }
-
-        return row.DateEnd.HasValue
-            && row.DateBegin.Date >= startDate.Value.Date
-            && row.DateBegin.Date <= endDate.Value.Date
-            && row.DateEnd.Value.Date >= startDate.Value.Date
-            && row.DateEnd.Value.Date <= endDate.Value.Date;
-    }
-
     private static string NormalizeSurveyArchiveSortField(string? sortBy)
     {
         return sortBy?.Trim() switch
@@ -333,31 +291,6 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         };
     }
 
-    private static List<SurveyTableRowViewModel> SortSurveyRows(
-        IEnumerable<SurveyTableRowViewModel> rows,
-        string sortBy,
-        string sortDirection)
-    {
-        var descending = string.Equals(sortDirection, "desc", StringComparison.Ordinal);
-        IOrderedEnumerable<SurveyTableRowViewModel> orderedRows = sortBy switch
-        {
-            SurveyArchiveSortFields.Name => descending
-                ? rows.OrderByDescending(row => row.NameSurvey, AppListPaging.RuStringComparer)
-                : rows.OrderBy(row => row.NameSurvey, AppListPaging.RuStringComparer),
-            SurveyArchiveSortFields.DateBegin => descending
-                ? rows.OrderByDescending(row => row.DateBegin)
-                : rows.OrderBy(row => row.DateBegin),
-            SurveyArchiveSortFields.DateEnd => descending
-                ? rows.OrderByDescending(row => row.DateEnd ?? DateTime.MinValue)
-                : rows.OrderBy(row => row.DateEnd ?? DateTime.MaxValue),
-            _ => rows.OrderByDescending(row => row.IdSurvey)
-        };
-
-        return orderedRows
-            .ThenByDescending(row => row.IdSurvey)
-            .ToList();
-    }
-
     private enum ArchiveDateFilterType
     {
         None,
@@ -366,70 +299,34 @@ public sealed class SurveyArchiveService : ISurveyArchiveService
         Range
     }
 
-    public async Task<int> CopyArchiveSurveyAsync(ArchiveSurveyCopyRequest request)
+    public async Task<int> CopyArchiveSurveyAsync(ArchiveSurveyCopyRequest request, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         var archivedSurvey = await _assignmentRepository.GetArchivedSurveyForCopyAsync(
             connection,
             transaction,
-            request.SurveyId);
+            request.SurveyId,
+            cancellationToken);
 
         if (archivedSurvey == null)
         {
             throw new InvalidOperationException("Архивная анкета не найдена.");
         }
 
-        archivedSurvey.Questions = connection.Query<SurveyQuestionItem>(
-            @"SELECT
-                  question_order AS Id,
-                  question_text AS Text
-              FROM public.survey_question
-              WHERE id_survey = @surveyId
-              ORDER BY question_order",
-            new { surveyId = request.SurveyId },
-            transaction).ToList();
+        var questions = await _definitionRepository.GetQuestionsAsync(
+            connection, transaction, request.SurveyId, cancellationToken);
+        var newSurveyId = await _definitionRepository.CreateAsync(
+            connection,
+            transaction,
+            archivedSurvey.NameSurvey,
+            archivedSurvey.Description,
+            cancellationToken);
+        await _definitionRepository.ReplaceQuestionsAsync(connection, transaction, newSurveyId, questions, cancellationToken);
 
-        var newSurveyId = await connection.ExecuteScalarAsync<int>(
-            @"INSERT INTO public.survey
-                (name_survey, description)
-              VALUES
-                (@nameSurvey, @description)
-              RETURNING id_survey;",
-            new
-            {
-                nameSurvey = archivedSurvey.NameSurvey,
-                description = archivedSurvey.Description ?? string.Empty
-            },
-            transaction);
-
-        foreach (var question in archivedSurvey.Questions.OrderBy(q => q.Id))
-        {
-            await connection.ExecuteAsync(
-                @"INSERT INTO public.survey_question (id_survey, question_order, question_text)
-                  VALUES (@idSurvey, @questionOrder, @questionText);",
-                new
-                {
-                    idSurvey = newSurveyId,
-                    questionOrder = question.Id,
-                    questionText = question.Text
-                },
-                transaction);
-        }
-
-        transaction.Commit();
+        await transaction.CommitAsync(cancellationToken);
         return newSurveyId;
-    }
-
-    private sealed class SurveyArchiveAssignmentRow
-    {
-        public int IdSurvey { get; init; }
-        public string? NameSurvey { get; init; }
-        public DateTime DateBegin { get; init; }
-        public DateTime? DateEnd { get; init; }
-        public int OrganizationId { get; init; }
-        public string? OrganizationName { get; init; }
     }
 
 }

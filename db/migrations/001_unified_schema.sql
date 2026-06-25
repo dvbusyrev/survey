@@ -18,7 +18,7 @@ END AS apply_migration \gset
 
 BEGIN;
 
-\ir 001_current_schema.sql
+\ir ../bootstrap/001_base_schema.sql
 
 INSERT INTO public.week_day (id_day, en_name_day, rus_name_day, week_number)
 VALUES

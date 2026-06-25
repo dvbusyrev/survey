@@ -4,6 +4,7 @@ using MainProject.Application.Contracts;
 using MainProject.Application.DTO.Theme;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class ThemeController : Controller
@@ -34,11 +35,11 @@ public class ThemeController : Controller
         }
         catch (ThemeSettingsValidationException ex)
         {
-            return BadRequest(new { success = false, error = ex.Message, errors = ex.Errors });
+            return BadRequest(new { success = false, error = "Проверьте корректность настроек темы.", errors = ex.Errors });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { success = false, error = $"Не удалось сохранить настройки темы: {GetDetailedErrorMessage(ex)}" });
+            return this.SafeError(ex, "Не удалось сохранить настройки темы.", "Ошибка при сохранении настроек темы");
         }
     }
 
@@ -54,26 +55,5 @@ public class ThemeController : Controller
     public IActionResult LegacyThemeSettings()
     {
         return Redirect("/settings/theme");
-    }
-
-    private static string GetDetailedErrorMessage(Exception exception)
-    {
-        var messages = new List<string>();
-        Exception? current = exception;
-
-        while (current != null)
-        {
-            if (!string.IsNullOrWhiteSpace(current.Message)
-                && !messages.Contains(current.Message, StringComparer.Ordinal))
-            {
-                messages.Add(current.Message);
-            }
-
-            current = current.InnerException;
-        }
-
-        return messages.Count > 0
-            ? string.Join(" | ", messages)
-            : "Неизвестная ошибка.";
     }
 }

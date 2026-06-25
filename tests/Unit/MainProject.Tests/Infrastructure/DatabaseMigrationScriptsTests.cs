@@ -29,15 +29,17 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 024_add_theme_palette_controls.sql", script);
         Assert.Contains(@"\ir 025_add_answer_drafts.sql", script);
         Assert.Contains(@"\ir 026_rebuild_audit_tables_as_structured_snapshots.sql", script);
+        Assert.Contains(@"\ir 027_store_theme_background_image_blob.sql", script);
+        Assert.Contains(@"\ir 028_remove_legacy_theme_columns.sql", script);
     }
 
     [Fact]
     public void UnifiedSchemaMigration_ContainsPortableCurrentBaseline()
     {
         var migration = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_unified_schema.sql"));
-        var schema = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_current_schema.sql"));
+        var schema = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "bootstrap", "001_base_schema.sql"));
 
-        Assert.Contains(@"\ir 001_current_schema.sql", migration);
+        Assert.Contains(@"\ir ../bootstrap/001_base_schema.sql", migration);
         Assert.Contains("('017', 'rename_app_user_credentials')", migration);
         Assert.Contains("('018', 'add_audit_log_current_tables')", migration);
         Assert.Contains("('019', 'store_audit_old_new_rows')", migration);
@@ -58,6 +60,25 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.DoesNotContain("recovery/", migration);
         Assert.DoesNotContain("\\restrict", schema);
         Assert.DoesNotContain("transaction_timeout", schema);
+    }
+
+    [Fact]
+    public void ReadPlanScript_UsesExplainAnalyzeOnlyOnAnIsolatedDatabase()
+    {
+        var root = GetRepositoryRoot();
+        var script = File.ReadAllText(Path.Combine(root, "scripts", "explain-read-paths.sh"));
+        var plans = File.ReadAllText(Path.Combine(root, "db", "performance", "explain_read_paths.sql"));
+
+        Assert.Contains("SURVEY_EXPLAIN_DATABASE", script);
+        Assert.Contains("current_database", script);
+        Assert.Contains("rehearsal|perf|benchmark|test", script);
+        Assert.Contains(".NET connection-string syntax", script);
+        Assert.Contains("BEGIN READ ONLY", plans);
+        Assert.Contains("EXPLAIN (ANALYZE, BUFFERS, SETTINGS, SUMMARY, TIMING OFF)", plans);
+        Assert.Contains("Журнал событий", plans);
+        Assert.Contains("Архив анкет администратора", plans);
+        Assert.Contains("Архив анкет клиента", plans);
+        Assert.Contains("Отчеты: ответы анкеты", plans);
     }
 
     [Fact]

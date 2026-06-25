@@ -10,6 +10,7 @@
 *.sln.docstates
 .DS_Store
 wwwroot/dumps/
+data-protection-keys/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -54,6 +55,8 @@ artifacts/
 # VS Code
 .vscode/
 node_modules/
+playwright-report/
+test-results/
 
 *_i.c
 *_p.c

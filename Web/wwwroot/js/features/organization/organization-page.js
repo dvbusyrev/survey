@@ -4,13 +4,13 @@
     }
 
     function antiforgeryToken() {
-        return document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        return window.AppHttp?.getAntiforgeryToken() || '';
     }
 
     function showMessage(element, text, isSuccess) {
         const message = text || '';
         if (message) {
-            window.siteNotify?.(message, isSuccess ? 'success' : 'error');
+            window.AppUi?.notify?.(message, isSuccess ? 'success' : 'error');
         }
 
         if (!element) return;
@@ -33,11 +33,7 @@
     function closeOrganizationModal(modalId) {
         const modal = byId(modalId);
         if (modal) {
-            if (typeof window.hideSiteModal === 'function') {
-                window.hideSiteModal(modal);
-            } else {
-                modal.style.display = 'none';
-            }
+            window.AppUi?.setModalVisibility(modal, false);
         }
     }
 
@@ -90,11 +86,7 @@
         resetAddOrganizationForm();
         const modal = byId('addOrganizationModal');
         if (modal) {
-            if (typeof window.showSiteModal === 'function') {
-                window.showSiteModal(modal);
-            } else {
-                modal.style.display = 'flex';
-            }
+            window.AppUi?.setModalVisibility(modal, true);
         }
     }
 
@@ -191,18 +183,14 @@
 
         const modal = byId('editOrganizationModal');
         if (modal) {
-            if (typeof window.showSiteModal === 'function') {
-                window.showSiteModal(modal);
-            } else {
-                modal.style.display = 'flex';
-            }
+            window.AppUi?.setModalVisibility(modal, true);
         }
     }
 
     function openEditOrganizationModalFromTrigger(trigger) {
         const organizationId = Number.parseInt(trigger?.dataset?.organizationId || '', 10);
         if (!Number.isFinite(organizationId) || organizationId <= 0) {
-            window.siteNotify?.('Не найден идентификатор организации', 'error');
+            window.AppUi?.notify?.('Не найден идентификатор организации', 'error');
             return;
         }
 
@@ -219,7 +207,7 @@
     async function updateOrganization() {
         const id = byId('editOrganizationId')?.value;
         if (!id) {
-            window.siteNotify?.('Не найден идентификатор организации', 'error');
+            window.AppUi?.notify?.('Не найден идентификатор организации', 'error');
             return;
         }
 
@@ -228,7 +216,7 @@
         const email = byId('organizationEmail')?.value?.trim() || '';
 
         if (!name) {
-            window.siteNotify?.('Введите название организации!', 'error');
+            window.AppUi?.notify?.('Введите название организации!', 'error');
             return;
         }
 
@@ -244,7 +232,7 @@
         const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
 
         if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
-            window.siteNotify?.('Дата конца не может быть раньше даты начала.', 'error');
+            window.AppUi?.notify?.('Дата конца не может быть раньше даты начала.', 'error');
             window.AppDate?.focusInput?.('organizationDateEnd');
             return;
         }
@@ -271,7 +259,7 @@
 
             refreshOrganizationList();
         } catch (error) {
-            window.siteNotify?.(error.message || 'Ошибка обновления организации', 'error');
+            window.AppUi?.notify?.(error.message || 'Ошибка обновления организации', 'error');
         }
     }
 
@@ -293,12 +281,12 @@
         };
 
         if (!payload.Name) {
-            window.siteNotify?.('Введите название организации!', 'error');
+            window.AppUi?.notify?.('Введите название организации!', 'error');
             return;
         }
 
         if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
-            window.siteNotify?.('Дата конца не может быть раньше даты начала.', 'error');
+            window.AppUi?.notify?.('Дата конца не может быть раньше даты начала.', 'error');
             window.AppDate?.focusInput?.('date_end');
             return;
         }
@@ -316,7 +304,7 @@
 
             refreshOrganizationList();
         } catch (error) {
-            window.siteNotify?.(error.message || 'Ошибка обновления организации', 'error');
+            window.AppUi?.notify?.(error.message || 'Ошибка обновления организации', 'error');
         }
     }
 
@@ -352,7 +340,7 @@
 
             refreshOrganizationList();
         } catch (error) {
-            window.siteNotify?.(error.message || 'Ошибка удаления организации', 'error');
+            window.AppUi?.notify?.(error.message || 'Ошибка удаления организации', 'error');
         }
     }
 

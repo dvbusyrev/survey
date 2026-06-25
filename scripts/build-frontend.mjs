@@ -18,6 +18,7 @@ const buildOptions = {
   entryPoints: {
     'admin-inline-app': 'Web/wwwroot/js/entries/admin-inline-app.js',
     'auth-page': 'Web/wwwroot/js/entries/auth-page.js',
+    'check-answers-app': 'Web/wwwroot/js/entries/check-answers-app.js',
     'survey-fill-app': 'Web/wwwroot/js/entries/survey-fill-app.js',
     'survey-user-app': 'Web/wwwroot/js/entries/survey-user-app.js'
   },

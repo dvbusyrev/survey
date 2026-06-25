@@ -20,12 +20,7 @@
             ? window.normalizeClientErrorMessage(message)
             : message;
         hideError();
-        if (typeof window.siteNotify === 'function') {
-            window.siteNotify(safeMessage, 'error', { title: 'Ошибка' });
-            return;
-        }
-
-        window.alert(safeMessage);
+        window.AppUi.notify(safeMessage, 'error', { title: 'Ошибка' });
     }
 
     function updateCommentVisibility(questionContainer, ratingValue) {

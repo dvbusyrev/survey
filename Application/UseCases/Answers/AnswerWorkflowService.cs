@@ -18,18 +18,21 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         _answerDataService = answerDataService;
     }
 
-    public AnswerMutationResult InsertAnswer(AnswerRecord answerRecord)
+    public async Task<AnswerMutationResult> InsertAnswerAsync(
+        AnswerRecord answerRecord,
+        CancellationToken cancellationToken = default)
     {
-        var validationResult = ValidateAnswerSubmission(answerRecord);
+        var validationResult = await ValidateAnswerSubmissionAsync(answerRecord, cancellationToken);
         if (!validationResult.Success)
         {
             return validationResult;
         }
 
-        AttachMatchingDraftSignature(answerRecord);
-        _answerDataService.InsertAnswerRecord(answerRecord);
+        await AttachMatchingDraftSignatureAsync(answerRecord, cancellationToken);
+        await _answerDataService.InsertAnswerRecordAsync(answerRecord, cancellationToken);
 
-        var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
+        var model = await BuildCheckAnswersPageAsync(
+            answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers, cancellationToken);
         if (model == null)
         {
             return new AnswerMutationResult
@@ -46,15 +49,17 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         };
     }
 
-    public AnswerMutationResult SaveDraftAnswer(AnswerRecord answerRecord)
+    public async Task<AnswerMutationResult> SaveDraftAnswerAsync(
+        AnswerRecord answerRecord,
+        CancellationToken cancellationToken = default)
     {
-        var validationResult = ValidateDraftAnswer(answerRecord);
+        var validationResult = await ValidateDraftAnswerAsync(answerRecord, cancellationToken);
         if (!validationResult.Success)
         {
             return validationResult;
         }
 
-        var saved = _answerDataService.SaveDraftRecord(answerRecord);
+        var saved = await _answerDataService.SaveDraftRecordAsync(answerRecord, cancellationToken);
         if (!saved)
         {
             return new AnswerMutationResult
@@ -70,20 +75,23 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         };
     }
 
-    public AnswerRecord? GetDraftAnswer(int surveyId, int organizationId)
-    {
-        return _answerDataService.GetDraftRecord(surveyId, organizationId);
-    }
+    public Task<AnswerRecord?> GetDraftAnswerAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default) =>
+        _answerDataService.GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
 
-    public AnswerMutationResult UpdateAnswer(AnswerRecord answerRecord)
+    public async Task<AnswerMutationResult> UpdateAnswerAsync(
+        AnswerRecord answerRecord,
+        CancellationToken cancellationToken = default)
     {
-        var validationResult = ValidateAnswerSubmission(answerRecord);
+        var validationResult = await ValidateAnswerSubmissionAsync(answerRecord, cancellationToken);
         if (!validationResult.Success)
         {
             return validationResult;
         }
 
-        var updated = _answerDataService.UpdateAnswerRecord(answerRecord);
+        var updated = await _answerDataService.UpdateAnswerRecordAsync(answerRecord, cancellationToken);
         if (!updated)
         {
             return new AnswerMutationResult
@@ -93,7 +101,8 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             };
         }
 
-        var model = BuildCheckAnswersPage(answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers);
+        var model = await BuildCheckAnswersPageAsync(
+            answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers, cancellationToken);
         if (model == null)
         {
             return new AnswerMutationResult
@@ -110,9 +119,12 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         };
     }
 
-    public UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int organizationId)
+    public async Task<UpdateAnswerPageViewModel?> GetUpdateAnswerPageAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        var answerRecord = _answerDataService.GetAnswerRecord(surveyId, organizationId);
+        var answerRecord = await _answerDataService.GetAnswerRecordAsync(surveyId, organizationId, cancellationToken);
         if (answerRecord == null || answerRecord.Answers.Count == 0)
         {
             return null;
@@ -126,9 +138,14 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         };
     }
 
-    public SurveyAnswersResponse GetAnswersResponse(int surveyId, int organizationId, string? type, bool includeAllOrganizationAnswers)
+    public async Task<SurveyAnswersResponse> GetAnswersResponseAsync(
+        int surveyId,
+        int organizationId,
+        string? type,
+        bool includeAllOrganizationAnswers,
+        CancellationToken cancellationToken = default)
     {
-        var surveyInfo = _answerDataService.GetSurveyInfo(surveyId);
+        var surveyInfo = await _answerDataService.GetSurveyInfoAsync(surveyId, cancellationToken);
         if (surveyInfo == null)
         {
             return new SurveyAnswersResponse
@@ -138,9 +155,10 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             };
         }
 
-        var answerRecords = _answerDataService.GetAnswerRecords(
+        var answerRecords = await _answerDataService.GetAnswerRecordsAsync(
             surveyId,
-            includeAllOrganizationAnswers ? null : organizationId);
+            includeAllOrganizationAnswers ? null : organizationId,
+            cancellationToken);
 
         if (answerRecords.Count == 0)
         {
@@ -385,9 +403,13 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             : exception.Message.Trim();
     }
 
-    private CheckAnswersPageViewModel? BuildCheckAnswersPage(int surveyId, int organizationId, IReadOnlyList<AnswerPayloadItem> answers)
+    private async Task<CheckAnswersPageViewModel?> BuildCheckAnswersPageAsync(
+        int surveyId,
+        int organizationId,
+        IReadOnlyList<AnswerPayloadItem> answers,
+        CancellationToken cancellationToken)
     {
-        var survey = _answerDataService.GetSurveyInfo(surveyId);
+        var survey = await _answerDataService.GetSurveyInfoAsync(surveyId, cancellationToken);
         if (survey == null)
         {
             return null;
@@ -401,9 +423,12 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         };
     }
 
-    private void AttachMatchingDraftSignature(AnswerRecord answerRecord)
+    private async Task AttachMatchingDraftSignatureAsync(AnswerRecord answerRecord, CancellationToken cancellationToken)
     {
-        var draft = _answerDataService.GetDraftRecord(answerRecord.IdSurvey, answerRecord.OrganizationId);
+        var draft = await _answerDataService.GetDraftRecordAsync(
+            answerRecord.IdSurvey,
+            answerRecord.OrganizationId,
+            cancellationToken);
         if (draft == null || string.IsNullOrWhiteSpace(draft.Csp))
         {
             return;
@@ -453,7 +478,9 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         return string.IsNullOrWhiteSpace(comment) ? string.Empty : comment.Trim();
     }
 
-    private AnswerMutationResult ValidateAnswerSubmission(AnswerRecord answerRecord)
+    private async Task<AnswerMutationResult> ValidateAnswerSubmissionAsync(
+        AnswerRecord answerRecord,
+        CancellationToken cancellationToken)
     {
         if (answerRecord.IdSurvey <= 0)
         {
@@ -465,7 +492,7 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             return CreateValidationFailure("Неверный идентификатор организации.");
         }
 
-        var survey = _answerDataService.GetSurveyInfo(answerRecord.IdSurvey);
+        var survey = await _answerDataService.GetSurveyInfoAsync(answerRecord.IdSurvey, cancellationToken);
         if (survey == null)
         {
             return new AnswerMutationResult
@@ -475,7 +502,7 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             };
         }
 
-        var surveyQuestions = _answerDataService.GetSurveyQuestions(answerRecord.IdSurvey);
+        var surveyQuestions = await _answerDataService.GetSurveyQuestionsAsync(answerRecord.IdSurvey, cancellationToken);
         if (surveyQuestions.Count == 0)
         {
             return CreateValidationFailure("Анкета не содержит вопросов.");
@@ -526,7 +553,9 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
         };
     }
 
-    private AnswerMutationResult ValidateDraftAnswer(AnswerRecord answerRecord)
+    private async Task<AnswerMutationResult> ValidateDraftAnswerAsync(
+        AnswerRecord answerRecord,
+        CancellationToken cancellationToken)
     {
         if (answerRecord.IdSurvey <= 0)
         {
@@ -538,7 +567,7 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             return CreateValidationFailure("Неверный идентификатор организации.");
         }
 
-        var survey = _answerDataService.GetSurveyInfo(answerRecord.IdSurvey);
+        var survey = await _answerDataService.GetSurveyInfoAsync(answerRecord.IdSurvey, cancellationToken);
         if (survey == null)
         {
             return new AnswerMutationResult
@@ -548,7 +577,7 @@ public sealed class AnswerWorkflowService : IAnswerWorkflowService
             };
         }
 
-        var expectedQuestionOrders = _answerDataService.GetSurveyQuestions(answerRecord.IdSurvey)
+        var expectedQuestionOrders = (await _answerDataService.GetSurveyQuestionsAsync(answerRecord.IdSurvey, cancellationToken))
             .Select(question => question.Id)
             .ToHashSet();
 

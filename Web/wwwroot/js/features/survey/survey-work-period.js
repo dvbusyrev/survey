@@ -98,12 +98,7 @@
     }
 
     function showToast(message, type) {
-        if (typeof window.siteNotify === 'function') {
-            window.siteNotify(message, type);
-            return;
-        }
-
-        window.alert(message);
+        window.AppUi.notify(message, type);
     }
 
     function cleanupDetachedInstances() {

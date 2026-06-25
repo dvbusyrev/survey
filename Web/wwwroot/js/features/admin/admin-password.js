@@ -1,4 +1,9 @@
 (function () {
+    if (window.__adminPasswordToolsLoaded) {
+        return;
+    }
+
+    window.__adminPasswordToolsLoaded = true;
     const SVG_NS = 'http://www.w3.org/2000/svg';
 
     function createSvgEye(iconClass, paths, circle) {
@@ -207,10 +212,7 @@
 
     function startPasswordTools() {
         bootstrapPasswordTools();
-        setInterval(function () {
-            ensureUserModalOpeners();
-            wrapModalOpeners();
-        }, 1000);
+        document.addEventListener('admin:user-modal-ready', bootstrapPasswordTools);
     }
 
     if (document.readyState === 'loading') {

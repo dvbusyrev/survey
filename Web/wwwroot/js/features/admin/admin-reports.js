@@ -78,12 +78,7 @@ function showReportFailure(reportTitle, message) {
         : 'Отчёт не сформирован';
     const safeMessage = normalizeReportFailureReason(message);
 
-    if (typeof window.siteNotify === 'function') {
-        window.siteNotify(safeMessage, 'error', { title: safeTitle, duration: 0 });
-        return;
-    }
-
-    window.alert(`${safeTitle}. ${safeMessage}`);
+    window.AppUi.notify(safeMessage, 'error', { title: safeTitle, duration: 0 });
 }
 
 function resolvePositiveInteger(value, fallbackElementId) {

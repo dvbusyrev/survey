@@ -60,6 +60,7 @@
 
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminPageScripts.cshtml")
+    @await Html.PartialAsync("~/Web/Views/User/Partials/_UserManagementScripts.cshtml")
     <script>
     (function(){
         if (@(openAddUserModal.ToString().ToLower())) {

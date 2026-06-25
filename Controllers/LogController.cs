@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 using MainProject.Application.Support;
 
@@ -12,72 +13,68 @@ public class LogController : Controller
 {
     private const int LogsPageSize = 10;
     private readonly IAuditLogService _auditLogService;
+    private readonly IClock _clock;
 
-    public LogController(IAuditLogService auditLogService)
+    public LogController(IAuditLogService auditLogService, IClock clock)
     {
         _auditLogService = auditLogService;
+        _clock = clock;
     }
 
     [HttpGet("logs")]
     [HttpGet("event-log")]
-    public IActionResult GetLogs(
+    public async Task<IActionResult> GetLogs(
         [FromQuery] int page = 1,
         [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDirection = null)
+        [FromQuery] string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            return View("get_logs", _auditLogService.GetLogsPage(page, LogsPageSize, sortBy, sortDirection));
+            return View("get_logs", await _auditLogService.GetLogsPageAsync(
+                page, LogsPageSize, sortBy, sortDirection, cancellationToken));
         }
         catch (Exception ex)
         {
-            ViewData["LogLoadErrorMessage"] = $"Не удалось загрузить журнал событий: {ex.Message}";
-            return View("get_logs", new AuditLogPageViewModel
-            {
-                HasExplicitSort = AppSortState.HasExplicitSort(sortBy),
-                CurrentPage = 1,
-                TotalPages = 1,
-                TotalCount = 0,
-                PageSize = LogsPageSize,
-                SortBy = AppSortState.HasExplicitSort(sortBy) ? sortBy ?? string.Empty : string.Empty,
-                SortDirection = AppSortState.HasExplicitSort(sortBy) ? AppSortState.NormalizeExplicitDirection(sortDirection) : string.Empty
-            });
+            return this.SafeErrorView(ex, "Не удалось загрузить журнал событий.", "Ошибка при загрузке журнала событий");
         }
     }
 
     [HttpGet("logs/export")]
     [HttpGet("event-log/export")]
-    public IActionResult GetDumpLogs()
+    public async Task<IActionResult> GetDumpLogs(CancellationToken cancellationToken = default)
     {
         IReadOnlyList<Log> logs;
 
         try
         {
-            logs = _auditLogService.GetLogs();
+            logs = await _auditLogService.GetLogsAsync(cancellationToken);
         }
         catch (Exception ex)
         {
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении списка логов: {ex.Message}" });
+            return this.SafeErrorView(ex, "Не удалось выгрузить журнал событий.", "Ошибка при получении списка журнала событий");
         }
 
         var logText = _auditLogService.GenerateLogText(logs);
-        var fileName = $"АИС Анкетирование. Журнал событий {DateTime.Now:yyyy-MM-dd HH-mm-ss}.txt";
+        var fileName = $"АИС Анкетирование. Журнал событий {_clock.Now:yyyy-MM-dd HH-mm-ss}.txt";
         var fileBytes = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(logText);
         return File(fileBytes, "text/plain", fileName);
     }
 
     [HttpGet("logs/details/{idLog:long}")]
     [HttpGet("event-log/details/{idLog:long}")]
-    public IActionResult GetLogDetails(
+    public async Task<IActionResult> GetLogDetails(
         long idLog,
         [FromQuery] string? sourceTable = null,
         [FromQuery] int page = 1,
         [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDirection = null)
+        [FromQuery] string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var log = _auditLogService.GetLogDetails(idLog, sourceTable, page, LogsPageSize, sortBy, sortDirection);
+            var log = await _auditLogService.GetLogDetailsAsync(
+                idLog, sourceTable, page, LogsPageSize, sortBy, sortDirection, cancellationToken);
             if (log == null)
             {
                 return NotFound(new { message = "Событие не найдено" });
@@ -87,7 +84,7 @@ public class LogController : Controller
         }
         catch (Exception ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = $"Не удалось загрузить событие: {ex.Message}" });
+            return this.SafeError(ex, "Не удалось загрузить событие.", "Ошибка при загрузке события журнала");
         }
     }
 

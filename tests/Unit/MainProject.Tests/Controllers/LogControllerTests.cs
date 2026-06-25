@@ -8,12 +8,12 @@ namespace MainProject.Tests.Controllers;
 public sealed class LogControllerTests
 {
     [Fact]
-    public void GetLogs_ReturnsLogsView_WhenServiceSucceeds()
+    public async Task GetLogs_ReturnsLogsView_WhenServiceSucceeds()
     {
         var expectedLogs = new[] { new Log { IdLog = 1 } };
-        var controller = new LogController(new StubAuditLogService(expectedLogs));
+        var controller = new LogController(new StubAuditLogService(expectedLogs), new FixedClock());
 
-        var result = controller.GetLogs();
+        var result = await controller.GetLogs();
 
         var viewResult = Assert.IsType<ViewResult>(result);
         Assert.Equal("get_logs", viewResult.ViewName);
@@ -22,17 +22,36 @@ public sealed class LogControllerTests
     }
 
     [Fact]
-    public void GetLogs_ReturnsEmptyLogsView_WhenServiceThrows()
+    public async Task GetLogs_ReturnsSafeErrorView_WhenServiceThrows()
     {
-        var controller = new LogController(new ThrowingAuditLogService());
+        var controller = new LogController(new ThrowingAuditLogService(), new FixedClock());
 
-        var result = controller.GetLogs();
+        var result = await controller.GetLogs();
 
         var viewResult = Assert.IsType<ViewResult>(result);
-        Assert.Equal("get_logs", viewResult.ViewName);
-        var model = Assert.IsType<AuditLogPageViewModel>(viewResult.Model);
-        Assert.Empty(model.Logs);
-        Assert.Contains("Не удалось загрузить журнал событий", controller.ViewData["LogLoadErrorMessage"] as string);
+        Assert.Equal("Error", viewResult.ViewName);
+        var model = Assert.IsType<ErrorViewModel>(viewResult.Model);
+        Assert.Equal("Не удалось загрузить журнал событий.", model.Message);
+        Assert.False(string.IsNullOrWhiteSpace(model.RequestId));
+    }
+
+    [Fact]
+    public async Task GetDumpLogs_UsesClockForExportFileName()
+    {
+        var controller = new LogController(
+            new StubAuditLogService(Array.Empty<Log>()),
+            new FixedClock());
+
+        var result = await controller.GetDumpLogs();
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("АИС Анкетирование. Журнал событий 2030-05-10 12-30-00.txt", fileResult.FileDownloadName);
+    }
+
+    private sealed class FixedClock : IClock
+    {
+        public DateTime Today => new(2030, 5, 10);
+        public DateTime Now => new(2030, 5, 10, 12, 30, 0);
     }
 
     private sealed class StubAuditLogService : IAuditLogService
@@ -44,11 +63,12 @@ public sealed class LogControllerTests
             _logs = logs;
         }
 
-        public IReadOnlyList<Log> GetLogs()
-            => _logs;
+        public Task<IReadOnlyList<Log>> GetLogsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(_logs);
 
-        public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
-            => new()
+        public Task<AuditLogPageViewModel> GetLogsPageAsync(
+            int currentPage, int pageSize, string? sortBy, string? sortDirection, CancellationToken cancellationToken = default)
+            => Task.FromResult(new AuditLogPageViewModel
             {
                 Logs = _logs,
                 CurrentPage = currentPage,
@@ -57,25 +77,29 @@ public sealed class LogControllerTests
                 PageSize = pageSize,
                 SortBy = sortBy ?? string.Empty,
                 SortDirection = sortDirection ?? string.Empty
-            };
+            });
 
-        public Log? GetLogDetails(long idLog, string? sourceTable, int currentPage, int pageSize, string? sortBy, string? sortDirection)
-            => _logs.FirstOrDefault(log => log.IdLog == idLog);
+        public Task<Log?> GetLogDetailsAsync(
+            long idLog, string? sourceTable, int currentPage, int pageSize, string? sortBy, string? sortDirection,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(_logs.FirstOrDefault(log => log.IdLog == idLog));
 
-        public string GenerateLogText(IEnumerable<Log> logs)
-            => throw new NotSupportedException();
+        public string GenerateLogText(IEnumerable<Log> logs) => "Журнал";
     }
 
     private sealed class ThrowingAuditLogService : IAuditLogService
     {
-        public AuditLogPageViewModel GetLogsPage(int currentPage, int pageSize, string? sortBy, string? sortDirection)
-            => throw new InvalidOperationException("audit tables are unavailable");
+        public Task<AuditLogPageViewModel> GetLogsPageAsync(
+            int currentPage, int pageSize, string? sortBy, string? sortDirection, CancellationToken cancellationToken = default)
+            => Task.FromException<AuditLogPageViewModel>(new InvalidOperationException("audit tables are unavailable"));
 
-        public Log? GetLogDetails(long idLog, string? sourceTable, int currentPage, int pageSize, string? sortBy, string? sortDirection)
-            => throw new InvalidOperationException("audit tables are unavailable");
+        public Task<Log?> GetLogDetailsAsync(
+            long idLog, string? sourceTable, int currentPage, int pageSize, string? sortBy, string? sortDirection,
+            CancellationToken cancellationToken = default)
+            => Task.FromException<Log?>(new InvalidOperationException("audit tables are unavailable"));
 
-        public IReadOnlyList<Log> GetLogs()
-            => throw new InvalidOperationException("audit tables are unavailable");
+        public Task<IReadOnlyList<Log>> GetLogsAsync(CancellationToken cancellationToken = default)
+            => Task.FromException<IReadOnlyList<Log>>(new InvalidOperationException("audit tables are unavailable"));
 
         public string GenerateLogText(IEnumerable<Log> logs)
             => throw new NotSupportedException();

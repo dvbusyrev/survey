@@ -1,12 +1,13 @@
+using Microsoft.Extensions.Hosting;
 using MainProject.Application.Contracts;
 
 namespace MainProject.Application.UseCases.Admin;
 
-public sealed class SurveyAutoCreationHostedService : IHostedService, IDisposable
+public sealed class SurveyAutoCreationHostedService : BackgroundService
 {
+    private static readonly TimeSpan RunInterval = TimeSpan.FromHours(6);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<SurveyAutoCreationHostedService> _logger;
-    private Timer? _timer;
 
     public SurveyAutoCreationHostedService(IServiceScopeFactory scopeFactory, ILogger<SurveyAutoCreationHostedService> logger)
     {
@@ -14,20 +15,36 @@ public sealed class SurveyAutoCreationHostedService : IHostedService, IDisposabl
         _logger = logger;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Фоновая служба автосоздания анкет запущена");
-        _timer = new Timer(Execute, null, TimeSpan.Zero, TimeSpan.FromHours(6));
-        return Task.CompletedTask;
+
+        try
+        {
+            await RunPendingAsync(stoppingToken);
+
+            using var timer = new PeriodicTimer(RunInterval);
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                await RunPendingAsync(stoppingToken);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            _logger.LogInformation("Фоновая служба автосоздания анкет остановлена");
+        }
     }
 
-    private async void Execute(object? state)
+    private async Task RunPendingAsync(CancellationToken cancellationToken)
     {
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<ISurveyAutoCreationService>();
-            var result = await service.RunPendingAsync();
+            var result = await service.RunPendingAsync(cancellationToken);
 
             if (result.Processed)
             {
@@ -37,21 +54,13 @@ public sealed class SurveyAutoCreationHostedService : IHostedService, IDisposabl
                     result.ScheduleDate);
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка фоновой службы автосоздания анкет");
         }
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Фоновая служба автосоздания анкет остановлена");
-        _timer?.Change(Timeout.Infinite, 0);
-        return Task.CompletedTask;
-    }
-
-    public void Dispose()
-    {
-        _timer?.Dispose();
     }
 }

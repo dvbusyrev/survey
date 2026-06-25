@@ -1,3 +1,6 @@
+-- Canonical bootstrap schema. It is imported only by
+-- db/migrations/001_unified_schema.sql for a database with no migration history.
+-- Do not run this file directly and do not place it in db/migrations.
 
 -- Name: audit_current_user_id(); Type: FUNCTION; Schema: public; Owner: -
 

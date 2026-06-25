@@ -4,7 +4,7 @@ namespace MainProject.Application.Contracts;
 
 public interface IAnswerExportService
 {
-    AnswerGeneratedFileResult? CreatePdfReport(int surveyId, int organizationId);
-    AnswerGeneratedFileResult? CreateSignedArchive(int surveyId, int organizationId);
-    AnswerGeneratedFileResult? CreateSurveyReport(int surveyId, int organizationId, string? type);
+    Task<AnswerGeneratedFileResult?> CreatePdfReportAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<AnswerGeneratedFileResult?> CreateSignedArchiveAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<AnswerGeneratedFileResult?> CreateSurveyReportAsync(int surveyId, int organizationId, string? type, CancellationToken cancellationToken = default);
 }

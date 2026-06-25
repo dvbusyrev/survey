@@ -9,143 +9,29 @@
     const ORGANIZATION_FILTER_SELECTOR = '[data-role="survey-organization-filter"]';
     const SURVEY_NAME_FILTER_SELECTOR = '[data-role="survey-name-filter"]';
     const SURVEY_ROW_SELECTOR = 'tr[data-survey-date-begin][data-survey-date-end]';
-    const MONTH_NAMES = [
-        'Январь',
-        'Февраль',
-        'Март',
-        'Апрель',
-        'Май',
-        'Июнь',
-        'Июль',
-        'Август',
-        'Сентябрь',
-        'Октябрь',
-        'Ноябрь',
-        'Декабрь'
-    ];
-    const WEEKDAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const {
+        MONTH_NAMES,
+        WEEKDAY_NAMES,
+        toIso,
+        parseIso,
+        shiftMonth,
+        getMonthBounds,
+        getYearBounds,
+        getDecadeStart,
+        getDisplayDate,
+        compareIso,
+        isIsoWithin,
+        getRangeDescription,
+        getMonthDescription,
+        getYearDescription,
+        createElement
+    } = window.SurveyFilterCore;
     const instances = new Map();
     const organizationInstances = new Map();
     const surveyNameInstances = new Map();
     const serverFilterConfigs = new WeakMap();
     const PENDING_OPEN_FILTER_STORAGE_KEY = 'surveyAdminPendingOpenFilter';
-    let observer = null;
-
-    function pad(value) {
-        return String(value).padStart(2, '0');
-    }
-
-    function toIso(date) {
-        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-            return '';
-        }
-
-        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-    }
-
-    function parseIso(isoValue) {
-        const match = String(isoValue || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (!match) {
-            return null;
-        }
-
-        const year = Number.parseInt(match[1], 10);
-        const month = Number.parseInt(match[2], 10);
-        const day = Number.parseInt(match[3], 10);
-        const date = new Date(year, month - 1, day);
-
-        if (Number.isNaN(date.getTime())
-            || date.getFullYear() !== year
-            || date.getMonth() !== month - 1
-            || date.getDate() !== day) {
-            return null;
-        }
-
-        return date;
-    }
-
-    function shiftMonth(sourceDate, monthOffset) {
-        const date = sourceDate instanceof Date
-            ? new Date(sourceDate.getFullYear(), sourceDate.getMonth(), 1)
-            : new Date();
-        date.setMonth(date.getMonth() + monthOffset);
-        return new Date(date.getFullYear(), date.getMonth(), 1);
-    }
-
-    function getMonthBounds(year, monthIndex) {
-        const startDate = new Date(year, monthIndex, 1);
-        const endDate = new Date(year, monthIndex + 1, 0);
-
-        return {
-            start: toIso(startDate),
-            end: toIso(endDate)
-        };
-    }
-
-    function getYearBounds(year) {
-        return {
-            start: `${year}-01-01`,
-            end: `${year}-12-31`
-        };
-    }
-
-    function getDecadeStart(year) {
-        return Math.floor(year / 10) * 10;
-    }
-
-    function getDisplayDate(isoValue) {
-        if (window.AppDate?.toDisplay) {
-            return window.AppDate.toDisplay(isoValue);
-        }
-
-        const date = parseIso(isoValue);
-        if (!date) {
-            return '';
-        }
-
-        return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
-    }
-
-    function compareIso(left, right) {
-        if (!left || !right) {
-            return 0;
-        }
-
-        return left === right ? 0 : (left > right ? 1 : -1);
-    }
-
-    function isIsoWithin(isoValue, startIso, endIso) {
-        return Boolean(isoValue)
-            && (!startIso || compareIso(isoValue, startIso) >= 0)
-            && (!endIso || compareIso(isoValue, endIso) <= 0);
-    }
-
-    function getRangeDescription(startIso, endIso) {
-        if (!startIso || !endIso) {
-            return '';
-        }
-
-        return `${getDisplayDate(startIso)} - ${getDisplayDate(endIso)}`;
-    }
-
-    function getMonthDescription(year, monthIndex) {
-        return `${MONTH_NAMES[monthIndex]} ${year}`;
-    }
-
-    function getYearDescription(year) {
-        return `${year} год`;
-    }
-
-    function createElement(tagName, className, textContent) {
-        const element = document.createElement(tagName);
-        if (className) {
-            element.className = className;
-        }
-        if (textContent !== undefined) {
-            element.textContent = textContent;
-        }
-        return element;
-    }
+    let unregisterLifecycle = null;
 
     function ensurePopoverHeader(root) {
         const popover = root.querySelector('[data-role="survey-date-filter-popover"]');
@@ -868,27 +754,12 @@
         applyPageFilters(instance.page);
     }
 
-    function updateCheckboxListHeight(container) {
-        const list = container?.querySelector('.app-checkbox-list');
-        if (!list) {
-            return;
-        }
-
-        const listTop = list.getBoundingClientRect().top;
-        const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
-        list.style.setProperty('--app-checkbox-list-max-height', `${availableHeight}px`);
-    }
-
-    function scheduleCheckboxListHeightUpdate(container) {
-        window.requestAnimationFrame(() => updateCheckboxListHeight(container));
-    }
-
     function setPopoverOpen(instance, isOpen) {
         instance.state.isOpen = Boolean(isOpen);
         instance.refs.trigger.setAttribute('aria-expanded', instance.state.isOpen ? 'true' : 'false');
         instance.refs.popover.classList.toggle('is-hidden', !instance.state.isOpen);
         if (instance.state.isOpen) {
-            scheduleCheckboxListHeightUpdate(instance.refs.popover);
+            window.AppCheckboxDropdown?.scheduleListHeightUpdate(instance.refs.popover);
         }
     }
 
@@ -1710,28 +1581,48 @@
         }
     }
 
-    function bindAvailablePages(root = document) {
-        cleanupDetachedInstances();
-        const pages = root === document
-            ? Array.from(document.querySelectorAll(PAGE_SELECTOR))
-            : getPagesFromNode(root);
+    function unbindPageInstances(page) {
+        [instances, organizationInstances, surveyNameInstances].forEach((collection) => {
+            Array.from(collection.entries()).forEach(([root, instance]) => {
+                if (instance.page !== page) {
+                    return;
+                }
 
-        pages.forEach((page) => {
-            const dateFilterRoot = page.querySelector(FILTER_SELECTOR);
-            if (dateFilterRoot) {
-                bindInstance(dateFilterRoot);
-            }
-
-            const organizationFilterRoot = page.querySelector(ORGANIZATION_FILTER_SELECTOR);
-            if (organizationFilterRoot) {
-                bindOrganizationInstance(organizationFilterRoot);
-            }
-
-            const surveyNameFilterRoot = page.querySelector(SURVEY_NAME_FILTER_SELECTOR);
-            if (surveyNameFilterRoot) {
-                bindSurveyNameInstance(surveyNameFilterRoot);
-            }
+                if (instance.handlers?.click) {
+                    root.removeEventListener('click', instance.handlers.click);
+                }
+                if (instance.handlers?.change) {
+                    root.removeEventListener('change', instance.handlers.change);
+                }
+                collection.delete(root);
+            });
         });
+    }
+
+    function mountPageFilters(page, scope) {
+        cleanupDetachedInstances();
+
+        const dateFilterRoot = page.querySelector(FILTER_SELECTOR);
+        if (dateFilterRoot) {
+            bindInstance(dateFilterRoot);
+        }
+
+        const organizationFilterRoot = page.querySelector(ORGANIZATION_FILTER_SELECTOR);
+        if (organizationFilterRoot) {
+            bindOrganizationInstance(organizationFilterRoot);
+        }
+
+        const surveyNameFilterRoot = page.querySelector(SURVEY_NAME_FILTER_SELECTOR);
+        if (surveyNameFilterRoot) {
+            bindSurveyNameInstance(surveyNameFilterRoot);
+        }
+
+        if (scope?.listen) {
+            scope.listen(document, 'click', handleDocumentClick);
+            scope.listen(document, 'keydown', handleDocumentKeydown);
+        }
+
+        return () => unbindPageInstances(page);
     }
 
     function handleDocumentClick(event) {
@@ -1795,45 +1686,36 @@
         });
         surveyNameInstances.clear();
 
-        if (observer) {
-            observer.disconnect();
-            observer = null;
-        }
+        unregisterLifecycle?.();
+        unregisterLifecycle = null;
 
-        serverFilterConfigs.clear?.();
-
-        document.removeEventListener('click', handleDocumentClick);
-        document.removeEventListener('keydown', handleDocumentKeydown);
     }
 
     window.__surveyAdminDateFilterController = {
         destroy
     };
 
-    document.addEventListener('click', handleDocumentClick);
-    document.addEventListener('keydown', handleDocumentKeydown);
-
-    if (typeof MutationObserver !== 'undefined' && document.body) {
-        observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                mutation.addedNodes.forEach((node) => {
-                    bindAvailablePages(node);
-                });
-            });
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            bindAvailablePages(document);
-        });
+    if (window.AppPageLifecycle?.register) {
+        unregisterLifecycle = window.AppPageLifecycle.register(
+            'survey-admin-filters',
+            PAGE_SELECTOR,
+            mountPageFilters
+        );
         return;
     }
 
-    bindAvailablePages(document);
+    const mountInitialPages = () => {
+        document.querySelectorAll(PAGE_SELECTOR).forEach((page) => {
+            mountPageFilters(page, {
+                listen(target, type, handler, options) {
+                    target.addEventListener(type, handler, options);
+                }
+            });
+        });
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', mountInitialPages, { once: true });
+    } else {
+        mountInitialPages();
+    }
 })();

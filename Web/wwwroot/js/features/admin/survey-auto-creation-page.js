@@ -1,10 +1,17 @@
 (function () {
-    function getPageRoot() {
-        return document.querySelector('[data-page="survey-auto-creation"]');
+    const PAGE_SELECTOR = '[data-page="survey-auto-creation"]';
+
+    function getPageRoot(root = document) {
+        if (root?.matches?.(PAGE_SELECTOR)) {
+            return root;
+        }
+
+        return root?.querySelector?.(PAGE_SELECTOR) || document.querySelector(PAGE_SELECTOR);
     }
 
-    function parseBootstrap() {
-        const node = document.getElementById('survey-auto-creation-bootstrap');
+    function parseBootstrap(root = document) {
+        const node = root?.querySelector?.('#survey-auto-creation-bootstrap')
+            || document.getElementById('survey-auto-creation-bootstrap');
         if (!node?.textContent) {
             return { isEnabled: false, selectedSurveys: [] };
         }
@@ -17,15 +24,16 @@
         }
     }
 
-    function getRequestVerificationToken() {
-        return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
-    }
-
     const state = {
-        initializedRoot: null,
+        pageRoot: null,
+        cleanup: null,
         selectedSurveys: [],
         availableSurveys: null
     };
+
+    function getQueryRoot() {
+        return state.pageRoot || document;
+    }
 
     function normalizeSurvey(rawSurvey) {
         return {
@@ -50,19 +58,14 @@
             return;
         }
 
-        if (typeof window.siteNotify === 'function') {
-            window.siteNotify(normalizedMessage, type, {
-                title: options.title,
-                duration: options.duration ?? (type === 'error' ? 0 : 4000)
-            });
-            return;
-        }
-
-        window.alert(normalizedMessage);
+        window.AppUi.notify(normalizedMessage, type, {
+            title: options.title,
+            duration: options.duration ?? (type === 'error' ? 0 : 4000)
+        });
     }
 
     function renderSelectedSurveys() {
-        const host = document.querySelector('[data-role="survey-auto-creation-selected-list"]');
+        const host = getQueryRoot().querySelector('[data-role="survey-auto-creation-selected-list"]');
         if (!host) {
             return;
         }
@@ -86,7 +89,7 @@
     }
 
     function renderSurveyModalList() {
-        const list = document.getElementById('surveyAutoCreationModalList');
+        const list = getQueryRoot().querySelector('#surveyAutoCreationModalList');
         if (!list) {
             return;
         }
@@ -122,8 +125,9 @@
     }
 
     function setLoading(isLoading) {
-        const loading = document.getElementById('surveyAutoCreationModalLoading');
-        const list = document.getElementById('surveyAutoCreationModalList');
+        const root = getQueryRoot();
+        const loading = root.querySelector('#surveyAutoCreationModalLoading');
+        const list = root.querySelector('#surveyAutoCreationModalList');
         if (loading) {
             loading.classList.toggle('u-hidden', !isLoading);
         }
@@ -144,11 +148,13 @@
     }
 
     function getSurveyDropdown() {
-        return document.querySelector('[data-role="survey-auto-creation-dropdown"]');
+        return getQueryRoot().querySelector('[data-role="survey-auto-creation-dropdown"]');
     }
 
     function getSurveyDropdownMenu() {
-        return document.querySelector('[data-role="survey-auto-creation-dropdown-menu"]')
+        const root = getQueryRoot();
+        return root.querySelector('[data-role="survey-auto-creation-dropdown-menu"]')
+            || root.querySelector('#surveyAutoCreationDropdownMenu')
             || document.getElementById('surveyAutoCreationDropdownMenu');
     }
 
@@ -229,9 +235,10 @@
     }
 
     function collectRequest() {
-        const creationPattern = document.getElementById('surveyAutoCreationPattern')?.value || '';
-        const startPattern = document.getElementById('surveyAutoCreationStartPattern')?.value || '';
-        const endOffsetValue = document.getElementById('surveyAutoCreationEndOffset')?.value || '';
+        const root = getQueryRoot();
+        const creationPattern = root.querySelector('#surveyAutoCreationPattern')?.value || '';
+        const startPattern = root.querySelector('#surveyAutoCreationStartPattern')?.value || '';
+        const endOffsetValue = root.querySelector('#surveyAutoCreationEndOffset')?.value || '';
         const endOffsetBusinessDays = endOffsetValue ? Number(endOffsetValue) : null;
 
         return {
@@ -246,7 +253,7 @@
         const options = {
             method: 'POST',
             headers: {
-                RequestVerificationToken: getRequestVerificationToken()
+                RequestVerificationToken: window.AppHttp?.getAntiforgeryToken() || ''
             }
         };
 
@@ -310,17 +317,26 @@
         closeSurveyDropdown();
     }
 
-    // Capture phase keeps this reliable when another interactive component stops click propagation.
-    document.addEventListener('pointerdown', closeSurveyDropdownOnOutsidePointer, true);
-    document.addEventListener('click', closeSurveyDropdownOnOutsidePointer, true);
-
-    document.addEventListener('keydown', function (event) {
+    function handleEscape(event) {
         if (event.key !== 'Escape') {
             return;
         }
 
         closeSurveyDropdown();
-    });
+    }
+
+    function listen(scope, target, type, handler, options) {
+        if (!target) {
+            return;
+        }
+
+        if (scope && typeof scope.listen === 'function') {
+            scope.listen(target, type, handler, options);
+            return;
+        }
+
+        target.addEventListener(type, handler, options);
+    }
 
     window.openSurveyAutoCreationSurveyModal = openSurveyDropdown;
     window.toggleSurveyAutoCreationSurveyDropdown = toggleSurveyDropdown;
@@ -346,17 +362,62 @@
         return submitAction('/settings/survey-creation/stop', undefined, 'Автосоздание остановлено');
     };
 
-    window.initSurveyAutoCreationPage = function initSurveyAutoCreationPage() {
-        const pageRoot = getPageRoot();
-        if (!pageRoot || state.initializedRoot === pageRoot) {
+    function mountSurveyAutoCreationPage(pageRoot, scope) {
+        if (state.cleanup) {
+            state.cleanup();
+            state.cleanup = null;
+        }
+
+        if (!pageRoot) {
             return;
         }
 
-        state.initializedRoot = pageRoot;
-        const bootstrap = parseBootstrap();
+        state.pageRoot = pageRoot;
+        state.availableSurveys = null;
+        const bootstrap = parseBootstrap(pageRoot);
         state.selectedSurveys = cloneSurveys(bootstrap.selectedSurveys).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
         renderSelectedSurveys();
+
+        // Capture phase keeps this reliable when another interactive component stops click propagation.
+        listen(scope, document, 'pointerdown', closeSurveyDropdownOnOutsidePointer, true);
+        listen(scope, document, 'click', closeSurveyDropdownOnOutsidePointer, true);
+        listen(scope, document, 'keydown', handleEscape);
+
+        const cleanup = () => {
+            closeSurveyDropdown();
+            if (state.pageRoot === pageRoot) {
+                state.pageRoot = null;
+                state.availableSurveys = null;
+            }
+        };
+
+        state.cleanup = cleanup;
+        if (scope && typeof scope.add === 'function') {
+            scope.add(cleanup);
+        }
+    }
+
+    window.initSurveyAutoCreationPage = function initSurveyAutoCreationPage(root = document, scope = null) {
+        const pageRoot = getPageRoot(root);
+        mountSurveyAutoCreationPage(pageRoot, scope);
     };
 
-    window.initSurveyAutoCreationPage();
+    window.teardownSurveyAutoCreationPage = function teardownSurveyAutoCreationPage() {
+        if (state.cleanup) {
+            state.cleanup();
+            state.cleanup = null;
+        }
+    };
+
+    if (window.AppPageLifecycle && typeof window.AppPageLifecycle.register === 'function') {
+        window.AppPageLifecycle.register(
+            'survey-auto-creation-page',
+            `.app-page${PAGE_SELECTOR}`,
+            mountSurveyAutoCreationPage
+        );
+    } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => window.initSurveyAutoCreationPage(document), { once: true });
+    } else {
+        window.initSurveyAutoCreationPage(document);
+    }
 })();

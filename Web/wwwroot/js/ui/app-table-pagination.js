@@ -229,8 +229,7 @@ function mountTablePagination(table) {
     const tbody = table.tBodies?.[0];
     const anchor = getPaginationAnchor(table);
     if (!tbody || !anchor) {
-        table.dataset.tablePaginationMounted = 'skipped';
-        return;
+        return null;
     }
 
     const host = createPaginationHost(anchor);
@@ -247,7 +246,8 @@ function mountTablePagination(table) {
         observer: null
     };
 
-    host.addEventListener('click', (event) => handlePaginationClick(instance, event));
+    const onHostClick = (event) => handlePaginationClick(instance, event);
+    host.addEventListener('click', onHostClick);
 
     if (typeof MutationObserver !== 'undefined') {
         instance.observer = new MutationObserver((mutations) => {
@@ -272,6 +272,17 @@ function mountTablePagination(table) {
     instances.set(table, instance);
     table.dataset.tablePaginationMounted = 'true';
     renderPagination(instance);
+
+    return () => {
+        instance.observer?.disconnect();
+        host.removeEventListener('click', onHostClick);
+        host.remove();
+        instances.delete(table);
+        table.removeAttribute('data-table-pagination-mounted');
+        Array.from(tbody.rows || []).forEach((row) => {
+            row.removeAttribute('data-table-pagination-hidden');
+        });
+    };
 }
 
 function mountTablePaginations(root = document) {
@@ -279,47 +290,26 @@ function mountTablePaginations(root = document) {
         return;
     }
 
+    if (root.matches?.(TABLE_SELECTOR)) {
+        mountTablePagination(root);
+    }
+
     root.querySelectorAll(TABLE_SELECTOR).forEach((table) => {
         mountTablePagination(table);
     });
 }
 
-function observeTables() {
-    if (!document.body || typeof MutationObserver === 'undefined') {
-        return;
-    }
-
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (!(node instanceof Element)) {
-                    return;
-                }
-
-                if (node.matches?.(TABLE_SELECTOR)) {
-                    mountTablePagination(node);
-                }
-
-                mountTablePaginations(node);
-            });
-        });
-    });
-
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-}
-
 window.mountTablePaginations = mountTablePaginations;
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        mountTablePaginations(document);
-        observeTables();
-    }, { once: true });
+if (window.AppPageLifecycle?.register) {
+    window.AppPageLifecycle.register(
+        'table-pagination',
+        TABLE_SELECTOR,
+        mountTablePagination
+    );
+} else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => mountTablePaginations(document), { once: true });
 } else {
     mountTablePaginations(document);
-    observeTables();
 }
 })();

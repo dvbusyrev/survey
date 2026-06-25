@@ -6,14 +6,14 @@ namespace MainProject.Application.Contracts;
 
 public interface IOrganizationRepository
 {
-    int Count(bool includeArchived);
-    IReadOnlyList<Organization> GetPage(bool includeArchived, string sortBy, string sortDirection, int pageSize, int offset);
-    IReadOnlyList<Organization> GetAll(bool includeArchived);
-    IReadOnlyList<OrganizationDataResponse> GetActiveOptions();
-    Organization? GetById(int organizationId);
-    int Create(OrganizationWriteModel organization);
-    int Update(int organizationId, OrganizationWriteModel organization);
-    OrganizationArchiveResult ArchiveIfUnused(int organizationId);
-    IReadOnlyList<OrganizationSurveyAssignmentRecord> GetLatestUnansweredAssignments(IReadOnlyCollection<int>? organizationIds = null);
-    bool UpdateAssignmentEndDates(IReadOnlyCollection<(int OrganizationId, int SurveyId)> assignments, DateTime dateEnd);
+    Task<int> CountAsync(bool includeArchived, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Organization>> GetPageAsync(bool includeArchived, string sortBy, string sortDirection, int pageSize, int offset, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Organization>> GetAllAsync(bool includeArchived, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OrganizationDataResponse>> GetActiveOptionsAsync(CancellationToken cancellationToken = default);
+    Task<Organization?> GetByIdAsync(int organizationId, CancellationToken cancellationToken = default);
+    Task<int> CreateAsync(OrganizationWriteModel organization, CancellationToken cancellationToken = default);
+    Task<int> UpdateAsync(int organizationId, OrganizationWriteModel organization, CancellationToken cancellationToken = default);
+    Task<OrganizationArchiveResult> ArchiveIfUnusedAsync(int organizationId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OrganizationSurveyAssignmentRecord>> GetLatestUnansweredAssignmentsAsync(IReadOnlyCollection<int>? organizationIds = null, CancellationToken cancellationToken = default);
+    Task<bool> UpdateAssignmentEndDatesAsync(IReadOnlyCollection<(int OrganizationId, int SurveyId)> assignments, DateTime dateEnd, CancellationToken cancellationToken = default);
 }

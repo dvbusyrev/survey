@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  quality:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,11 +29,208 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Restore .NET projects
+        run: dotnet restore Tests/Unit/MainProject.Tests/MainProject.Tests.csproj
+
+      - name: Verify formatting
+        run: |
+          dotnet format main_project.csproj --verify-no-changes --no-restore
+          dotnet format Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --verify-no-changes --no-restore
+
+      - name: Run analyzers as errors
+        run: dotnet build Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -warnaserror
+
+      - name: Check .NET dependencies
+        run: dotnet list Tests/Unit/MainProject.Tests/MainProject.Tests.csproj package --vulnerable --include-transitive
+
+      - name: Check npm dependencies
+        run: npm audit --audit-level=high
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: survey_contract_tests
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d survey_contract_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Verify frontend
+        run: npm run build
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
       - name: Restore test project
-        run: dotnet restore tests/MainProject.Tests/MainProject.Tests.csproj
+        run: dotnet restore Tests/Unit/MainProject.Tests/MainProject.Tests.csproj
 
       - name: Build test project
-        run: dotnet build tests/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore
+        run: dotnet build Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test tests/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-build --no-restore
+        env:
+          SURVEY_TEST_CONNECTION: Host=localhost;Port=5432;Database=survey_contract_tests;Username=postgres;Password=postgres
+          SURVEY_TEST_PSQL: psql
+        run: dotnet test Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-build --no-restore
+
+  migration-rehearsal:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: survey_migration_rehearsal
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d survey_migration_rehearsal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Apply previous schema version
+        env:
+          SURVEY_MIGRATION_CONNECTION: postgresql://postgres:postgres@localhost:5432/survey_migration_rehearsal
+        run: bash scripts/apply-migrations-through.sh 027
+
+      - name: Seed data created by the previous version
+        env:
+          PGPASSWORD: postgres
+        run: psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file tests/migrations/seed-v027-theme-data.sql
+
+      - name: Apply current migration
+        env:
+          PGPASSWORD: postgres
+        run: psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file db/migrations/028_remove_legacy_theme_columns.sql
+
+      - name: Verify preserved data and removed legacy columns
+        env:
+          PGPASSWORD: postgres
+        run: |
+          test "$(psql --host localhost --username postgres --dbname survey_migration_rehearsal --tuples-only --no-align --command \"SELECT font_color || ':' || background_color || ':' || background_image_opacity FROM public.theme_config WHERE id_config = 1;\")" = '#112233:#445566:40'
+          test "$(psql --host localhost --username postgres --dbname survey_migration_rehearsal --tuples-only --no-align --command \"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('theme_config', 'theme_config_l') AND column_name IN ('gradient_enabled', 'gradient_start_color', 'gradient_end_color', 'background_image_data_url', 'soft_lighten_percent', 'button_strong_darken_percent');\")" = '0'
+
+  browser-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: survey_smoke_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d survey_smoke_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Restore application
+        run: dotnet restore main_project.csproj
+
+      - name: Build application
+        run: dotnet build main_project.csproj --configuration Release --no-restore
+
+      - name: Run browser smoke tests
+        env:
+          PGPASSWORD: postgres
+          ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=survey_smoke_test;Username=postgres;Password=postgres
+          DataProtection__KeyRingPath: /tmp/ais-anketirovanie-e2e-keys
+          ASPNETCORE_ENVIRONMENT: Development
+          urls: http://127.0.0.1:5080
+          SMOKE_BASE_URL: http://127.0.0.1:5080
+        run: |
+          set -euo pipefail
+          psql --host localhost --username postgres --dbname survey_smoke_test --set ON_ERROR_STOP=1 --file db/migrations/000_apply_all.sql
+          node tests/e2e/seed-smoke-data.mjs | psql --host localhost --username postgres --dbname survey_smoke_test --set ON_ERROR_STOP=1
+          dotnet run --project main_project.csproj --configuration Release --no-build > /tmp/ais-anketirovanie-e2e.log 2>&1 &
+          application_pid=$!
+          trap 'kill "$application_pid"' EXIT
+          application_ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:5080/health/live; then
+              application_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [[ "$application_ready" != true ]]; then
+            cat /tmp/ais-anketirovanie-e2e.log
+            exit 1
+          fi
+          npm run test:smoke
+
+      - name: Upload browser test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-smoke-artifacts
+          path: |
+            playwright-report/
+            test-results/
+            /tmp/ais-anketirovanie-e2e.log
+          if-no-files-found: ignore

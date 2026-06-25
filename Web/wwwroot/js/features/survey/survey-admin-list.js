@@ -270,7 +270,7 @@
             const survey = buildSurveyData(trigger);
             await openCopySurveyModalById(survey.id_survey);
         } catch (error) {
-            window.siteNotify?.(error.message || 'Не удалось подготовить копирование анкеты.', 'error');
+            window.AppUi?.notify?.(error.message || 'Не удалось подготовить копирование анкеты.', 'error');
         }
     }
 
@@ -301,12 +301,12 @@
                 : `/survey/${survey.id_survey}/edit`;
             window.location.assign(editUrl);
         } catch (error) {
-            window.siteNotify?.(error.message || 'Не удалось открыть редактирование анкеты.', 'error');
+            window.AppUi?.notify?.(error.message || 'Не удалось открыть редактирование анкеты.', 'error');
         }
     }
 
     function handleSurveyCreateSuccess(result) {
-        window.siteNotify?.(result?.message || 'Анкета успешно создана', 'success');
+        window.AppUi?.notify?.(result?.message || 'Анкета успешно создана', 'success');
         closeSurveyEditorModal();
         if (!refreshSurveyListPreservingScroll()) {
             window.location.assign('/survey');
@@ -314,7 +314,7 @@
     }
 
     function handleSurveyUpdateSuccess(result) {
-        window.siteNotify?.(result?.message || 'Анкета успешно обновлена', 'success');
+        window.AppUi?.notify?.(result?.message || 'Анкета успешно обновлена', 'success');
         closeSurveyEditorModal();
         if (!refreshSurveyListPreservingScroll()) {
             window.location.assign('/survey');
@@ -497,11 +497,11 @@
         } catch (error) {
             if (signaturesHost) {
                 signaturesHost.replaceChildren();
-                window.siteNotify?.(error.message || 'Не удалось загрузить прохождение.', 'error');
+                window.AppUi?.notify?.(error.message || 'Не удалось загрузить прохождение.', 'error');
                 return;
             }
 
-            window.siteNotify?.(error.message || 'Не удалось загрузить прохождение.', 'error');
+            window.AppUi?.notify?.(error.message || 'Не удалось загрузить прохождение.', 'error');
         }
     }
 
@@ -575,7 +575,7 @@
                 extensionModal.style.display = 'flex';
             }
         } catch (error) {
-            window.siteNotify?.(error.message || 'Не удалось открыть форму продления.', 'error');
+            window.AppUi?.notify?.(error.message || 'Не удалось открыть форму продления.', 'error');
         }
     }
 
@@ -628,7 +628,7 @@
 
             window.location.assign(target.fallbackUrl);
         } catch (error) {
-            window.siteNotify?.(error.message || 'Не удалось удалить анкету.', 'error');
+            window.AppUi?.notify?.(error.message || 'Не удалось удалить анкету.', 'error');
         }
     }
 

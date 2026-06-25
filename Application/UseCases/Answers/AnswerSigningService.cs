@@ -15,11 +15,15 @@ public sealed class AnswerSigningService : IAnswerSigningService
         _clock = clock;
     }
 
-    public AnswerSigningPayload GetSigningData(int surveyId, int organizationId)
+    public async Task<AnswerSigningPayload> GetSigningDataAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        var survey = _answerDataService.GetSurveyInfo(surveyId)
+        var survey = await _answerDataService.GetSurveyInfoAsync(surveyId, cancellationToken)
             ?? throw new InvalidOperationException("Анкета для подписи не найдена.");
-        var answerRecords = _answerDataService.GetAnswerRecords(surveyId, organizationId).ToList();
+        var answerRecords = (await _answerDataService.GetAnswerRecordsAsync(
+            surveyId, organizationId, cancellationToken)).ToList();
         if (answerRecords.Count == 0)
         {
             throw new InvalidOperationException("Ответы для подписи не найдены.");
@@ -40,7 +44,11 @@ public sealed class AnswerSigningService : IAnswerSigningService
         };
     }
 
-    public bool SaveSignature(int surveyId, int organizationId, AnswerSignatureSaveRequest request)
+    public async Task<bool> SaveSignatureAsync(
+        int surveyId,
+        int organizationId,
+        AnswerSignatureSaveRequest request,
+        CancellationToken cancellationToken = default)
     {
         var signature = NormalizeBase64Payload(request.Signature);
         if (string.IsNullOrWhiteSpace(signature))
@@ -54,7 +62,7 @@ public sealed class AnswerSigningService : IAnswerSigningService
             signedContent = DecodeBase64Payload(request.SignedContent, "подписанный PDF");
         }
 
-        var answerRecord = _answerDataService.GetAnswerRecord(surveyId, organizationId);
+        var answerRecord = await _answerDataService.GetAnswerRecordAsync(surveyId, organizationId, cancellationToken);
         if (answerRecord == null)
         {
             return false;
@@ -65,12 +73,13 @@ public sealed class AnswerSigningService : IAnswerSigningService
             throw new AnswerAlreadySignedException();
         }
 
-        if (_answerDataService.UpdateSignature(surveyId, organizationId, signature, signedContent))
+        if (await _answerDataService.UpdateSignatureAsync(
+                surveyId, organizationId, signature, signedContent, cancellationToken))
         {
             return true;
         }
 
-        var updatedAnswerRecord = _answerDataService.GetAnswerRecord(surveyId, organizationId);
+        var updatedAnswerRecord = await _answerDataService.GetAnswerRecordAsync(surveyId, organizationId, cancellationToken);
         if (!string.IsNullOrWhiteSpace(updatedAnswerRecord?.Csp))
         {
             throw new AnswerAlreadySignedException();
@@ -79,11 +88,14 @@ public sealed class AnswerSigningService : IAnswerSigningService
         return false;
     }
 
-    public AnswerSigningPayload GetDraftSigningData(int surveyId, int organizationId)
+    public async Task<AnswerSigningPayload> GetDraftSigningDataAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        var survey = _answerDataService.GetSurveyInfo(surveyId)
+        var survey = await _answerDataService.GetSurveyInfoAsync(surveyId, cancellationToken)
             ?? throw new InvalidOperationException("Анкета для подписи не найдена.");
-        var draftRecord = _answerDataService.GetDraftRecord(surveyId, organizationId);
+        var draftRecord = await _answerDataService.GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
         if (draftRecord == null || draftRecord.Answers.Count == 0)
         {
             throw new InvalidOperationException("Черновик не содержит ответов для подписи.");
@@ -105,7 +117,11 @@ public sealed class AnswerSigningService : IAnswerSigningService
         };
     }
 
-    public bool SaveDraftSignature(int surveyId, int organizationId, AnswerSignatureSaveRequest request)
+    public async Task<bool> SaveDraftSignatureAsync(
+        int surveyId,
+        int organizationId,
+        AnswerSignatureSaveRequest request,
+        CancellationToken cancellationToken = default)
     {
         var signature = NormalizeBase64Payload(request.Signature);
         if (string.IsNullOrWhiteSpace(signature))
@@ -119,7 +135,7 @@ public sealed class AnswerSigningService : IAnswerSigningService
             signedContent = DecodeBase64Payload(request.SignedContent, "подписанный PDF");
         }
 
-        var draftRecord = _answerDataService.GetDraftRecord(surveyId, organizationId);
+        var draftRecord = await _answerDataService.GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
         if (draftRecord == null || draftRecord.Answers.Count == 0)
         {
             return false;
@@ -130,12 +146,13 @@ public sealed class AnswerSigningService : IAnswerSigningService
             throw new AnswerAlreadySignedException();
         }
 
-        if (_answerDataService.UpdateDraftSignature(surveyId, organizationId, signature, signedContent))
+        if (await _answerDataService.UpdateDraftSignatureAsync(
+                surveyId, organizationId, signature, signedContent, cancellationToken))
         {
             return true;
         }
 
-        var updatedDraftRecord = _answerDataService.GetDraftRecord(surveyId, organizationId);
+        var updatedDraftRecord = await _answerDataService.GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
         if (!string.IsNullOrWhiteSpace(updatedDraftRecord?.Csp))
         {
             throw new AnswerAlreadySignedException();

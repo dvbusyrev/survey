@@ -6,12 +6,12 @@ namespace MainProject.Application.Contracts;
 
 public interface IUserRepository
 {
-    int Count(bool includeArchived);
-    IReadOnlyList<User> GetPage(bool includeArchived, string sortBy, string sortDirection, int pageSize, int offset);
-    IReadOnlyList<User> GetAll(bool includeArchived);
-    User? GetById(int userId);
-    IReadOnlyList<SelectionOption> GetActiveOrganizationOptions();
-    int Create(UserWriteModel user);
-    int Update(int userId, UserWriteModel user);
-    UserDeletionResult DeleteIfAllowed(int userId);
+    Task<int> CountAsync(bool includeArchived, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<User>> GetPageAsync(bool includeArchived, string sortBy, string sortDirection, int pageSize, int offset, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<User>> GetAllAsync(bool includeArchived, CancellationToken cancellationToken = default);
+    Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SelectionOption>> GetActiveOrganizationOptionsAsync(CancellationToken cancellationToken = default);
+    Task<int> CreateAsync(UserWriteModel user, CancellationToken cancellationToken = default);
+    Task<int> UpdateAsync(int userId, UserWriteModel user, CancellationToken cancellationToken = default);
+    Task<UserDeletionResult> DeleteIfAllowedAsync(int userId, CancellationToken cancellationToken = default);
 }

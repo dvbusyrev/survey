@@ -534,7 +534,133 @@
     return renderFooter(host);
   };
 
-  // Web/wwwroot/js/features/survey/user-survey-flow.js
+  // Web/wwwroot/js/features/survey/user-survey-flow-shared.js
+  function getAnswersPageContainer(source) {
+    if (source instanceof Element) {
+      const closestPage = source.closest('[data-role="survey-answers-page"], [data-page="answers-check"]');
+      if (closestPage) {
+        return closestPage;
+      }
+    }
+    if (source && typeof source.querySelector === "function") {
+      const nestedPage = source.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
+      if (nestedPage) {
+        return nestedPage;
+      }
+    }
+    return document.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
+  }
+  function getFillPageContainer(source) {
+    if (source instanceof Element) {
+      const closestPage = source.closest('[data-role="survey-fill-page"]');
+      if (closestPage) {
+        return closestPage;
+      }
+    }
+    if (source && typeof source.querySelector === "function") {
+      const nestedPage = source.querySelector('[data-role="survey-fill-page"]');
+      if (nestedPage) {
+        return nestedPage;
+      }
+    }
+    return document.querySelector('[data-role="survey-fill-page"]');
+  }
+  function applySurveySignedState(source, isSigned, mode = "answer") {
+    const isDraftMode = mode === "draft";
+    const page = isDraftMode ? getFillPageContainer(source) : getAnswersPageContainer(source);
+    if (!page) {
+      return;
+    }
+    if (isDraftMode) {
+      page.dataset.isDraftSigned = isSigned ? "true" : "false";
+    } else {
+      page.dataset.isSigned = isSigned ? "true" : "false";
+    }
+    const signatureInfo = page.querySelector('[data-role="signature-info"]');
+    const signatureStatus = page.querySelector('[data-role="signature-status"]');
+    signatureInfo?.classList.remove("u-hidden", "is-hidden");
+    if (signatureStatus) {
+      signatureStatus.textContent = isSigned ? "Подписана" : "Нет подписи";
+      signatureStatus.classList.toggle("signed", isSigned);
+      signatureStatus.classList.toggle("not-signed", !isSigned);
+    }
+    const signButtons = isDraftMode ? /* @__PURE__ */ new Set([
+      ...page.querySelectorAll('[data-role="draft-sign-button"]'),
+      ...document.querySelectorAll('[data-role="draft-sign-button"]')
+    ]) : /* @__PURE__ */ new Set([
+      ...page.querySelectorAll('[data-role="sign-button"], [data-role-sign-button="true"]'),
+      ...document.querySelectorAll('[data-role="sign-button"][data-survey-id], [data-role-sign-button="true"][data-survey-id]')
+    ]);
+    signButtons.forEach((signButton) => {
+      if (signButton instanceof HTMLButtonElement) {
+        signButton.disabled = isSigned;
+        signButton.textContent = isSigned ? "Подписано" : "Подписать";
+      }
+    });
+  }
+  function showSurveyError(message) {
+    const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
+    if (typeof window.AppUi?.notify === "function") {
+      window.AppUi.notify(safeMessage, "error", { title: "Ошибка" });
+      return;
+    }
+    const notification = document.createElement("div");
+    notification.className = "csp-notification error";
+    const icon = document.createElement("span");
+    icon.className = "csp-notification-icon";
+    icon.textContent = "!";
+    const text = document.createElement("span");
+    text.className = "csp-notification-text";
+    text.textContent = safeMessage;
+    notification.appendChild(icon);
+    notification.appendChild(text);
+    document.body.appendChild(notification);
+    window.setTimeout(() => {
+      notification.classList.add("fade-out");
+      window.setTimeout(() => notification.remove(), 300);
+    }, 5e3);
+  }
+  function createSurveyHtmlFragment(html) {
+    const range = document.createRange();
+    range.selectNode(document.body);
+    return range.createContextualFragment(html);
+  }
+  function renderSurveyHostError(host, message) {
+    host.replaceChildren();
+    showSurveyError(message);
+  }
+  function createSurveyModalFooterButton({ role, text, variant = "secondary", disabled = false, labelRole = "" }) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `modal_btn modal_btn-${variant}`;
+    button.dataset.role = role;
+    button.disabled = disabled;
+    if (labelRole) {
+      const label = document.createElement("span");
+      label.dataset.role = labelRole;
+      label.textContent = text;
+      button.appendChild(label);
+    } else {
+      button.textContent = text;
+    }
+    return button;
+  }
+  function clearSurveyModalFooter(footerHost) {
+    footerHost?.replaceChildren();
+  }
+  async function fetchSurveyModalContent(url, fallbackMessage) {
+    const response = await fetch(url, {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    });
+    if (!response.ok) {
+      throw new Error(fallbackMessage);
+    }
+    return response.text();
+  }
+
+  // Web/wwwroot/js/features/survey/user-survey-signature.js
   var CADESCOM_CONTAINER_STORE = 100;
   var CAPICOM_STORE_OPEN_READ_ONLY = 0;
   var CADESCOM_CADES_BES = 1;
@@ -662,7 +788,7 @@
       const page = signatureMode === "draft" ? getFillPageContainer(options.source || document) : getAnswersPageContainer(options.source || document);
       const signedDatasetKey = signatureMode === "draft" ? "isDraftSigned" : "isSigned";
       if (page?.dataset[signedDatasetKey] === "true") {
-        showError("Анкета уже подписана и не может быть подписана повторно.");
+        showSurveyError("Анкета уже подписана и не может быть подписана повторно.");
         return;
       }
       if (typeof options.beforeSign === "function") {
@@ -680,7 +806,7 @@
     } catch (error) {
       console.error("Ошибка в CSP:", error);
       const normalizedError = normalizeCryptoProError(error);
-      showError(normalizedError.message);
+      showSurveyError(normalizedError.message);
     }
   }
   window.CSP = CSP;
@@ -864,9 +990,9 @@
     }
   }
   function updateUISuccess(mode = "answer", source = document) {
-    applySignedState(source || document, true, mode);
-    if (typeof window.siteNotify === "function") {
-      window.siteNotify("Документ успешно подписан", "success", { title: "Успешно" });
+    applySurveySignedState(source || document, true, mode);
+    if (typeof window.AppUi?.notify === "function") {
+      window.AppUi.notify("Документ успешно подписан", "success", { title: "Успешно" });
       return;
     }
     const notification = document.createElement("div");
@@ -885,75 +1011,12 @@
       setTimeout(() => notification.remove(), 300);
     }, 5e3);
   }
+
+  // Web/wwwroot/js/features/survey/user-survey-modal-pages.js
   window.createAnswerReport = function createAnswerReport(idSurvey, organizationId, type) {
     window.AppScrollState?.prepareNavigation({ carry: true });
     window.location.assign(`/answers/${idSurvey}/${organizationId}/report/${type}`);
   };
-  function getAnswersPageContainer(source) {
-    if (source instanceof Element) {
-      const closestPage = source.closest('[data-role="survey-answers-page"], [data-page="answers-check"]');
-      if (closestPage) {
-        return closestPage;
-      }
-    }
-    if (source && typeof source.querySelector === "function") {
-      const nestedPage = source.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
-      if (nestedPage) {
-        return nestedPage;
-      }
-    }
-    return document.querySelector('[data-role="survey-answers-page"], [data-page="answers-check"]');
-  }
-  function getFillPageContainer(source) {
-    if (source instanceof Element) {
-      const closestPage = source.closest('[data-role="survey-fill-page"]');
-      if (closestPage) {
-        return closestPage;
-      }
-    }
-    if (source && typeof source.querySelector === "function") {
-      const nestedPage = source.querySelector('[data-role="survey-fill-page"]');
-      if (nestedPage) {
-        return nestedPage;
-      }
-    }
-    return document.querySelector('[data-role="survey-fill-page"]');
-  }
-  function applySignedState(source, isSigned, mode = "answer") {
-    const isDraftMode = mode === "draft";
-    const page = isDraftMode ? getFillPageContainer(source) : getAnswersPageContainer(source);
-    if (!page) {
-      return;
-    }
-    if (isDraftMode) {
-      page.dataset.isDraftSigned = isSigned ? "true" : "false";
-    } else {
-      page.dataset.isSigned = isSigned ? "true" : "false";
-    }
-    const signatureInfo = page.querySelector('[data-role="signature-info"]');
-    const signatureStatus = page.querySelector('[data-role="signature-status"]');
-    if (signatureInfo) {
-      signatureInfo.classList.remove("u-hidden", "is-hidden");
-    }
-    if (signatureStatus) {
-      signatureStatus.textContent = isSigned ? "Подписана" : "Нет подписи";
-      signatureStatus.classList.toggle("signed", isSigned);
-      signatureStatus.classList.toggle("not-signed", !isSigned);
-    }
-    const signButtons = isDraftMode ? /* @__PURE__ */ new Set([
-      ...page.querySelectorAll('[data-role="draft-sign-button"]'),
-      ...document.querySelectorAll('[data-role="draft-sign-button"]')
-    ]) : /* @__PURE__ */ new Set([
-      ...page.querySelectorAll('[data-role="sign-button"], [data-role-sign-button="true"]'),
-      ...document.querySelectorAll('[data-role="sign-button"][data-survey-id], [data-role-sign-button="true"][data-survey-id]')
-    ]);
-    signButtons.forEach((signButton) => {
-      if (signButton instanceof HTMLButtonElement) {
-        signButton.disabled = isSigned;
-        signButton.textContent = isSigned ? "Подписано" : "Подписать";
-      }
-    });
-  }
   window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organizationId, triggerElement) {
     const page = getAnswersPageContainer(triggerElement);
     const isSigned = page?.dataset.isSigned === "true";
@@ -962,76 +1025,14 @@
     }
     return window.createPdfReport(surveyId, organizationId);
   };
-  function showError(message) {
-    const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
-    if (typeof window.siteNotify === "function") {
-      window.siteNotify(safeMessage, "error", { title: "Ошибка" });
-      return;
-    }
-    const notification = document.createElement("div");
-    notification.className = "csp-notification error";
-    const icon = document.createElement("span");
-    icon.className = "csp-notification-icon";
-    icon.textContent = "!";
-    const text = document.createElement("span");
-    text.className = "csp-notification-text";
-    text.textContent = safeMessage;
-    notification.appendChild(icon);
-    notification.appendChild(text);
-    document.body.appendChild(notification);
-    setTimeout(() => {
-      notification.classList.add("fade-out");
-      setTimeout(() => notification.remove(), 300);
-    }, 5e3);
-  }
-  function createHtmlFragment(html) {
-    const range = document.createRange();
-    range.selectNode(document.body);
-    return range.createContextualFragment(html);
-  }
-  function renderHostError(host, message) {
-    const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
-    host.replaceChildren();
-    showError(safeMessage);
-  }
-  function createSurveyModalFooterButton({ role, text, variant = "secondary", disabled = false, labelRole = "" }) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `modal_btn modal_btn-${variant}`;
-    button.dataset.role = role;
-    button.disabled = disabled;
-    if (labelRole) {
-      const label = document.createElement("span");
-      label.dataset.role = labelRole;
-      label.textContent = text;
-      button.appendChild(label);
-    } else {
-      button.textContent = text;
-    }
-    return button;
-  }
-  function clearSurveyModalFooter(footerHost) {
-    footerHost?.replaceChildren();
-  }
-  async function fetchModalContentHtml(url, fallbackMessage) {
-    const response = await fetch(url, {
-      headers: {
-        "X-Requested-With": "XMLHttpRequest"
-      }
-    });
-    if (!response.ok) {
-      throw new Error(fallbackMessage);
-    }
-    return response.text();
-  }
   window.fetchSurveyFillContentHtml = function fetchSurveyFillContentHtml(surveyId, organizationId) {
-    return fetchModalContentHtml(
+    return fetchSurveyModalContent(
       `/survey/${surveyId}/organizations/${organizationId}/fill-content`,
       "Не удалось загрузить анкету"
     );
   };
   window.fetchSurveyAnswersContentHtml = function fetchSurveyAnswersContentHtml(surveyId, organizationId) {
-    return fetchModalContentHtml(
+    return fetchSurveyModalContent(
       `/answers/${surveyId}/${organizationId}/content`,
       "Не удалось загрузить ответы по анкете"
     );
@@ -1069,7 +1070,7 @@
         refs.errorBlock.classList.add("u-hidden");
       }
       if (shouldNotify && error) {
-        showError(error);
+        showSurveyError(error);
       }
     }
     function renderSubmitState() {
@@ -1121,7 +1122,7 @@
       if (refs.page) {
         refs.page.dataset.isDraftSigned = isSigned ? "true" : "false";
       }
-      applySignedState(refs.page || host, isSigned, "draft");
+      applySurveySignedState(refs.page || host, isSigned, "draft");
     }
     async function saveDraft({ showErrorOnFailure = false } = {}) {
       const payloadAnswers = buildPayloadAnswers();
@@ -1347,13 +1348,13 @@
         if (destroyed) {
           return;
         }
-        host.replaceChildren(createHtmlFragment(html));
+        host.replaceChildren(createSurveyHtmlFragment(html));
         bindPage();
       } catch (err) {
         if (destroyed) {
           return;
         }
-        renderHostError(host, err?.message || "Не удалось загрузить анкету");
+        renderSurveyHostError(host, err?.message || "Не удалось загрузить анкету");
         clearSurveyModalFooter(footerHost);
       }
     };
@@ -1382,7 +1383,7 @@
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Ошибка при создании PDF:", error);
-      showError("Не удалось создать PDF файл");
+      showSurveyError("Не удалось создать PDF файл");
     }
   };
   window.downloadSignedArchive = async function(surveyId, organizationId) {
@@ -1405,7 +1406,7 @@
     } catch (error) {
       console.error("Ошибка при загрузке архива:", error);
       const errorMessage = error.message || "Не удалось загрузить архив с подписью";
-      showError(errorMessage);
+      showSurveyError(errorMessage);
       if (error.details) {
         console.error("Детали ошибки:", error.details);
       }
@@ -1472,14 +1473,14 @@
         if (destroyed) {
           return;
         }
-        host.replaceChildren(createHtmlFragment(html));
+        host.replaceChildren(createSurveyHtmlFragment(html));
         bindPage();
       } catch (error) {
         console.error("Ошибка:", error);
         if (destroyed) {
           return;
         }
-        renderHostError(host, error?.message || "Не удалось загрузить ответы по анкете");
+        renderSurveyHostError(host, error?.message || "Не удалось загрузить ответы по анкете");
         clearSurveyModalFooter(footerHost);
       }
     };
@@ -1491,17 +1492,11 @@
     };
   };
 
-  // Web/wwwroot/js/features/survey/survey-admin-date-filter.js
+  // Web/wwwroot/js/features/survey/survey-filter-core.js
   (function() {
-    const existingController = window.__surveyAdminDateFilterController;
-    if (existingController && typeof existingController.destroy === "function") {
-      existingController.destroy();
+    if (window.SurveyFilterCore) {
+      return;
     }
-    const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"], .app-page[data-page="answers-list"], .app-page[data-page="user-surveys"]';
-    const FILTER_SELECTOR = '[data-role="survey-date-filter"]';
-    const ORGANIZATION_FILTER_SELECTOR = '[data-role="survey-organization-filter"]';
-    const SURVEY_NAME_FILTER_SELECTOR = '[data-role="survey-name-filter"]';
-    const SURVEY_ROW_SELECTOR = "tr[data-survey-date-begin][data-survey-date-end]";
     const MONTH_NAMES = [
       "Январь",
       "Февраль",
@@ -1517,20 +1512,14 @@
       "Декабрь"
     ];
     const WEEKDAY_NAMES = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-    const instances = /* @__PURE__ */ new Map();
-    const organizationInstances = /* @__PURE__ */ new Map();
-    const surveyNameInstances = /* @__PURE__ */ new Map();
-    const serverFilterConfigs = /* @__PURE__ */ new WeakMap();
-    const PENDING_OPEN_FILTER_STORAGE_KEY = "surveyAdminPendingOpenFilter";
-    let observer = null;
-    function pad(value) {
+    function pad2(value) {
       return String(value).padStart(2, "0");
     }
     function toIso(date) {
       if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
         return "";
       }
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
     }
     function parseIso(isoValue) {
       const match = String(isoValue || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -1576,7 +1565,7 @@
       if (!date) {
         return "";
       }
-      return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+      return `${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}.${date.getFullYear()}`;
     }
     function compareIso(left, right) {
       if (!left || !right) {
@@ -1609,6 +1598,60 @@
       }
       return element;
     }
+    window.SurveyFilterCore = {
+      MONTH_NAMES,
+      WEEKDAY_NAMES,
+      pad: pad2,
+      toIso,
+      parseIso,
+      shiftMonth,
+      getMonthBounds,
+      getYearBounds,
+      getDecadeStart,
+      getDisplayDate,
+      compareIso,
+      isIsoWithin,
+      getRangeDescription,
+      getMonthDescription,
+      getYearDescription,
+      createElement
+    };
+  })();
+
+  // Web/wwwroot/js/features/survey/survey-admin-date-filter.js
+  (function() {
+    const existingController = window.__surveyAdminDateFilterController;
+    if (existingController && typeof existingController.destroy === "function") {
+      existingController.destroy();
+    }
+    const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"], .app-page[data-page="answers-list"], .app-page[data-page="user-surveys"]';
+    const FILTER_SELECTOR = '[data-role="survey-date-filter"]';
+    const ORGANIZATION_FILTER_SELECTOR = '[data-role="survey-organization-filter"]';
+    const SURVEY_NAME_FILTER_SELECTOR = '[data-role="survey-name-filter"]';
+    const SURVEY_ROW_SELECTOR = "tr[data-survey-date-begin][data-survey-date-end]";
+    const {
+      MONTH_NAMES,
+      WEEKDAY_NAMES,
+      toIso,
+      parseIso,
+      shiftMonth,
+      getMonthBounds,
+      getYearBounds,
+      getDecadeStart,
+      getDisplayDate,
+      compareIso,
+      isIsoWithin,
+      getRangeDescription,
+      getMonthDescription,
+      getYearDescription,
+      createElement
+    } = window.SurveyFilterCore;
+    const instances = /* @__PURE__ */ new Map();
+    const organizationInstances = /* @__PURE__ */ new Map();
+    const surveyNameInstances = /* @__PURE__ */ new Map();
+    const serverFilterConfigs = /* @__PURE__ */ new WeakMap();
+    const PENDING_OPEN_FILTER_STORAGE_KEY = "surveyAdminPendingOpenFilter";
+    let unregisterLifecycle = null;
     function ensurePopoverHeader(root) {
       const popover = root.querySelector('[data-role="survey-date-filter-popover"]');
       const modeSwitch = root.querySelector('[data-role="survey-date-filter-mode-switch"]');
@@ -2166,24 +2209,12 @@
     function applyFilter(instance) {
       applyPageFilters(instance.page);
     }
-    function updateCheckboxListHeight(container) {
-      const list = container?.querySelector(".app-checkbox-list");
-      if (!list) {
-        return;
-      }
-      const listTop = list.getBoundingClientRect().top;
-      const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
-      list.style.setProperty("--app-checkbox-list-max-height", `${availableHeight}px`);
-    }
-    function scheduleCheckboxListHeightUpdate(container) {
-      window.requestAnimationFrame(() => updateCheckboxListHeight(container));
-    }
     function setPopoverOpen(instance, isOpen) {
       instance.state.isOpen = Boolean(isOpen);
       instance.refs.trigger.setAttribute("aria-expanded", instance.state.isOpen ? "true" : "false");
       instance.refs.popover.classList.toggle("is-hidden", !instance.state.isOpen);
       if (instance.state.isOpen) {
-        scheduleCheckboxListHeightUpdate(instance.refs.popover);
+        window.AppCheckboxDropdown?.scheduleListHeightUpdate(instance.refs.popover);
       }
     }
     function closeAllPopovers(exceptRoot = null) {
@@ -2859,23 +2890,41 @@
         setPopoverOpen(instance, true);
       }
     }
-    function bindAvailablePages(root = document) {
-      cleanupDetachedInstances();
-      const pages = root === document ? Array.from(document.querySelectorAll(PAGE_SELECTOR)) : getPagesFromNode(root);
-      pages.forEach((page) => {
-        const dateFilterRoot = page.querySelector(FILTER_SELECTOR);
-        if (dateFilterRoot) {
-          bindInstance(dateFilterRoot);
-        }
-        const organizationFilterRoot = page.querySelector(ORGANIZATION_FILTER_SELECTOR);
-        if (organizationFilterRoot) {
-          bindOrganizationInstance(organizationFilterRoot);
-        }
-        const surveyNameFilterRoot = page.querySelector(SURVEY_NAME_FILTER_SELECTOR);
-        if (surveyNameFilterRoot) {
-          bindSurveyNameInstance(surveyNameFilterRoot);
-        }
+    function unbindPageInstances(page) {
+      [instances, organizationInstances, surveyNameInstances].forEach((collection) => {
+        Array.from(collection.entries()).forEach(([root, instance]) => {
+          if (instance.page !== page) {
+            return;
+          }
+          if (instance.handlers?.click) {
+            root.removeEventListener("click", instance.handlers.click);
+          }
+          if (instance.handlers?.change) {
+            root.removeEventListener("change", instance.handlers.change);
+          }
+          collection.delete(root);
+        });
       });
+    }
+    function mountPageFilters(page, scope) {
+      cleanupDetachedInstances();
+      const dateFilterRoot = page.querySelector(FILTER_SELECTOR);
+      if (dateFilterRoot) {
+        bindInstance(dateFilterRoot);
+      }
+      const organizationFilterRoot = page.querySelector(ORGANIZATION_FILTER_SELECTOR);
+      if (organizationFilterRoot) {
+        bindOrganizationInstance(organizationFilterRoot);
+      }
+      const surveyNameFilterRoot = page.querySelector(SURVEY_NAME_FILTER_SELECTOR);
+      if (surveyNameFilterRoot) {
+        bindSurveyNameInstance(surveyNameFilterRoot);
+      }
+      if (scope?.listen) {
+        scope.listen(document, "click", handleDocumentClick);
+        scope.listen(document, "keydown", handleDocumentKeydown);
+      }
+      return () => unbindPageInstances(page);
     }
     function handleDocumentClick(event) {
       cleanupDetachedInstances();
@@ -2929,39 +2978,34 @@
         }
       });
       surveyNameInstances.clear();
-      if (observer) {
-        observer.disconnect();
-        observer = null;
-      }
-      serverFilterConfigs.clear?.();
-      document.removeEventListener("click", handleDocumentClick);
-      document.removeEventListener("keydown", handleDocumentKeydown);
+      unregisterLifecycle?.();
+      unregisterLifecycle = null;
     }
     window.__surveyAdminDateFilterController = {
       destroy
     };
-    document.addEventListener("click", handleDocumentClick);
-    document.addEventListener("keydown", handleDocumentKeydown);
-    if (typeof MutationObserver !== "undefined" && document.body) {
-      observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          mutation.addedNodes.forEach((node) => {
-            bindAvailablePages(node);
-          });
-        });
-      });
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    }
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", function() {
-        bindAvailablePages(document);
-      });
+    if (window.AppPageLifecycle?.register) {
+      unregisterLifecycle = window.AppPageLifecycle.register(
+        "survey-admin-filters",
+        PAGE_SELECTOR,
+        mountPageFilters
+      );
       return;
     }
-    bindAvailablePages(document);
+    const mountInitialPages = () => {
+      document.querySelectorAll(PAGE_SELECTOR).forEach((page) => {
+        mountPageFilters(page, {
+          listen(target, type, handler, options) {
+            target.addEventListener(type, handler, options);
+          }
+        });
+      });
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", mountInitialPages, { once: true });
+    } else {
+      mountInitialPages();
+    }
   })();
 
   // Web/wwwroot/js/features/survey/user-survey-page-helpers.js
@@ -3170,17 +3214,51 @@
     };
   }
 
+  // Web/wwwroot/js/features/survey/user-survey-snapshot-loader.js
+  function buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly }) {
+    if (tab === "help") {
+      return "/help";
+    }
+    if (tab === "active") {
+      return `/survey?page=${page}&searchTerm=${encodeURIComponent(searchTerm || "")}`;
+    }
+    return `/archive/${userId}?page=${page}&searchTerm=${encodeURIComponent(searchTerm || "")}&signedOnly=${signedOnly ? "true" : "false"}`;
+  }
+  function getSnapshotLoadError(tab) {
+    return tab === "help" ? "Ошибка загрузки справки" : "Ошибка загрузки данных анкет";
+  }
+  function getSnapshotParseError(tab) {
+    return tab === "help" ? "Не удалось построить содержимое справки" : "Не удалось построить содержимое страницы анкет";
+  }
+  async function fetchSurveyUserSnapshot({ tab, userId, page, searchTerm, signedOnly }) {
+    const response = await fetch(buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly }), {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest"
+      }
+    });
+    if (!response.ok) {
+      throw new Error(getSnapshotLoadError(tab));
+    }
+    const snapshot = createSnapshotFromHtml(await response.text());
+    if (!snapshot) {
+      throw new Error(getSnapshotParseError(tab));
+    }
+    return snapshot;
+  }
+
   // Web/wwwroot/js/features/survey/user-survey-list.js
   var mountSurveyFillPage2 = window.mountSurveyFillPage;
   var mountCheckAnswersPage2 = window.mountCheckAnswersPage;
   var fetchSurveyFillContentHtml2 = window.fetchSurveyFillContentHtml;
   var fetchSurveyAnswersContentHtml2 = window.fetchSurveyAnswersContentHtml;
-  window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData) {
-    const contentHost = document.getElementById("default_content");
-    const emptyTemplate = document.getElementById("survey-user-empty-template");
+  window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pageRoot = null) {
+    window.__surveyUserListController?.destroy?.();
+    const contentHost = pageRoot || document.getElementById("default_content");
+    const emptyTemplate = contentHost?.querySelector("#survey-user-empty-template");
     if (!contentHost) {
-      return;
+      return null;
     }
+    let disposed = false;
     let chromeRendered = false;
     function getChromeProps() {
       const chromeContext = typeof window.readAppChromeContext === "function" ? window.readAppChromeContext() : null;
@@ -3215,9 +3293,9 @@
       return;
     }
     const tabTemplateElements = {
-      active: document.getElementById("survey-user-active-content-template"),
-      archived: document.getElementById("survey-user-archived-content-template"),
-      help: document.getElementById("survey-user-help-content-template")
+      active: contentHost.querySelector("#survey-user-active-content-template") || document.getElementById("survey-user-active-content-template"),
+      archived: contentHost.querySelector("#survey-user-archived-content-template") || document.getElementById("survey-user-archived-content-template"),
+      help: contentHost.querySelector("#survey-user-help-content-template") || document.getElementById("survey-user-help-content-template")
     };
     function normalizeCount(value) {
       const numericValue = Number(value);
@@ -3480,11 +3558,7 @@
         return;
       }
       const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(rawMessage) : rawMessage;
-      if (typeof window.siteNotify === "function") {
-        window.siteNotify(safeMessage, "error", { title: "Ошибка" });
-      } else {
-        window.alert(safeMessage);
-      }
+      window.AppUi.notify(safeMessage, "error", { title: "Ошибка" });
     }
     function populateDateFilters() {
       const refs = getContentRefs();
@@ -3579,21 +3653,13 @@
       renderModals();
     }
     async function fetchSnapshot(tab, page, searchTerm, signedOnly) {
-      const endpoint = tab === "help" ? "/help" : tab === "active" ? `/survey?page=${page}&searchTerm=${encodeURIComponent(searchTerm || "")}` : `/archive/${initialData.userId}?page=${page}&searchTerm=${encodeURIComponent(searchTerm || "")}&signedOnly=${signedOnly ? "true" : "false"}`;
-      const response = await fetch(endpoint, {
-        headers: {
-          "X-Requested-With": "XMLHttpRequest"
-        }
+      return fetchSurveyUserSnapshot({
+        tab,
+        userId: initialData.userId,
+        page,
+        searchTerm,
+        signedOnly
       });
-      if (!response.ok) {
-        throw new Error(tab === "help" ? "Ошибка загрузки справки" : "Ошибка загрузки данных анкет");
-      }
-      const html = await response.text();
-      const snapshot = createSnapshotFromHtml(html);
-      if (!snapshot) {
-        throw new Error(tab === "help" ? "Не удалось построить содержимое справки" : "Не удалось построить содержимое страницы анкет");
-      }
-      return snapshot;
     }
     async function loadTabSnapshot(tab, options = {}) {
       const currentSnapshot = state.tabSnapshots[tab];
@@ -3606,6 +3672,9 @@
       }
       try {
         const snapshot = await fetchSnapshot(tab, page, searchTerm, signedOnly);
+        if (disposed) {
+          return null;
+        }
         state.tabSnapshots[tab] = snapshot;
         if (tab === "active") {
           updateActiveCountFromSnapshot(snapshot);
@@ -3619,6 +3688,9 @@
         }
         return snapshot;
       } catch (error) {
+        if (disposed) {
+          return null;
+        }
         if (state.activeTab === tab) {
           setLoading(false);
           setError(error?.message || "Ошибка загрузки данных анкет");
@@ -3638,7 +3710,7 @@
       modalState.openRequestId = requestId;
       try {
         const prefetchedHtml = targetView === "survey-fill" ? await fetchSurveyFillContentHtml2?.(surveyId, initialData.userOrganizationId) : await fetchSurveyAnswersContentHtml2?.(surveyId, initialData.userOrganizationId);
-        if (modalState.openRequestId !== requestId) {
+        if (disposed || modalState.openRequestId !== requestId) {
           return;
         }
         modalState.prefetchedHtml = typeof prefetchedHtml === "string" ? prefetchedHtml : null;
@@ -3646,7 +3718,7 @@
         state.currentView = targetView;
         renderModals();
       } catch (error) {
-        if (modalState.openRequestId !== requestId) {
+        if (disposed || modalState.openRequestId !== requestId) {
           return;
         }
         modalState.prefetchedHtml = null;
@@ -3688,6 +3760,9 @@
         refreshPromise = null;
       });
       const [nextActiveSnapshot, nextArchivedSnapshot] = await refreshPromise;
+      if (disposed) {
+        return null;
+      }
       const currentSnapshot = state.activeTab === "archived" ? nextArchivedSnapshot : state.activeTab === "active" ? nextActiveSnapshot : state.tabSnapshots.help;
       if (currentSnapshot) {
         mountSnapshot(currentSnapshot, { preserveFilters: options.preserveFilters === true });
@@ -3850,24 +3925,54 @@
     contentHost.addEventListener("mouseout", handleMouseOut);
     contentHost.addEventListener("submit", handleSubmit);
     contentHost.addEventListener("change", handleChange);
-    window.addEventListener("popstate", () => {
+    function handlePopState() {
       const entry = window.history.state?.tab ? buildSurveyUserHistoryEntry(window.history.state.tab) : getSurveyUserHistoryEntryFromLocation(window.location.pathname);
       if (!entry) {
         return;
       }
       handleTabChange(entry.tab, null, { historyMode: "none" });
-    });
+    }
     syncHistory(state.activeTab, "replace");
     ensureChromeRendered();
     hydrateCurrentSnapshot(initialSnapshot);
-    window.refreshSurveyUserPageData = function refreshSurveyUserPageData(options = {}) {
+    const refreshSurveyUserPageData = function refreshSurveyUserPageData2(options = {}) {
       return refreshAllSnapshots({
         preserveFilters: options.preserveFilters !== false
       });
     };
+    window.refreshSurveyUserPageData = refreshSurveyUserPageData;
+    window.addEventListener("popstate", handlePopState);
+    const destroy = () => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      modalState.openRequestId += 1;
+      cleanupModal("fill");
+      cleanupModal("answers");
+      hideRowTooltip();
+      rowTooltip?.remove();
+      rowTooltip = null;
+      contentHost.removeEventListener("click", handleClick);
+      contentHost.removeEventListener("dblclick", handleDoubleClick);
+      contentHost.removeEventListener("mouseover", handleMouseOver);
+      contentHost.removeEventListener("mousemove", handleMouseMove);
+      contentHost.removeEventListener("mouseout", handleMouseOut);
+      contentHost.removeEventListener("submit", handleSubmit);
+      contentHost.removeEventListener("change", handleChange);
+      window.removeEventListener("popstate", handlePopState);
+      if (window.refreshSurveyUserPageData === refreshSurveyUserPageData) {
+        delete window.refreshSurveyUserPageData;
+      }
+      if (window.__surveyUserListController?.destroy === destroy) {
+        delete window.__surveyUserListController;
+      }
+    };
+    window.__surveyUserListController = { destroy };
+    return destroy;
   };
-  function getSurveyUserBootstrapData() {
-    const bootstrapElement = document.getElementById("survey-user-list-bootstrap") || document.getElementById("user-archive-bootstrap");
+  function getSurveyUserBootstrapData(root = document) {
+    const bootstrapElement = root.querySelector("#survey-user-list-bootstrap") || root.querySelector("#user-archive-bootstrap") || document.getElementById("survey-user-list-bootstrap") || document.getElementById("user-archive-bootstrap");
     if (!bootstrapElement?.textContent) {
       return null;
     }
@@ -3878,9 +3983,21 @@
       return null;
     }
   }
-  var surveyUserBootstrapData = getSurveyUserBootstrapData();
-  if (document.querySelector('[data-page="user-surveys"]') && surveyUserBootstrapData) {
-    window.bindSurveyUserListPage(surveyUserBootstrapData);
+  function mountSurveyUserListPage(page) {
+    const bootstrapData = getSurveyUserBootstrapData(page);
+    return bootstrapData ? window.bindSurveyUserListPage(bootstrapData, page) : null;
+  }
+  if (window.AppPageLifecycle?.register) {
+    window.AppPageLifecycle.register(
+      "survey-user-list",
+      '[data-page="user-surveys"]',
+      mountSurveyUserListPage
+    );
+  } else {
+    const page = document.querySelector('[data-page="user-surveys"]');
+    if (page) {
+      mountSurveyUserListPage(page);
+    }
   }
 })();
 //# sourceMappingURL=survey-user-app.js.map

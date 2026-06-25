@@ -5,16 +5,16 @@ namespace MainProject.Application.Contracts;
 
 public interface IAnswerRepository
 {
-    bool AnswerRecordExists(int surveyId, int organizationId);
-    Survey? GetSurveyInfo(int surveyId);
-    IReadOnlyList<SurveyQuestionItem> GetSurveyQuestions(int surveyId);
-    AnswerRecord? GetAnswerRecord(int surveyId, int organizationId);
-    AnswerRecord? GetDraftRecord(int surveyId, int organizationId);
-    IReadOnlyList<AnswerRecord> GetAnswerRecords(int surveyId, int? organizationId = null);
-    AnswerStorageResult SubmitAnswer(AnswerRecord answerRecord);
-    AnswerStorageResult UpdateAnswer(AnswerRecord answerRecord);
-    bool SaveDraft(AnswerRecord answerRecord);
-    bool TrySaveAnswerSignature(int surveyId, int organizationId, string signature, byte[]? signedContent);
-    bool TrySaveDraftSignature(int surveyId, int organizationId, string signature, byte[]? signedContent);
-    void DeleteDraft(int surveyId, int organizationId);
+    Task<bool> AnswerRecordExistsAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<Survey?> GetSurveyInfoAsync(int surveyId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SurveyQuestionItem>> GetSurveyQuestionsAsync(int surveyId, CancellationToken cancellationToken = default);
+    Task<AnswerRecord?> GetAnswerRecordAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<AnswerRecord?> GetDraftRecordAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AnswerRecord>> GetAnswerRecordsAsync(int surveyId, int? organizationId = null, CancellationToken cancellationToken = default);
+    Task<AnswerStorageResult> SubmitAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default);
+    Task<AnswerStorageResult> UpdateAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default);
+    Task<bool> SaveDraftAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default);
+    Task<bool> TrySaveAnswerSignatureAsync(int surveyId, int organizationId, string signature, byte[]? signedContent, CancellationToken cancellationToken = default);
+    Task<bool> TrySaveDraftSignatureAsync(int surveyId, int organizationId, string signature, byte[]? signedContent, CancellationToken cancellationToken = default);
+    Task DeleteDraftAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
 }

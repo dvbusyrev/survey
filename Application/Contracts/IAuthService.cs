@@ -4,5 +4,5 @@ namespace MainProject.Application.Contracts;
 
 public interface IAuthService
 {
-    LoginResult Authenticate(string username, string password);
+    Task<LoginResult> AuthenticateAsync(string username, string password, CancellationToken cancellationToken = default);
 }

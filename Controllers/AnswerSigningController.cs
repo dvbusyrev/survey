@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Web.Infrastructure;
 
 [Authorize]
 public class AnswerSigningController : Controller
@@ -21,9 +22,9 @@ public class AnswerSigningController : Controller
     }
 
     [HttpGet("signatures/{id}/{idOrganization}")]
-    public IActionResult GetSigningData(int id, int idOrganization)
+    public async Task<IActionResult> GetSigningData(int id, int idOrganization, CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureAnswerRecordAccess(id, idOrganization);
+        var accessResult = await EnsureAnswerRecordAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -31,23 +32,26 @@ public class AnswerSigningController : Controller
 
         try
         {
-            return Json(_answerSigningService.GetSigningData(id, idOrganization));
+            return Json(await _answerSigningService.GetSigningDataAsync(id, idOrganization, cancellationToken));
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
-            return Conflict(ex.Message);
+            return this.SafeError(ex, "Анкета уже подписана.", "Повторное получение данных подписи", StatusCodes.Status409Conflict);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении данных для подписи");
-            return StatusCode(500, "Ошибка при получении данных для подписи");
+            return this.SafeError(ex, "Не удалось получить данные для подписи.", "Ошибка при получении данных для подписи");
         }
     }
 
     [HttpPost("signatures/{id}/{idOrganization}")]
-    public IActionResult CspAnswer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] AnswerSignatureSaveRequest request)
+    public async Task<IActionResult> CspAnswer(
+        [FromRoute] int id,
+        [FromRoute] int idOrganization,
+        [FromBody] AnswerSignatureSaveRequest request,
+        CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureAnswerRecordAccess(id, idOrganization);
+        var accessResult = await EnsureAnswerRecordAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -60,7 +64,7 @@ public class AnswerSigningController : Controller
                 return BadRequest("Signature не может быть пустым.");
             }
 
-            if (!_answerSigningService.SaveSignature(id, idOrganization, request))
+            if (!await _answerSigningService.SaveSignatureAsync(id, idOrganization, request, cancellationToken))
             {
                 return NotFound("Запись для обновления не найдена.");
             }
@@ -69,23 +73,22 @@ public class AnswerSigningController : Controller
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
-            return Conflict(ex.Message);
+            return this.SafeError(ex, "Анкета уже подписана.", "Повторное сохранение подписи", StatusCodes.Status409Conflict);
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return this.SafeError(ex, "Некорректные данные подписи.", "Некорректные данные подписи", StatusCodes.Status400BadRequest);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении подписи ответа");
-            return StatusCode(500, $"Ошибка при обновлении ответа: {ex.Message}");
+            return this.SafeError(ex, "Не удалось сохранить подпись.", "Ошибка при сохранении подписи ответа");
         }
     }
 
     [HttpGet("draft-signatures/{id}/{idOrganization}")]
-    public IActionResult GetDraftSigningData(int id, int idOrganization)
+    public async Task<IActionResult> GetDraftSigningData(int id, int idOrganization, CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureAnswerSubmissionAccess(id, idOrganization);
+        var accessResult = await EnsureAnswerSubmissionAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -93,23 +96,26 @@ public class AnswerSigningController : Controller
 
         try
         {
-            return Json(_answerSigningService.GetDraftSigningData(id, idOrganization));
+            return Json(await _answerSigningService.GetDraftSigningDataAsync(id, idOrganization, cancellationToken));
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
-            return Conflict(ex.Message);
+            return this.SafeError(ex, "Черновик уже подписан.", "Повторное получение данных подписи черновика", StatusCodes.Status409Conflict);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении данных черновика для подписи");
-            return StatusCode(500, "Ошибка при получении данных черновика для подписи");
+            return this.SafeError(ex, "Не удалось получить данные черновика для подписи.", "Ошибка при получении данных черновика для подписи");
         }
     }
 
     [HttpPost("draft-signatures/{id}/{idOrganization}")]
-    public IActionResult CspDraftAnswer([FromRoute] int id, [FromRoute] int idOrganization, [FromBody] AnswerSignatureSaveRequest request)
+    public async Task<IActionResult> CspDraftAnswer(
+        [FromRoute] int id,
+        [FromRoute] int idOrganization,
+        [FromBody] AnswerSignatureSaveRequest request,
+        CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureAnswerSubmissionAccess(id, idOrganization);
+        var accessResult = await EnsureAnswerSubmissionAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -122,7 +128,7 @@ public class AnswerSigningController : Controller
                 return BadRequest("Signature не может быть пустым.");
             }
 
-            if (!_answerSigningService.SaveDraftSignature(id, idOrganization, request))
+            if (!await _answerSigningService.SaveDraftSignatureAsync(id, idOrganization, request, cancellationToken))
             {
                 return NotFound("Черновик для обновления не найден.");
             }
@@ -131,27 +137,29 @@ public class AnswerSigningController : Controller
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
-            return Conflict(ex.Message);
+            return this.SafeError(ex, "Черновик уже подписан.", "Повторное сохранение подписи черновика", StatusCodes.Status409Conflict);
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return this.SafeError(ex, "Некорректные данные подписи.", "Некорректные данные подписи черновика", StatusCodes.Status400BadRequest);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении подписи черновика ответа");
-            return StatusCode(500, $"Ошибка при обновлении черновика: {ex.Message}");
+            return this.SafeError(ex, "Не удалось сохранить подпись черновика.", "Ошибка при сохранении подписи черновика");
         }
     }
 
-    private IActionResult? EnsureAnswerRecordAccess(int surveyId, int requestedOrganizationId)
+    private async Task<IActionResult?> EnsureAnswerRecordAccessAsync(
+        int surveyId,
+        int requestedOrganizationId,
+        CancellationToken cancellationToken)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessAnswerRecord(surveyId, requestedOrganizationId))
+        if (!await _answerAccessService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }
@@ -159,14 +167,17 @@ public class AnswerSigningController : Controller
         return null;
     }
 
-    private IActionResult? EnsureAnswerSubmissionAccess(int surveyId, int requestedOrganizationId)
+    private async Task<IActionResult?> EnsureAnswerSubmissionAccessAsync(
+        int surveyId,
+        int requestedOrganizationId,
+        CancellationToken cancellationToken)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanSubmitAnswer(surveyId, requestedOrganizationId))
+        if (!await _answerAccessService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }

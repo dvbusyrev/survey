@@ -1,9 +1,7 @@
-﻿using System.Data;
-using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.DTO.Read;
 using MainProject.Application.Support;
-using MainProject.Infrastructure.Persistence;
 using MainProject.Web.ViewModels;
 
 namespace MainProject.Application.UseCases.Answers;
@@ -34,14 +32,14 @@ public sealed class AnswerAdminService : IAnswerAdminService
         "rgb(244, 114, 182)"
     };
 
-    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IAnswerReadRepository _answerReadRepository;
 
-    public AnswerAdminService(IDbConnectionFactory connectionFactory)
+    public AnswerAdminService(IAnswerReadRepository answerReadRepository)
     {
-        _connectionFactory = connectionFactory;
+        _answerReadRepository = answerReadRepository;
     }
 
-    public AnswerListPageViewModel GetAnswersPage(
+    public async Task<AnswerListPageViewModel> GetAnswersPageAsync(
         int currentPage,
         string? sortBy,
         string? sortDirection,
@@ -50,10 +48,9 @@ public sealed class AnswerAdminService : IAnswerAdminService
         string? year,
         string? month,
         string? dateFrom,
-        string? dateTo)
+        string? dateTo,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
         var selectedOrganizationIds = ParseSelectedIds(organizationIds);
         var selectedSurveyIds = ParseSelectedIds(surveyIds);
         var bounds = ResolveDateBounds(year, month, dateFrom, dateTo);
@@ -63,49 +60,34 @@ public sealed class AnswerAdminService : IAnswerAdminService
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeAnswerSortDirection(null, normalizedSortBy);
 
-        var parameters = new DynamicParameters();
-        parameters.Add("selectedOrganizationIds", selectedOrganizationIds.ToArray());
-        parameters.Add("hasOrganizationFilter", selectedOrganizationIds.Count > 0);
-        parameters.Add("selectedSurveyIds", selectedSurveyIds.ToArray());
-        parameters.Add("hasSurveyFilter", selectedSurveyIds.Count > 0);
-        parameters.Add("hasDateFilter", bounds.Start.HasValue && bounds.End.HasValue);
-        parameters.Add("dateStart", bounds.Start);
-        parameters.Add("dateEnd", bounds.End);
-
-        var organizationOptions = GetAnswerOrganizationOptions(connection);
-        var surveyOptions = GetAnswerSurveyOptions(connection);
-        var totalCount = connection.ExecuteScalar<int>(
-            $"{AnswerRowsCte} SELECT COUNT(*) FROM answer_rows WHERE {BuildAnswerFilterPredicate()};",
-            parameters);
-        var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
-        parameters.Add("pageSize", pageWindow.PageSize);
-        parameters.Add("offset", pageWindow.Offset);
-
-        var pageRows = connection.Query<AnswerListItemViewModel>(
-            $"""
-            {AnswerRowsCte}
-            SELECT
-                id_answer AS IdAnswer,
-                id_organization AS IdOrganization,
-                id_survey AS IdSurvey,
-                organization_name AS OrganizationName,
-                survey_name AS SurveyName,
-                completion_date AS CompletionDate,
-                is_signed AS IsSigned
-            FROM answer_rows
-            WHERE {BuildAnswerFilterPredicate()}
-            ORDER BY {BuildAnswerOrderBy(normalizedSortBy, normalizedSortDirection)}
-            LIMIT @pageSize OFFSET @offset;
-            """,
-            parameters).ToList();
+        var readData = await _answerReadRepository.GetListAsync(
+            new AnswerListReadRequest(
+                selectedOrganizationIds,
+                selectedSurveyIds,
+                bounds.Start,
+                bounds.End,
+                normalizedSortBy,
+                normalizedSortDirection,
+                currentPage,
+                AppListPaging.DefaultPageSize),
+            cancellationToken);
 
         return new AnswerListPageViewModel
         {
-            Answers = pageRows,
-            CurrentPage = pageWindow.CurrentPage,
-            TotalPages = pageWindow.TotalPages,
-            TotalCount = pageWindow.TotalCount,
-            PageSize = pageWindow.PageSize,
+            Answers = readData.Rows.Select(row => new AnswerListItemViewModel
+            {
+                IdAnswer = row.IdAnswer,
+                IdOrganization = row.IdOrganization,
+                IdSurvey = row.IdSurvey,
+                OrganizationName = row.OrganizationName,
+                SurveyName = row.SurveyName,
+                CompletionDate = row.CompletionDate,
+                IsSigned = row.IsSigned
+            }).ToList(),
+            CurrentPage = readData.CurrentPage,
+            TotalPages = readData.TotalPages,
+            TotalCount = readData.TotalCount,
+            PageSize = readData.PageSize,
             HasExplicitSort = hasExplicitSort,
             SortBy = hasExplicitSort ? normalizedSortBy : string.Empty,
             SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
@@ -115,9 +97,9 @@ public sealed class AnswerAdminService : IAnswerAdminService
                 EnableDateFilter = true,
                 EnableOrganizationFilter = true,
                 EnableSurveyFilter = true,
-                OrganizationOptions = organizationOptions,
+                OrganizationOptions = readData.OrganizationOptions,
                 SelectedOrganizationIds = selectedOrganizationIds,
-                SurveyOptions = surveyOptions,
+                SurveyOptions = readData.SurveyOptions,
                 SelectedSurveyIds = selectedSurveyIds,
                 Year = bounds.FilterType == AnswerDateFilterType.Year ? bounds.Year : null,
                 Month = bounds.FilterType == AnswerDateFilterType.Month ? bounds.Month : string.Empty,
@@ -127,34 +109,12 @@ public sealed class AnswerAdminService : IAnswerAdminService
         };
     }
 
-    public SurveySignaturePageViewModel GetSignaturePage(int surveyId)
+    public async Task<SurveySignaturePageViewModel> GetSignaturePageAsync(
+        int surveyId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        var surveyName = connection.ExecuteScalar<string?>(
-            @"SELECT name_survey
-              FROM public.survey
-              WHERE id_survey = @surveyId",
-            new { surveyId }) ?? "Неизвестная анкета";
-
-        const string sql = @"
-            SELECT
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
-                (ha.completion_date IS NOT NULL) AS IsCompleted,
-                (COALESCE(ha.csp, '') <> '') AS IsSigned,
-                ha.completion_date AS CompletionDate
-            FROM public.organization o
-            INNER JOIN public.organization_survey os
-                ON os.id_organization = o.id_organization
-            LEFT JOIN public.answer ha
-                ON ha.id_organization_survey = os.id_organization_survey
-            WHERE os.id_survey = @surveyId
-            ORDER BY
-                (ha.completion_date IS NOT NULL) DESC,
-                ha.completion_date ASC NULLS LAST,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)";
-
-        var items = connection.Query<SignatureRow>(sql, new { surveyId })
+        var readData = await _answerReadRepository.GetSignatureStatusAsync(surveyId, cancellationToken);
+        var items = readData.Rows
             .Select(row => new SurveySignatureStatusViewModel
             {
                 OrganizationName = row.OrganizationName ?? string.Empty,
@@ -167,39 +127,24 @@ public sealed class AnswerAdminService : IAnswerAdminService
         return new SurveySignaturePageViewModel
         {
             SurveyId = surveyId,
-            SurveyName = surveyName,
+            SurveyName = readData.SurveyName,
             Items = items
         };
     }
 
-    public AnswerStatisticsResponse GetStatistics()
+    public async Task<AnswerStatisticsResponse> GetStatisticsAsync(CancellationToken cancellationToken = default)
     {
+        var readData = await _answerReadRepository.GetStatisticsAsync(cancellationToken);
         return new AnswerStatisticsResponse
         {
-            LineChart = BuildAverageScoreByYearChart(),
-            BarChart = BuildAverageScoreByQuarterChart(),
-            AvgScoreByOrganizationRadar = BuildAverageScoreByOrganizationChart()
+            LineChart = BuildAverageScoreByYearChart(readData.ByYear),
+            BarChart = BuildAverageScoreByQuarterChart(readData.ByQuarter),
+            AvgScoreByOrganizationRadar = BuildAverageScoreByOrganizationChart(readData.ByOrganization)
         };
     }
 
-    private SingleSeriesChartViewModel BuildAverageScoreByYearChart()
+    private static SingleSeriesChartViewModel BuildAverageScoreByYearChart(IReadOnlyList<AverageByYearReadRow> rows)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        const string sql = @"
-            SELECT
-                EXTRACT(YEAR FROM ha.completion_date)::int AS Year,
-                AVG(hai.rating::double precision) AS AverageRating
-            FROM public.answer ha
-            INNER JOIN public.answer_item hai
-                ON hai.id_answer = ha.id_answer
-            WHERE ha.completion_date IS NOT NULL
-              AND hai.rating IS NOT NULL
-            GROUP BY 1
-            ORDER BY 1";
-
-        var rows = connection.Query<AverageByYearRow>(sql).ToList();
-
         return new SingleSeriesChartViewModel
         {
             Labels = rows.Select(row => row.Year.ToString()).ToList(),
@@ -208,23 +153,9 @@ public sealed class AnswerAdminService : IAnswerAdminService
         };
     }
 
-    private SingleSeriesChartViewModel BuildAverageScoreByQuarterChart()
+    private static SingleSeriesChartViewModel BuildAverageScoreByQuarterChart(IReadOnlyList<AverageByQuarterReadRow> rows)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        const string sql = @"
-            SELECT
-                EXTRACT(QUARTER FROM ha.completion_date)::int AS Quarter,
-                AVG(hai.rating::double precision) AS AverageRating
-            FROM public.answer ha
-            INNER JOIN public.answer_item hai
-                ON hai.id_answer = ha.id_answer
-            WHERE ha.completion_date IS NOT NULL
-              AND hai.rating IS NOT NULL
-            GROUP BY 1
-            ORDER BY 1";
-
-        var averagesByQuarter = connection.Query<AverageByQuarterRow>(sql)
+        var averagesByQuarter = rows
             .ToDictionary(row => row.Quarter, row => Math.Round(row.AverageRating, 2));
 
         return new SingleSeriesChartViewModel
@@ -237,27 +168,8 @@ public sealed class AnswerAdminService : IAnswerAdminService
         };
     }
 
-    private DatasetChartViewModel BuildAverageScoreByOrganizationChart()
+    private static DatasetChartViewModel BuildAverageScoreByOrganizationChart(IReadOnlyList<OrganizationAverageReadRow> rows)
     {
-        using var connection = _connectionFactory.CreateConnection();
-
-        const string sql = @"
-            SELECT
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS OrganizationName,
-                AVG(hai.rating::double precision) AS AverageRating
-            FROM public.answer ha
-            INNER JOIN public.organization_survey os
-                ON os.id_organization_survey = ha.id_organization_survey
-            INNER JOIN public.organization o
-                ON os.id_organization = o.id_organization
-            INNER JOIN public.answer_item hai
-                ON hai.id_answer = ha.id_answer
-            WHERE ha.completion_date IS NOT NULL
-              AND hai.rating IS NOT NULL
-            GROUP BY 1
-            ORDER BY 1";
-
-        var rows = connection.Query<OrganizationAverageRow>(sql).ToList();
         if (rows.Count == 0)
         {
             return new DatasetChartViewModel();
@@ -346,118 +258,14 @@ public sealed class AnswerAdminService : IAnswerAdminService
         return (AnswerDateFilterType.None, null, string.Empty, null, null);
     }
 
-    private static bool MatchesDateBounds(DateTime? completionDate, DateTime? startDate, DateTime? endDate)
-    {
-        if (!startDate.HasValue || !endDate.HasValue)
-        {
-            return true;
-        }
-
-        return completionDate.HasValue
-            && completionDate.Value >= startDate.Value
-            && completionDate.Value <= endDate.Value;
-    }
-
-    private const string AnswerRowsCte = """
-        WITH answer_rows AS (
-            SELECT
-                ha.id_answer,
-                os.id_organization,
-                os.id_survey,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, 'Нет данных') AS organization_name,
-                COALESCE(s.name_survey, 'Нет данных') AS survey_name,
-                ha.completion_date,
-                (COALESCE(ha.csp, '') <> '') AS is_signed
-            FROM public.answer ha
-            INNER JOIN public.organization_survey os
-                ON os.id_organization_survey = ha.id_organization_survey
-            LEFT JOIN public.organization o
-                ON o.id_organization = os.id_organization
-            LEFT JOIN public.survey s
-                ON s.id_survey = os.id_survey
-        )
-        """;
-
-    private static IReadOnlyList<SelectionOption> GetAnswerOrganizationOptions(IDbConnection connection)
-    {
-        return BuildSelectionOptions(connection.Query<SelectionOption>(
-            """
-            SELECT DISTINCT
-                os.id_organization AS Id,
-                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, 'Нет данных') AS Name
-            FROM public.answer ha
-            INNER JOIN public.organization_survey os
-                ON os.id_organization_survey = ha.id_organization_survey
-            LEFT JOIN public.organization o
-                ON o.id_organization = os.id_organization;
-            """));
-    }
-
-    private static IReadOnlyList<SelectionOption> GetAnswerSurveyOptions(IDbConnection connection)
-    {
-        return BuildSelectionOptions(connection.Query<SelectionOption>(
-            """
-            SELECT DISTINCT
-                os.id_survey AS Id,
-                COALESCE(s.name_survey, 'Нет данных') AS Name
-            FROM public.answer ha
-            INNER JOIN public.organization_survey os
-                ON os.id_organization_survey = ha.id_organization_survey
-            LEFT JOIN public.survey s
-                ON s.id_survey = os.id_survey;
-            """));
-    }
-
-    private static IReadOnlyList<SelectionOption> BuildSelectionOptions(IEnumerable<SelectionOption> options)
-    {
-        return options
-            .Where(option => option.Id > 0 && !string.IsNullOrWhiteSpace(option.Name))
-            .GroupBy(option => option.Id)
-            .Select(group => group.First())
-            .OrderBy(option => option.Name, AppListPaging.RuStringComparer)
-            .ThenBy(option => option.Id)
-            .ToList();
-    }
-
-    private static string BuildAnswerFilterPredicate()
-    {
-        return """
-            (@hasOrganizationFilter = false OR id_organization = ANY(@selectedOrganizationIds))
-            AND (@hasSurveyFilter = false OR id_survey = ANY(@selectedSurveyIds))
-            AND (
-                @hasDateFilter = false
-                OR (
-                    completion_date IS NOT NULL
-                    AND completion_date >= @dateStart
-                    AND completion_date <= @dateEnd
-                )
-            )
-            """;
-    }
-
-    private static string BuildAnswerOrderBy(string sortBy, string sortDirection)
-    {
-        var direction = string.Equals(sortDirection, "desc", StringComparison.Ordinal)
-            ? "DESC"
-            : "ASC";
-
-        return sortBy switch
-        {
-            AnswerListSortFields.Organization => $"organization_name {direction}, id_answer DESC",
-            AnswerListSortFields.Survey => $"survey_name {direction}, id_answer DESC",
-            AnswerListSortFields.Signed => $"is_signed {direction}, id_answer DESC",
-            _ => $"completion_date {direction} NULLS LAST, id_answer DESC"
-        };
-    }
-
     private static string NormalizeAnswerSortField(string? sortBy)
     {
         return sortBy?.Trim() switch
         {
-            AnswerListSortFields.Organization => AnswerListSortFields.Organization,
-            AnswerListSortFields.Survey => AnswerListSortFields.Survey,
-            AnswerListSortFields.Signed => AnswerListSortFields.Signed,
-            _ => AnswerListSortFields.Date
+            AnswerReadSortFields.Organization => AnswerReadSortFields.Organization,
+            AnswerReadSortFields.Survey => AnswerReadSortFields.Survey,
+            AnswerReadSortFields.Signed => AnswerReadSortFields.Signed,
+            _ => AnswerReadSortFields.Date
         };
     }
 
@@ -475,37 +283,10 @@ public sealed class AnswerAdminService : IAnswerAdminService
 
         return sortField switch
         {
-            AnswerListSortFields.Date => "desc",
-            AnswerListSortFields.Signed => "desc",
+            AnswerReadSortFields.Date => "desc",
+            AnswerReadSortFields.Signed => "desc",
             _ => "asc"
         };
-    }
-
-    private static List<AnswerListItemViewModel> SortAnswerRows(
-        IEnumerable<AnswerListItemViewModel> rows,
-        string sortBy,
-        string sortDirection)
-    {
-        var descending = string.Equals(sortDirection, "desc", StringComparison.Ordinal);
-        IOrderedEnumerable<AnswerListItemViewModel> orderedRows = sortBy switch
-        {
-            AnswerListSortFields.Organization => descending
-                ? rows.OrderByDescending(row => row.OrganizationName, AppListPaging.RuStringComparer)
-                : rows.OrderBy(row => row.OrganizationName, AppListPaging.RuStringComparer),
-            AnswerListSortFields.Survey => descending
-                ? rows.OrderByDescending(row => row.SurveyName, AppListPaging.RuStringComparer)
-                : rows.OrderBy(row => row.SurveyName, AppListPaging.RuStringComparer),
-            AnswerListSortFields.Signed => descending
-                ? rows.OrderByDescending(row => row.IsSigned)
-                : rows.OrderBy(row => row.IsSigned),
-            _ => descending
-                ? rows.OrderByDescending(row => row.CompletionDate ?? DateTime.MinValue)
-                : rows.OrderBy(row => row.CompletionDate ?? DateTime.MaxValue)
-        };
-
-        return orderedRows
-            .ThenByDescending(row => row.IdAnswer)
-            .ToList();
     }
 
     private enum AnswerDateFilterType
@@ -516,40 +297,4 @@ public sealed class AnswerAdminService : IAnswerAdminService
         Range
     }
 
-    private sealed class AnswerListRow
-    {
-        public int IdAnswer { get; set; }
-        public int IdOrganization { get; set; }
-        public int IdSurvey { get; set; }
-        public string? OrganizationName { get; set; }
-        public string? SurveyName { get; set; }
-        public DateTime? CompletionDate { get; set; }
-        public string? Signature { get; set; }
-    }
-
-    private sealed class SignatureRow
-    {
-        public string? OrganizationName { get; set; }
-        public bool IsCompleted { get; set; }
-        public bool IsSigned { get; set; }
-        public DateTime? CompletionDate { get; set; }
-    }
-
-    private sealed class AverageByYearRow
-    {
-        public int Year { get; set; }
-        public double AverageRating { get; set; }
-    }
-
-    private sealed class AverageByQuarterRow
-    {
-        public int Quarter { get; set; }
-        public double AverageRating { get; set; }
-    }
-
-    private sealed class OrganizationAverageRow
-    {
-        public string? OrganizationName { get; set; }
-        public double AverageRating { get; set; }
-    }
 }

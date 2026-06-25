@@ -55,11 +55,7 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
         refs.errorBlock?.classList.add('u-hidden');
 
         if (error) {
-            if (typeof window.siteNotify === 'function') {
-                window.siteNotify(error, 'error', { title: 'Ошибка' });
-            } else {
-                window.alert(error);
-            }
+            window.AppUi.notify(error, 'error', { title: 'Ошибка' });
         }
     }
 

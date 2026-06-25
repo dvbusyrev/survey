@@ -6,25 +6,35 @@ namespace MainProject.Application.Contracts;
 
 public interface ISurveyAssignmentRepository
 {
-    IReadOnlyList<Survey> GetActiveSurveySummaries(NpgsqlConnection connection);
-
-    Survey? GetSurveyWithSchedule(NpgsqlConnection connection, int surveyId);
-
-    IReadOnlyList<OrganizationSelectionItem> GetAvailableOrganizationsForSurvey(
+    Task<IReadOnlyList<Survey>> GetActiveSurveySummariesAsync(
         NpgsqlConnection connection,
-        int surveyId);
+        CancellationToken cancellationToken = default);
 
-    IReadOnlyList<OrganizationSelectionItem> GetSelectedOrganizationsForSurvey(
+    Task<Survey?> GetSurveyWithScheduleAsync(
         NpgsqlConnection connection,
-        int surveyId);
+        int surveyId,
+        CancellationToken cancellationToken = default);
 
-    int UpdateActiveSurveyPeriod(
+    Task<IReadOnlyList<OrganizationSelectionItem>> GetAvailableOrganizationsForSurveyAsync(
+        NpgsqlConnection connection,
+        int surveyId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<OrganizationSelectionItem>> GetSelectedOrganizationsForSurveyAsync(
+        NpgsqlConnection connection,
+        int surveyId,
+        CancellationToken cancellationToken = default);
+
+    Task<int> UpdateActiveSurveyPeriodAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         DateTime dateBegin,
-        DateTime dateEnd);
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default);
 
-    IReadOnlyList<ArchivedSurvey> GetAdminArchivedSurveySummaries(NpgsqlConnection connection);
+    Task<IReadOnlyList<ArchivedSurvey>> GetAdminArchivedSurveySummariesAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default);
 
     Task<ArchivedSurvey?> GetArchivedSurveyForCopyAsync(
         NpgsqlConnection connection,
@@ -32,26 +42,33 @@ public interface ISurveyAssignmentRepository
         int surveyId,
         CancellationToken cancellationToken = default);
 
-    int CountActiveSurveys(NpgsqlConnection connection, IReadOnlyCollection<int> organizationIds);
+    Task<int> CountActiveSurveysAsync(
+        NpgsqlConnection connection,
+        IReadOnlyCollection<int> organizationIds,
+        CancellationToken cancellationToken = default);
 
-    IReadOnlyList<SurveyAssignmentTableRow> GetActiveSurveyPage(
+    Task<IReadOnlyList<SurveyAssignmentTableRow>> GetActiveSurveyPageAsync(
         NpgsqlConnection connection,
         IReadOnlyCollection<int> organizationIds,
         string sortBy,
         string sortDirection,
         int pageSize,
-        int offset);
+        int offset,
+        CancellationToken cancellationToken = default);
 
-    IReadOnlyList<SelectionOption> GetActiveOrganizationOptions(NpgsqlConnection connection);
+    Task<IReadOnlyList<SelectionOption>> GetActiveOrganizationOptionsAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default);
 
-    int CountArchivedSurveys(
+    Task<int> CountArchivedSurveysAsync(
         NpgsqlConnection connection,
         IReadOnlyCollection<int> organizationIds,
         IReadOnlyCollection<int> surveyIds,
         DateTime? dateStart,
-        DateTime? dateEnd);
+        DateTime? dateEnd,
+        CancellationToken cancellationToken = default);
 
-    IReadOnlyList<SurveyAssignmentTableRow> GetArchivedSurveyPage(
+    Task<IReadOnlyList<SurveyAssignmentTableRow>> GetArchivedSurveyPageAsync(
         NpgsqlConnection connection,
         IReadOnlyCollection<int> organizationIds,
         IReadOnlyCollection<int> surveyIds,
@@ -60,24 +77,37 @@ public interface ISurveyAssignmentRepository
         string sortBy,
         string sortDirection,
         int pageSize,
-        int offset);
+        int offset,
+        CancellationToken cancellationToken = default);
 
-    IReadOnlyList<SelectionOption> GetArchivedOrganizationOptions(NpgsqlConnection connection);
+    Task<IReadOnlyList<SelectionOption>> GetArchivedOrganizationOptionsAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default);
 
-    IReadOnlyList<SelectionOption> GetArchivedSurveyOptions(NpgsqlConnection connection);
+    Task<IReadOnlyList<SelectionOption>> GetArchivedSurveyOptionsAsync(
+        NpgsqlConnection connection,
+        CancellationToken cancellationToken = default);
 
-    int? GetUserOrganizationId(NpgsqlConnection connection, int userId);
+    Task<int?> GetUserOrganizationIdAsync(
+        NpgsqlConnection connection,
+        int userId,
+        CancellationToken cancellationToken = default);
 
-    bool IsActiveAssignment(NpgsqlConnection connection, int surveyId, int organizationId);
+    Task<bool> IsActiveAssignmentAsync(
+        NpgsqlConnection connection,
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default);
 
-    UserSurveyAssignmentPageData GetActiveUserSurveyPage(
+    Task<UserSurveyAssignmentPageData> GetActiveUserSurveyPageAsync(
         NpgsqlConnection connection,
         int organizationId,
         string searchTerm,
         int pageSize,
-        int offset);
+        int offset,
+        CancellationToken cancellationToken = default);
 
-    UserSurveyAssignmentPageData GetUserArchivePage(
+    Task<UserSurveyAssignmentPageData> GetUserArchivePageAsync(
         NpgsqlConnection connection,
         int organizationId,
         string searchTerm,
@@ -86,7 +116,8 @@ public interface ISurveyAssignmentRepository
         DateTime? completionDateTo,
         bool signedOnly,
         int pageSize,
-        int offset);
+        int offset,
+        CancellationToken cancellationToken = default);
 
     Task ReplaceSurveyAssignmentsAsync(
         NpgsqlConnection connection,
@@ -120,16 +151,18 @@ public interface ISurveyAssignmentRepository
         DateTime? dateEnd,
         CancellationToken cancellationToken = default);
 
-    int UpsertSurveyEndDate(
+    Task<int> UpsertSurveyEndDateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
         int organizationId,
-        DateTime dateEnd);
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default);
 
-    int? GetAssignmentIdForUpdate(
+    Task<int?> GetAssignmentIdForUpdateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
-        int organizationId);
+        int organizationId,
+        CancellationToken cancellationToken = default);
 }

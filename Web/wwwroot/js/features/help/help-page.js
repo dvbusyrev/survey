@@ -1,13 +1,11 @@
 (function () {
-    function showHelpMessage(message, type = 'info') {
-        if (typeof window.siteNotify === 'function') {
-            window.siteNotify(message, type, {
-                title: type === 'error' ? 'Ошибка' : 'Успешно'
-            });
-            return;
-        }
+    const PAGE_SELECTOR = '[data-page="help-page"]';
+    let cleanupHelpPage = null;
 
-        window.alert(message);
+    function showHelpMessage(message, type = 'info') {
+        window.AppUi.notify(message, type, {
+            title: type === 'error' ? 'Ошибка' : 'Успешно'
+        });
     }
 
     function getResponseMessage(responseText, fallbackMessage) {
@@ -64,14 +62,30 @@
         }
     }
 
-    function initHelpPage(root = document) {
-        const page = root.querySelector?.('[data-page="help-page"]');
-        if (!page || page.dataset.helpPageBound === 'true') {
+    function listen(scope, target, type, handler, options) {
+        if (!target) {
             return;
         }
 
-        page.dataset.helpPageBound = 'true';
-        page.addEventListener('click', (event) => {
+        if (scope && typeof scope.listen === 'function') {
+            scope.listen(target, type, handler, options);
+            return;
+        }
+
+        target.addEventListener(type, handler, options);
+    }
+
+    function mountHelpPage(page, scope) {
+        if (cleanupHelpPage) {
+            cleanupHelpPage();
+            cleanupHelpPage = null;
+        }
+
+        if (!page) {
+            return;
+        }
+
+        const handleClick = (event) => {
             const trigger = event.target.closest('[data-help-upload-trigger]');
             if (!trigger || !page.contains(trigger)) {
                 return;
@@ -80,16 +94,37 @@
             const instructionType = trigger.dataset.helpType || '';
             const input = page.querySelector(`[data-help-file-input][data-help-type="${instructionType}"]`);
             input?.click();
-        });
+        };
 
-        page.addEventListener('change', (event) => {
+        const handleChange = (event) => {
             const input = event.target.closest('[data-help-file-input]');
             if (!input || !page.contains(input)) {
                 return;
             }
 
             uploadInstruction(input);
-        });
+        };
+
+        listen(scope, page, 'click', handleClick);
+        listen(scope, page, 'change', handleChange);
+
+        cleanupHelpPage = () => {
+            if (!scope || typeof scope.listen !== 'function') {
+                page.removeEventListener('click', handleClick);
+                page.removeEventListener('change', handleChange);
+            }
+        };
+
+        if (scope && typeof scope.add === 'function') {
+            scope.add(cleanupHelpPage);
+        }
+    }
+
+    function initHelpPage(root = document, scope = null) {
+        const page = root?.matches?.(PAGE_SELECTOR)
+            ? root
+            : root?.querySelector?.(PAGE_SELECTOR);
+        mountHelpPage(page, scope);
     }
 
     window.initHelpPage = initHelpPage;
@@ -102,7 +137,13 @@
         }
     };
 
-    if (document.readyState === 'loading') {
+    if (window.AppPageLifecycle && typeof window.AppPageLifecycle.register === 'function') {
+        window.AppPageLifecycle.register(
+            'help-page',
+            `.app-page${PAGE_SELECTOR}`,
+            mountHelpPage
+        );
+    } else if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => initHelpPage(document), { once: true });
     } else {
         initHelpPage(document);

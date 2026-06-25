@@ -6,9 +6,9 @@ namespace MainProject.Application.Contracts;
 
 public interface ISurveyUserService
 {
-    int? GetUserOrganizationId(int userId);
-    bool IsSurveyAssignedToOrganization(int surveyId, int organizationId);
-    UserSurveyListPageViewModel? GetActiveSurveysPage(int userId, int currentPage, string? searchTerm);
-    Survey? GetSurveyInfo(int surveyId);
-    IReadOnlyList<SurveyQuestionItem> GetSurveyQuestions(int surveyId);
+    Task<int?> GetUserOrganizationIdAsync(int userId, CancellationToken cancellationToken = default);
+    Task<bool> IsSurveyAssignedToOrganizationAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<UserSurveyListPageViewModel?> GetActiveSurveysPageAsync(int userId, int currentPage, string? searchTerm, CancellationToken cancellationToken = default);
+    Task<Survey?> GetSurveyInfoAsync(int surveyId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SurveyQuestionItem>> GetSurveyQuestionsAsync(int surveyId, CancellationToken cancellationToken = default);
 }

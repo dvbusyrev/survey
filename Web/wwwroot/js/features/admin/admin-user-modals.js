@@ -45,15 +45,10 @@ function showAdminToast(message, type = 'error', options = {}) {
         return;
     }
 
-    if (typeof window.siteNotify === 'function') {
-        window.siteNotify(normalizedMessage, type, {
-            title: options.title,
-            duration: options.duration ?? (type === 'error' ? 0 : 4500)
-        });
-        return;
-    }
-
-    window.alert(normalizedMessage);
+    window.AppUi.notify(normalizedMessage, type, {
+        title: options.title,
+        duration: options.duration ?? (type === 'error' ? 0 : 4500)
+    });
 }
 
 function ensureValidDateInput(target, label, options = {}) {
@@ -119,7 +114,7 @@ function submitFormAdd() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+            'RequestVerificationToken': window.AppHttp?.getAntiforgeryToken() || ''
         },
         body: JSON.stringify(formData)
     })
@@ -130,7 +125,7 @@ function submitFormAdd() {
             return;
         }
 
-        setModalVisibility('addUserModal', false);
+        window.AppUi?.setModalVisibility('addUserModal', false);
         if (typeof window.handleAdminMutationSuccess === 'function') {
             window.handleAdminMutationSuccess({
                 message: data.message || 'Пользователь успешно добавлен',
@@ -140,7 +135,7 @@ function submitFormAdd() {
             return;
         }
 
-        window.siteNotify?.(data.message || 'Пользователь успешно добавлен', 'success');
+        window.AppUi?.notify?.(data.message || 'Пользователь успешно добавлен', 'success');
         navigateAdminTab("get_users", "/users");
     })
     .catch(error => {
@@ -231,29 +226,6 @@ function getSafeElement(id) {
     return element;
 }
 
-function setModalVisibility(target, isVisible) {
-    const modal = typeof target === 'string' ? document.getElementById(target) : target;
-    if (!modal) {
-        return false;
-    }
-
-    if (isVisible) {
-        if (window.showSiteModal) {
-            window.showSiteModal(modal);
-        } else {
-            modal.style.display = 'flex';
-        }
-        return true;
-    }
-
-    if (window.hideSiteModal) {
-        window.hideSiteModal(modal);
-    } else {
-        modal.style.display = 'none';
-    }
-    return true;
-}
-
 function setSingleOption(selectElement, text) {
     if (!selectElement) {
         return;
@@ -323,7 +295,7 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
         await loadOrganizations2(orgId);
 
         // Показываем модальное окно
-        setModalVisibility(modal, true);
+        window.AppUi?.setModalVisibility(modal, true);
 
     } catch (error) {
         console.error('Ошибка при открытии формы:', error);
@@ -433,7 +405,7 @@ async function updateUser() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                'RequestVerificationToken': window.AppHttp?.getAntiforgeryToken() || ''
             },
             body: JSON.stringify(formData)
         });
@@ -444,7 +416,7 @@ async function updateUser() {
             throw new Error(result.message || 'Ошибка сервера');
         }
 
-        setModalVisibility(modal, false);
+        window.AppUi?.setModalVisibility(modal, false);
         if (typeof window.handleAdminMutationSuccess === 'function') {
             await window.handleAdminMutationSuccess({
                 message: result.message || 'Пользователь успешно обновлён',
@@ -454,7 +426,7 @@ async function updateUser() {
             return;
         }
 
-        window.siteNotify?.('Пользователь успешно обновлён', 'success');
+        window.AppUi?.notify?.('Пользователь успешно обновлён', 'success');
         navigateAdminTab("get_users", "/users");
 
     } catch (error) {
@@ -468,249 +440,7 @@ async function updateUser() {
 
 // Функция закрытия модального окна
 function closeModal2() {
-    setModalVisibility('editUserModal', false);
+    window.AppUi?.setModalVisibility('editUserModal', false);
 }
 
-function resetAddOrganizationForm() {
-    const form = document.getElementById('organizationForm');
-    const messageDiv = document.getElementById('message');
-
-    if (form) {
-        form.reset();
-    }
-
-    if (messageDiv) {
-        messageDiv.textContent = '';
-        messageDiv.className = 'organization-form__message';
-        messageDiv.style.display = 'none';
-    }
-}
-
-function openAddOrganizationModal() {
-    resetAddOrganizationForm();
-    const modal = document.getElementById('addOrganizationModal');
-    if (!modal) {
-        return;
-    }
-
-    setModalVisibility(modal, true);
-}
-
-async function createOrganization() {
-    const form = document.getElementById('organizationForm');
-    const messageDiv = document.getElementById('message');
-    if (messageDiv) {
-        messageDiv.style.display = 'none';
-    }
-
-    if (!document.getElementById('Name').value)
-{
-    showAdminToast('Введите название организации!');
-    return;
-}
-
-    try {
-        if (!ensureValidDateInput(form.DateBegin, 'Дата начала')) {
-            return;
-        }
-
-        if (!ensureValidDateInput(form.DateEnd, 'Дата конца')) {
-            return;
-        }
-
-        // 1. Собираем данные из формы
-        const formData = {
-            Name: form.Name.value,
-            ShortName: (document.getElementById('ShortName')?.value || '').trim(),
-            Email: form.organization_email.value,
-            DateBegin: window.AppDate?.getInputIso(form.DateBegin) || '',
-            DateEnd: window.AppDate?.getInputIso(form.DateEnd) || ''
-        };
-
-        if (formData.DateBegin && formData.DateEnd && (window.AppDate?.compare(formData.DateEnd, formData.DateBegin) ?? -1) < 0) {
-            showAdminToast('Дата конца не может быть раньше даты начала.');
-            window.AppDate?.focusInput?.(form.DateEnd);
-            return;
-        }
-
-        // 2. Получаем CSRF-токен
-        const token = document.querySelector('[name="__RequestVerificationToken"]').value;
-
-        // 3. Отправляем на сервер
-        const response = await fetch('/organizations/create', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'RequestVerificationToken': token
-            },
-            body: JSON.stringify(formData)
-        });
-
-        // 4. Обрабатываем ответ
-        const result = await response.json();
-        
-        if (!result.success) {
-            showAdminToast(result.error || result.message || 'Не удалось создать организацию');
-            return;
-        }
-
-        closeOrganizationModal('addOrganizationModal');
-        if (typeof window.handleAdminMutationSuccess === 'function') {
-            await window.handleAdminMutationSuccess({
-                message: result.message || 'Организация успешно создана!',
-                tabName: 'get_organization',
-                fallbackUrl: '/organizations'
-            });
-            return;
-        }
-
-        navigateAdminTab("get_organization", "/organizations");
-        showAdminToast('Организация успешно создана!', 'success');
-
-    } catch (error) {
-        const safeErrorMessage = typeof window.normalizeClientErrorMessage === 'function'
-            ? window.normalizeClientErrorMessage(error.message)
-            : error.message;
-        showAdminToast(`Ошибка при отправке: ${safeErrorMessage}`);
-        console.error('Ошибка:', error);
-    }
-}
-// СКРИПТ ДЛЯ РЕДАКТИРОВАНИЯ ОРГАНИЗАЦИЙ
-        
-function closeOrganizationModal(modalId) {
-    setModalVisibility(modalId, false);
-}
-
-// Функция открытия модального окна редактирования
-function openEditOrganizationModal(id, name, shortName, email, dateBegin, dateEnd) {
-    document.getElementById('editOrganizationId').value = id;
-    document.getElementById('organizationName').value = name || '';
-    document.getElementById('organizationShortName').value = shortName || '';
-    document.getElementById('organizationEmail').value = email || '';
-    window.AppDate?.setInputValue('organizationDateBegin', dateBegin || '');
-    window.AppDate?.setInputValue('organizationDateEnd', dateEnd || '');
-    setModalVisibility('editOrganizationModal', true);
-}
-
-function openEditOrganizationModalFromTrigger(trigger) {
-    const organizationId = Number.parseInt(trigger?.dataset?.organizationId || '', 10);
-
-    if (!Number.isFinite(organizationId) || organizationId <= 0) {
-        showAdminToast('Не найден идентификатор организации');
-        return;
-    }
-
-    openEditOrganizationModal(
-        organizationId,
-        trigger?.dataset?.organizationName || '',
-        trigger?.dataset?.organizationShortName || '',
-        trigger?.dataset?.organizationEmail || '',
-        trigger?.dataset?.organizationDateBegin || '',
-        trigger?.dataset?.organizationDateEnd || '');
-}
-
-// Функция обновления организации с улучшенной обработкой данных
-async function updateOrganization() {
-    if (!document.getElementById('organizationName').value)
-{
-    showAdminToast('Введите название организации!');
-    return;
-}
-
-    try {
-        if (!ensureValidDateInput('organizationDateBegin', 'Дата начала')) {
-            return;
-        }
-
-        if (!ensureValidDateInput('organizationDateEnd', 'Дата конца')) {
-            return;
-        }
-
-        // 1. Получаем значения из формы
-        const id = document.getElementById('editOrganizationId').value;
-        const name = document.getElementById('organizationName').value.trim();
-        const shortName = document.getElementById('organizationShortName').value.trim();
-        const email = document.getElementById('organizationEmail').value.trim();
-        const dateBegin = window.AppDate?.getInputIso('organizationDateBegin') || '';
-        const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
-
-        if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
-            showAdminToast('Дата конца не может быть раньше даты начала.');
-            window.AppDate?.focusInput?.('organizationDateEnd');
-            return;
-        }
-
-        // 2. Подготовка данных в формате, ожидаемом сервером
-        const organizationData = {
-            Name: name,
-            ShortName: shortName,
-            Email: email || "",
-            DateBegin: dateBegin || "",
-            DateEnd: dateEnd || ""
-        };
-
-        // 3. Блокируем кнопку на время отправки
-        const saveBtn = document.getElementById('saveOrganizationBtn');
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Сохранение...';
-
-        // 4. Отправка данных с обработкой возможных ошибок сети
-        let response;
-        try {
-            response = await fetch(`/organizations/${id}/update`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(organizationData)
-            });
-        } catch (networkError) {
-            throw new Error("Ошибка сети.");
-        }
-
-        // 5. Проверка ответа сервера
-        if (!response.ok) {
-            let errorText;
-            try {
-                errorText = await response.text();
-            } catch (parseError) {
-                errorText = `Ошибка сервера: ${response.status}`;
-            }
-            throw new Error(errorText);
-        }
-
-        // 6. Успешное завершение
-        const successMessage = await response.text();
-        closeOrganizationModal('editOrganizationModal');
-        if (typeof window.handleAdminMutationSuccess === 'function') {
-            await window.handleAdminMutationSuccess({
-                message: successMessage || 'Организация успешно отредактирована!',
-                tabName: 'get_organization',
-                fallbackUrl: '/organizations'
-            });
-            return;
-        }
-
-        showAdminToast('Организация успешно отредактирована!', 'success');
-        navigateAdminTab("get_organization", "/organizations");
-
-    } catch (error) {
-        console.error('Ошибка при обновлении организации:', error);
-        
-        // Показываем пользователю понятное сообщение об ошибке
-        let errorMessage = error.message;
-        if (error.message.includes("Некорректные данные организации")) {
-            errorMessage = "Проверьте правильность заполнения всех полей";
-        }
-        
-        showAdminToast(`Ошибка: ${errorMessage}`);
-    } finally {
-        const saveBtn = document.getElementById('saveOrganizationBtn');
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Сохранить';
-        }
-    }
-}
-// Логика глаза пароля вынесена в ~/js/pages/admin-password-tools.js
-        
+document.dispatchEvent(new CustomEvent('admin:user-modal-ready'));

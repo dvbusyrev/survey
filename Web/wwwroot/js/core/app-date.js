@@ -1127,7 +1127,7 @@
             if (firstInvalidInput) {
                 event.preventDefault();
                 focusInput(firstInvalidInput);
-                window.siteNotify?.(getInputError(firstInvalidInput), 'error', { duration: 0 });
+                window.AppUi?.notify?.(getInputError(firstInvalidInput), 'error', { duration: 0 });
                 return;
             }
 

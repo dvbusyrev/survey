@@ -1,0 +1,4 @@
+# host:port:database:user:password
+db.example:5432:survey:backup:replace-with-password
+db.example:5432:survey_restore_verify:backup:replace-with-password
+db.example:5432:postgres:backup:replace-with-password

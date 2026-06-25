@@ -58,7 +58,7 @@
     @{
         var isAuthenticated = User?.Identity?.IsAuthenticated == true;
         var chromeContext = isAuthenticated
-            ? UserChromeContextService.GetCurrentContext()
+            ? await UserChromeContextService.GetCurrentContextAsync()
             : new MainProject.Application.DTO.UserChromeContext();
         var layoutUserRole = chromeContext.UserRole;
         var layoutUserId = chromeContext.UserId;

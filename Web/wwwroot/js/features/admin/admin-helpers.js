@@ -195,7 +195,7 @@
 
     function handleError(error) {
         console.error('Ошибка:', error);
-        window.siteNotify(
+        window.AppUi?.notify?.(
             'Произошла ошибка: ' + (error.message || 'Неизвестная ошибка'),
             'error'
         );
@@ -204,10 +204,6 @@
     function getValueSafe(elementId) {
         const element = document.getElementById(elementId);
         return element ? element.value : '';
-    }
-
-    function showNotification(message, isSuccess) {
-        window.siteNotify?.(message, isSuccess ? 'success' : 'error');
     }
 
     function refreshAdminUi({ tabName, id = undefined, fallbackUrl, options } = {}) {
@@ -245,7 +241,7 @@
 
     function handleAdminMutationSuccess({ message, notificationType = 'success', ...refreshOptions } = {}) {
         if (message) {
-            window.siteNotify?.(message, notificationType);
+            window.AppUi?.notify?.(message, notificationType);
         }
 
         window.dispatchEvent(new CustomEvent('admin:data-mutated', {
@@ -262,7 +258,6 @@
     window.handleResponse = handleResponse;
     window.handleError = handleError;
     window.getValueSafe = getValueSafe;
-    window.showNotification = showNotification;
     window.getHttpStatusMessage = getHttpStatusMessage;
     window.getResponseErrorMessage = getResponseErrorMessage;
     window.resolveCurrentAdminTab = resolveCurrentAdminTab;

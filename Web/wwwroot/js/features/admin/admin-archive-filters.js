@@ -158,7 +158,7 @@ function applySurveyFilter() {
 function copyArchivedSurvey(surveyId) {
     if (typeof window.openCopySurveyModalById === 'function') {
         window.openCopySurveyModalById(surveyId).catch((error) => {
-            window.siteNotify?.(error.message || 'Не удалось подготовить копирование анкеты.', 'error');
+            window.AppUi?.notify?.(error.message || 'Не удалось подготовить копирование анкеты.', 'error');
         });
     }
 }

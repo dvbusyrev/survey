@@ -9,78 +9,100 @@ namespace MainProject.Infrastructure.Persistence;
 public sealed class UserRepository : IUserRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IClock _clock;
 
-    public UserRepository(IDbConnectionFactory connectionFactory)
+    public UserRepository(IDbConnectionFactory connectionFactory, IClock clock)
     {
         _connectionFactory = connectionFactory;
+        _clock = clock;
     }
 
-    public int Count(bool includeArchived)
+    public async Task<int> CountAsync(bool includeArchived, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM public.app_user u WHERE {GetArchivePredicate(includeArchived)};");
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM public.app_user u WHERE {GetArchivePredicate(includeArchived)};",
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<User> GetPage(bool includeArchived, string sortBy, string sortDirection, int pageSize, int offset)
+    public async Task<IReadOnlyList<User>> GetPageAsync(
+        bool includeArchived,
+        string sortBy,
+        string sortDirection,
+        int pageSize,
+        int offset,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Query<User>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var users = await connection.QueryAsync<User>(new CommandDefinition(
             $"""
             {UserSelectSql}
             WHERE {GetArchivePredicate(includeArchived)}
             ORDER BY {BuildOrderBy(sortBy, sortDirection)}
             LIMIT @PageSize OFFSET @Offset;
             """,
-            new { PageSize = pageSize, Offset = offset }).ToList();
+            new { PageSize = pageSize, Offset = offset, Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return users.AsList();
     }
 
-    public IReadOnlyList<User> GetAll(bool includeArchived)
+    public async Task<IReadOnlyList<User>> GetAllAsync(bool includeArchived, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Query<User>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var users = await connection.QueryAsync<User>(new CommandDefinition(
             $"""
             {UserSelectSql}
             WHERE {GetArchivePredicate(includeArchived)}
             ORDER BY COALESCE(u.full_name, u.login), u.id_user;
-            """).ToList();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return users.AsList();
     }
 
-    public User? GetById(int userId)
+    public async Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.QueryFirstOrDefault<User>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryFirstOrDefaultAsync<User>(new CommandDefinition(
             $"""
             {UserSelectSql}
             WHERE u.id_user = @UserId;
             """,
-            new { UserId = userId });
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<SelectionOption> GetActiveOrganizationOptions()
+    public async Task<IReadOnlyList<SelectionOption>> GetActiveOrganizationOptionsAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Query<SelectionOption>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             """
             SELECT id_organization AS Id, COALESCE(NULLIF(organization_short_name, ''), organization_name) AS Name
             FROM public.organization
-            WHERE date_end IS NULL OR date_end >= CURRENT_DATE
+            WHERE date_end IS NULL OR date_end >= @Today
             ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name);
-            """).ToList();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return options.AsList();
     }
 
-    public int Create(UserWriteModel user)
+    public async Task<int> CreateAsync(UserWriteModel user, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Execute(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO public.app_user (id_organization, login, full_name, role, password, email, date_begin, date_end)
             VALUES (@OrganizationId, @Login, @FullName, @Role, @PasswordHash, @Email, @DateBegin, @DateEnd);
-            """, user);
+            """,
+            user,
+            cancellationToken: cancellationToken));
     }
 
-    public int Update(int userId, UserWriteModel user)
+    public async Task<int> UpdateAsync(int userId, UserWriteModel user, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         var sql = """
             UPDATE public.app_user
             SET login = @Login, full_name = @FullName, id_organization = @OrganizationId,
@@ -92,14 +114,17 @@ public sealed class UserRepository : IUserRepository
         }
 
         sql += " WHERE id_user = @UserId;";
-        return connection.Execute(sql, new { UserId = userId, user.OrganizationId, user.Login, user.FullName, user.Role, user.Email, user.DateBegin, user.DateEnd, user.PasswordHash });
+        return await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { UserId = userId, user.OrganizationId, user.Login, user.FullName, user.Role, user.Email, user.DateBegin, user.DateEnd, user.PasswordHash },
+            cancellationToken: cancellationToken));
     }
 
-    public UserDeletionResult DeleteIfAllowed(int userId)
+    public async Task<UserDeletionResult> DeleteIfAllowedAsync(int userId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        var user = connection.QueryFirstOrDefault<UserDeleteCandidate>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var user = await connection.QueryFirstOrDefaultAsync<UserDeleteCandidate>(new CommandDefinition(
             """
             SELECT id_user AS IdUser, full_name AS FullName, login AS UserName
             FROM public.app_user
@@ -107,36 +132,39 @@ public sealed class UserRepository : IUserRepository
             FOR UPDATE;
             """,
             new { UserId = userId },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
         if (user == null)
         {
-            transaction.Commit();
+            await transaction.CommitAsync(cancellationToken);
             return new UserDeletionResult(false, false, null, [], []);
         }
 
-        var answeredSurveyNames = GetSurveyNames(connection, transaction, userId, "=");
-        var signedSurveyNames = GetSurveyNames(connection, transaction, userId, "<>");
+        var answeredSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, "=", cancellationToken);
+        var signedSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, "<>", cancellationToken);
         if (answeredSurveyNames.Count > 0 || signedSurveyNames.Count > 0)
         {
-            transaction.Commit();
+            await transaction.CommitAsync(cancellationToken);
             return new UserDeletionResult(true, false, user, answeredSurveyNames, signedSurveyNames);
         }
 
-        var affectedRows = connection.Execute(
+        var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM public.app_user WHERE id_user = @UserId;",
             new { UserId = userId },
-            transaction);
-        transaction.Commit();
+            transaction,
+            cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
         return new UserDeletionResult(true, affectedRows > 0, user, [], []);
     }
 
-    private static IReadOnlyList<string> GetSurveyNames(
+    private static async Task<IReadOnlyList<string>> GetSurveyNamesAsync(
         System.Data.IDbConnection connection,
         System.Data.IDbTransaction transaction,
         int userId,
-        string signatureOperator)
+        string signatureOperator,
+        CancellationToken cancellationToken)
     {
-        return connection.Query<string>(
+        var surveyNames = await connection.QueryAsync<string>(new CommandDefinition(
             $"""
             SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
             FROM (
@@ -154,15 +182,18 @@ public sealed class UserRepository : IUserRepository
               AND audit_row.SignatureValue {signatureOperator} ''
             ORDER BY survey_name;
             """,
-            new { UserId = userId }, transaction)
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+        return surveyNames
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
     private static string GetArchivePredicate(bool includeArchived) => includeArchived
-        ? "u.date_end < CURRENT_DATE"
-        : "(u.date_end IS NULL OR u.date_end >= CURRENT_DATE)";
+        ? "u.date_end < @Today"
+        : "(u.date_end IS NULL OR u.date_end >= @Today)";
 
     private static string BuildOrderBy(string sortBy, string sortDirection)
     {

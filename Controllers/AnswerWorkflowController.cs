@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Domain.Entities;
+using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 
 [Authorize]
@@ -23,7 +24,7 @@ public class AnswerWorkflowController : Controller
     }
 
     [HttpPost("answers/create")]
-    public IActionResult InsertAnswer([FromBody] AnswerRecord answerData)
+    public async Task<IActionResult> InsertAnswer([FromBody] AnswerRecord answerData, CancellationToken cancellationToken = default)
     {
         var isAjaxRequest =
             string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
@@ -38,7 +39,8 @@ public class AnswerWorkflowController : Controller
                 : BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureAnswerSubmissionAccess(answerData.IdSurvey, answerData.OrganizationId);
+        var accessResult = await EnsureAnswerSubmissionAccessAsync(
+            answerData.IdSurvey, answerData.OrganizationId, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -46,7 +48,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var result = _answerWorkflowService.InsertAnswer(answerData);
+            var result = await _answerWorkflowService.InsertAnswerAsync(answerData, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -75,27 +77,27 @@ public class AnswerWorkflowController : Controller
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
             return isAjaxRequest
-                ? Conflict(new OperationResponse { Error = ex.Message })
-                : Conflict(ex.Message);
+                ? this.SafeError(ex, "Анкета уже подписана.", "Повторное сохранение ответа", StatusCodes.Status409Conflict)
+                : this.SafeErrorView(ex, "Анкета уже подписана.", "Повторное сохранение ответа");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при сохранении ответа");
             return isAjaxRequest
-                ? StatusCode(500, new OperationResponse { Error = $"Ошибка при сохранении ответа: {ex.Message}" })
-                : View("Error", new ErrorViewModel { Message = $"Ошибка при сохранении ответа: {ex.Message}" });
+                ? this.SafeError(ex, "Не удалось сохранить ответы.", "Ошибка при сохранении ответа")
+                : this.SafeErrorView(ex, "Не удалось сохранить ответы.", "Ошибка при сохранении ответа");
         }
     }
 
     [HttpPost("answers/draft")]
-    public IActionResult SaveDraftAnswer([FromBody] AnswerRecord answerData)
+    public async Task<IActionResult> SaveDraftAnswer([FromBody] AnswerRecord answerData, CancellationToken cancellationToken = default)
     {
         if (answerData == null)
         {
             return BadRequest(new OperationResponse { Error = "Данные черновика отсутствуют." });
         }
 
-        var accessResult = EnsureAnswerSubmissionAccess(answerData.IdSurvey, answerData.OrganizationId);
+        var accessResult = await EnsureAnswerSubmissionAccessAsync(
+            answerData.IdSurvey, answerData.OrganizationId, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -103,7 +105,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var result = _answerWorkflowService.SaveDraftAnswer(answerData);
+            var result = await _answerWorkflowService.SaveDraftAnswerAsync(answerData, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -122,20 +124,23 @@ public class AnswerWorkflowController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при сохранении черновика ответа");
-            return StatusCode(500, new OperationResponse { Error = $"Ошибка при сохранении черновика: {ex.Message}" });
+            return this.SafeError(ex, "Не удалось сохранить черновик.", "Ошибка при сохранении черновика ответа");
         }
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/{type?}")]
-    public IActionResult Answers(int idSurvey, int idOrganization = 0, string type = "regular")
+    public async Task<IActionResult> Answers(
+        int idSurvey,
+        int idOrganization = 0,
+        string type = "regular",
+        CancellationToken cancellationToken = default)
     {
         var includeAllOrganizationAnswers = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase)
             && _answerAccessService.IsAdmin;
 
         if (!includeAllOrganizationAnswers)
         {
-            var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
+            var accessResult = await EnsureAnswerRecordAccessAsync(idSurvey, idOrganization, cancellationToken);
             if (accessResult != null)
             {
                 return accessResult;
@@ -144,7 +149,8 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var response = _answerWorkflowService.GetAnswersResponse(idSurvey, idOrganization, type, includeAllOrganizationAnswers);
+            var response = await _answerWorkflowService.GetAnswersResponseAsync(
+                idSurvey, idOrganization, type, includeAllOrganizationAnswers, cancellationToken);
             if (!response.Success)
             {
                 return NotFound(response);
@@ -154,20 +160,17 @@ public class AnswerWorkflowController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обработке запроса ответов");
-            return StatusCode(500, new SurveyAnswersResponse
-            {
-                Success = false,
-                Error = "Внутренняя ошибка сервера",
-                Details = ex.Message
-            });
+            return this.SafeError(ex, "Не удалось загрузить ответы.", "Ошибка при обработке запроса ответов");
         }
     }
 
     [HttpGet("answers/{idSurvey:int}/{idOrganization:int}/content")]
-    public IActionResult AnswersContent(int idSurvey, int idOrganization)
+    public async Task<IActionResult> AnswersContent(
+        int idSurvey,
+        int idOrganization,
+        CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
+        var accessResult = await EnsureAnswerRecordAccessAsync(idSurvey, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -175,7 +178,8 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var response = _answerWorkflowService.GetAnswersResponse(idSurvey, idOrganization, "regular", false);
+            var response = await _answerWorkflowService.GetAnswersResponseAsync(
+                idSurvey, idOrganization, "regular", false, cancellationToken);
             if (!response.Success || response.Survey == null)
             {
                 return NotFound(response.Error ?? "Ответы не найдены.");
@@ -192,15 +196,17 @@ public class AnswerWorkflowController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при загрузке содержимого ответов {SurveyId} для организации {OrganizationId}", idSurvey, idOrganization);
-            return StatusCode(500, "Произошла ошибка при загрузке ответов.");
+            return this.SafeError(ex, "Не удалось загрузить ответы.", $"Ошибка при загрузке содержимого ответов {idSurvey} для организации {idOrganization}");
         }
     }
 
     [HttpGet("answers/{idSurvey}/{idOrganization}/edit")]
-    public IActionResult UpdateAnswer([FromRoute] int idSurvey, [FromRoute] int idOrganization)
+    public async Task<IActionResult> UpdateAnswer(
+        [FromRoute] int idSurvey,
+        [FromRoute] int idOrganization,
+        CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureAnswerRecordAccess(idSurvey, idOrganization);
+        var accessResult = await EnsureAnswerRecordAccessAsync(idSurvey, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -208,7 +214,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var model = _answerWorkflowService.GetUpdateAnswerPage(idSurvey, idOrganization);
+            var model = await _answerWorkflowService.GetUpdateAnswerPageAsync(idSurvey, idOrganization, cancellationToken);
             if (model == null)
             {
                 return NotFound("Ответы не найдены");
@@ -218,20 +224,22 @@ public class AnswerWorkflowController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при загрузке страницы редактирования ответа");
-            return StatusCode(500, "Произошла ошибка на сервере");
+            return this.SafeError(ex, "Не удалось открыть редактирование ответа.", "Ошибка при загрузке страницы редактирования ответа");
         }
     }
 
     [HttpPost("answers/update")]
-    public IActionResult UpdateAnswerRecord([FromBody] AnswerRecord answerData)
+    public async Task<IActionResult> UpdateAnswerRecord(
+        [FromBody] AnswerRecord answerData,
+        CancellationToken cancellationToken = default)
     {
         if (answerData == null)
         {
             return BadRequest("Данные ответа отсутствуют.");
         }
 
-        var accessResult = EnsureAnswerRecordAccess(answerData.IdSurvey, answerData.OrganizationId);
+        var accessResult = await EnsureAnswerRecordAccessAsync(
+            answerData.IdSurvey, answerData.OrganizationId, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -239,7 +247,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var result = _answerWorkflowService.UpdateAnswer(answerData);
+            var result = await _answerWorkflowService.UpdateAnswerAsync(answerData, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -254,23 +262,25 @@ public class AnswerWorkflowController : Controller
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
-            return Conflict(ex.Message);
+            return this.SafeError(ex, "Анкета уже подписана.", "Повторное обновление ответа", StatusCodes.Status409Conflict);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении ответа");
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при обновлении ответа: {ex.Message}" });
+            return this.SafeErrorView(ex, "Не удалось обновить ответ.", "Ошибка при обновлении ответа");
         }
     }
 
-    private IActionResult? EnsureAnswerSubmissionAccess(int surveyId, int requestedOrganizationId)
+    private async Task<IActionResult?> EnsureAnswerSubmissionAccessAsync(
+        int surveyId,
+        int requestedOrganizationId,
+        CancellationToken cancellationToken)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanSubmitAnswer(surveyId, requestedOrganizationId))
+        if (!await _answerAccessService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }
@@ -278,14 +288,17 @@ public class AnswerWorkflowController : Controller
         return null;
     }
 
-    private IActionResult? EnsureAnswerRecordAccess(int surveyId, int requestedOrganizationId)
+    private async Task<IActionResult?> EnsureAnswerRecordAccessAsync(
+        int surveyId,
+        int requestedOrganizationId,
+        CancellationToken cancellationToken)
     {
         if (!_answerAccessService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!_answerAccessService.CanAccessAnswerRecord(surveyId, requestedOrganizationId))
+        if (!await _answerAccessService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }

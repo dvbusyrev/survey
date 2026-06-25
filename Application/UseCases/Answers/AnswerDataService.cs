@@ -21,39 +21,45 @@ public sealed class AnswerDataService
         _answerRepository = answerRepository;
     }
 
-    public int? GetUserOrganizationId(int userId)
+    public async Task<int?> GetUserOrganizationIdAsync(int userId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return _assignmentRepository.GetUserOrganizationId(connection, userId);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await _assignmentRepository.GetUserOrganizationIdAsync(connection, userId, cancellationToken);
     }
 
-    public bool IsSurveyAssignedToOrganization(int surveyId, int organizationId)
+    public async Task<bool> IsSurveyAssignedToOrganizationAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return _assignmentRepository.IsActiveAssignment(connection, surveyId, organizationId);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await _assignmentRepository.IsActiveAssignmentAsync(connection, surveyId, organizationId, cancellationToken);
     }
 
-    public bool AnswerRecordExists(int surveyId, int organizationId)
-        => _answerRepository.AnswerRecordExists(surveyId, organizationId);
+    public Task<bool> AnswerRecordExistsAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default)
+        => _answerRepository.AnswerRecordExistsAsync(surveyId, organizationId, cancellationToken);
 
-    public Survey? GetSurveyInfo(int surveyId)
-        => _answerRepository.GetSurveyInfo(surveyId);
+    public Task<Survey?> GetSurveyInfoAsync(int surveyId, CancellationToken cancellationToken = default)
+        => _answerRepository.GetSurveyInfoAsync(surveyId, cancellationToken);
 
-    public IReadOnlyList<SurveyQuestionItem> GetSurveyQuestions(int surveyId)
-        => _answerRepository.GetSurveyQuestions(surveyId);
+    public Task<IReadOnlyList<SurveyQuestionItem>> GetSurveyQuestionsAsync(int surveyId, CancellationToken cancellationToken = default)
+        => _answerRepository.GetSurveyQuestionsAsync(surveyId, cancellationToken);
 
-    public AnswerRecord? GetAnswerRecord(int surveyId, int organizationId)
-        => _answerRepository.GetAnswerRecord(surveyId, organizationId);
+    public Task<AnswerRecord?> GetAnswerRecordAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default)
+        => _answerRepository.GetAnswerRecordAsync(surveyId, organizationId, cancellationToken);
 
-    public AnswerRecord? GetDraftRecord(int surveyId, int organizationId)
-        => _answerRepository.GetDraftRecord(surveyId, organizationId);
+    public Task<AnswerRecord?> GetDraftRecordAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default)
+        => _answerRepository.GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
 
-    public IReadOnlyList<AnswerRecord> GetAnswerRecords(int surveyId, int? organizationId = null)
-        => _answerRepository.GetAnswerRecords(surveyId, organizationId);
+    public Task<IReadOnlyList<AnswerRecord>> GetAnswerRecordsAsync(
+        int surveyId,
+        int? organizationId = null,
+        CancellationToken cancellationToken = default)
+        => _answerRepository.GetAnswerRecordsAsync(surveyId, organizationId, cancellationToken);
 
-    public int InsertAnswerRecord(AnswerRecord answerRecord)
+    public async Task<int> InsertAnswerRecordAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
     {
-        var result = _answerRepository.SubmitAnswer(answerRecord);
+        var result = await _answerRepository.SubmitAnswerAsync(answerRecord, cancellationToken);
         if (!result.Found)
         {
             throw new InvalidOperationException("Назначение анкеты для организации не найдено.");
@@ -67,9 +73,9 @@ public sealed class AnswerDataService
         return result.AnswerId;
     }
 
-    public bool UpdateAnswerRecord(AnswerRecord answerRecord)
+    public async Task<bool> UpdateAnswerRecordAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
     {
-        var result = _answerRepository.UpdateAnswer(answerRecord);
+        var result = await _answerRepository.UpdateAnswerAsync(answerRecord, cancellationToken);
         if (result.AlreadySigned)
         {
             throw new AnswerAlreadySignedException();
@@ -78,15 +84,25 @@ public sealed class AnswerDataService
         return result.Found;
     }
 
-    public bool UpdateSignature(int surveyId, int organizationId, string signature, byte[]? signedContent)
-        => _answerRepository.TrySaveAnswerSignature(surveyId, organizationId, signature, signedContent);
+    public Task<bool> UpdateSignatureAsync(
+        int surveyId,
+        int organizationId,
+        string signature,
+        byte[]? signedContent,
+        CancellationToken cancellationToken = default)
+        => _answerRepository.TrySaveAnswerSignatureAsync(surveyId, organizationId, signature, signedContent, cancellationToken);
 
-    public bool SaveDraftRecord(AnswerRecord answerRecord)
-        => _answerRepository.SaveDraft(answerRecord);
+    public Task<bool> SaveDraftRecordAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
+        => _answerRepository.SaveDraftAsync(answerRecord, cancellationToken);
 
-    public bool UpdateDraftSignature(int surveyId, int organizationId, string signature, byte[]? signedContent)
-        => _answerRepository.TrySaveDraftSignature(surveyId, organizationId, signature, signedContent);
+    public Task<bool> UpdateDraftSignatureAsync(
+        int surveyId,
+        int organizationId,
+        string signature,
+        byte[]? signedContent,
+        CancellationToken cancellationToken = default)
+        => _answerRepository.TrySaveDraftSignatureAsync(surveyId, organizationId, signature, signedContent, cancellationToken);
 
-    public void DeleteDraftRecord(int surveyId, int organizationId)
-        => _answerRepository.DeleteDraft(surveyId, organizationId);
+    public Task DeleteDraftRecordAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default)
+        => _answerRepository.DeleteDraftAsync(surveyId, organizationId, cancellationToken);
 }

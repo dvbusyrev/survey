@@ -34,6 +34,8 @@
     let latestTooltipX = 0;
     let latestTooltipY = 0;
     let rowTooltipFrame = 0;
+    let activePageRoot = null;
+    let activeMountToken = 0;
 
     function syncDescriptionSortMarker() {
         if (descriptionSortFrame) {
@@ -43,7 +45,7 @@
         descriptionSortFrame = window.requestAnimationFrame(() => {
             descriptionSortFrame = 0;
 
-            const table = document.querySelector('.logs-table');
+            const table = activePageRoot?.querySelector('.logs-table');
             const header = table?.querySelector('th.table-col--description.table-sortable');
             const cells = table ? Array.from(table.querySelectorAll('tbody td.table-col--description')) : [];
             if (!table || !header || cells.length === 0) {
@@ -97,7 +99,7 @@
     }
 
     function readLogsMap() {
-        const bootstrapNode = document.getElementById('logs-page-bootstrap');
+        const bootstrapNode = activePageRoot?.querySelector('#logs-page-bootstrap');
         const rawText = bootstrapNode?.textContent?.trim() || '';
         if (!rawText) {
             cachedBootstrapText = '';
@@ -669,19 +671,22 @@
     }
 
     async function openLogEntryModal(logId, sourceTable) {
+        const mountToken = activeMountToken;
         let entry;
         try {
             entry = await loadLogEntryDetails(logId, sourceTable);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Не удалось загрузить событие';
             console.error('Не удалось загрузить событие журнала:', error);
-            if (typeof window.showNotification === 'function') {
-                window.showNotification(message, false);
-            }
+            window.AppUi?.notify?.(message, 'error');
             return;
         }
 
-        const modal = document.getElementById('logEntryModal');
+        if (mountToken !== activeMountToken || !activePageRoot?.isConnected) {
+            return;
+        }
+
+        const modal = activePageRoot.querySelector('#logEntryModal') || document.getElementById('logEntryModal');
         if (!entry || !modal) {
             return;
         }
@@ -767,66 +772,131 @@
         }
     }
 
-    document.addEventListener('click', (event) => {
+    function removeRowTooltip() {
+        hideRowTooltip();
+        rowTooltip?.remove();
+        rowTooltip = null;
+    }
+
+    function isActiveLogRow(row) {
+        return Boolean(row && activePageRoot?.contains(row));
+    }
+
+    function handleDocumentClick(event) {
         const row = event.target.closest('.logs-table tbody tr[data-log-id]');
-        if (!row || event.target.closest('a, button, input, select, textarea')) {
+        if (!isActiveLogRow(row) || event.target.closest('a, button, input, select, textarea')) {
             return;
         }
 
         openLogEntryModal(Number(row.dataset.logId || 0), row.dataset.logSourceTable || '');
-    });
+    }
 
-    document.addEventListener('keydown', (event) => {
+    function handleDocumentKeydown(event) {
         if (event.key !== 'Enter') {
             return;
         }
 
         const row = event.target.closest('.logs-table tbody tr[data-log-id]');
-        if (!row) {
+        if (!isActiveLogRow(row)) {
             return;
         }
 
         openLogEntryModal(Number(row.dataset.logId || 0), row.dataset.logSourceTable || '');
-    });
+    }
 
-    document.addEventListener('mouseover', (event) => {
+    function handleDocumentMouseOver(event) {
         const row = event.target.closest('.logs-table tbody tr[data-log-id]');
-        if (!row || activeTooltipRow === row) {
+        if (!isActiveLogRow(row) || activeTooltipRow === row) {
             return;
         }
 
         showRowTooltip(row, event);
-    });
+    }
 
-    document.addEventListener('mousemove', (event) => {
+    function handleDocumentMouseMove(event) {
         if (!activeTooltipRow) {
             return;
         }
 
         queueRowTooltipPosition(event);
-    });
+    }
 
-    document.addEventListener('mouseout', (event) => {
+    function handleDocumentMouseOut(event) {
         if (!activeTooltipRow || activeTooltipRow.contains(event.relatedTarget)) {
             return;
         }
 
         hideRowTooltip();
-    });
+    }
 
-    window.addEventListener('resize', () => {
+    function handleWindowResize() {
         syncDescriptionSortMarker();
 
-        const modal = document.getElementById('logEntryModal');
+        const modal = activePageRoot?.querySelector('#logEntryModal') || document.getElementById('logEntryModal');
         if (modal?.classList.contains('modal--visible')) {
             resizeLogModal(modal);
         }
-    });
-
-    window.addEventListener('load', syncDescriptionSortMarker, { once: true });
-    if (document.fonts?.ready) {
-        document.fonts.ready.then(syncDescriptionSortMarker).catch(() => {});
     }
 
-    syncDescriptionSortMarker();
+    function mountLogsPage(page, scope) {
+        activePageRoot = page;
+        activeMountToken += 1;
+        cachedBootstrapText = '';
+        cachedLogsMap = new Map();
+        cachedDetailsPromises = new Map();
+
+        scope.listen(document, 'click', handleDocumentClick);
+        scope.listen(document, 'keydown', handleDocumentKeydown);
+        scope.listen(document, 'mouseover', handleDocumentMouseOver);
+        scope.listen(document, 'mousemove', handleDocumentMouseMove);
+        scope.listen(document, 'mouseout', handleDocumentMouseOut);
+        scope.listen(window, 'resize', handleWindowResize);
+        scope.listen(window, 'load', syncDescriptionSortMarker, { once: true });
+
+        if (document.fonts?.ready) {
+            const mountToken = activeMountToken;
+            document.fonts.ready
+                .then(() => {
+                    if (mountToken === activeMountToken) {
+                        syncDescriptionSortMarker();
+                    }
+                })
+                .catch(() => {});
+        }
+
+        syncDescriptionSortMarker();
+        return () => {
+            activeMountToken += 1;
+            if (descriptionSortFrame) {
+                window.cancelAnimationFrame(descriptionSortFrame);
+                descriptionSortFrame = 0;
+            }
+            removeRowTooltip();
+            cachedBootstrapText = '';
+            cachedLogsMap = new Map();
+            cachedDetailsPromises = new Map();
+            if (activePageRoot === page) {
+                activePageRoot = null;
+            }
+        };
+    }
+
+    if (window.AppPageLifecycle?.register) {
+        window.AppPageLifecycle.register(
+            'admin-logs-page',
+            '.app-page[data-page="get_logs"]',
+            mountLogsPage
+        );
+        return;
+    }
+
+    const fallbackPage = document.querySelector('.app-page[data-page="get_logs"]');
+    if (fallbackPage) {
+        const fallbackScope = window.AppPageLifecycle?.createScope?.() || {
+            listen(target, type, handler, options) {
+                target.addEventListener(type, handler, options);
+            }
+        };
+        mountLogsPage(fallbackPage, fallbackScope);
+    }
 })();

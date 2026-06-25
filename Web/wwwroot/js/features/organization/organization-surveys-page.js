@@ -10,8 +10,8 @@
     function setPageMessage(text, isSuccess) {
         const messageNode = getPageMessageNode();
         if (!messageNode) {
-            if (text && typeof window.siteNotify === 'function') {
-                window.siteNotify(text, isSuccess ? 'success' : 'error');
+            if (text && typeof window.AppUi?.notify === 'function') {
+                window.AppUi.notify(text, isSuccess ? 'success' : 'error');
             }
             return;
         }

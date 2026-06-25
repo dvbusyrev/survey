@@ -4,6 +4,10 @@ namespace MainProject.Application.Contracts;
 
 public interface ISurveyAnswersService
 {
-    SurveyAnswerPageViewModel? GetSurveyAnswerPage(int surveyId, string role);
-    object GetSurveyAnswersResponse(int surveyId);
+    Task<SurveyAnswerPageViewModel?> GetSurveyAnswerPageAsync(
+        int surveyId,
+        string role,
+        CancellationToken cancellationToken = default);
+
+    Task<object> GetSurveyAnswersResponseAsync(int surveyId, CancellationToken cancellationToken = default);
 }

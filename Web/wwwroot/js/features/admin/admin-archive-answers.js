@@ -309,11 +309,7 @@ window.AdminArchives = (function () {
         ? window.normalizeClientErrorMessage(error.message || 'Неизвестная ошибка')
         : (error.message || 'Неизвестная ошибка');
 
-      if (typeof window.siteNotify === 'function') {
-        window.siteNotify(message, 'error', { title: 'Ошибка загрузки ответов' });
-      } else {
-        window.alert(message);
-      }
+      window.AppUi.notify(message, 'error', { title: 'Ошибка загрузки ответов' });
     }
   }
 

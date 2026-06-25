@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 
 [Authorize]
 public class SurveyAnswersController : Controller
@@ -17,11 +18,15 @@ public class SurveyAnswersController : Controller
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("surveys/{idSurvey:int}/organizations/{idOrganization:int}/answers/{type}/view")]
-    public IActionResult ViewAnswer(int idSurvey, int idOrganization, string type)
+    public async Task<IActionResult> ViewAnswer(
+        int idSurvey,
+        int idOrganization,
+        string type,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var model = _surveyAnswersService.GetSurveyAnswerPage(idSurvey, type);
+            var model = await _surveyAnswersService.GetSurveyAnswerPageAsync(idSurvey, type, cancellationToken);
             if (model == null)
             {
                 return NotFound("Анкета не найдена");
@@ -31,28 +36,21 @@ public class SurveyAnswersController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении ответов для анкеты {SurveyId}", idSurvey);
-            return StatusCode(500, "Произошла ошибка при загрузке данных");
+            return this.SafeError(ex, "Не удалось загрузить ответы анкеты.", $"Ошибка при получении ответов анкеты {idSurvey}");
         }
     }
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("surveys/{id:int}/answers/data")]
-    public IActionResult GetSurveyAnswers(int id)
+    public async Task<IActionResult> GetSurveyAnswers(int id, CancellationToken cancellationToken)
     {
         try
         {
-            return Json(_surveyAnswersService.GetSurveyAnswersResponse(id));
+            return Json(await _surveyAnswersService.GetSurveyAnswersResponseAsync(id, cancellationToken));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении ответов анкеты {SurveyId}", id);
-            return Json(new
-            {
-                success = false,
-                error = "Внутренняя ошибка сервера",
-                detail = ex.Message
-            });
+            return this.SafeError(ex, "Не удалось загрузить ответы анкеты.", $"Ошибка при получении ответов анкеты {id}");
         }
     }
 }

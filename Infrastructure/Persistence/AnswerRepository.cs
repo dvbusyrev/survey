@@ -23,10 +23,13 @@ public sealed class AnswerRepository : IAnswerRepository
         _clock = clock;
     }
 
-    public bool AnswerRecordExists(int surveyId, int organizationId)
+    public async Task<bool> AnswerRecordExistsAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.ExecuteScalar<bool>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
             """
             SELECT EXISTS (
                 SELECT 1
@@ -37,17 +40,14 @@ public sealed class AnswerRepository : IAnswerRepository
                   AND assignment.id_organization = @OrganizationId
             );
             """,
-            new
-            {
-                SurveyId = surveyId,
-                OrganizationId = organizationId
-            });
+            new { SurveyId = surveyId, OrganizationId = organizationId },
+            cancellationToken: cancellationToken));
     }
 
-    public Survey? GetSurveyInfo(int surveyId)
+    public async Task<Survey?> GetSurveyInfoAsync(int surveyId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.QueryFirstOrDefault<Survey>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryFirstOrDefaultAsync<Survey>(new CommandDefinition(
             """
             SELECT
                 id_survey AS IdSurvey,
@@ -56,13 +56,16 @@ public sealed class AnswerRepository : IAnswerRepository
             FROM public.survey
             WHERE id_survey = @SurveyId;
             """,
-            new { SurveyId = surveyId });
+            new { SurveyId = surveyId },
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<SurveyQuestionItem> GetSurveyQuestions(int surveyId)
+    public async Task<IReadOnlyList<SurveyQuestionItem>> GetSurveyQuestionsAsync(
+        int surveyId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Query<SurveyQuestionItem>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return (await connection.QueryAsync<SurveyQuestionItem>(new CommandDefinition(
             """
             SELECT
                 question_order AS Id,
@@ -71,13 +74,17 @@ public sealed class AnswerRepository : IAnswerRepository
             WHERE id_survey = @SurveyId
             ORDER BY question_order;
             """,
-            new { SurveyId = surveyId }).ToList();
+            new { SurveyId = surveyId },
+            cancellationToken: cancellationToken))).ToList();
     }
 
-    public AnswerRecord? GetAnswerRecord(int surveyId, int organizationId)
+    public async Task<AnswerRecord?> GetAnswerRecordAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var answer = connection.QueryFirstOrDefault<AnswerRecord>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var answer = await connection.QueryFirstOrDefaultAsync<AnswerRecord>(new CommandDefinition(
             """
             SELECT
                 answer.id_answer AS IdAnswer,
@@ -93,25 +100,25 @@ public sealed class AnswerRepository : IAnswerRepository
             WHERE assignment.id_survey = @SurveyId
               AND assignment.id_organization = @OrganizationId;
             """,
-            new
-            {
-                SurveyId = surveyId,
-                OrganizationId = organizationId
-            });
+            new { SurveyId = surveyId, OrganizationId = organizationId },
+            cancellationToken: cancellationToken));
 
         if (answer == null)
         {
             return null;
         }
 
-        AttachAnswerItems(connection, [answer]);
+        await AttachAnswerItemsAsync(connection, [answer], cancellationToken);
         return answer;
     }
 
-    public AnswerRecord? GetDraftRecord(int surveyId, int organizationId)
+    public async Task<AnswerRecord?> GetDraftRecordAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var draft = connection.QueryFirstOrDefault<AnswerRecord>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var draft = await connection.QueryFirstOrDefaultAsync<AnswerRecord>(new CommandDefinition(
             """
             SELECT
                 draft.id_answer_draft AS IdAnswer,
@@ -127,25 +134,25 @@ public sealed class AnswerRepository : IAnswerRepository
             WHERE assignment.id_survey = @SurveyId
               AND assignment.id_organization = @OrganizationId;
             """,
-            new
-            {
-                SurveyId = surveyId,
-                OrganizationId = organizationId
-            });
+            new { SurveyId = surveyId, OrganizationId = organizationId },
+            cancellationToken: cancellationToken));
 
         if (draft == null)
         {
             return null;
         }
 
-        AttachDraftItems(connection, [draft]);
+        await AttachDraftItemsAsync(connection, [draft], cancellationToken);
         return draft;
     }
 
-    public IReadOnlyList<AnswerRecord> GetAnswerRecords(int surveyId, int? organizationId = null)
+    public async Task<IReadOnlyList<AnswerRecord>> GetAnswerRecordsAsync(
+        int surveyId,
+        int? organizationId = null,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var answers = connection.Query<AnswerRecord>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var answers = (await connection.QueryAsync<AnswerRecord>(new CommandDefinition(
             """
             SELECT
                 answer.id_answer AS IdAnswer,
@@ -165,33 +172,34 @@ public sealed class AnswerRepository : IAnswerRepository
               AND (@OrganizationId IS NULL OR assignment.id_organization = @OrganizationId)
             ORDER BY answer.completion_date DESC;
             """,
-            new
-            {
-                SurveyId = surveyId,
-                OrganizationId = organizationId
-            }).ToList();
+            new { SurveyId = surveyId, OrganizationId = organizationId },
+            cancellationToken: cancellationToken))).ToList();
 
-        AttachAnswerItems(connection, answers);
+        await AttachAnswerItemsAsync(connection, answers, cancellationToken);
         return answers;
     }
 
-    public AnswerStorageResult SubmitAnswer(AnswerRecord answerRecord)
+    public async Task<AnswerStorageResult> SubmitAnswerAsync(
+        AnswerRecord answerRecord,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        var items = BuildNormalizedAnswerItems(connection, transaction, answerRecord.IdSurvey, answerRecord.Answers);
-        var assignmentId = _assignmentRepository.GetAssignmentIdForUpdate(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var items = await BuildNormalizedAnswerItemsAsync(
+            connection, transaction, answerRecord.IdSurvey, answerRecord.Answers, cancellationToken);
+        var assignmentId = await _assignmentRepository.GetAssignmentIdForUpdateAsync(
             connection,
             transaction,
             answerRecord.IdSurvey,
-            answerRecord.OrganizationId);
+            answerRecord.OrganizationId,
+            cancellationToken);
         if (!assignmentId.HasValue)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult();
         }
 
-        var existingSignature = connection.ExecuteScalar<string?>(
+        var existingSignature = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
             """
             SELECT csp
             FROM public.answer
@@ -199,10 +207,11 @@ public sealed class AnswerRepository : IAnswerRepository
             FOR UPDATE;
             """,
             new { AssignmentId = assignmentId.Value },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
         if (!string.IsNullOrWhiteSpace(existingSignature))
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult
             {
                 Found = true,
@@ -210,7 +219,7 @@ public sealed class AnswerRepository : IAnswerRepository
             };
         }
 
-        var answerId = connection.ExecuteScalar<int>(
+        var answerId = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
             INSERT INTO public.answer (
                 id_organization_survey,
@@ -237,11 +246,12 @@ public sealed class AnswerRepository : IAnswerRepository
                 Signature = string.IsNullOrWhiteSpace(answerRecord.Csp) ? null : answerRecord.Csp,
                 SignedContent = answerRecord.SignedContent
             },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
 
-        ReplaceAnswerItems(connection, transaction, answerId, items);
-        DeleteDraft(connection, transaction, answerRecord.IdSurvey, answerRecord.OrganizationId);
-        transaction.Commit();
+        await ReplaceAnswerItemsAsync(connection, transaction, answerId, items, cancellationToken);
+        await DeleteDraftAsync(connection, transaction, answerRecord.IdSurvey, answerRecord.OrganizationId, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return new AnswerStorageResult
         {
@@ -250,22 +260,25 @@ public sealed class AnswerRepository : IAnswerRepository
         };
     }
 
-    public AnswerStorageResult UpdateAnswer(AnswerRecord answerRecord)
+    public async Task<AnswerStorageResult> UpdateAnswerAsync(
+        AnswerRecord answerRecord,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        var assignmentId = _assignmentRepository.GetAssignmentIdForUpdate(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var assignmentId = await _assignmentRepository.GetAssignmentIdForUpdateAsync(
             connection,
             transaction,
             answerRecord.IdSurvey,
-            answerRecord.OrganizationId);
+            answerRecord.OrganizationId,
+            cancellationToken);
         if (!assignmentId.HasValue)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult();
         }
 
-        var existingAnswer = connection.QueryFirstOrDefault<ExistingAnswerRow>(
+        var existingAnswer = await connection.QueryFirstOrDefaultAsync<ExistingAnswerRow>(new CommandDefinition(
             """
             SELECT id_answer AS AnswerId, csp AS Csp
             FROM public.answer
@@ -273,16 +286,17 @@ public sealed class AnswerRepository : IAnswerRepository
             FOR UPDATE;
             """,
             new { AssignmentId = assignmentId.Value },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
         if (existingAnswer == null)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult();
         }
 
         if (!string.IsNullOrWhiteSpace(existingAnswer.Csp))
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult
             {
                 Found = true,
@@ -290,8 +304,9 @@ public sealed class AnswerRepository : IAnswerRepository
             };
         }
 
-        var items = BuildNormalizedAnswerItems(connection, transaction, answerRecord.IdSurvey, answerRecord.Answers);
-        var updated = connection.Execute(
+        var items = await BuildNormalizedAnswerItemsAsync(
+            connection, transaction, answerRecord.IdSurvey, answerRecord.Answers, cancellationToken);
+        var updated = await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.answer
             SET completion_date = @CompletionDate,
@@ -304,15 +319,16 @@ public sealed class AnswerRepository : IAnswerRepository
                 AnswerId = existingAnswer.AnswerId,
                 CompletionDate = _clock.Now
             },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
         if (updated == 0)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult();
         }
 
-        ReplaceAnswerItems(connection, transaction, existingAnswer.AnswerId, items);
-        transaction.Commit();
+        await ReplaceAnswerItemsAsync(connection, transaction, existingAnswer.AnswerId, items, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return new AnswerStorageResult
         {
@@ -321,23 +337,25 @@ public sealed class AnswerRepository : IAnswerRepository
         };
     }
 
-    public bool SaveDraft(AnswerRecord answerRecord)
+    public async Task<bool> SaveDraftAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        var items = BuildNormalizedAnswerItems(connection, transaction, answerRecord.IdSurvey, answerRecord.Answers);
-        var assignmentId = _assignmentRepository.GetAssignmentIdForUpdate(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var items = await BuildNormalizedAnswerItemsAsync(
+            connection, transaction, answerRecord.IdSurvey, answerRecord.Answers, cancellationToken);
+        var assignmentId = await _assignmentRepository.GetAssignmentIdForUpdateAsync(
             connection,
             transaction,
             answerRecord.IdSurvey,
-            answerRecord.OrganizationId);
+            answerRecord.OrganizationId,
+            cancellationToken);
         if (!assignmentId.HasValue)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             return false;
         }
 
-        var draftId = connection.ExecuteScalar<int>(
+        var draftId = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
             INSERT INTO public.answer_draft (
                 id_organization_survey,
@@ -362,17 +380,23 @@ public sealed class AnswerRepository : IAnswerRepository
                 AssignmentId = assignmentId.Value,
                 DraftDate = _clock.Now
             },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
 
-        ReplaceDraftItems(connection, transaction, draftId, items);
-        transaction.Commit();
+        await ReplaceDraftItemsAsync(connection, transaction, draftId, items, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 
-    public bool TrySaveAnswerSignature(int surveyId, int organizationId, string signature, byte[]? signedContent)
+    public async Task<bool> TrySaveAnswerSignatureAsync(
+        int surveyId,
+        int organizationId,
+        string signature,
+        byte[]? signedContent,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var affected = connection.Execute(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.answer answer
             SET csp = @Signature,
@@ -389,15 +413,21 @@ public sealed class AnswerRepository : IAnswerRepository
                 OrganizationId = organizationId,
                 Signature = signature,
                 SignedContent = signedContent
-            });
+            },
+            cancellationToken: cancellationToken));
 
         return affected > 0;
     }
 
-    public bool TrySaveDraftSignature(int surveyId, int organizationId, string signature, byte[]? signedContent)
+    public async Task<bool> TrySaveDraftSignatureAsync(
+        int surveyId,
+        int organizationId,
+        string signature,
+        byte[]? signedContent,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var affected = connection.Execute(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.answer_draft draft
             SET csp = @Signature,
@@ -414,22 +444,24 @@ public sealed class AnswerRepository : IAnswerRepository
                 OrganizationId = organizationId,
                 Signature = signature,
                 SignedContent = signedContent
-            });
+            },
+            cancellationToken: cancellationToken));
 
         return affected > 0;
     }
 
-    public void DeleteDraft(int surveyId, int organizationId)
+    public async Task DeleteDraftAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        DeleteDraft(connection, null, surveyId, organizationId);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await DeleteDraftAsync(connection, null, surveyId, organizationId, cancellationToken);
     }
 
-    private static IReadOnlyList<AnswerItemRow> BuildNormalizedAnswerItems(
+    private static async Task<IReadOnlyList<AnswerItemRow>> BuildNormalizedAnswerItemsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
-        IReadOnlyList<AnswerPayloadItem>? answers)
+        IReadOnlyList<AnswerPayloadItem>? answers,
+        CancellationToken cancellationToken)
     {
         var parsedItems = answers ?? Array.Empty<AnswerPayloadItem>();
         if (parsedItems.Count == 0)
@@ -437,7 +469,7 @@ public sealed class AnswerRepository : IAnswerRepository
             return Array.Empty<AnswerItemRow>();
         }
 
-        var questionLookup = connection.Query<QuestionRow>(
+        var questionLookup = (await connection.QueryAsync<QuestionRow>(new CommandDefinition(
             """
             SELECT
                 question_order AS QuestionOrder,
@@ -447,7 +479,8 @@ public sealed class AnswerRepository : IAnswerRepository
             ORDER BY question_order;
             """,
             new { SurveyId = surveyId },
-            transaction)
+            transaction,
+            cancellationToken: cancellationToken)))
             .ToDictionary(question => question.QuestionOrder, question => question.QuestionText);
 
         var normalizedItems = new List<AnswerItemRow>();
@@ -470,7 +503,10 @@ public sealed class AnswerRepository : IAnswerRepository
             .ToList();
     }
 
-    private static void AttachAnswerItems(NpgsqlConnection connection, IEnumerable<AnswerRecord> answers)
+    private static async Task AttachAnswerItemsAsync(
+        NpgsqlConnection connection,
+        IEnumerable<AnswerRecord> answers,
+        CancellationToken cancellationToken)
     {
         var answerList = answers.ToList();
         if (answerList.Count == 0)
@@ -479,7 +515,7 @@ public sealed class AnswerRepository : IAnswerRepository
         }
 
         var answerIds = answerList.Select(answer => answer.IdAnswer).Distinct().ToArray();
-        var rows = connection.Query<AnswerItemLookupRow>(
+        var rows = await connection.QueryAsync<AnswerItemLookupRow>(new CommandDefinition(
             """
             SELECT
                 id_answer AS AnswerId,
@@ -491,11 +527,15 @@ public sealed class AnswerRepository : IAnswerRepository
             WHERE id_answer = ANY(@AnswerIds)
             ORDER BY id_answer, question_order;
             """,
-            new { AnswerIds = answerIds });
+            new { AnswerIds = answerIds },
+            cancellationToken: cancellationToken));
         AttachItems(answerList, rows);
     }
 
-    private static void AttachDraftItems(NpgsqlConnection connection, IEnumerable<AnswerRecord> drafts)
+    private static async Task AttachDraftItemsAsync(
+        NpgsqlConnection connection,
+        IEnumerable<AnswerRecord> drafts,
+        CancellationToken cancellationToken)
     {
         var draftList = drafts.ToList();
         if (draftList.Count == 0)
@@ -504,7 +544,7 @@ public sealed class AnswerRepository : IAnswerRepository
         }
 
         var draftIds = draftList.Select(draft => draft.IdAnswer).Distinct().ToArray();
-        var rows = connection.Query<AnswerItemLookupRow>(
+        var rows = await connection.QueryAsync<AnswerItemLookupRow>(new CommandDefinition(
             """
             SELECT
                 id_answer_draft AS AnswerId,
@@ -516,7 +556,8 @@ public sealed class AnswerRepository : IAnswerRepository
             WHERE id_answer_draft = ANY(@DraftIds)
             ORDER BY id_answer_draft, question_order;
             """,
-            new { DraftIds = draftIds });
+            new { DraftIds = draftIds },
+            cancellationToken: cancellationToken));
         AttachItems(draftList, rows);
     }
 
@@ -542,20 +583,22 @@ public sealed class AnswerRepository : IAnswerRepository
         }
     }
 
-    private static void ReplaceAnswerItems(
+    private static async Task ReplaceAnswerItemsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int answerId,
-        IReadOnlyList<AnswerItemRow> items)
+        IReadOnlyList<AnswerItemRow> items,
+        CancellationToken cancellationToken)
     {
-        connection.Execute(
+        await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM public.answer_item WHERE id_answer = @AnswerId;",
             new { AnswerId = answerId },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
 
         foreach (var item in items)
         {
-            connection.Execute(
+            await connection.ExecuteAsync(new CommandDefinition(
                 """
                 INSERT INTO public.answer_item (id_answer, question_order, question_text, rating, comment)
                 VALUES (@AnswerId, @QuestionOrder, @QuestionText, @Rating, @Comment)
@@ -572,24 +615,27 @@ public sealed class AnswerRepository : IAnswerRepository
                     item.Rating,
                     item.Comment
                 },
-                transaction);
+                transaction,
+                cancellationToken: cancellationToken));
         }
     }
 
-    private static void ReplaceDraftItems(
+    private static async Task ReplaceDraftItemsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int draftId,
-        IReadOnlyList<AnswerItemRow> items)
+        IReadOnlyList<AnswerItemRow> items,
+        CancellationToken cancellationToken)
     {
-        connection.Execute(
+        await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM public.answer_draft_item WHERE id_answer_draft = @DraftId;",
             new { DraftId = draftId },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
 
         foreach (var item in items)
         {
-            connection.Execute(
+            await connection.ExecuteAsync(new CommandDefinition(
                 """
                 INSERT INTO public.answer_draft_item (id_answer_draft, question_order, question_text, rating, comment)
                 VALUES (@DraftId, @QuestionOrder, @QuestionText, @Rating, @Comment)
@@ -606,17 +652,19 @@ public sealed class AnswerRepository : IAnswerRepository
                     item.Rating,
                     item.Comment
                 },
-                transaction);
+                transaction,
+                cancellationToken: cancellationToken));
         }
     }
 
-    private static void DeleteDraft(
+    private static Task DeleteDraftAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
         int surveyId,
-        int organizationId)
+        int organizationId,
+        CancellationToken cancellationToken)
     {
-        connection.Execute(
+        return connection.ExecuteAsync(new CommandDefinition(
             """
             DELETE FROM public.answer_draft draft
             USING public.organization_survey assignment
@@ -629,7 +677,8 @@ public sealed class AnswerRepository : IAnswerRepository
                 SurveyId = surveyId,
                 OrganizationId = organizationId
             },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
     }
 
     private static int ParseQuestionOrder(string? rawQuestionId, int fallbackOrder)

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO.Email;
 using MainProject.Application.UseCases.Admin;
+using MainProject.Web.Infrastructure;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class EmailController : Controller
@@ -34,11 +35,11 @@ public class EmailController : Controller
         }
         catch (EmailTemplateValidationException ex)
         {
-            return BadRequest(new { success = false, error = ex.Message, errors = ex.Errors });
+            return BadRequest(new { success = false, error = "Проверьте корректность настроек электронной почты.", errors = ex.Errors });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { success = false, error = $"Не удалось сохранить настройки: {GetDetailedErrorMessage(ex)}" });
+            return this.SafeError(ex, "Не удалось сохранить настройки электронной почты.", "Ошибка при сохранении настроек электронной почты");
         }
     }
 
@@ -59,15 +60,23 @@ public class EmailController : Controller
         }
         catch (EmailTemplateValidationException ex)
         {
-            return BadRequest(new { success = false, error = ex.Message, errors = ex.Errors });
+            return BadRequest(new { success = false, error = "Проверьте параметры письма.", errors = ex.Errors });
         }
         catch (InvalidOperationException ex)
         {
-            return StatusCode(StatusCodes.Status502BadGateway, new { success = false, error = ex.Message });
+            return this.SafeError(
+                ex,
+                "Не удалось отправить письмо.",
+                "Ошибка SMTP при отправке письма",
+                StatusCodes.Status502BadGateway);
         }
         catch (Exception ex)
         {
-            return StatusCode(StatusCodes.Status502BadGateway, new { success = false, error = $"Не удалось отправить письмо: {GetDetailedErrorMessage(ex)}" });
+            return this.SafeError(
+                ex,
+                "Не удалось отправить письмо.",
+                "Непредвиденная ошибка при отправке письма",
+                StatusCodes.Status502BadGateway);
         }
     }
 
@@ -92,26 +101,5 @@ public class EmailController : Controller
     public IActionResult LegacyMailSettings()
     {
         return Redirect("/settings/email");
-    }
-
-    private static string GetDetailedErrorMessage(Exception exception)
-    {
-        var messages = new List<string>();
-        Exception? current = exception;
-
-        while (current != null)
-        {
-            if (!string.IsNullOrWhiteSpace(current.Message)
-                && !messages.Contains(current.Message, StringComparer.Ordinal))
-            {
-                messages.Add(current.Message);
-            }
-
-            current = current.InnerException;
-        }
-
-        return messages.Count > 0
-            ? string.Join(" | ", messages)
-            : "Неизвестная ошибка.";
     }
 }

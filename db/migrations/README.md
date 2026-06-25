@@ -38,12 +38,13 @@ What this does:
 - applies `025_add_answer_drafts`
 - applies `026_rebuild_audit_tables_as_structured_snapshots`
 - applies `027_store_theme_background_image_blob`
+- applies `028_remove_legacy_theme_columns`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
 Migration sources:
 
-- `001_unified_schema` builds a portable current-schema baseline from `001_current_schema.sql` and records migrations through `021`
+- `001_unified_schema` builds a portable current-schema baseline from `db/bootstrap/001_base_schema.sql` and records migrations through `021`
 - `002_repair_survey_foreign_keys` is retained as a historical no-op because the repaired constraints are now part of the baseline
 - `003_add_update_metadata` adds `date_update/user_update` support without external recovery scripts
 - `004_add_organization_short_name` adds `organization.organization_short_name`
@@ -70,3 +71,6 @@ Migration sources:
 - `025_add_answer_drafts` stores unfinished client survey answers by organization assignment
 - `026_rebuild_audit_tables_as_structured_snapshots` rebuilds audit tables as structured snapshots
 - `027_store_theme_background_image_blob` stores the theme background image as `bytea` with the original file name
+- `028_remove_legacy_theme_columns` removes replaced theme gradient and image URL columns
+
+`db/bootstrap/001_base_schema.sql` is not an independently executable migration. It is the canonical base schema imported only by `001_unified_schema.sql` when a database has no migration history. Keep schema snapshots and bootstrap files outside `db/migrations` so the migration runner cannot treat them as standalone steps.

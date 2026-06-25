@@ -1,18 +1,12 @@
-﻿using System.Data;
 using System.Globalization;
-using System.Text.Json;
 using ClosedXML.Excel;
-using Dapper;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.UseCases.Answers;
-using MainProject.Infrastructure.Persistence;
 using MainProject.Domain.Entities;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 using Justification = DocumentFormat.OpenXml.Wordprocessing.Justification;
 using Table = DocumentFormat.OpenXml.Wordprocessing.Table;
@@ -34,82 +28,50 @@ namespace MainProject.Application.UseCases.Surveys;
 
 public sealed class SurveyReportService : ISurveyReportService
 {
-    private readonly IDbConnectionFactory _connectionFactory;
-    private readonly ILogger<SurveyReportService> _logger;
-    private readonly string _downloadsPath;
+    private readonly ISurveyReportRepository _surveyReportRepository;
+    private readonly IClock _clock;
 
-    public SurveyReportService(IDbConnectionFactory connectionFactory, ILogger<SurveyReportService> logger)
+    public SurveyReportService(
+        ISurveyReportRepository surveyReportRepository,
+        IClock clock)
     {
-        _connectionFactory = connectionFactory;
-        _logger = logger;
-        _downloadsPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            "Downloads");
+        _surveyReportRepository = surveyReportRepository;
+        _clock = clock;
     }
 
-    public IReadOnlyList<int> GetAvailableReportYears()
-    {
-        using var connection = _connectionFactory.CreateConnection();
+    public Task<IReadOnlyList<int>> GetAvailableReportYearsAsync(CancellationToken cancellationToken = default)
+        => _surveyReportRepository.GetAvailableYearsAsync(cancellationToken);
 
-        return connection.Query<int>(
-            @"SELECT DISTINCT EXTRACT(YEAR FROM report_year)::integer AS report_year
-              FROM public.survey_schedule ss
-              CROSS JOIN LATERAL generate_series(
-                  date_trunc('year', ss.date_begin),
-                  date_trunc('year', ss.date_end),
-                  interval '1 year'
-              ) AS report_year
-              WHERE ss.date_begin IS NOT NULL
-                AND ss.date_end IS NOT NULL
-              ORDER BY report_year DESC").ToList();
-    }
-
-    public GeneratedFileResult CreateSurveyMonthlyReport(int surveyId, int organizationId)
+    public async Task<GeneratedFileResult> CreateSurveyMonthlyReportAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
         string surveyName = string.Empty;
         var criteriaList = new List<string>();
         var organizations = new List<string>();
         var ratings = new List<List<int>>();
         var comments = new List<List<string>>();
-        var srednee = new List<double>();
 
-        using (var connection = _connectionFactory.CreateConnection())
+        surveyName = await _surveyReportRepository.GetSurveyNameAsync(surveyId, cancellationToken) ?? string.Empty;
+        criteriaList = (await _surveyReportRepository.GetSurveyQuestionsAsync(surveyId, cancellationToken))
+            .Select(question => question.Text)
+            .ToList();
+
+        var surveyAnswers = await _surveyReportRepository.GetSurveyAnswersAsync(
+            surveyId,
+            organizationId == 0 ? null : organizationId,
+            cancellationToken);
+        foreach (var answer in surveyAnswers)
         {
-            surveyName = connection.ExecuteScalar<string?>(
-                @"SELECT name_survey
-                  FROM public.survey
-                  WHERE id_survey = @surveyId",
-                new { surveyId }) ?? string.Empty;
-
-            criteriaList = LoadSurveyQuestions(connection, surveyId)
-                .Select(question => question.Text)
-                .ToList();
-
-            var surveyAnswers = LoadSurveyAnswers(connection, surveyId, organizationId == 0 ? null : organizationId);
-            foreach (var answer in surveyAnswers)
-            {
-                organizations.Add(answer.OrganizationName ?? string.Empty);
-                ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
-                comments.Add(answer.Answers.Select(item => item.Comment ?? string.Empty).ToList());
-            }
-
-            for (int col = 0; col < criteriaList.Count; col++)
-            {
-                double sum = 0;
-                int count = 0;
-                for (int row = 0; row < ratings.Count; row++)
-                {
-                    if (ratings[row].Count > col)
-                    {
-                        sum += ratings[row][col];
-                        count++;
-                    }
-                }
-                srednee.Add(count > 0 ? sum / count : 0);
-            }
+            organizations.Add(answer.OrganizationName ?? string.Empty);
+            ratings.Add(answer.Answers.Select(item => item.Rating ?? 0).ToList());
+            comments.Add(answer.Answers.Select(item => item.Comment ?? string.Empty).ToList());
         }
 
-        string currentMonth = DateTime.Now.ToString("MMMM yyyy").ToLower();
+        var metrics = SurveyReportMetricsCalculator.Calculate(ratings, criteriaList.Count);
+
+        string currentMonth = _clock.Now.ToString("MMMM yyyy").ToLower();
         string fileName = organizationId == 0
             ? $"Отчет по анкете {surveyName} ({currentMonth}).docx"
             : $"Отчет по анкете {surveyName} для {organizations.FirstOrDefault()} ({currentMonth}).docx";
@@ -121,7 +83,7 @@ public sealed class SurveyReportService : ISurveyReportService
             mainPart.Document = new Document();
             var body = mainPart.Document.AppendChild(new Body());
 
-            var totalAvg = srednee.Count > 0 ? srednee.Average() : 0;
+            var totalAvg = metrics.OverallAverage;
 
             body.AppendChild(new Paragraph(
                 new Run(new Text($"Отчет по анкете \"{surveyName}\""))
@@ -217,7 +179,8 @@ public sealed class SurveyReportService : ISurveyReportService
                     dataRow.Append(CreateTableCell(ratingValue, false, true));
                 }
 
-                string avgValue = (srednee.Count > i) ? srednee[i].ToString("F1") : "-";
+                var organizationAverage = metrics.OrganizationAverages.ElementAtOrDefault(i);
+                string avgValue = organizationAverage.HasValue ? organizationAverage.Value.ToString("F1") : "-";
                 dataRow.Append(CreateTableCell(avgValue, false, true));
 
                 for (int j = 0; j < criteriaList.Count; j++)
@@ -233,18 +196,7 @@ public sealed class SurveyReportService : ISurveyReportService
             totalRow.Append(CreateTableCell("Итого:", true, false));
             for (int i = 0; i < criteriaList.Count; i++)
             {
-                double sum = 0;
-                int count = 0;
-                for (int row = 0; row < ratings.Count; row++)
-                {
-                    if (ratings[row].Count > i)
-                    {
-                        sum += ratings[row][i];
-                        count++;
-                    }
-                }
-
-                string avgValue = count > 0 ? (sum / count).ToString("F1") : "-";
+                string avgValue = metrics.CriterionAverages[i].ToString("F1");
                 totalRow.Append(CreateTableCell(avgValue, false, true));
             }
 
@@ -291,12 +243,15 @@ public sealed class SurveyReportService : ISurveyReportService
         };
     }
 
-    public GeneratedFileResult CreateAllMonthlyReport(int month, int year)
+    public async Task<GeneratedFileResult> CreateAllMonthlyReportAsync(
+        int month,
+        int year,
+        CancellationToken cancellationToken = default)
     {
         ValidateMonthlyPeriod(month, year);
 
         var periodLabel = FormatRussianMonthYear(month, year);
-        var allAnswers = GetAnswersFromDatabase()
+        var allAnswers = (await _surveyReportRepository.GetAnswersAsync(cancellationToken))
             .Where(answer => answer.CompletionDate?.Month == month && answer.CompletionDate?.Year == year)
             .Where(answer => answer.Answers.Count > 0)
             .ToList();
@@ -306,7 +261,7 @@ public sealed class SurveyReportService : ISurveyReportService
             throw new InvalidOperationException("За выбранный месяц и год записи для отчёта не найдены.");
         }
 
-        var reportSections = GetSurveysForReport()
+        var reportSections = (await _surveyReportRepository.GetSurveysAsync(cancellationToken))
             .Select(survey => new
             {
                 Survey = survey,
@@ -396,7 +351,7 @@ public sealed class SurveyReportService : ISurveyReportService
                     srednee.Add(count > 0 ? sum / count : 0);
                 }
 
-                var isArchived = section.Survey.DateEnd.HasValue && section.Survey.DateEnd.Value < DateTime.Today;
+                var isArchived = section.Survey.DateEnd.HasValue && section.Survey.DateEnd.Value < _clock.Today;
                 string surveyTitle = section.Survey.NameSurvey + (isArchived ? " (архивная)" : string.Empty);
                 body.AppendChild(new Paragraph(
                     new Run(new Text(surveyTitle))
@@ -499,7 +454,10 @@ public sealed class SurveyReportService : ISurveyReportService
         };
     }
 
-    public GeneratedFileResult CreateQuarterlyReport(int quarter, int year)
+    public async Task<GeneratedFileResult> CreateQuarterlyReportAsync(
+        int quarter,
+        int year,
+        CancellationToken cancellationToken = default)
     {
         ValidateQuarterlyPeriod(quarter, year);
 
@@ -514,7 +472,7 @@ public sealed class SurveyReportService : ISurveyReportService
             _ => quarter.ToString(CultureInfo.InvariantCulture)
         };
 
-        var answers = GetAnswersFromDatabase()
+        var answers = (await _surveyReportRepository.GetAnswersAsync(cancellationToken))
             .Where(answer => answer.CompletionDate.HasValue)
             .Where(answer => answer.CompletionDate!.Value.Year == year)
             .Where(answer => monthNumbers.Contains(answer.CompletionDate!.Value.Month))
@@ -526,7 +484,7 @@ public sealed class SurveyReportService : ISurveyReportService
             throw new InvalidOperationException("За выбранный квартал и год записи для отчёта не найдены.");
         }
 
-        var surveys = GetSurveysForReport();
+        var surveys = await _surveyReportRepository.GetSurveysAsync(cancellationToken);
 
         using var workbook = new XLWorkbook();
         int worksheetsCreated = 0;
@@ -665,15 +623,14 @@ public sealed class SurveyReportService : ISurveyReportService
         }
 
         string safeQuarterName = string.Join("_", quarterName.Split(Path.GetInvalidFileNameChars()));
-        string fileName = $"Отчет_за_{safeQuarterName}_квартал_{year}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        string fileName = $"Отчет_за_{safeQuarterName}_квартал_{year}_{_clock.Now:yyyyMMdd_HHmmss}.xlsx";
 
-        Directory.CreateDirectory(_downloadsPath);
-        string filePath = Path.Combine(_downloadsPath, fileName);
-        workbook.SaveAs(filePath);
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
 
         return new GeneratedFileResult
         {
-            Content = File.ReadAllBytes(filePath),
+            Content = stream.ToArray(),
             ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             FileName = fileName
         };
@@ -742,115 +699,6 @@ public sealed class SurveyReportService : ISurveyReportService
         return worksheetName;
     }
 
-    private static IReadOnlyList<SurveyQuestionItem> LoadSurveyQuestions(
-        IDbConnection connection,
-        int surveyId)
-    {
-        return connection.Query<SurveyQuestionItem>(
-            @"SELECT
-                  question_order AS Id,
-                  question_text AS Text
-              FROM public.survey_question
-              WHERE id_survey = @surveyId
-              ORDER BY question_order",
-            new { surveyId }).ToList();
-    }
-
-    private static IReadOnlyList<AnswerRecord> LoadSurveyAnswers(
-        IDbConnection connection,
-        int surveyId,
-        int? organizationId = null)
-    {
-        var answers = connection.Query<AnswerRecord>(
-            @"SELECT
-                  ha.id_answer,
-                  ha.id_organization_survey AS IdOrganizationSurvey,
-                  os.id_organization AS OrganizationId,
-                  os.id_survey,
-                  ha.csp,
-                  ha.completion_date,
-                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name
-              FROM public.answer ha
-              INNER JOIN public.organization_survey os
-                  ON os.id_organization_survey = ha.id_organization_survey
-              LEFT JOIN public.organization o
-                  ON o.id_organization = os.id_organization
-              WHERE os.id_survey = @surveyId
-                AND (@organizationId IS NULL OR os.id_organization = @organizationId)
-                AND EXISTS (
-                    SELECT 1
-                    FROM public.answer_item hai
-                    WHERE hai.id_answer = ha.id_answer
-                )
-              ORDER BY ha.completion_date DESC",
-            new { surveyId, organizationId }).ToList();
-
-        AttachAnswerItems(connection, answers);
-        return answers;
-    }
-
-    private IReadOnlyList<Survey> GetSurveysForReport()
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        var surveys = connection.Query<Survey>(
-            @"SELECT
-                  s.id_survey,
-                  s.name_survey,
-                  ss.date_end,
-                  COALESCE(
-                      (
-                          SELECT string_agg(
-                              COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name),
-                              ', '
-                          )
-                          FROM public.organization_survey os
-                          INNER JOIN public.organization o
-                              ON o.id_organization = os.id_organization
-                          WHERE os.id_survey = s.id_survey
-                      ),
-                      'Не указано'
-                  ) AS organization_name
-              FROM public.survey s
-              LEFT JOIN public.survey_schedule ss
-                  ON ss.id_survey = s.id_survey").ToList();
-
-        AttachSurveyQuestions(connection, surveys);
-        return surveys;
-    }
-
-    private List<AnswerRecord> GetAnswersFromDatabase()
-    {
-        using var connection = _connectionFactory.CreateConnection();
-
-        var answers = connection.Query<AnswerRecord>(
-            @"SELECT
-                  a.id_organization_survey AS IdOrganizationSurvey,
-                  os.id_organization AS OrganizationId,
-                  COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS organization_name,
-                  a.csp,
-                  a.id_answer,
-                  os.id_survey,
-                  s.name_survey,
-                  a.completion_date
-              FROM public.answer a
-              INNER JOIN public.organization_survey os
-                  ON os.id_organization_survey = a.id_organization_survey
-              LEFT JOIN public.organization o
-                  ON o.id_organization = os.id_organization
-              LEFT JOIN public.survey s
-                  ON s.id_survey = os.id_survey
-              WHERE EXISTS (
-                  SELECT 1
-                  FROM public.answer_item ai
-                  WHERE ai.id_answer = a.id_answer
-              )
-              ORDER BY a.completion_date DESC").ToList();
-
-        AttachAnswerItems(connection, answers);
-        return answers;
-    }
-
     private TableCell CreateTableCell(string text, bool isHeader, bool centerAlign)
     {
         var runProperties = new RunProperties(
@@ -874,90 +722,6 @@ public sealed class SurveyReportService : ISurveyReportService
             new TableCellWidth() { Type = TableWidthUnitValues.Auto });
 
         return cell;
-    }
-
-    private static void AttachSurveyQuestions(
-        IDbConnection connection,
-        IEnumerable<Survey> surveys)
-    {
-        var surveyList = surveys.ToList();
-        if (surveyList.Count == 0)
-        {
-            return;
-        }
-
-        var surveyIds = surveyList.Select(s => s.IdSurvey).Distinct().ToArray();
-
-        var activeRows = connection.Query<SurveyQuestionLookupRow>(
-            @"SELECT
-                  id_survey AS SurveyId,
-                  question_order AS QuestionOrder,
-                  question_text AS QuestionText
-              FROM public.survey_question
-              WHERE id_survey = ANY(@surveyIds)
-              ORDER BY id_survey, question_order",
-            new { surveyIds });
-
-        var questionLookup = activeRows
-            .GroupBy(row => row.SurveyId)
-            .ToDictionary(
-                group => group.Key,
-                group => (List<SurveyQuestionItem>)group
-                    .Select(row => new SurveyQuestionItem
-                    {
-                        Id = row.QuestionOrder,
-                        Text = row.QuestionText
-                    })
-                    .OrderBy(question => question.Id)
-                    .ToList());
-
-        foreach (var survey in surveyList)
-        {
-            survey.Questions = questionLookup.GetValueOrDefault(survey.IdSurvey, new List<SurveyQuestionItem>());
-        }
-    }
-
-    private static void AttachAnswerItems(
-        IDbConnection connection,
-        IEnumerable<AnswerRecord> answers)
-    {
-        var answerList = answers.ToList();
-        if (answerList.Count == 0)
-        {
-            return;
-        }
-
-        var answerIds = answerList.Select(a => a.IdAnswer).Distinct().ToArray();
-        var rows = connection.Query<AnswerItemLookupRow>(
-            @"SELECT
-                  id_answer AS AnswerId,
-                  question_order AS QuestionOrder,
-                  question_text AS QuestionText,
-                  rating AS Rating,
-                  comment AS Comment
-              FROM public.answer_item
-              WHERE id_answer = ANY(@answerIds)
-              ORDER BY id_answer, question_order",
-            new { answerIds });
-
-        var answerLookup = rows
-            .GroupBy(row => row.AnswerId)
-            .ToDictionary(
-                group => group.Key,
-                group => (List<AnswerPayloadItem>)group
-                    .Select(row => new AnswerPayloadItem
-                    {
-                        QuestionId = row.QuestionOrder.ToString(),
-                        QuestionText = row.QuestionText,
-                        Rating = row.Rating,
-                        Comment = row.Comment
-                    })
-                    .ToList());
-
-        foreach (var answer in answerList)
-        {
-            answer.Answers = answerLookup.GetValueOrDefault(answer.IdAnswer, new List<AnswerPayloadItem>());
-        }
     }
 
     private void BuildWorksheetHeaders(IXLWorksheet worksheet, IReadOnlyList<SurveyQuestionItem> questions)
@@ -1064,19 +828,4 @@ public sealed class SurveyReportService : ISurveyReportService
         }
     }
 
-    private sealed class SurveyQuestionLookupRow
-    {
-        public int SurveyId { get; init; }
-        public int QuestionOrder { get; init; }
-        public string QuestionText { get; init; } = string.Empty;
-    }
-
-    private sealed class AnswerItemLookupRow
-    {
-        public int AnswerId { get; init; }
-        public int QuestionOrder { get; init; }
-        public string QuestionText { get; init; } = string.Empty;
-        public int? Rating { get; init; }
-        public string? Comment { get; init; }
-    }
 }

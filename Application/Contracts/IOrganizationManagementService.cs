@@ -6,21 +6,23 @@ namespace MainProject.Application.Contracts;
 
 public interface IOrganizationManagementService
 {
-    OrganizationListPageViewModel GetActiveOrganizationsPage(
+    Task<OrganizationListPageViewModel> GetActiveOrganizationsPageAsync(
         int currentPage,
         string? sortBy,
         string? sortDirection,
-        bool openAddOrganizationModal = false);
-    OrganizationSurveyAssignmentsPageViewModel GetOrganizationSurveyAssignmentsPage();
-    OrganizationListPageViewModel GetArchivedOrganizationsPage(
+        bool openAddOrganizationModal = false,
+        CancellationToken cancellationToken = default);
+    Task<OrganizationSurveyAssignmentsPageViewModel> GetOrganizationSurveyAssignmentsPageAsync(CancellationToken cancellationToken = default);
+    Task<OrganizationListPageViewModel> GetArchivedOrganizationsPageAsync(
         int currentPage,
         string? sortBy,
-        string? sortDirection);
-    IReadOnlyList<Organization> GetArchivedOrganizations();
-    IReadOnlyList<OrganizationDataResponse> GetOrganizationOptions();
-    Organization? GetOrganizationById(int id);
-    OperationResult CreateOrganization(OrganizationSaveRequest request);
-    OperationResult UpdateOrganization(int id, OrganizationSaveRequest request);
-    OperationResult ArchiveOrganization(int id);
-    OrganizationSurveyEndDateUpdateResult UpdateOrganizationSurveyEndDates(OrganizationSurveyEndDateUpdateRequest request);
+        string? sortDirection,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Organization>> GetArchivedOrganizationsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OrganizationDataResponse>> GetOrganizationOptionsAsync(CancellationToken cancellationToken = default);
+    Task<Organization?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<OperationResult> CreateOrganizationAsync(OrganizationSaveRequest request, CancellationToken cancellationToken = default);
+    Task<OperationResult> UpdateOrganizationAsync(int id, OrganizationSaveRequest request, CancellationToken cancellationToken = default);
+    Task<OperationResult> ArchiveOrganizationAsync(int id, CancellationToken cancellationToken = default);
+    Task<OrganizationSurveyEndDateUpdateResult> UpdateOrganizationSurveyEndDatesAsync(OrganizationSurveyEndDateUpdateRequest request, CancellationToken cancellationToken = default);
 }

@@ -10,99 +10,120 @@ namespace MainProject.Infrastructure.Persistence;
 public sealed class OrganizationRepository : IOrganizationRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IClock _clock;
 
-    public OrganizationRepository(IDbConnectionFactory connectionFactory)
+    public OrganizationRepository(IDbConnectionFactory connectionFactory, IClock clock)
     {
         _connectionFactory = connectionFactory;
+        _clock = clock;
     }
 
-    public int Count(bool includeArchived)
+    public async Task<int> CountAsync(bool includeArchived, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM public.organization o WHERE {GetArchivePredicate(includeArchived)};");
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM public.organization o WHERE {GetArchivePredicate(includeArchived)};",
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<Organization> GetPage(bool includeArchived, string sortBy, string sortDirection, int pageSize, int offset)
+    public async Task<IReadOnlyList<Organization>> GetPageAsync(
+        bool includeArchived,
+        string sortBy,
+        string sortDirection,
+        int pageSize,
+        int offset,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Query<Organization>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var organizations = await connection.QueryAsync<Organization>(new CommandDefinition(
             $"""
             {OrganizationSelectSql}
             WHERE {GetArchivePredicate(includeArchived)}
             ORDER BY {BuildOrderBy(sortBy, sortDirection)}
             LIMIT @PageSize OFFSET @Offset;
-            """, new { PageSize = pageSize, Offset = offset }).ToList();
+            """,
+            new { PageSize = pageSize, Offset = offset, Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return organizations.AsList();
     }
 
-    public IReadOnlyList<Organization> GetAll(bool includeArchived)
+    public async Task<IReadOnlyList<Organization>> GetAllAsync(bool includeArchived, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Query<Organization>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var organizations = await connection.QueryAsync<Organization>(new CommandDefinition(
             $"""
             {OrganizationSelectSql}
             WHERE {GetArchivePredicate(includeArchived)}
             ORDER BY o.organization_name;
-            """).ToList();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return organizations.AsList();
     }
 
-    public IReadOnlyList<OrganizationDataResponse> GetActiveOptions()
+    public async Task<IReadOnlyList<OrganizationDataResponse>> GetActiveOptionsAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Query<OrganizationDataResponse>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var options = await connection.QueryAsync<OrganizationDataResponse>(new CommandDefinition(
             """
             SELECT id_organization AS Id, COALESCE(NULLIF(organization_short_name, ''), organization_name) AS Name
             FROM public.organization
-            WHERE date_end IS NULL OR date_end >= CURRENT_DATE
+            WHERE date_end IS NULL OR date_end >= @Today
             ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name);
-            """).ToList();
+            """,
+            new { Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return options.AsList();
     }
 
-    public Organization? GetById(int organizationId)
+    public async Task<Organization?> GetByIdAsync(int organizationId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.QueryFirstOrDefault<Organization>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryFirstOrDefaultAsync<Organization>(new CommandDefinition(
             """
             SELECT organization_name, organization_short_name, email, date_begin, date_end, id_organization AS OrganizationId
             FROM public.organization
             WHERE id_organization = @OrganizationId;
-            """, new { OrganizationId = organizationId });
+            """,
+            new { OrganizationId = organizationId },
+            cancellationToken: cancellationToken));
     }
 
-    public int Create(OrganizationWriteModel organization)
+    public async Task<int> CreateAsync(OrganizationWriteModel organization, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.ExecuteScalar<int>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
             INSERT INTO public.organization (organization_name, organization_short_name, email, date_begin, date_end)
             VALUES (@Name, @ShortName, @Email, @DateBegin, @DateEnd)
             RETURNING id_organization;
-            """, organization);
+            """,
+            organization,
+            cancellationToken: cancellationToken));
     }
 
-    public int Update(int organizationId, OrganizationWriteModel organization)
+    public async Task<int> UpdateAsync(int organizationId, OrganizationWriteModel organization, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return connection.Execute(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.organization
             SET organization_name = @Name, organization_short_name = @ShortName, email = @Email,
                 date_begin = @DateBegin, date_end = @DateEnd
             WHERE id_organization = @OrganizationId;
-            """, new { OrganizationId = organizationId, organization.Name, organization.ShortName, organization.Email, organization.DateBegin, organization.DateEnd });
+            """,
+            new { OrganizationId = organizationId, organization.Name, organization.ShortName, organization.Email, organization.DateBegin, organization.DateEnd },
+            cancellationToken: cancellationToken));
     }
 
-    public IReadOnlyList<string> GetAssignedSurveyNames(int organizationId)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-        return GetAssignedSurveyNames(connection, organizationId);
-    }
-
-    private static IReadOnlyList<string> GetAssignedSurveyNames(
+    private static async Task<IReadOnlyList<string>> GetAssignedSurveyNamesAsync(
         System.Data.IDbConnection connection,
         int organizationId,
-        System.Data.IDbTransaction? transaction = null)
+        System.Data.IDbTransaction? transaction,
+        CancellationToken cancellationToken)
     {
-        return connection.Query<string>(
+        var surveyNames = await connection.QueryAsync<string>(new CommandDefinition(
             """
             SELECT DISTINCT survey_name
             FROM (
@@ -141,22 +162,21 @@ public sealed class OrganizationRepository : IOrganizationRepository
             ) assigned_surveys
             WHERE survey_name IS NOT NULL AND BTRIM(survey_name) <> ''
             ORDER BY survey_name;
-            """, new { OrganizationId = organizationId }, transaction)
+            """,
+            new { OrganizationId = organizationId },
+            transaction,
+            cancellationToken: cancellationToken));
+        return surveyNames
             .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public IReadOnlyList<string> GetAssignedUserNames(int organizationId)
-    {
-        using var connection = _connectionFactory.CreateConnection();
-        return GetAssignedUserNames(connection, organizationId);
-    }
-
-    private static IReadOnlyList<string> GetAssignedUserNames(
+    private static async Task<IReadOnlyList<string>> GetAssignedUserNamesAsync(
         System.Data.IDbConnection connection,
         int organizationId,
-        System.Data.IDbTransaction? transaction = null)
+        System.Data.IDbTransaction? transaction,
+        CancellationToken cancellationToken)
     {
-        return connection.Query<string>(
+        var userNames = await connection.QueryAsync<string>(new CommandDefinition(
             """
             SELECT DISTINCT user_name
             FROM (
@@ -182,46 +202,56 @@ public sealed class OrganizationRepository : IOrganizationRepository
             ) assigned_users
             WHERE user_name IS NOT NULL AND BTRIM(user_name) <> ''
             ORDER BY user_name;
-            """, new { OrganizationId = organizationId }, transaction)
+            """,
+            new { OrganizationId = organizationId },
+            transaction,
+            cancellationToken: cancellationToken));
+        return userNames
             .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public OrganizationArchiveResult ArchiveIfUnused(int organizationId)
+    public async Task<OrganizationArchiveResult> ArchiveIfUnusedAsync(int organizationId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        var exists = connection.ExecuteScalar<int?>(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var exists = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
             "SELECT id_organization FROM public.organization WHERE id_organization = @OrganizationId FOR UPDATE;",
             new { OrganizationId = organizationId },
-            transaction);
+            transaction,
+            cancellationToken: cancellationToken));
         if (!exists.HasValue)
         {
-            transaction.Commit();
+            await transaction.CommitAsync(cancellationToken);
             return new OrganizationArchiveResult(false, false, [], []);
         }
 
-        var surveyNames = GetAssignedSurveyNames(connection, organizationId, transaction);
-        var userNames = GetAssignedUserNames(connection, organizationId, transaction);
+        var surveyNames = await GetAssignedSurveyNamesAsync(connection, organizationId, transaction, cancellationToken);
+        var userNames = await GetAssignedUserNamesAsync(connection, organizationId, transaction, cancellationToken);
         if (surveyNames.Count > 0 || userNames.Count > 0)
         {
-            transaction.Commit();
+            await transaction.CommitAsync(cancellationToken);
             return new OrganizationArchiveResult(true, false, surveyNames, userNames);
         }
 
-        var affectedRows = connection.Execute(
+        var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.organization
-            SET date_end = CASE WHEN date_end IS NULL OR date_end >= CURRENT_DATE
-                THEN (CURRENT_DATE - INTERVAL '1 day')::date ELSE date_end END
+            SET date_end = CASE WHEN date_end IS NULL OR date_end >= @Today
+                THEN (@Today - INTERVAL '1 day')::date ELSE date_end END
             WHERE id_organization = @OrganizationId;
-            """, new { OrganizationId = organizationId }, transaction);
-        transaction.Commit();
+            """,
+            new { OrganizationId = organizationId, Today = _clock.Today.Date },
+            transaction,
+            cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
         return new OrganizationArchiveResult(true, affectedRows > 0, [], []);
     }
 
-    public IReadOnlyList<OrganizationSurveyAssignmentRecord> GetLatestUnansweredAssignments(IReadOnlyCollection<int>? organizationIds = null)
+    public async Task<IReadOnlyList<OrganizationSurveyAssignmentRecord>> GetLatestUnansweredAssignmentsAsync(
+        IReadOnlyCollection<int>? organizationIds = null,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         var sql = new StringBuilder(
             """
             WITH latest_assignment AS (
@@ -242,7 +272,7 @@ public sealed class OrganizationRepository : IOrganizationRepository
                    latest_assignment.date_end AS AssignmentDateEnd
             FROM public.organization o
             LEFT JOIN latest_assignment ON latest_assignment.id_organization = o.id_organization
-            WHERE o.date_end IS NULL OR o.date_end >= CURRENT_DATE
+            WHERE o.date_end IS NULL OR o.date_end >= @Today
             """);
         if (organizationIds is { Count: > 0 })
         {
@@ -250,40 +280,49 @@ public sealed class OrganizationRepository : IOrganizationRepository
         }
 
         sql.Append(" ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name), latest_assignment.name_survey NULLS LAST;");
-        return connection.Query<OrganizationSurveyAssignmentRecord>(sql.ToString(), new { OrganizationIds = organizationIds?.ToArray() ?? [] }).ToList();
+        var assignments = await connection.QueryAsync<OrganizationSurveyAssignmentRecord>(new CommandDefinition(
+            sql.ToString(),
+            new { OrganizationIds = organizationIds?.ToArray() ?? [], Today = _clock.Today.Date },
+            cancellationToken: cancellationToken));
+        return assignments.AsList();
     }
 
-    public bool UpdateAssignmentEndDates(IReadOnlyCollection<(int OrganizationId, int SurveyId)> assignments, DateTime dateEnd)
+    public async Task<bool> UpdateAssignmentEndDatesAsync(
+        IReadOnlyCollection<(int OrganizationId, int SurveyId)> assignments,
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
         {
             foreach (var assignment in assignments)
             {
-                var affected = connection.Execute(
+                var affected = await connection.ExecuteAsync(new CommandDefinition(
                     "UPDATE public.organization_survey SET date_end = @DateEnd WHERE id_organization = @OrganizationId AND id_survey = @SurveyId;",
-                    new { DateEnd = dateEnd.Date, assignment.OrganizationId, assignment.SurveyId }, transaction);
+                    new { DateEnd = dateEnd.Date, assignment.OrganizationId, assignment.SurveyId },
+                    transaction,
+                    cancellationToken: cancellationToken));
                 if (affected == 0)
                 {
-                    transaction.Rollback();
+                    await transaction.RollbackAsync(cancellationToken);
                     return false;
                 }
             }
 
-            transaction.Commit();
+            await transaction.CommitAsync(cancellationToken);
             return true;
         }
         catch
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             throw;
         }
     }
 
     private static string GetArchivePredicate(bool includeArchived) => includeArchived
-        ? "o.date_end < CURRENT_DATE"
-        : "(o.date_end IS NULL OR o.date_end >= CURRENT_DATE)";
+        ? "o.date_end < @Today"
+        : "(o.date_end IS NULL OR o.date_end >= @Today)";
 
     private static string BuildOrderBy(string sortBy, string sortDirection)
     {

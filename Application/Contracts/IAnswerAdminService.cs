@@ -5,7 +5,7 @@ namespace MainProject.Application.Contracts;
 
 public interface IAnswerAdminService
 {
-    AnswerListPageViewModel GetAnswersPage(
+    Task<AnswerListPageViewModel> GetAnswersPageAsync(
         int currentPage,
         string? sortBy,
         string? sortDirection,
@@ -14,7 +14,8 @@ public interface IAnswerAdminService
         string? year,
         string? month,
         string? dateFrom,
-        string? dateTo);
-    SurveySignaturePageViewModel GetSignaturePage(int surveyId);
-    AnswerStatisticsResponse GetStatistics();
+        string? dateTo,
+        CancellationToken cancellationToken = default);
+    Task<SurveySignaturePageViewModel> GetSignaturePageAsync(int surveyId, CancellationToken cancellationToken = default);
+    Task<AnswerStatisticsResponse> GetStatisticsAsync(CancellationToken cancellationToken = default);
 }

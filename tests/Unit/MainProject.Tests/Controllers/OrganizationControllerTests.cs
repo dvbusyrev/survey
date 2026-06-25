@@ -9,7 +9,7 @@ namespace MainProject.Tests.Controllers;
 public sealed class OrganizationControllerTests
 {
     [Fact]
-    public void DeleteOrganization_ReturnsOk_WhenArchiveSucceeds()
+    public async Task DeleteOrganization_ReturnsOk_WhenArchiveSucceeds()
     {
         var controller = new OrganizationController(new StubOrganizationManagementService(
             new OperationResult
@@ -18,14 +18,14 @@ public sealed class OrganizationControllerTests
                 Message = "Организация успешно удалена."
             }));
 
-        var result = controller.DeleteOrganization(42);
+        var result = await controller.DeleteOrganization(42, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         Assert.Equal("Организация успешно удалена.", okResult.Value);
     }
 
     [Fact]
-    public void DeleteOrganization_ReturnsBadRequest_WhenArchiveIsForbidden()
+    public async Task DeleteOrganization_ReturnsBadRequest_WhenArchiveIsForbidden()
     {
         var controller = new OrganizationController(new StubOrganizationManagementService(
             new OperationResult
@@ -34,7 +34,7 @@ public sealed class OrganizationControllerTests
                 Message = "Нельзя удалить организацию: для неё уже заводились анкеты и выбирались пользователи."
             }));
 
-        var result = controller.DeleteOrganization(42);
+        var result = await controller.DeleteOrganization(42, CancellationToken.None);
 
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
         Assert.Equal(
@@ -51,41 +51,43 @@ public sealed class OrganizationControllerTests
             _archiveResult = archiveResult;
         }
 
-        public OrganizationListPageViewModel GetActiveOrganizationsPage(
+        public Task<OrganizationListPageViewModel> GetActiveOrganizationsPageAsync(
             int currentPage,
             string? sortBy,
             string? sortDirection,
-            bool openAddOrganizationModal = false)
-            => new();
+            bool openAddOrganizationModal = false,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new OrganizationListPageViewModel());
 
-        public OrganizationListPageViewModel GetArchivedOrganizationsPage(
+        public Task<OrganizationListPageViewModel> GetArchivedOrganizationsPageAsync(
             int currentPage,
             string? sortBy,
-            string? sortDirection)
-            => new();
+            string? sortDirection,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new OrganizationListPageViewModel());
 
-        public OrganizationSurveyAssignmentsPageViewModel GetOrganizationSurveyAssignmentsPage()
-            => new();
+        public Task<OrganizationSurveyAssignmentsPageViewModel> GetOrganizationSurveyAssignmentsPageAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new OrganizationSurveyAssignmentsPageViewModel());
 
-        public IReadOnlyList<Organization> GetArchivedOrganizations()
-            => Array.Empty<Organization>();
+        public Task<IReadOnlyList<Organization>> GetArchivedOrganizationsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Organization>>(Array.Empty<Organization>());
 
-        public IReadOnlyList<OrganizationDataResponse> GetOrganizationOptions()
-            => Array.Empty<OrganizationDataResponse>();
+        public Task<IReadOnlyList<OrganizationDataResponse>> GetOrganizationOptionsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<OrganizationDataResponse>>(Array.Empty<OrganizationDataResponse>());
 
-        public Organization? GetOrganizationById(int id)
-            => null;
+        public Task<Organization?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult<Organization?>(null);
 
-        public OperationResult CreateOrganization(OrganizationSaveRequest request)
+        public Task<OperationResult> CreateOrganizationAsync(OrganizationSaveRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public OperationResult UpdateOrganization(int id, OrganizationSaveRequest request)
+        public Task<OperationResult> UpdateOrganizationAsync(int id, OrganizationSaveRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public OperationResult ArchiveOrganization(int id)
-            => _archiveResult;
+        public Task<OperationResult> ArchiveOrganizationAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult(_archiveResult);
 
-        public OrganizationSurveyEndDateUpdateResult UpdateOrganizationSurveyEndDates(OrganizationSurveyEndDateUpdateRequest request)
+        public Task<OrganizationSurveyEndDateUpdateResult> UpdateOrganizationSurveyEndDatesAsync(OrganizationSurveyEndDateUpdateRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
     }
 }

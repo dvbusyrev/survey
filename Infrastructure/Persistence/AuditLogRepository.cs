@@ -32,25 +32,26 @@ public sealed class AuditLogRepository : IAuditLogRepository
         _connectionFactory = connectionFactory;
     }
 
-    public int GetEventCount()
+    public async Task<int> GetEventCountAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var metadata = LoadMetadata(connection);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var metadata = await LoadMetadataAsync(connection, cancellationToken);
         var countSql = AuditLogQueryBuilder.BuildAuditEventCountSql(metadata.AvailableAuditTables);
         return string.IsNullOrWhiteSpace(countSql)
             ? 0
-            : ClampCount(connection.QuerySingle<long>(countSql));
+            : ClampCount(await connection.QuerySingleAsync<long>(new CommandDefinition(countSql, cancellationToken: cancellationToken)));
     }
 
-    public AuditLogReadResult GetPage(
+    public async Task<AuditLogReadResult> GetPageAsync(
         int currentPage,
         int pageSize,
         string sortBy,
         string sortDirection,
-        bool includeDetails)
+        bool includeDetails,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var metadata = LoadMetadata(connection);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var metadata = await LoadMetadataAsync(connection, cancellationToken);
         var pageSql = AuditLogQueryBuilder.BuildAuditPageSql(
             metadata.AvailableAuditTables,
             sortBy,
@@ -58,29 +59,36 @@ public sealed class AuditLogRepository : IAuditLogRepository
             includeDetails);
         var rows = string.IsNullOrWhiteSpace(pageSql)
             ? []
-            : connection.Query<AuditLogRow>(
+            : (await connection.QueryAsync<AuditLogRow>(new CommandDefinition(
                 pageSql,
                 new
                 {
                     Offset = Math.Max(0, (currentPage - 1) * pageSize),
                     Limit = pageSize,
                     CandidateLimit = Math.Max((currentPage - 1) * pageSize + pageSize, pageSize * 25)
-                }).ToList();
+                },
+                cancellationToken: cancellationToken))).ToList();
 
         return new AuditLogReadResult(rows, metadata.SourceColumnOrders);
     }
 
-    public AuditLogReadResult GetDetails(long idAudit, string? sourceTable)
+    public async Task<AuditLogReadResult> GetDetailsAsync(
+        long idAudit,
+        string? sourceTable,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var metadata = LoadMetadata(connection);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var metadata = await LoadMetadataAsync(connection, cancellationToken);
         var detailSql = AuditLogQueryBuilder.BuildAuditDetailSql(metadata.AvailableAuditTables, sourceTable);
         if (string.IsNullOrWhiteSpace(detailSql))
         {
             return new AuditLogReadResult([], metadata.SourceColumnOrders);
         }
 
-        var directRows = connection.Query<AuditLogRow>(detailSql, new { IdAudit = idAudit }).ToList();
+        var directRows = (await connection.QueryAsync<AuditLogRow>(new CommandDefinition(
+            detailSql,
+            new { IdAudit = idAudit },
+            cancellationToken: cancellationToken))).ToList();
         var primaryRow = directRows.FirstOrDefault();
         if (primaryRow == null
             || string.IsNullOrWhiteSpace(primaryRow.RelatedKind)
@@ -95,7 +103,7 @@ public sealed class AuditLogRepository : IAuditLogRepository
             return new AuditLogReadResult(directRows, metadata.SourceColumnOrders);
         }
 
-        var relatedRows = connection.Query<AuditLogRow>(
+        var relatedRows = (await connection.QueryAsync<AuditLogRow>(new CommandDefinition(
             relatedSql,
             new
             {
@@ -103,32 +111,37 @@ public sealed class AuditLogRepository : IAuditLogRepository
                 primaryRow.ChangedByUserId,
                 primaryRow.RelatedKind,
                 primaryRow.RelatedId
-            }).ToList();
+            },
+            cancellationToken: cancellationToken))).ToList();
 
         return new AuditLogReadResult(
             relatedRows.Count > 0 ? relatedRows : directRows,
             metadata.SourceColumnOrders);
     }
 
-    public AuditLogReadResult GetAll()
+    public async Task<AuditLogReadResult> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var metadata = LoadMetadata(connection);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var metadata = await LoadMetadataAsync(connection, cancellationToken);
         var auditSql = AuditLogQueryBuilder.BuildAuditSql(metadata.AvailableAuditTables);
         var rows = string.IsNullOrWhiteSpace(auditSql)
             ? []
-            : connection.Query<AuditLogRow>(auditSql).ToList();
+            : (await connection.QueryAsync<AuditLogRow>(new CommandDefinition(auditSql, cancellationToken: cancellationToken))).ToList();
         return new AuditLogReadResult(rows, metadata.SourceColumnOrders);
     }
 
-    public AuditAnswerContext? GetAnswerContext(int? organizationSurveyId, int? answerId)
+    public async Task<AuditAnswerContext?> GetAnswerContextAsync(
+        int? organizationSurveyId,
+        int? answerId,
+        CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (organizationSurveyId is > 0)
         {
-            var context = connection.QuerySingleOrDefault<AuditAnswerContext>(
+            var context = await connection.QuerySingleOrDefaultAsync<AuditAnswerContext>(new CommandDefinition(
                 AnswerContextByOrganizationSurveySql,
-                new { IdOrganizationSurvey = organizationSurveyId.Value });
+                new { IdOrganizationSurvey = organizationSurveyId.Value },
+                cancellationToken: cancellationToken));
             if (context != null)
             {
                 return context;
@@ -136,17 +149,28 @@ public sealed class AuditLogRepository : IAuditLogRepository
         }
 
         return answerId is > 0
-            ? connection.QuerySingleOrDefault<AuditAnswerContext>(AnswerContextByAnswerSql, new { IdAnswer = answerId.Value })
+            ? await connection.QuerySingleOrDefaultAsync<AuditAnswerContext>(new CommandDefinition(
+                AnswerContextByAnswerSql,
+                new { IdAnswer = answerId.Value },
+                cancellationToken: cancellationToken))
             : null;
     }
 
-    private static AuditMetadata LoadMetadata(System.Data.IDbConnection connection)
+    private static async Task<AuditMetadata> LoadMetadataAsync(
+        System.Data.IDbConnection connection,
+        CancellationToken cancellationToken)
     {
         var auditTableNames = AuditLogTableRegistry.Sources.Select(source => source.AuditTableName).ToArray();
         var sourceTableNames = AuditLogTableRegistry.Sources.Select(source => source.SourceTable).ToArray();
-        var availableAuditTables = connection.Query<string>(ExistingAuditTablesSql, new { TableNames = auditTableNames })
+        var availableAuditTables = (await connection.QueryAsync<string>(new CommandDefinition(
+                ExistingAuditTablesSql,
+                new { TableNames = auditTableNames },
+                cancellationToken: cancellationToken)))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var sourceColumnOrders = connection.Query<SourceColumnOrderRow>(SourceColumnOrderSql, new { TableNames = sourceTableNames })
+        var sourceColumnOrders = (await connection.QueryAsync<SourceColumnOrderRow>(new CommandDefinition(
+                SourceColumnOrderSql,
+                new { TableNames = sourceTableNames },
+                cancellationToken: cancellationToken)))
             .GroupBy(row => row.TableName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 group => group.Key,

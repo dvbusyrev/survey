@@ -9,7 +9,7 @@ public sealed class EmailConfigRecord
     public int SmtpPort { get; init; }
     public bool SmtpEnableSsl { get; init; }
     public string? SmtpUserName { get; init; }
-    public string? SmtpPasswordEncrypted { get; init; }
+    public string? SmtpPassword { get; init; }
     public string? FromAddress { get; init; }
     public string? FromDisplayName { get; init; }
 }
@@ -30,4 +30,19 @@ public sealed class ThemeConfigRecord
     public int FooterDarkenPercent { get; init; }
     public int ButtonDarkenPercent { get; init; }
     public int SurfaceTintOpacityPercent { get; init; }
+}
+
+public sealed class AutoCreationConfigRecord
+{
+    public int IdConfig { get; init; }
+    public int CreationDayId { get; init; }
+    public int BeginDayId { get; init; }
+    public int? WorkingPeriod { get; init; }
+    public string CreationPattern { get; init; } = "1-monday";
+    public string StartPattern { get; init; } = "1-monday";
+    public string CreationDayName { get; init; } = "Monday";
+    public int CreationWeekNumber { get; init; } = 1;
+    public string BeginDayName { get; init; } = "Monday";
+    public int BeginWeekNumber { get; init; } = 1;
+    public bool IsEnabled { get; init; }
 }

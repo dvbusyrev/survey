@@ -3,13 +3,17 @@ using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.DTO.Configuration;
+using MainProject.Application.DTO.Read;
 using MainProject.Application.DTO.Organization;
 using MainProject.Application.DTO.User;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Application.UseCases.Answers;
 using MainProject.Application.UseCases.Surveys;
+using MainProject.Application.UseCases;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Persistence;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 
@@ -20,13 +24,17 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 {
     private readonly PostgreSqlIntegrationFixture _fixture;
     private readonly TestNpgsqlConnectionFactory _connectionFactory;
-    private readonly ISurveyAssignmentRepository _assignmentRepository = new SurveyAssignmentRepository();
+    private readonly IClock _clock = new FixedClock(DateTime.Today);
+    private readonly ISurveyAssignmentRepository _assignmentRepository;
+    private readonly ISurveyDefinitionRepository _definitionRepository = new SurveyDefinitionRepository();
+    private readonly IAutoCreationConfigRepository _autoCreationConfigRepository = new AutoCreationConfigRepository();
     private readonly IAnswerRepository _answerRepository;
 
     public SurveyAssignmentsIntegrationTests(PostgreSqlIntegrationFixture fixture)
     {
         _fixture = fixture;
         _connectionFactory = new TestNpgsqlConnectionFactory(fixture);
+        _assignmentRepository = new SurveyAssignmentRepository(_clock);
         _answerRepository = new AnswerRepository(
             _connectionFactory,
             _assignmentRepository,
@@ -122,12 +130,12 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         var repository = new AuditLogRepository(_connectionFactory);
         var service = new AuditLogService(repository);
-        var rawRows = repository.GetAll().Rows;
+        var rawRows = (await repository.GetAllAsync()).Rows;
         var updateRow = Assert.Single(rawRows, row => row.IdAudit == updateAuditId);
-        var page = service.GetLogsPage(1, 1, null, null);
-        var nextPage = service.GetLogsPage(2, 1, null, null);
-        var updateDetails = service.GetLogDetails(updateAuditId, "organization", 1, 1, null, null);
-        var surveyDetails = service.GetLogDetails(surveyAuditId, "survey", 1, 1, null, null);
+        var page = await service.GetLogsPageAsync(1, 1, null, null);
+        var nextPage = await service.GetLogsPageAsync(2, 1, null, null);
+        var updateDetails = await service.GetLogDetailsAsync(updateAuditId, "organization", 1, 1, null, null);
+        var surveyDetails = await service.GetLogDetailsAsync(surveyAuditId, "survey", 1, 1, null, null);
 
         Assert.NotNull(updateRow.ParentAuditId);
         Assert.True(page.TotalCount >= 3);
@@ -148,14 +156,16 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     [RequiresPostgresFact]
     public async Task ConfigurationAndManagementRepositories_PersistCurrentSchemaContracts()
     {
-        var organizationRepository = new OrganizationRepository(_connectionFactory);
-        var userRepository = new UserRepository(_connectionFactory);
-        var emailRepository = new EmailConfigRepository(_connectionFactory);
+        var organizationRepository = new OrganizationRepository(_connectionFactory, _clock);
+        var userRepository = new UserRepository(_connectionFactory, _clock);
+        var emailRepository = new EmailConfigRepository(
+            _connectionFactory,
+            new EphemeralDataProtectionProvider());
         var themeRepository = new ThemeConfigRepository(_connectionFactory);
 
-        var organizationId = organizationRepository.Create(new OrganizationWriteModel(
+        var organizationId = await organizationRepository.CreateAsync(new OrganizationWriteModel(
             "Репозиторий организация", "Репо", "repository@example.test", DateTime.Today, null));
-        var userRows = userRepository.Create(new UserWriteModel(
+        var userRows = await userRepository.CreateAsync(new UserWriteModel(
             organizationId, "repository-user", "Пользователь репозитория", "user", "hash", null, DateTime.Today, null));
         await emailRepository.SaveAsync(1, new EmailConfigRecord
         {
@@ -166,7 +176,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             SmtpPort = 587,
             SmtpEnableSsl = true,
             SmtpUserName = "smtp-user",
-            SmtpPasswordEncrypted = "encrypted",
+            SmtpPassword = "smtp-password",
             FromAddress = "sender@example.test",
             FromDisplayName = "Отправитель"
         });
@@ -184,18 +194,24 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         var email = await emailRepository.GetAsync(1);
         var theme = await themeRepository.GetAsync(1);
-        var organization = organizationRepository.GetById(organizationId);
-        var user = Assert.Single(userRepository.GetPage(false, "name", "asc", 10, 0), item => item.NameUser == "repository-user");
-        var deletion = userRepository.DeleteIfAllowed(user.IdUser);
-        var archiveBlockedByHistory = organizationRepository.ArchiveIfUnused(organizationId);
-        var emptyOrganizationId = organizationRepository.Create(new OrganizationWriteModel(
+        var organization = await organizationRepository.GetByIdAsync(organizationId);
+        await using var connection = _fixture.CreateConnection();
+        var storedSmtpPassword = await connection.QuerySingleAsync<string>(
+            "SELECT smtp_password FROM public.email_config WHERE id_config = 1;");
+        var users = await userRepository.GetPageAsync(false, "name", "asc", 10, 0);
+        var user = Assert.Single(users, item => item.NameUser == "repository-user");
+        var deletion = await userRepository.DeleteIfAllowedAsync(user.IdUser);
+        var archiveBlockedByHistory = await organizationRepository.ArchiveIfUnusedAsync(organizationId);
+        var emptyOrganizationId = await organizationRepository.CreateAsync(new OrganizationWriteModel(
             "Организация без истории", null, null, DateTime.Today, null));
-        var archiveEmptyOrganization = organizationRepository.ArchiveIfUnused(emptyOrganizationId);
+        var archiveEmptyOrganization = await organizationRepository.ArchiveIfUnusedAsync(emptyOrganizationId);
 
         Assert.Equal(1, userRows);
         Assert.Equal("Репозиторий организация", organization!.OrganizationName);
         Assert.Equal(organizationId, user.OrganizationId);
         Assert.Equal("smtp.example.test", email!.SmtpHost);
+        Assert.Equal("smtp-password", email.SmtpPassword);
+        Assert.NotEqual("smtp-password", storedSmtpPassword);
         Assert.Equal("#B2A8FF", theme!.BackgroundColor);
         Assert.True(deletion.Deleted);
         Assert.False(archiveBlockedByHistory.Archived);
@@ -242,13 +258,13 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     {
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
-        var activePage = new SurveyAdminService(_connectionFactory, _assignmentRepository)
-            .GetSurveysPage(1, null, null, null);
+        var activePage = await new SurveyAdminService(_connectionFactory, _assignmentRepository, _definitionRepository, _clock)
+            .GetSurveysPageAsync(1, null, null, null);
 
         Assert.Contains(activePage.SurveyRows, row => row.IdSurvey == survey.SurveyId);
 
         var workflow = CreateAnswerWorkflowService();
-        Assert.True(workflow.InsertAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5)).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
 
         await using (var connection = _fixture.CreateConnection())
         {
@@ -261,10 +277,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                 new { SurveyId = survey.SurveyId });
         }
 
-        var archivePage = new SurveyArchiveService(_connectionFactory, _assignmentRepository)
-            .GetAdminArchivedSurveysPage(1, null, null, null, null, null, null, null, null);
-        var activeAfterArchive = new SurveyAdminService(_connectionFactory, _assignmentRepository)
-            .GetSurveysPage(1, null, null, null);
+        var archivePage = await new SurveyArchiveService(_connectionFactory, _assignmentRepository, _definitionRepository)
+            .GetAdminArchivedSurveysPageAsync(1, null, null, null, null, null, null, null, null);
+        var activeAfterArchive = await new SurveyAdminService(_connectionFactory, _assignmentRepository, _definitionRepository, _clock)
+            .GetSurveysPageAsync(1, null, null, null);
 
         Assert.DoesNotContain(activeAfterArchive.SurveyRows, row => row.IdSurvey == survey.SurveyId);
         Assert.Contains(archivePage.SurveyRows, row => row.IdSurvey == survey.SurveyId);
@@ -276,17 +292,20 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
         var userId = await CreateUserAsync(organizationIds[0], "active-client");
-        var surveyUserService = new SurveyUserService(_connectionFactory, _assignmentRepository);
+        var surveyUserService = new SurveyUserService(
+            _connectionFactory,
+            _assignmentRepository,
+            new AnswerReadRepository(_connectionFactory));
 
-        var beforeSubmission = surveyUserService.GetActiveSurveysPage(userId, 1, "Интеграционная");
+        var beforeSubmission = await surveyUserService.GetActiveSurveysPageAsync(userId, 1, "Интеграционная");
 
         Assert.NotNull(beforeSubmission);
         Assert.Contains(beforeSubmission!.AccessibleSurveys, item => item.IdSurvey == survey.SurveyId);
 
         var workflow = CreateAnswerWorkflowService();
-        Assert.True(workflow.InsertAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5)).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
 
-        var afterSubmission = surveyUserService.GetActiveSurveysPage(userId, 1, null);
+        var afterSubmission = await surveyUserService.GetActiveSurveysPageAsync(userId, 1, null);
 
         Assert.NotNull(afterSubmission);
         Assert.DoesNotContain(afterSubmission!.AccessibleSurveys, item => item.IdSurvey == survey.SurveyId);
@@ -297,10 +316,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     {
         var organizationIds = await CreateOrganizationsAsync(2);
         var survey = await CreateSurveyAsync(organizationIds);
-        var service = new SurveyAdminService(_connectionFactory, _assignmentRepository);
+        var service = new SurveyAdminService(_connectionFactory, _assignmentRepository, _definitionRepository, _clock);
 
-        var editPage = service.GetSurveyEditPage(survey.SurveyId!.Value);
-        var result = service.UpdateActiveSurveysWorkPeriod(new SurveyWorkPeriodRequest
+        var editPage = await service.GetSurveyEditPageAsync(survey.SurveyId!.Value);
+        var result = await service.UpdateActiveSurveysWorkPeriodAsync(new SurveyWorkPeriodRequest
         {
             DateBegin = DateTime.Today.AddDays(1),
             DateEnd = DateTime.Today.AddDays(10)
@@ -332,7 +351,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
         var workflow = CreateAnswerWorkflowService();
-        Assert.True(workflow.InsertAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5)).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
 
         await using (var connection = _fixture.CreateConnection())
         {
@@ -341,8 +360,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                 new { SurveyId = survey.SurveyId });
         }
 
-        var archiveService = new SurveyArchiveService(_connectionFactory, _assignmentRepository);
-        var archive = archiveService.GetAdminArchivedSurveys();
+        var archiveService = new SurveyArchiveService(_connectionFactory, _assignmentRepository, _definitionRepository);
+        var archive = await archiveService.GetAdminArchivedSurveysAsync();
         var copiedSurveyId = await archiveService.CopyArchiveSurveyAsync(new ArchiveSurveyCopyRequest
         {
             SurveyId = survey.SurveyId.Value
@@ -364,10 +383,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var survey = await CreateSurveyAsync(organizationIds);
         var workflow = CreateAnswerWorkflowService();
 
-        Assert.True(workflow.SaveDraftAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 4)).Success);
-        Assert.True(workflow.SaveDraftAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[1], 5)).Success);
+        Assert.True((await workflow.SaveDraftAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 4))).Success);
+        Assert.True((await workflow.SaveDraftAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[1], 5))).Success);
 
-        var submitted = workflow.InsertAnswer(BuildAnswerRecord(survey.SurveyId.Value, organizationIds[0], 5));
+        var submitted = await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId.Value, organizationIds[0], 5));
 
         await using var connection = _fixture.CreateConnection();
         var remainingDraftOrganizationIds = (await connection.QueryAsync<int>(
@@ -393,7 +412,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
         var workflow = CreateAnswerWorkflowService();
-        Assert.True(workflow.InsertAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5)).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
 
         var signing = new AnswerSigningService(
             new AnswerDataService(_connectionFactory, _assignmentRepository, _answerRepository),
@@ -403,9 +422,9 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             Signature = Convert.ToBase64String(Encoding.UTF8.GetBytes("integration-signature"))
         };
 
-        Assert.True(signing.SaveSignature(survey.SurveyId.Value, organizationIds[0], request));
-        Assert.Throws<AnswerAlreadySignedException>(
-            () => signing.SaveSignature(survey.SurveyId.Value, organizationIds[0], request));
+        Assert.True(await signing.SaveSignatureAsync(survey.SurveyId.Value, organizationIds[0], request));
+        await Assert.ThrowsAsync<AnswerAlreadySignedException>(
+            () => signing.SaveSignatureAsync(survey.SurveyId.Value, organizationIds[0], request));
     }
 
     [RequiresPostgresFact]
@@ -414,7 +433,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
         var workflow = CreateAnswerWorkflowService();
-        Assert.True(workflow.InsertAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5)).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
 
         var signing = new AnswerSigningService(
             new AnswerDataService(_connectionFactory, _assignmentRepository, _answerRepository),
@@ -425,8 +444,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         };
 
         var attempts = await Task.WhenAll(
-            Task.Run(() => TrySaveSignature(signing, survey.SurveyId.Value, organizationIds[0], request)),
-            Task.Run(() => TrySaveSignature(signing, survey.SurveyId.Value, organizationIds[0], request)));
+            TrySaveSignatureAsync(signing, survey.SurveyId.Value, organizationIds[0], request),
+            TrySaveSignatureAsync(signing, survey.SurveyId.Value, organizationIds[0], request));
 
         await using var connection = _fixture.CreateConnection();
         var signatureCount = await connection.ExecuteScalarAsync<int>(
@@ -455,7 +474,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
         var workflow = CreateAnswerWorkflowService();
-        Assert.True(workflow.InsertAnswer(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5)).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
 
         await using var connection = _fixture.CreateConnection();
         var userId = await connection.ExecuteScalarAsync<int>(
@@ -466,8 +485,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             """,
             new { OrganizationId = organizationIds[0] });
 
-        var archive = new SurveyArchiveService(_connectionFactory, _assignmentRepository)
-            .GetUserArchivePage(userId, 1, null, null, null, null, signedOnly: false);
+        var archive = await new SurveyArchiveService(_connectionFactory, _assignmentRepository, _definitionRepository)
+            .GetUserArchivePageAsync(userId, 1, null, null, null, null, signedOnly: false);
 
         Assert.NotNull(archive);
         Assert.Contains(archive!.ArchivedSurveys, item => item.IdSurvey == survey.SurveyId);
@@ -482,7 +501,9 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             _connectionFactory,
             NullLogger<SurveyAutoCreationService>.Instance,
             new FixedClock(new DateTime(2026, 4, 20)),
-            _assignmentRepository);
+            _assignmentRepository,
+            _definitionRepository,
+            _autoCreationConfigRepository);
 
         var result = await autoCreation.SaveAsync(new SurveyAutoCreationSettingsRequest
         {
@@ -513,7 +534,9 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             _connectionFactory,
             NullLogger<SurveyAutoCreationService>.Instance,
             new FixedClock(new DateTime(2026, 4, 20)),
-            _assignmentRepository);
+            _assignmentRepository,
+            _definitionRepository,
+            _autoCreationConfigRepository);
 
         var startResult = await autoCreation.StartAsync(new SurveyAutoCreationSettingsRequest
         {
@@ -553,6 +576,132 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         });
         Assert.True(repeatedRun.Processed);
         Assert.Equal(0, repeatedRun.CreatedSurveyCount);
+    }
+
+    [RequiresPostgresFact]
+    public async Task ClockDrivenRepositories_UseInjectedDateInsteadOfDatabaseCurrentDate()
+    {
+        const string organizationName = "Организация тестовых часов";
+        const string userLogin = "clock-driven-user";
+        var dateEnd = new DateTime(2026, 1, 15);
+
+        await using var connection = _fixture.CreateConnection();
+        var organizationId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.organization (organization_name, organization_short_name, date_begin, date_end)
+            VALUES (@Name, 'Часы', '2026-01-01', @DateEnd)
+            RETURNING id_organization;
+            """,
+            new { Name = organizationName, DateEnd = dateEnd });
+        var userId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin, date_end)
+            VALUES (@OrganizationId, @Login, 'Пользователь часов', 'user', 'hash', '2026-01-01', @DateEnd)
+            RETURNING id_user;
+            """,
+            new { OrganizationId = organizationId, Login = userLogin, DateEnd = dateEnd });
+        var surveyId = await connection.ExecuteScalarAsync<int>(
+            "INSERT INTO public.survey (name_survey, description) VALUES ('Анкета тестовых часов', '') RETURNING id_survey;");
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
+            VALUES (@OrganizationId, @SurveyId, '2026-01-01', @DateEnd);
+            """,
+            new { OrganizationId = organizationId, SurveyId = surveyId, DateEnd = dateEnd });
+
+        var beforeEndClock = new FixedClock(dateEnd);
+        var afterEndClock = new FixedClock(dateEnd.AddDays(1));
+
+        var activeOrganizations = await new OrganizationRepository(_connectionFactory, beforeEndClock).GetActiveOptionsAsync();
+        var archivedOrganizations = await new OrganizationRepository(_connectionFactory, afterEndClock).GetActiveOptionsAsync();
+        var activeUsers = await new UserRepository(_connectionFactory, beforeEndClock).GetPageAsync(false, "name", "asc", 50, 0);
+        var archivedUsers = await new UserRepository(_connectionFactory, afterEndClock).GetPageAsync(false, "name", "asc", 50, 0);
+        var activeSurveys = await new SurveyAssignmentRepository(beforeEndClock).GetActiveSurveySummariesAsync(connection);
+        var archivedSurveys = await new SurveyAssignmentRepository(afterEndClock).GetActiveSurveySummariesAsync(connection);
+
+        Assert.Contains(activeOrganizations, item => item.Id == organizationId);
+        Assert.DoesNotContain(archivedOrganizations, item => item.Id == organizationId);
+        Assert.Contains(activeUsers, item => item.IdUser == userId);
+        Assert.DoesNotContain(archivedUsers, item => item.IdUser == userId);
+        Assert.Contains(activeSurveys, item => item.IdSurvey == surveyId);
+        Assert.DoesNotContain(archivedSurveys, item => item.IdSurvey == surveyId);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AuthAndUserChromeReadRepositories_ReturnCurrentUserContext()
+    {
+        await using var connection = _fixture.CreateConnection();
+        var organizationId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.organization (organization_name, organization_short_name, date_begin)
+            VALUES ('Организация входа', 'Вход', CURRENT_DATE)
+            RETURNING id_organization;
+            """);
+        const string login = "read-auth-user";
+        const string password = "integration-password";
+        var passwordHash = new PasswordHasher<string>().HashPassword(login, password);
+        var userId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin)
+            VALUES (@OrganizationId, @Login, 'Пользователь входа', 'user', @PasswordHash, CURRENT_DATE)
+            RETURNING id_user;
+            """,
+            new { OrganizationId = organizationId, Login = login, PasswordHash = passwordHash });
+
+        var authRepository = new AuthRepository(_connectionFactory);
+        var loginResult = await new AuthService(authRepository).AuthenticateAsync(login, password);
+        var chrome = await new UserChromeRepository(_connectionFactory).GetByUserIdAsync(userId);
+
+        Assert.True(loginResult.Success);
+        Assert.Equal(userId, loginResult.UserId);
+        Assert.Equal("user", loginResult.Role);
+        Assert.Equal("Вход", loginResult.OrganizationName);
+        Assert.NotNull(chrome);
+        Assert.Equal(userId, chrome.UserId);
+        Assert.Equal(login, chrome.UserName);
+        Assert.Equal("Вход", chrome.OrganizationName);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AnswerAndReportReadRepositories_ReturnSubmittedAnswersAndReportSources()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var workflow = CreateAnswerWorkflowService();
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 4))).Success);
+
+        var answerRepository = new AnswerReadRepository(_connectionFactory);
+        var answerPage = await answerRepository.GetListAsync(new AnswerListReadRequest(
+            [],
+            [],
+            null,
+            null,
+            AnswerReadSortFields.Date,
+            "desc",
+            1,
+            10));
+        var answerItems = await answerRepository.GetSurveyAnswersAsync(survey.SurveyId.Value);
+        var signatures = await answerRepository.GetSignatureStatusAsync(survey.SurveyId.Value);
+        var statistics = await answerRepository.GetStatisticsAsync();
+
+        var reportRepository = new SurveyReportRepository(_connectionFactory);
+        var reportName = await reportRepository.GetSurveyNameAsync(survey.SurveyId.Value);
+        var reportQuestions = await reportRepository.GetSurveyQuestionsAsync(survey.SurveyId.Value);
+        var reportAnswers = await reportRepository.GetSurveyAnswersAsync(survey.SurveyId.Value, organizationIds[0]);
+        var reportSurveys = await reportRepository.GetSurveysAsync();
+        var allReportAnswers = await reportRepository.GetAnswersAsync();
+
+        Assert.Contains(answerPage.Rows, item => item.IdSurvey == survey.SurveyId);
+        Assert.Single(answerItems);
+        Assert.Equal(2, answerItems[0].Answers.Count);
+        Assert.Contains(signatures.Rows, item => item.IsCompleted && item.OrganizationName == "Орг 1");
+        Assert.NotEmpty(statistics.ByYear);
+        Assert.Equal("Интеграционная анкета", reportName);
+        Assert.Equal(2, reportQuestions.Count);
+        Assert.Single(reportAnswers);
+        Assert.Equal(2, reportAnswers[0].Answers.Count);
+        Assert.Contains(reportSurveys, item => item.IdSurvey == survey.SurveyId && item.Questions.Count == 2);
+        Assert.Contains(allReportAnswers, item => item.IdSurvey == survey.SurveyId);
     }
 
     private AnswerWorkflowService CreateAnswerWorkflowService()
@@ -598,7 +747,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
     private async Task<SurveyCommandResult> CreateSurveyAsync(IReadOnlyList<int> organizationIds)
     {
-        var result = await new SurveyAdminService(_connectionFactory, _assignmentRepository).CreateSurveyAsync(new SurveyAddRequest
+        var result = await new SurveyAdminService(_connectionFactory, _assignmentRepository, _definitionRepository, _clock).CreateSurveyAsync(new SurveyAddRequest
         {
             Title = "Интеграционная анкета",
             Description = "Проверка сценария назначений",
@@ -636,7 +785,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             ]
         };
 
-    private static bool TrySaveSignature(
+    private static async Task<bool> TrySaveSignatureAsync(
         AnswerSigningService signing,
         int surveyId,
         int organizationId,
@@ -644,7 +793,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     {
         try
         {
-            return signing.SaveSignature(surveyId, organizationId, request);
+            return await signing.SaveSignatureAsync(surveyId, organizationId, request);
         }
         catch (AnswerAlreadySignedException)
         {

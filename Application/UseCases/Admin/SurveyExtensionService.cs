@@ -11,18 +11,23 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<SurveyExtensionService> _logger;
     private readonly ISurveyAssignmentRepository _assignmentRepository;
+    private readonly IClock _clock;
 
     public SurveyExtensionService(
         IDbConnectionFactory connectionFactory,
         ILogger<SurveyExtensionService> logger,
-        ISurveyAssignmentRepository assignmentRepository)
+        ISurveyAssignmentRepository assignmentRepository,
+        IClock clock)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
         _assignmentRepository = assignmentRepository;
+        _clock = clock;
     }
 
-    public OperationResult SaveExtensions(SurveyExtensionRequest request)
+    public async Task<OperationResult> SaveExtensionsAsync(
+        SurveyExtensionRequest request,
+        CancellationToken cancellationToken = default)
     {
         if (request.Extensions.Count == 0)
         {
@@ -46,8 +51,8 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
             };
         }
 
-        using var connection = _connectionFactory.CreateConnection();
-        using var transaction = connection.BeginTransaction();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         try
         {
@@ -58,17 +63,18 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
             {
                 var endDate = DateTime.Parse(extension.ExtendedUntil).Date;
 
-                affectedAssignments += _assignmentRepository.UpsertSurveyEndDate(
+                affectedAssignments += await _assignmentRepository.UpsertSurveyEndDateAsync(
                     connection,
                     transaction,
                     request.SurveyId,
                     extension.OrganizationId,
-                    endDate);
+                    endDate,
+                    cancellationToken);
             }
 
             if (affectedAssignments == 0)
             {
-                transaction.Rollback();
+                await transaction.RollbackAsync(cancellationToken);
 
                 return new OperationResult
                 {
@@ -78,7 +84,7 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
                 };
             }
 
-            transaction.Commit();
+            await transaction.CommitAsync(cancellationToken);
 
             return new OperationResult
             {
@@ -91,7 +97,7 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
         }
         catch (PostgresException ex)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             _logger.LogError(ex, "Ошибка PostgreSQL при продлении анкеты {SurveyId}", request.SurveyId);
 
             return new OperationResult
@@ -104,7 +110,7 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
         }
         catch (Exception ex)
         {
-            transaction.Rollback();
+            await transaction.RollbackAsync(cancellationToken);
             _logger.LogError(ex, "Ошибка при продлении анкеты {SurveyId}", request.SurveyId);
 
             return new OperationResult
@@ -116,7 +122,7 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
         }
     }
 
-    private static IReadOnlyList<string> ValidateRequest(SurveyExtensionRequest request)
+    private IReadOnlyList<string> ValidateRequest(SurveyExtensionRequest request)
     {
         var errors = new List<string>();
 
@@ -132,7 +138,7 @@ public sealed class SurveyExtensionService : ISurveyExtensionService
                 errors.Add($"Неверный ID организации: {extension.OrganizationId}");
             }
 
-            if (!DateTime.TryParse(extension.ExtendedUntil, out var endDate) || endDate <= DateTime.Today)
+            if (!DateTime.TryParse(extension.ExtendedUntil, out var endDate) || endDate.Date <= _clock.Today.Date)
             {
                 errors.Add($"Неверная дата конца: {extension.ExtendedUntil}");
             }

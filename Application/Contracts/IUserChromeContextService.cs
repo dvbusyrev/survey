@@ -4,5 +4,5 @@ namespace MainProject.Application.Contracts;
 
 public interface IUserChromeContextService
 {
-    UserChromeContext GetCurrentContext();
+    Task<UserChromeContext> GetCurrentContextAsync(CancellationToken cancellationToken = default);
 }

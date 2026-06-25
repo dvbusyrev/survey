@@ -43,9 +43,9 @@ public sealed class DatabaseMigrationTests
     public void UnifiedSchemaMigration_UsesPortableCurrentSchemaBaseline()
     {
         var migration = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_unified_schema.sql"));
-        var schema = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "001_current_schema.sql"));
+        var schema = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "bootstrap", "001_base_schema.sql"));
 
-        Assert.Contains(@"\ir 001_current_schema.sql", migration);
+        Assert.Contains(@"\ir ../bootstrap/001_base_schema.sql", migration);
         Assert.Contains("('017', 'rename_app_user_credentials')", migration);
         Assert.Contains("('018', 'add_audit_log_current_tables')", migration);
         Assert.Contains("('019', 'store_audit_old_new_rows')", migration);

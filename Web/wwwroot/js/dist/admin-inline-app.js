@@ -534,1828 +534,873 @@
     return renderFooter(host);
   };
 
-  // Web/wwwroot/js/features/admin/admin-inline-pages.js
-  (() => {
-    const adminInlineAppPages = window.AdminInlineAppPages || (window.AdminInlineAppPages = {});
-    adminInlineAppPages.mountExtensionModal = function mountExtensionModal(host, options = {}) {
-      if (!host) {
-        return null;
+  // Web/wwwroot/js/features/admin/admin-inline-page-loader.js
+  var DETACHED_CONTENT_HOST_ID = "admin-inline-detached-content";
+  var loadedStylesheetUrls = /* @__PURE__ */ new Set();
+  var loadedScriptUrls = /* @__PURE__ */ new Set();
+  var loadedAssetsPrimed = false;
+  function parseHtmlDocument(html) {
+    const parser = new DOMParser();
+    return parser.parseFromString(html || "", "text/html");
+  }
+  function normalizeAssetUrl(url) {
+    if (!url) {
+      return "";
+    }
+    try {
+      return new URL(url, window.location.origin).href;
+    } catch (error) {
+      return "";
+    }
+  }
+  function primeLoadedAssets() {
+    if (loadedAssetsPrimed) {
+      return;
+    }
+    document.querySelectorAll('link[rel="stylesheet"][href]').forEach((link) => {
+      const href = normalizeAssetUrl(link.href);
+      if (href) {
+        loadedStylesheetUrls.add(href);
       }
-      const {
-        survey,
-        onClose,
-        submitButton: externalSubmitButton = null,
-        cancelButton: externalCancelButton = null
-      } = options;
-      const closeModal = typeof onClose === "function" ? onClose : () => {
-      };
-      const hasExternalActions = Boolean(externalSubmitButton || externalCancelButton);
-      let disposed = false;
-      let organizations = [];
-      let loading = true;
-      let error = "";
-      let extension = { organizationIds: [], extendedUntil: "" };
-      let isOrganizationPanelOpen = false;
-      const today = window.AppDate?.todayIso?.() || (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-      const minEndDate = (() => {
-        const date = /* @__PURE__ */ new Date();
-        date.setDate(date.getDate() + 1);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      })();
-      const isFormValid = () => {
-        return Boolean(
-          extension.organizationIds.length > 0 && extension.extendedUntil && window.AppDate?.compare(extension.extendedUntil, today) > 0
-        );
-      };
-      const handleChange = (field, value) => {
-        extension = {
-          ...extension,
-          [field]: value
-        };
-        render();
-      };
-      const toggleOrganization = (organizationId, isSelected) => {
-        const normalizedId = String(organizationId || "");
-        if (!normalizedId) {
-          return;
-        }
-        const currentIds = new Set(extension.organizationIds);
-        if (isSelected) {
-          currentIds.add(normalizedId);
-        } else {
-          currentIds.delete(normalizedId);
-        }
-        extension = {
-          ...extension,
-          organizationIds: Array.from(currentIds)
-        };
-        isOrganizationPanelOpen = true;
-        render();
-      };
-      const closeOrganizationPanel = () => {
-        if (!isOrganizationPanelOpen || disposed) {
-          return;
-        }
-        isOrganizationPanelOpen = false;
-        render();
-      };
-      const handleDocumentPointerDown = (event) => {
-        if (!host.contains(event.target)) {
-          closeOrganizationPanel();
-        }
-      };
-      const handleDocumentKeyDown = (event) => {
-        if (event.key === "Escape") {
-          closeOrganizationPanel();
-        }
-      };
-      const updateCheckboxListHeight = (container) => {
-        const list = container?.querySelector(".app-checkbox-list");
-        if (!list) {
-          return;
-        }
-        const listTop = list.getBoundingClientRect().top;
-        const availableHeight = Math.max(160, window.innerHeight - listTop - 24);
-        list.style.setProperty("--app-checkbox-list-max-height", `${availableHeight}px`);
-      };
-      const scheduleCheckboxListHeightUpdate = (container) => {
-        window.requestAnimationFrame(() => updateCheckboxListHeight(container));
-      };
-      const handleSubmit = async () => {
-        if (extension.organizationIds.length === 0 || !extension.extendedUntil) {
-          window.siteNotify?.("Пожалуйста, заполните все поля.", "error");
-          return;
-        }
-        if ((window.AppDate?.compare(extension.extendedUntil, today) ?? -1) <= 0) {
-          window.siteNotify?.("Дата конца должна быть в будущем.", "error");
-          return;
-        }
-        try {
-          const response = await fetch("/survey-extensions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "RequestVerificationToken": document.querySelector('input[name="__RequestVerificationToken"]')?.value || ""
-            },
-            body: JSON.stringify({
-              surveyId: survey?.id_survey,
-              extensions: extension.organizationIds.map((organizationId) => ({
-                organizationId: parseInt(organizationId, 10),
-                extendedUntil: extension.extendedUntil
-              }))
-            })
-          });
-          const responseText = await response.text();
-          let responseData = null;
-          try {
-            responseData = JSON.parse(responseText);
-          } catch (parseError) {
-            console.error("Не удалось разобрать ответ сервера:", parseError);
-          }
-          if (!response.ok || !responseData?.success) {
-            const validationErrors = Array.isArray(responseData?.errors) ? responseData.errors.filter(Boolean).join("\n") : "";
-            throw new Error(
-              validationErrors || responseData?.error || responseData?.message || responseText || (window.getResponseErrorMessage ? window.getResponseErrorMessage(response, "Ошибка продления") : `Ошибка продления: ${response.status}`)
-            );
-          }
-          closeModal();
-          if (typeof window.handleAdminMutationSuccess === "function") {
-            await window.handleAdminMutationSuccess({
-              message: responseData.message || "Доступ успешно продлён",
-              tabName: typeof window.resolveCurrentAdminTab === "function" ? window.resolveCurrentAdminTab() : "get_surveys",
-              fallbackUrl: window.location.pathname
-            });
-            return;
-          }
-          window.siteNotify?.(responseData.message || "Доступ успешно продлён", "success");
-          window.location.reload();
-        } catch (submitError) {
-          console.error("Ошибка продления анкеты:", submitError);
-          window.siteNotify?.(submitError.message || "Не удалось продлить доступ.", "error");
-        }
-      };
-      const render = () => {
-        if (disposed) {
-          return;
-        }
-        const template = document.getElementById("admin-extension-modal-template");
-        const rowTemplate = document.getElementById("admin-extension-modal-row-template");
-        if (!host || !template?.content?.firstElementChild || !rowTemplate?.content?.firstElementChild) {
-          return;
-        }
-        host.replaceChildren();
-        const root = template.content.firstElementChild.cloneNode(true);
-        root.classList.toggle("admin-extension-modal-root--external-actions", hasExternalActions);
-        const surveyName = root.querySelector('[data-role="survey-name"]');
-        const errorNode = root.querySelector('[data-role="error"]');
-        const rowsContainer = root.querySelector('[data-role="rows-container"]');
-        const emptyState = root.querySelector('[data-role="empty-state"]');
-        const submitButton = externalSubmitButton || root.querySelector('[data-role="submit"]');
-        const cancelButton = externalCancelButton || root.querySelector('[data-role="cancel"]');
-        if (surveyName) {
-          surveyName.textContent = `Анкета: "${survey?.name_survey || ""}"`;
-        }
-        if (errorNode) {
-          errorNode.textContent = "";
-          errorNode.style.display = "none";
-        }
-        const showRows = !loading && organizations.length > 0;
-        if (rowsContainer) {
-          rowsContainer.style.display = showRows ? "" : "none";
-        }
-        if (emptyState) {
-          emptyState.style.display = !loading && !error && organizations.length === 0 ? "" : "none";
-        }
-        if (showRows && rowsContainer) {
-          const row = rowTemplate.content.firstElementChild.cloneNode(true);
-          const organizationTrigger = row.querySelector('[data-role="organization-trigger"]');
-          const organizationLabel = row.querySelector('[data-role="organization-label"]');
-          const organizationPanel = row.querySelector('[data-role="organization-panel"]');
-          const organizationOptions = row.querySelector('[data-role="organization-options"]');
-          const dateInput = row.querySelector('[data-role="date-input"]');
-          const selectedOrganizationIds = new Set(extension.organizationIds);
-          if (organizationTrigger) {
-            organizationTrigger.setAttribute("aria-expanded", isOrganizationPanelOpen ? "true" : "false");
-            organizationTrigger.addEventListener("click", (event) => {
-              event.preventDefault();
-              isOrganizationPanelOpen = !isOrganizationPanelOpen;
-              render();
-            });
-          }
-          if (organizationLabel) {
-            const selectedOrganizations = organizations.filter((organization) => selectedOrganizationIds.has(organization.organizationId));
-            organizationLabel.textContent = selectedOrganizations.length === 0 ? "Выберите организации" : selectedOrganizations.length === 1 ? selectedOrganizations[0].organizationName : `Выбрано: ${selectedOrganizations.length}`;
-          }
-          if (organizationPanel) {
-            organizationPanel.classList.toggle("is-hidden", !isOrganizationPanelOpen);
-          }
-          if (organizationOptions) {
-            organizations.forEach((organization) => {
-              const optionLabel = document.createElement("label");
-              const checkbox = document.createElement("input");
-              const labelText = document.createElement("span");
-              const isSelected = selectedOrganizationIds.has(organization.organizationId);
-              optionLabel.className = "app-checkbox-option";
-              optionLabel.classList.toggle("is-selected", isSelected);
-              optionLabel.setAttribute("role", "option");
-              optionLabel.setAttribute("aria-selected", isSelected ? "true" : "false");
-              checkbox.type = "checkbox";
-              checkbox.className = "app-checkbox-input";
-              checkbox.checked = isSelected;
-              checkbox.value = organization.organizationId;
-              checkbox.addEventListener("change", (event) => {
-                toggleOrganization(organization.organizationId, event.target.checked);
-              });
-              labelText.className = "app-checkbox-text";
-              labelText.textContent = organization.organizationName;
-              optionLabel.appendChild(checkbox);
-              optionLabel.appendChild(labelText);
-              organizationOptions.appendChild(optionLabel);
-            });
-          }
-          if (dateInput) {
-            dateInput.dataset.dateMin = minEndDate;
-            dateInput.min = minEndDate;
-            dateInput.value = extension.extendedUntil;
-            if (window.AppDate?.enhanceDateInputs) {
-              window.AppDate.enhanceDateInputs(row);
-            }
-            if (window.AppDate?.setInputValue) {
-              window.AppDate.setInputValue(dateInput, extension.extendedUntil);
-            } else {
-              dateInput.value = extension.extendedUntil;
-            }
-            dateInput.addEventListener("change", (event) => {
-              handleChange("extendedUntil", window.AppDate?.getInputIso(event.target) || event.target.value);
-            });
-          }
-          rowsContainer.appendChild(row);
-        }
-        if (submitButton) {
-          submitButton.disabled = !isFormValid() || loading;
-          submitButton.textContent = loading ? "Обработка..." : "Продлить доступ";
-          submitButton.style.removeProperty("background-color");
-          submitButton.style.opacity = isFormValid() ? "1" : "0.6";
-          submitButton.onclick = handleSubmit;
-        }
-        if (cancelButton) {
-          cancelButton.onclick = closeModal;
-        }
-        host.appendChild(root);
-        if (isOrganizationPanelOpen) {
-          scheduleCheckboxListHeightUpdate(root);
-        }
-      };
-      const fetchOrganizations = async () => {
-        try {
-          loading = true;
-          render();
-          const response = await fetch("/organizations/data");
-          if (!response.ok) {
-            throw new Error(
-              window.getResponseErrorMessage ? window.getResponseErrorMessage(response, "Не удалось загрузить организации") : `Не удалось загрузить организации: ${response.status}`
-            );
-          }
-          const data = await response.json();
-          organizations = Array.isArray(data) ? data.filter((org) => org && (org.id_organization !== void 0 || org.id !== void 0)).map((org) => ({
-            organizationId: String(org.id_organization ?? org.id),
-            organizationName: String(org.organization_name ?? org.name ?? "")
-          })).filter((org) => org.organizationName) : [];
-          error = "";
-        } catch (fetchError) {
-          console.error("Ошибка загрузки организаций:", fetchError);
-          error = fetchError.message || "Не удалось загрузить список организаций";
-          if (typeof window.siteNotify === "function") {
-            window.siteNotify(error, "error", { title: "Ошибка" });
-          } else {
-            window.alert(error);
-          }
-        } finally {
-          loading = false;
-          render();
-        }
-      };
-      document.addEventListener("pointerdown", handleDocumentPointerDown, true);
-      document.addEventListener("keydown", handleDocumentKeyDown);
-      render();
-      fetchOrganizations();
-      return () => {
-        disposed = true;
-        document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
-        document.removeEventListener("keydown", handleDocumentKeyDown);
-        if (externalSubmitButton) {
-          externalSubmitButton.onclick = null;
-          externalSubmitButton.disabled = true;
-          externalSubmitButton.style.removeProperty("background-color");
-          externalSubmitButton.style.removeProperty("opacity");
-        }
-        if (externalCancelButton) {
-          externalCancelButton.onclick = null;
-        }
-        host.replaceChildren();
-      };
-    };
-    adminInlineAppPages.mountStatisticsPage = function mountStatisticsPage(host) {
-      if (!host) {
-        return null;
+    });
+    document.querySelectorAll("script[src]").forEach((script) => {
+      const src = normalizeAssetUrl(script.src);
+      if (src) {
+        loadedScriptUrls.add(src);
       }
-      let disposed = false;
-      let chartsData = null;
-      let loading = true;
-      let error = "";
-      const chartRefs = {
-        line: null,
-        bar: null,
-        radar: null
-      };
-      const chartInstances = {
-        line: null,
-        bar: null,
-        radar: null
-      };
-      const destroyCharts = () => {
-        Object.values(chartInstances).forEach((chart) => {
-          if (chart) {
-            chart.destroy();
-          }
-        });
-        chartInstances.line = null;
-        chartInstances.bar = null;
-        chartInstances.radar = null;
-      };
-      const renderCharts = () => {
-        if (loading || error || !chartsData) {
-          return;
-        }
-        if (typeof Chart === "undefined") {
-          error = "Chart.js не загружен.";
-          render();
-          return;
-        }
-        destroyCharts();
-        const yearGuideLinePlugin = {
-          id: "adminStatisticsYearGuideLine",
-          beforeDatasetsDraw(chart, _args, options) {
-            const yScale = chart.scales.y;
-            const meta = chart.getDatasetMeta(0);
-            if (!yScale || !meta || meta.hidden) {
-              return;
-            }
-            const startY = yScale.getPixelForValue(0);
-            const color = options?.color || "rgba(79, 70, 229, 0.25)";
-            const lineWidth = options?.lineWidth || 2;
-            chart.ctx.save();
-            chart.ctx.strokeStyle = color;
-            chart.ctx.lineWidth = lineWidth;
-            meta.data.forEach((point) => {
-              if (!point || point.skip) {
-                return;
-              }
-              chart.ctx.beginPath();
-              chart.ctx.moveTo(point.x, startY);
-              chart.ctx.lineTo(point.x, point.y);
-              chart.ctx.stroke();
-            });
-            chart.ctx.restore();
-          }
-        };
-        const getThemeCssValue = (name, fallback) => {
-          const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-          return value || fallback;
-        };
-        const getChartTextColor = () => getThemeCssValue(
-          "--text-main",
-          getThemeCssValue("--app-theme-font-color", "#343D4B")
-        );
-        const getChartSecondaryTextColor = () => getThemeCssValue("--text-secondary", getChartTextColor());
-        const getChartGridColor = () => getThemeCssValue("--border", "rgba(52, 61, 75, 0.12)");
-        const getScoreScale = () => ({
-          type: "linear",
-          min: 0,
-          max: 5,
-          ticks: {
-            stepSize: 1,
-            color: getChartTextColor()
-          },
-          title: {
-            display: true,
-            text: "Средняя оценка",
-            color: getChartTextColor()
-          },
-          grid: {
-            color: getChartGridColor()
-          }
-        });
-        const buildCommonOptions = (showLegend) => {
-          const textColor = getChartTextColor();
-          return {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: Boolean(showLegend),
-                position: "bottom",
-                labels: {
-                  padding: 14,
-                  boxWidth: 12,
-                  color: textColor,
-                  font: {
-                    size: 12
-                  }
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  label(context) {
-                    const value = context.parsed?.y ?? context.parsed?.x ?? context.parsed;
-                    const numericValue = Number(value);
-                    if (Number.isFinite(numericValue)) {
-                      return `${context.dataset.label || "Средняя оценка"}: ${numericValue.toFixed(2)}`;
-                    }
-                    return context.dataset.label || "";
-                  }
-                }
-              }
-            },
-            layout: {
-              padding: {
-                top: 10,
-                bottom: showLegend ? 20 : 10
-              }
-            }
-          };
-        };
-        if (chartRefs.line && chartsData.lineChart) {
-          const chartTextColor = getChartTextColor();
-          const yearLabels = chartsData.lineChart.labels || [];
-          const yearData = chartsData.lineChart.data || [];
-          chartInstances.line = new Chart(chartRefs.line, {
-            type: "line",
-            data: {
-              labels: yearLabels,
-              datasets: [{
-                label: chartsData.lineChart.label || "Средняя оценка",
-                data: yearData,
-                borderColor: "rgb(79, 70, 229)",
-                backgroundColor: "rgb(79, 70, 229)",
-                borderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                tension: 0.2
-              }]
-            },
-            options: {
-              ...buildCommonOptions(false),
-              scales: {
-                x: {
-                  ticks: {
-                    color: chartTextColor
-                  },
-                  grid: {
-                    display: false
-                  }
-                },
-                y: getScoreScale()
-              },
-              plugins: {
-                ...buildCommonOptions(false).plugins,
-                adminStatisticsYearGuideLine: {
-                  color: "rgba(79, 70, 229, 0.32)",
-                  lineWidth: 2
-                }
-              }
-            },
-            plugins: [yearGuideLinePlugin]
-          });
-        }
-        if (chartRefs.bar && chartsData.barChart) {
-          const chartTextColor = getChartTextColor();
-          chartInstances.bar = new Chart(chartRefs.bar, {
-            type: "bar",
-            data: {
-              labels: chartsData.barChart.labels || [],
-              datasets: [{
-                label: chartsData.barChart.label || "Средняя оценка",
-                data: chartsData.barChart.data || [],
-                backgroundColor: "rgba(14, 165, 233, 0.72)",
-                borderColor: "rgb(14, 165, 233)",
-                borderWidth: 1
-              }]
-            },
-            options: {
-              ...buildCommonOptions(false),
-              scales: {
-                x: {
-                  ticks: {
-                    color: chartTextColor
-                  },
-                  grid: {
-                    display: false
-                  }
-                },
-                y: getScoreScale()
-              }
-            }
-          });
-        }
-        if (chartRefs.radar && chartsData.avgScoreByOrganizationRadar) {
-          const chartSecondaryTextColor = getChartSecondaryTextColor();
-          chartInstances.radar = new Chart(chartRefs.radar, {
-            type: "bar",
-            data: {
-              labels: chartsData.avgScoreByOrganizationRadar.labels || [],
-              datasets: (chartsData.avgScoreByOrganizationRadar.datasets || []).map((dataset) => ({
-                ...dataset,
-                grouped: false,
-                borderWidth: 1,
-                barPercentage: 0.78,
-                categoryPercentage: 0.92
-              }))
-            },
-            options: {
-              ...buildCommonOptions(true),
-              scales: {
-                x: {
-                  ticks: {
-                    display: false,
-                    color: chartSecondaryTextColor
-                  },
-                  grid: {
-                    display: false
-                  }
-                },
-                y: getScoreScale()
-              },
-              plugins: {
-                ...buildCommonOptions(true).plugins,
-                tooltip: {
-                  callbacks: {
-                    title(items) {
-                      return items[0]?.dataset?.label || "";
-                    },
-                    label(context) {
-                      const value = Number(context.parsed?.y || 0);
-                      return `Средняя оценка: ${value.toFixed(2)}`;
-                    }
-                  }
-                }
-              }
-            }
-          });
-        }
-      };
-      const render = () => {
-        if (disposed) {
-          return;
-        }
-        host.innerHTML = "";
-        if (loading) {
-          return;
-        }
-        if (error) {
-          return;
-        }
-        const template = document.getElementById("admin-statistics-template");
-        if (!template?.content?.firstElementChild) {
-          return;
-        }
-        const root = template.content.firstElementChild.cloneNode(true);
-        chartRefs.line = root.querySelector('[data-role="line-chart"]');
-        chartRefs.bar = root.querySelector('[data-role="bar-chart"]');
-        chartRefs.radar = root.querySelector('[data-role="radar-chart"]');
-        host.appendChild(root);
-        renderCharts();
-      };
-      const loadData = async () => {
-        try {
-          await fetch("/statistics");
-          const response = await fetch("/statistics/data");
-          if (!response.ok) {
-            throw new Error(
-              window.getResponseErrorMessage ? window.getResponseErrorMessage(response, "Ошибка загрузки статистики") : "Ошибка загрузки статистики"
-            );
-          }
-          chartsData = await response.json();
-        } catch (loadError) {
-          console.error("Ошибка загрузки статистики:", loadError);
-          error = loadError.message || "Не удалось загрузить данные статистики.";
-          if (typeof window.siteNotify === "function") {
-            window.siteNotify(error, "error", { title: "Ошибка" });
-          } else {
-            window.alert(error);
-          }
-        } finally {
-          loading = false;
-          render();
-        }
-      };
-      render();
-      loadData();
-      return () => {
-        disposed = true;
-        destroyCharts();
-        host.innerHTML = "";
-      };
-    };
-    function getEmailField(id) {
-      return document.getElementById(id);
+    });
+    loadedAssetsPrimed = true;
+  }
+  function isThemeStylesheetUrl(href) {
+    try {
+      return new URL(href, window.location.origin).pathname.endsWith("/css/shared/app-theme.css");
+    } catch (error) {
+      return false;
     }
-    function getEmailTrimmedValue(id) {
-      return (getEmailField(id)?.value || "").trim();
+  }
+  function getThemeStylesheetAnchor() {
+    return Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).find((link) => isThemeStylesheetUrl(link.getAttribute("href") || link.href)) || document.getElementById("app-theme-inline");
+  }
+  function normalizeThemeStylesheetOrder() {
+    const themeAnchor = getThemeStylesheetAnchor();
+    const head = themeAnchor?.parentNode;
+    if (!head) {
+      return;
     }
-    function splitEmailRecipients(value) {
-      return String(value || "").split(/[;,\r\n]+/).map((item) => item.trim()).filter(Boolean);
+    const children = Array.from(head.children);
+    const themeIndex = children.indexOf(themeAnchor);
+    if (themeIndex < 0) {
+      return;
     }
-    function isValidEmailAddress(email) {
-      const value = String(email || "").trim();
-      if (!value) {
-        return false;
+    children.slice(themeIndex + 1).forEach((node) => {
+      if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet" && !isThemeStylesheetUrl(node.getAttribute("href") || node.href)) {
+        head.insertBefore(node, themeAnchor);
       }
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    });
+  }
+  function insertStylesheetBeforeTheme(link) {
+    normalizeThemeStylesheetOrder();
+    const themeAnchor = getThemeStylesheetAnchor();
+    if (themeAnchor?.parentNode) {
+      themeAnchor.parentNode.insertBefore(link, themeAnchor);
+      return;
     }
-    function setEmailInvalidState(id, isInvalid) {
-      const element = getEmailField(id);
-      if (!element) {
+    document.head.appendChild(link);
+  }
+  function loadStylesheetsFromDocument(parsedDocument) {
+    primeLoadedAssets();
+    normalizeThemeStylesheetOrder();
+    parsedDocument.querySelectorAll('link[rel="stylesheet"][href]').forEach((sourceLink) => {
+      const href = normalizeAssetUrl(sourceLink.getAttribute("href"));
+      if (!href || loadedStylesheetUrls.has(href)) {
         return;
       }
-      element.classList.toggle("invalid", Boolean(isInvalid));
-      element.setAttribute("aria-invalid", isInvalid ? "true" : "false");
-    }
-    function clearEmailInvalidStates() {
-      [
-        "email-to",
-        "email-subject",
-        "email-content",
-        "email-smtp-host",
-        "email-smtp-port",
-        "email-smtp-user-name",
-        "email-smtp-password",
-        "email-from-address",
-        "email-from-display-name"
-      ].forEach((id) => setEmailInvalidState(id, false));
-    }
-    const emailSettingsPageState = {
-      savedSettings: null
-    };
-    function collectEmailSettingsPayload() {
-      const smtpPortValue = Number.parseInt(getEmailField("email-smtp-port")?.value || "", 10);
-      return {
-        to: getEmailTrimmedValue("email-to"),
-        subject: getEmailTrimmedValue("email-subject"),
-        content: (getEmailField("email-content")?.value || "").trim(),
-        smtpHost: getEmailTrimmedValue("email-smtp-host"),
-        smtpPort: Number.isFinite(smtpPortValue) ? smtpPortValue : 0,
-        smtpEnableSsl: (getEmailField("email-smtp-enable-ssl")?.value || "true") === "true",
-        smtpUserName: getEmailTrimmedValue("email-smtp-user-name"),
-        smtpPassword: getEmailField("email-smtp-password")?.value || "",
-        fromAddress: getEmailTrimmedValue("email-from-address"),
-        fromDisplayName: getEmailTrimmedValue("email-from-display-name")
-      };
-    }
-    function setEmailFieldValue(id, value) {
-      const element = getEmailField(id);
-      if (!element) {
-        return;
+      loadedStylesheetUrls.add(href);
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      if (sourceLink.media) {
+        link.media = sourceLink.media;
       }
-      element.value = value == null ? "" : String(value);
-    }
-    function populateEmailSettingsForm(settings) {
-      const normalizedSettings = settings || {};
-      setEmailFieldValue("email-to", normalizedSettings.to);
-      setEmailFieldValue("email-subject", normalizedSettings.subject);
-      setEmailFieldValue("email-content", normalizedSettings.content);
-      setEmailFieldValue("email-smtp-host", normalizedSettings.smtpHost);
-      setEmailFieldValue("email-smtp-port", normalizedSettings.smtpPort || "");
-      setEmailFieldValue("email-smtp-enable-ssl", normalizedSettings.smtpEnableSsl ? "true" : "false");
-      setEmailFieldValue("email-smtp-user-name", normalizedSettings.smtpUserName);
-      setEmailFieldValue("email-smtp-password", normalizedSettings.smtpPassword);
-      setEmailFieldValue("email-from-address", normalizedSettings.fromAddress);
-      setEmailFieldValue("email-from-display-name", normalizedSettings.fromDisplayName);
-    }
-    function resetEmailSettings() {
-      clearEmailInvalidStates();
-      populateEmailSettingsForm(emailSettingsPageState.savedSettings || collectEmailSettingsPayload());
-    }
-    function validateEmailSettingsPayload(settings) {
-      clearEmailInvalidStates();
-      const errors = [];
-      const recipients = splitEmailRecipients(settings.to);
-      if (recipients.length === 0) {
-        errors.push("Поле «Кому» должно содержать хотя бы одну эл. почту");
-        setEmailInvalidState("email-to", true);
-      } else {
-        const invalidRecipients = recipients.filter((email) => !isValidEmailAddress(email));
-        if (invalidRecipients.length > 0) {
-          errors.push(`Поле «Кому» содержит некорректную эл. почту: ${invalidRecipients.join(", ")}`);
-          setEmailInvalidState("email-to", true);
-        }
+      insertStylesheetBeforeTheme(link);
+    });
+  }
+  function loadScriptAsset(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = false;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Не удалось загрузить скрипт: ${src}`));
+      document.body.appendChild(script);
+    });
+  }
+  async function loadScriptsFromDocument(parsedDocument) {
+    primeLoadedAssets();
+    let loadedAnyScript = false;
+    const scriptSources = Array.from(parsedDocument.querySelectorAll("script[src]")).map((script) => normalizeAssetUrl(script.getAttribute("src"))).filter(Boolean).filter((src, index, list) => list.indexOf(src) === index);
+    for (const src of scriptSources) {
+      if (loadedScriptUrls.has(src)) {
+        continue;
       }
-      if (!settings.subject) {
-        errors.push("Поле «Тема» обязательно");
-        setEmailInvalidState("email-subject", true);
-      }
-      if (!settings.content) {
-        errors.push("Поле «Содержание» обязательно");
-        setEmailInvalidState("email-content", true);
-      }
-      if (!settings.smtpHost) {
-        errors.push("Поле «SMTP сервер» обязательно");
-        setEmailInvalidState("email-smtp-host", true);
-      }
-      if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
-        errors.push("Поле «Порт SMTP» должно быть числом от 1 до 65535");
-        setEmailInvalidState("email-smtp-port", true);
-      }
-      if (!isValidEmailAddress(settings.fromAddress)) {
-        errors.push("Поле «Эл. почта отправителя» заполнено некорректно");
-        setEmailInvalidState("email-from-address", true);
-      }
-      const hasUserName = Boolean(settings.smtpUserName);
-      const hasPassword = Boolean(settings.smtpPassword);
-      if (hasUserName !== hasPassword) {
-        errors.push("Логин SMTP и пароль SMTP должны быть заполнены вместе");
-        setEmailInvalidState("email-smtp-user-name", true);
-        setEmailInvalidState("email-smtp-password", true);
-      }
-      return errors;
-    }
-    async function extractEmailApiErrors(response) {
-      const fallbackMessage = typeof window.getResponseErrorMessage === "function" ? window.getResponseErrorMessage(response, "Ошибка") : "Не удалось выполнить запрос.";
-      const responseText = await response.text();
-      if (!responseText) {
-        return [fallbackMessage];
-      }
+      loadedScriptUrls.add(src);
       try {
-        const payload = JSON.parse(responseText);
-        if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
-          return payload.errors.filter(Boolean);
-        }
-        if (payload?.error) {
-          return [payload.error];
-        }
-        if (payload?.message) {
-          return [payload.message];
-        }
+        await loadScriptAsset(src);
+        loadedAnyScript = true;
       } catch (error) {
-        return [responseText];
-      }
-      return [fallbackMessage];
-    }
-    function showEmailToast(message, type, title, options = {}) {
-      const normalizedMessage = String(message || "").trim();
-      if (!normalizedMessage) {
-        return;
-      }
-      if (typeof window.siteNotify === "function") {
-        window.siteNotify(normalizedMessage, type, {
-          title,
-          duration: options.duration ?? (type === "error" ? 0 : 4500)
-        });
-        return;
-      }
-      window.alert(normalizedMessage);
-    }
-    function showEmailValidationErrors(errors) {
-      const normalizedErrors = (Array.isArray(errors) ? errors : [errors]).map((item) => String(item || "").trim()).filter(Boolean);
-      if (normalizedErrors.length === 0) {
-        return;
-      }
-      showEmailToast(normalizedErrors.join(" • "), "error", "Проверьте поля", { duration: 0 });
-    }
-    function setEmailButtonsBusy(isBusy, options = {}) {
-      const activeButtonId = options.activeButtonId || "";
-      const busyLabel = options.busyLabel || "";
-      document.querySelectorAll(".email-settings-page__actions button").forEach((button) => {
-        button.disabled = isBusy;
-        if (!button.dataset.defaultLabel) {
-          button.dataset.defaultLabel = button.textContent || "";
-        }
-        if (isBusy) {
-          button.textContent = activeButtonId && button.id === activeButtonId ? busyLabel || button.dataset.defaultLabel || button.textContent : button.dataset.defaultLabel || button.textContent;
-          return;
-        }
-        button.textContent = button.dataset.defaultLabel || button.textContent;
-      });
-    }
-    async function submitEmailSettings(url, options) {
-      const settings = collectEmailSettingsPayload();
-      const validationErrors = validateEmailSettingsPayload(settings);
-      if (validationErrors.length > 0) {
-        showEmailValidationErrors(validationErrors);
-        return false;
-      }
-      setEmailButtonsBusy(true, {
-        activeButtonId: options.busyButtonId,
-        busyLabel: options.busyLabel
-      });
-      try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify(settings)
-        });
-        if (!response.ok) {
-          throw new Error((await extractEmailApiErrors(response)).join(" "));
-        }
-        const payload = await response.json();
-        clearEmailInvalidStates();
-        if (options.updateSavedSettings) {
-          emailSettingsPageState.savedSettings = { ...settings };
-        }
-        showEmailToast(
-          payload?.message || options.successMessage,
-          "success",
-          options.successTitle
-        );
-        return true;
-      } catch (error) {
-        showEmailToast(
-          error.message || options.errorMessage || "Не удалось выполнить операцию.",
-          "error",
-          options.errorTitle,
-          { duration: 0 }
-        );
-        return false;
-      } finally {
-        setEmailButtonsBusy(false);
+        loadedScriptUrls.delete(src);
+        throw error;
       }
     }
-    window.saveEmailSettings = function saveEmailSettings() {
-      return submitEmailSettings("/email/settings", {
-        busyButtonId: "email-save-button",
-        busyLabel: "Сохранение...",
-        successTitle: "Настройки сохранены",
-        successMessage: "Настройки электронной почты сохранены.",
-        errorTitle: "Сохранение не выполнено",
-        errorMessage: "Не удалось сохранить настройки.",
-        updateSavedSettings: true
-      });
-    };
-    window.sendEmailMessage = function sendEmailMessage() {
-      return submitEmailSettings("/email/send", {
-        busyButtonId: "email-send-button",
-        busyLabel: "Отправка...",
-        successTitle: "Письмо отправлено",
-        successMessage: "Письмо отправлено.",
-        errorTitle: "Письмо не отправлено",
-        errorMessage: "Не удалось отправить письмо."
-      });
-    };
-    function bindEmailAction(buttonId, action) {
-      const button = document.getElementById(buttonId);
-      if (!button || button.dataset.emailActionBound === "true") {
-        return;
-      }
-      button.dataset.emailActionBound = "true";
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        action();
-      });
+    return loadedAnyScript;
+  }
+  function shouldSkipFetchedNode(node) {
+    if (!node) {
+      return true;
     }
-    window.initEmailSettingsPage = function initEmailSettingsPage() {
-      emailSettingsPageState.savedSettings = collectEmailSettingsPayload();
-      bindEmailAction("email-reset-button", resetEmailSettings);
-      bindEmailAction("email-save-button", window.saveEmailSettings);
-      bindEmailAction("email-send-button", window.sendEmailMessage);
-    };
-    function getThemeField(id) {
-      return document.getElementById(id);
+    if (node.nodeType === Node.TEXT_NODE) {
+      return !node.textContent.trim();
     }
-    function getThemeTrimmedValue(id) {
-      return (getThemeField(id)?.value || "").trim();
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return false;
     }
-    const THEME_PERCENT_FIELDS = [
-      ["theme-header-darken-percent", "headerDarkenPercent", 42],
-      ["theme-footer-darken-percent", "footerDarkenPercent", 42],
-      ["theme-button-darken-percent", "buttonDarkenPercent", 42],
-      ["theme-surface-tint-opacity-percent", "surfaceTintOpacityPercent", 59]
+    const element = node;
+    if (["SCRIPT", "LINK", "STYLE", "META", "TITLE"].includes(element.tagName)) {
+      return true;
+    }
+    if ([
+      "global-antiforgery-token",
+      "layout-chrome-context",
+      "chrome-context",
+      "chrome-header",
+      "chrome-navigation",
+      "chrome-footer",
+      "app-theme-background",
+      "app-theme-effects-root",
+      "app-theme-foreground-effects-root",
+      "root",
+      DETACHED_CONTENT_HOST_ID
+    ].includes(element.id)) {
+      return true;
+    }
+    if (element.tagName === "TEMPLATE" && ["nav-template-admin", "nav-template-user", "header-template", "footer-template", "admin-extension-modal-template", "admin-extension-modal-row-template", "admin-statistics-template"].includes(element.id)) {
+      return true;
+    }
+    if (element.querySelector && element.querySelector("#content_admin")) {
+      return true;
+    }
+    return false;
+  }
+  function getPrimaryRenderableNodes(sourceDocument) {
+    const contentHost = sourceDocument.getElementById("content_admin");
+    if (contentHost) {
+      return Array.from(contentHost.childNodes);
+    }
+    const pageContent = sourceDocument.getElementById("default_content");
+    return pageContent ? [pageContent] : Array.from(sourceDocument.body.childNodes);
+  }
+  function getDetachedRenderableNodes(sourceDocument) {
+    const contentHost = sourceDocument.getElementById("content_admin");
+    const pageContent = sourceDocument.getElementById("default_content");
+    const primaryNode = contentHost || pageContent;
+    if (!primaryNode) {
+      return [];
+    }
+    const nodes = [];
+    const seen = /* @__PURE__ */ new Set();
+    const detachedSelectors = [
+      ".modal",
+      '[id$="Modal"]',
+      "template",
+      "#notification",
+      "#loadingOverlay",
+      "#survey-edit-selected-organization-names"
     ];
-    const THEME_EFFECT_FIELDS = [
-      ["theme-effect-snow", "Снег"],
-      ["theme-effect-fireworks", "Салюты при нажатии"],
-      ["theme-effect-grass", "Трава"],
-      ["theme-effect-rain", "Дождь"]
-    ];
-    function getThemePercentValue(id, fallback) {
-      const value = Number.parseInt(getThemeField(id)?.value || "", 10);
-      if (!Number.isFinite(value)) {
-        return fallback;
-      }
-      return Math.max(0, Math.min(100, value));
-    }
-    function getThemeImagePayloadValue() {
-      const imageField = getThemeField("theme-background-image-data-url");
-      if (imageField) {
-        return imageField.value || "";
-      }
-      return window.__appThemeDraftSettings?.backgroundImageDataUrl || window.__appThemeSavedSettings?.backgroundImageDataUrl || window.__appThemeSettings?.backgroundImageDataUrl || "";
-    }
-    function getThemeImageFileNamePayloadValue() {
-      const fileNameField = getThemeField("theme-background-image-file-name");
-      if (fileNameField) {
-        return fileNameField.value || "";
-      }
-      return window.__appThemeDraftSettings?.backgroundImageFileName || window.__appThemeSavedSettings?.backgroundImageFileName || window.__appThemeSettings?.backgroundImageFileName || "";
-    }
-    function hasThemePayloadValue(rawSettings, camelName, pascalName) {
-      return Boolean(rawSettings && typeof rawSettings === "object") && (Object.prototype.hasOwnProperty.call(rawSettings, camelName) || Object.prototype.hasOwnProperty.call(rawSettings, pascalName));
-    }
-    function normalizeThemeSettingsPayload(rawSettings) {
-      const normalizedSource = hasThemePayloadValue(rawSettings, "backgroundImageDataUrl", "BackgroundImageDataUrl") ? rawSettings : {
-        ...rawSettings || {},
-        backgroundImageDataUrl: getThemeImagePayloadValue(),
-        backgroundImageFileName: getThemeImageFileNamePayloadValue()
-      };
-      if (typeof window.toCamelThemeSettings === "function") {
-        return window.toCamelThemeSettings(normalizedSource);
-      }
-      return {
-        fontColor: getThemeTrimmedValue("theme-font-color") || "#343D4B",
-        backgroundColor: getThemeTrimmedValue("theme-background-color") || "#B2A8FF",
-        effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
-        effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
-        effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
-        effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
-        backgroundImageDataUrl: normalizedSource.backgroundImageDataUrl || normalizedSource.BackgroundImageDataUrl || "",
-        backgroundImageFileName: normalizedSource.backgroundImageFileName || normalizedSource.BackgroundImageFileName || "",
-        backgroundImageOpacity: Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "35", 10) || 35,
-        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
-        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 42),
-        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 42),
-        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 59)
-      };
-    }
-    function setThemeInvalidState(id, isInvalid) {
-      const element = getThemeField(id);
-      if (!element) {
+    const appendNode = (node) => {
+      if (!node || seen.has(node) || node === primaryNode || shouldSkipFetchedNode(node)) {
         return;
       }
-      element.classList.toggle("invalid", Boolean(isInvalid));
-      element.setAttribute("aria-invalid", isInvalid ? "true" : "false");
-    }
-    function clearThemeInvalidStates() {
-      [
-        "theme-font-color",
-        "theme-background-color",
-        "theme-background-image-file",
-        "theme-background-image-opacity",
-        ...THEME_PERCENT_FIELDS.map(([id]) => id)
-      ].forEach((id) => setThemeInvalidState(id, false));
-    }
-    const themeSettingsPageState = {
-      savedSettings: null,
-      isMounted: false,
-      effectPickerGlobalBound: false
+      if (primaryNode.contains?.(node)) {
+        return;
+      }
+      if (node.nodeType === Node.ELEMENT_NODE && (node.querySelector?.("#content_admin") || node.querySelector?.("#default_content"))) {
+        return;
+      }
+      seen.add(node);
+      nodes.push(node);
     };
-    function hasThemeSettingsForm() {
-      return Boolean(
-        getThemeField("theme-font-color") && getThemeField("theme-background-color")
-      );
+    Array.from(sourceDocument.body.childNodes).forEach(appendNode);
+    sourceDocument.body.querySelectorAll(detachedSelectors.join(",")).forEach(appendNode);
+    return nodes;
+  }
+  function buildFragmentFromNodes(nodes, cloneNodes = true) {
+    const fragment = document.createDocumentFragment();
+    (nodes || []).forEach((node) => {
+      if (!shouldSkipFetchedNode(node)) {
+        fragment.appendChild(cloneNodes ? node.cloneNode(true) : node);
+      }
+    });
+    return fragment;
+  }
+  function buildRenderableFragment(parsedDocument) {
+    return buildFragmentFromNodes(getPrimaryRenderableNodes(parsedDocument));
+  }
+  function ensureDetachedContentHost() {
+    let host = document.getElementById(DETACHED_CONTENT_HOST_ID);
+    if (host) {
+      return host;
     }
-    function syncThemeOpacityLabel(settings) {
-      const opacityValue = document.getElementById("theme-background-image-opacity-value");
-      if (opacityValue) {
-        opacityValue.textContent = `${settings.backgroundImageOpacity}%`;
-      }
-      THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
-        const valueNode = document.getElementById(`${fieldId}-value`);
-        if (valueNode) {
-          valueNode.textContent = `${settings[propertyName]}%`;
-        }
-      });
+    host = document.createElement("div");
+    host.id = DETACHED_CONTENT_HOST_ID;
+    document.body.appendChild(host);
+    return host;
+  }
+  function syncDetachedContent(sourceDocument, cloneNodes = true) {
+    const host = ensureDetachedContentHost();
+    host.innerHTML = "";
+    host.appendChild(buildFragmentFromNodes(getDetachedRenderableNodes(sourceDocument), cloneNodes));
+  }
+  function captureInitialDetachedContent() {
+    if (!document.body) {
+      return;
     }
-    function syncThemeEffectsSummary() {
-      const summary = document.getElementById("theme-effects-summary");
-      if (!summary) {
-        return;
-      }
-      summary.replaceChildren();
-      const selectedEffects = [];
-      THEME_EFFECT_FIELDS.forEach(([fieldId, label]) => {
-        const checkbox = getThemeField(fieldId);
-        const isSelected = Boolean(checkbox?.checked);
-        checkbox?.closest(".app-checkbox-option")?.classList.toggle("selected", isSelected);
-        if (isSelected) {
-          selectedEffects.push(label);
-        }
-      });
-      if (selectedEffects.length === 0) {
-        const empty = document.createElement("p");
-        empty.className = "theme-settings-page__empty-selection";
-        empty.textContent = "Эффекты не выбраны";
-        summary.appendChild(empty);
-        return;
-      }
-      const list = document.createElement("div");
-      list.className = "theme-settings-page__selected-effects-list";
-      selectedEffects.forEach((label) => {
+    syncDetachedContent(document, false);
+  }
+  function hydrateFetchedContentState() {
+    const selectedOrganizationNamesElement = document.getElementById("survey-edit-selected-organization-names");
+    if (!selectedOrganizationNamesElement) {
+      window.selectedOrganizationNames = [];
+      return;
+    }
+    try {
+      window.selectedOrganizationNames = JSON.parse(selectedOrganizationNamesElement.content.textContent.trim());
+    } catch (error) {
+      console.warn("Не удалось восстановить выбранные организации из шаблона.", error);
+      window.selectedOrganizationNames = [];
+    }
+  }
+
+  // Web/wwwroot/js/features/admin/admin-inline-history.js
+  function normalizePathname(pathname) {
+    if (!pathname) {
+      return "/";
+    }
+    return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  }
+  function normalizeLocationUrl(pathname, search = "") {
+    const normalizedPath = normalizePathname(pathname);
+    return `${normalizedPath}${search || ""}`;
+  }
+  function normalizeLogsHistoryId(value) {
+    const rawValue = String(value || "").trim();
+    if (!rawValue) {
+      return null;
+    }
+    const normalizedValue = rawValue.startsWith("?") ? rawValue.slice(1) : rawValue;
+    return normalizedValue.length > 0 ? normalizedValue : null;
+  }
+  function resolveQueryHistoryId(pathname, value, preserveCurrentWhenMissing = false) {
+    if (value === void 0) {
+      return preserveCurrentWhenMissing && normalizePathname(window.location.pathname) === normalizePathname(pathname) ? normalizeLogsHistoryId(window.location.search) : null;
+    }
+    return normalizeLogsHistoryId(value);
+  }
+  function buildQueryHistoryEntry(tab, pathname, value, options = {}) {
+    const query = resolveQueryHistoryId(
+      pathname,
+      value,
+      options.preserveCurrentWhenMissing === true
+    );
+    return {
+      tab,
+      id: query,
+      url: query ? `${pathname}?${query}` : pathname
+    };
+  }
+  function buildAdminHistoryEntry(tab, id = void 0, modalData = null) {
+    const surveyId = id ?? modalData?.id_survey ?? null;
+    const userId = id ?? modalData?.id_user ?? null;
+    const organizationId = id ?? modalData?.id_organization ?? modalData?.organizationId ?? null;
+    switch (tab) {
+      case "get_surveys":
+        return buildQueryHistoryEntry(tab, "/survey", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "list_answers_users":
+        return buildQueryHistoryEntry(tab, "/survey/answer", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "archived_surveys":
+        return buildQueryHistoryEntry(tab, "/survey/archive", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "get_survey_signatures":
+        return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/signatures` } : null;
+      case "add_survey":
+        return { tab, id: null, url: "/survey/create" };
+      case "copy_survey":
+        return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/copy` } : null;
+      case "update_survey":
+        return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/edit` } : null;
+      case "update_archived_survey":
+        return surveyId ? { tab, id: surveyId, url: `/survey/archive/${surveyId}/edit` } : null;
+      case "open_statistics":
+        return { tab, id: null, url: "/statistics" };
+      case "get_users":
+        return buildQueryHistoryEntry(tab, "/users", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "add_user":
+        return { tab, id: null, url: "/users/create" };
+      case "update_user":
+        return userId ? { tab, id: userId, url: `/users/${userId}/edit` } : null;
+      case "archived_users":
+      case "archive_list_users":
+        return buildQueryHistoryEntry("archived_users", "/users/archive", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "get_organization":
+        return buildQueryHistoryEntry(tab, "/organizations", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "organization_surveys":
+        return { tab, id: null, url: "/organizations/survey" };
+      case "add_organization":
+        return { tab, id: null, url: "/organizations/create" };
+      case "update_organization":
+        return organizationId ? { tab, id: organizationId, url: `/organizations/${organizationId}/edit` } : null;
+      case "archive_list_organizations":
+        return buildQueryHistoryEntry(tab, "/organizations/archive", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "reports":
+        return { tab, id: null, url: "/reports" };
+      case "survey_auto_creation":
+        return { tab, id: null, url: "/settings/survey-creation" };
+      case "theme_settings":
+        return { tab, id: null, url: "/settings/theme" };
+      case "get_logs":
+        return buildQueryHistoryEntry(tab, "/logs", id, { preserveCurrentWhenMissing: id === void 0 });
+      case "email":
+      case "email_new":
+        return { tab: tab === "email" ? "email_new" : tab, id: null, url: "/email" };
+      case "email_settings":
+        return { tab, id: null, url: "/settings/email" };
+      case "help":
+        return { tab, id: null, url: "/help" };
+      default:
+        return null;
+    }
+  }
+  function getAdminHistoryEntryFromLocation(pathname, search = "") {
+    const normalizedPath = normalizePathname(pathname);
+    if (normalizedPath === "/survey" || normalizedPath === "/surveys") {
+      return buildAdminHistoryEntry("get_surveys", search || "");
+    }
+    if (normalizedPath === "/survey/answer" || normalizedPath === "/surveys/answers") {
+      return buildAdminHistoryEntry("list_answers_users", search || "");
+    }
+    if (normalizedPath === "/survey/archive" || normalizedPath === "/surveys/archive") {
+      return buildAdminHistoryEntry("archived_surveys", search || "");
+    }
+    if (normalizedPath === "/survey/create" || normalizedPath === "/surveys/create") {
+      return buildAdminHistoryEntry("add_survey");
+    }
+    if (normalizedPath === "/statistics") {
+      return buildAdminHistoryEntry("open_statistics");
+    }
+    if (normalizedPath === "/users") {
+      return buildAdminHistoryEntry("get_users", search || "");
+    }
+    if (normalizedPath === "/users/create") {
+      return buildAdminHistoryEntry("add_user");
+    }
+    if (normalizedPath === "/users/archive") {
+      return buildAdminHistoryEntry("archived_users", search || "");
+    }
+    if (normalizedPath === "/organizations") {
+      return buildAdminHistoryEntry("get_organization", search || "");
+    }
+    if (normalizedPath === "/organizations/survey" || normalizedPath === "/organizations/surveys") {
+      return buildAdminHistoryEntry("organization_surveys");
+    }
+    if (normalizedPath === "/organizations/create") {
+      return buildAdminHistoryEntry("add_organization");
+    }
+    if (normalizedPath === "/organizations/archive") {
+      return buildAdminHistoryEntry("archive_list_organizations", search || "");
+    }
+    if (normalizedPath === "/reports") {
+      return buildAdminHistoryEntry("reports");
+    }
+    if (normalizedPath === "/settings/survey-creation" || normalizedPath === "/survey-auto-creation") {
+      return buildAdminHistoryEntry("survey_auto_creation");
+    }
+    if (normalizedPath === "/settings/theme" || normalizedPath === "/theme/configuration" || normalizedPath === "/theme-settings") {
+      return buildAdminHistoryEntry("theme_settings");
+    }
+    if (normalizedPath === "/logs" || normalizedPath === "/event-log") {
+      return buildAdminHistoryEntry("get_logs", search || "");
+    }
+    if (normalizedPath === "/email" || normalizedPath === "/mail" || normalizedPath === "/mail/new") {
+      return buildAdminHistoryEntry("email_new");
+    }
+    if (normalizedPath === "/settings/email" || normalizedPath === "/mail/configuration" || normalizedPath === "/mail-settings") {
+      return buildAdminHistoryEntry("email_settings");
+    }
+    if (normalizedPath === "/help") {
+      return buildAdminHistoryEntry("help");
+    }
+    let match = normalizedPath.match(/^\/survey\/(\d+)\/signatures$/) || normalizedPath.match(/^\/surveys\/(\d+)\/signatures$/);
+    if (match) {
+      return buildAdminHistoryEntry("get_survey_signatures", Number(match[1]));
+    }
+    match = normalizedPath.match(/^\/survey\/archive\/(\d+)\/edit$/) || normalizedPath.match(/^\/surveys\/archive\/(\d+)\/edit$/);
+    if (match) {
+      return buildAdminHistoryEntry("update_archived_survey", Number(match[1]));
+    }
+    match = normalizedPath.match(/^\/survey\/(\d+)\/edit$/) || normalizedPath.match(/^\/surveys\/(\d+)\/edit$/);
+    if (match) {
+      return buildAdminHistoryEntry("update_survey", Number(match[1]));
+    }
+    match = normalizedPath.match(/^\/survey\/(\d+)\/copy$/) || normalizedPath.match(/^\/surveys\/(\d+)\/copy$/);
+    if (match) {
+      return buildAdminHistoryEntry("copy_survey", Number(match[1]));
+    }
+    match = normalizedPath.match(/^\/users\/(\d+)\/edit$/);
+    if (match) {
+      return buildAdminHistoryEntry("update_user", Number(match[1]));
+    }
+    match = normalizedPath.match(/^\/organizations\/(\d+)\/edit$/);
+    if (match) {
+      return buildAdminHistoryEntry("update_organization", Number(match[1]));
+    }
+    return null;
+  }
+
+  // Web/wwwroot/js/features/admin/admin-inline-modal-renderer.js
+  function createClosedAdminModalState() {
+    return {
+      isOpen: false,
+      content: "",
+      data: null,
+      message: null,
+      isSuccess: false
+    };
+  }
+  function appendDialog(root, header, body, footer) {
+    root.appendChild(header);
+    root.appendChild(body);
+    root.appendChild(footer);
+  }
+  function createDialogSection(className, text) {
+    const section = document.createElement("div");
+    section.className = className;
+    if (text) {
+      section.textContent = text;
+    }
+    return section;
+  }
+  function createAdminModalRenderer({
+    pageContainer,
+    getExtensionModalMount,
+    onClose,
+    onCopySurvey,
+    onUpdateSurvey,
+    onDeleteSurvey,
+    onCreateMonthlyReport,
+    onCreateMonthlySummaryReport,
+    onCreateQuarterlyReport
+  }) {
+    let cleanup = null;
+    let modalNode = document.getElementById("admin-inline-modal-host");
+    if (modalNode) {
+      modalNode.remove();
+    }
+    modalNode = document.createElement("div");
+    modalNode.id = "admin-inline-modal-host";
+    const modalContent = document.createElement("div");
+    modalContent.className = "modal-content";
+    const modalClose = document.createElement("span");
+    modalClose.className = "modal-close";
+    const modalIcon = document.createElement("i");
+    modalIcon.className = "fas fa-xmark";
+    const bodyHost = document.createElement("div");
+    bodyHost.className = "modal-body";
+    modalClose.appendChild(modalIcon);
+    modalContent.appendChild(modalClose);
+    modalContent.appendChild(bodyHost);
+    modalNode.appendChild(modalContent);
+    pageContainer.appendChild(modalNode);
+    function syncPageState() {
+      window.syncSiteModalBodyState?.();
+    }
+    function reveal() {
+      modalNode.classList.add("modal--visible");
+      modalNode.setAttribute("aria-hidden", "false");
+      syncPageState();
+    }
+    function renderReport(modalState) {
+      const root = document.createElement("div");
+      const title = document.createElement("h2");
+      title.className = "modal-title";
+      title.textContent = "Создать отчёт";
+      root.appendChild(title);
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.gap = "10px";
+      actions.style.justifyContent = "space-between";
+      actions.style.marginTop = "1.5rem";
+      const month = document.createElement("div");
+      month.className = "submenu2-container";
+      month.style.flex = "1";
+      const monthButton = document.createElement("button");
+      monthButton.style.width = "100%";
+      monthButton.textContent = "Отчёт за месяц";
+      const monthMenu = document.createElement("div");
+      monthMenu.className = "submenu2";
+      const bySurvey = document.createElement("div");
+      bySurvey.textContent = "По выбранной анкете";
+      bySurvey.addEventListener("click", () => onCreateMonthlyReport(modalState.data?.id_survey));
+      const allSurveys = document.createElement("div");
+      allSurveys.textContent = "По всем анкетам";
+      allSurveys.addEventListener("click", () => onCreateMonthlySummaryReport());
+      monthMenu.appendChild(bySurvey);
+      monthMenu.appendChild(allSurveys);
+      month.appendChild(monthButton);
+      month.appendChild(monthMenu);
+      const quarter = document.createElement("div");
+      quarter.className = "submenu2-container";
+      quarter.style.flex = "1";
+      const quarterButton = document.createElement("button");
+      quarterButton.style.width = "100%";
+      quarterButton.textContent = "Отчёт за квартал";
+      const quarterMenu = document.createElement("div");
+      quarterMenu.className = "submenu2";
+      [1, 2, 3, 4].forEach((quarterNumber) => {
         const item = document.createElement("div");
-        item.className = "theme-settings-page__selected-effect-item";
-        item.appendChild(document.createTextNode(label));
-        list.appendChild(item);
+        item.textContent = `${quarterNumber} квартал`;
+        item.addEventListener("click", () => onCreateQuarterlyReport(quarterNumber));
+        quarterMenu.appendChild(item);
       });
-      summary.appendChild(list);
+      quarter.appendChild(quarterButton);
+      quarter.appendChild(quarterMenu);
+      actions.appendChild(month);
+      actions.appendChild(quarter);
+      root.appendChild(actions);
+      bodyHost.appendChild(root);
     }
-    function setThemeEffectsDropdownOpen(isOpen) {
-      const trigger = getThemeField("theme-effects-toggle");
-      const dropdown = document.getElementById("theme-effects-dropdown");
-      if (!trigger || !dropdown) {
+    function renderSurveyAction(modalState) {
+      const isCopy = modalState.content === "copy";
+      const isUpdate = modalState.content === "update";
+      const titleText = isCopy ? "Копирование анкеты" : isUpdate ? "Редактирование анкеты" : "Удаление анкеты";
+      const messageText = isCopy ? `Вы уверены, что хотите создать копию анкеты "${modalState.data?.name_survey}"?` : isUpdate ? `Вы переходите к редактированию анкеты "${modalState.data?.name_survey}".` : `Вы уверены, что хотите удалить анкету "${modalState.data?.name_survey}"?`;
+      const okText = isCopy ? "Копировать" : isUpdate ? "Продолжить" : "Удалить";
+      const onConfirm = isCopy ? onCopySurvey : isUpdate ? onUpdateSurvey : onDeleteSurvey;
+      const root = document.createElement("div");
+      const header = createDialogSection("modal-header", "");
+      const title = document.createElement("h2");
+      title.className = "h2_modal";
+      title.textContent = titleText;
+      header.replaceChildren(title);
+      const body = createDialogSection("modal-body");
+      const message = createDialogSection("modal-message", messageText);
+      body.appendChild(message);
+      const footer = document.createElement("div");
+      footer.className = "modal-footer";
+      const cancel = document.createElement("button");
+      cancel.className = "modal_btn modal_btn-secondary";
+      cancel.textContent = "Отмена";
+      cancel.addEventListener("click", onClose);
+      const confirm = document.createElement("button");
+      confirm.className = "modal_btn modal_btn-primary";
+      confirm.textContent = okText;
+      confirm.addEventListener("click", onConfirm);
+      footer.appendChild(cancel);
+      footer.appendChild(confirm);
+      appendDialog(root, header, body, footer);
+      bodyHost.appendChild(root);
+    }
+    function renderMessage(modalState) {
+      const root = document.createElement("div");
+      const header = createDialogSection("modal-header", "");
+      const title = document.createElement("h2");
+      title.className = "h2_modal";
+      title.textContent = modalState.isSuccess ? "Успешно" : "Ошибка";
+      header.replaceChildren(title);
+      const body = document.createElement("div");
+      body.className = "modal-body";
+      const message = createDialogSection(
+        `modal-message ${modalState.isSuccess ? "success-message" : "error-message"}`,
+        modalState.message || ""
+      );
+      body.appendChild(message);
+      const footer = document.createElement("div");
+      footer.className = "modal-footer";
+      const confirm = document.createElement("button");
+      confirm.className = "modal_btn modal_btn-primary";
+      confirm.textContent = "OK";
+      confirm.addEventListener("click", onClose);
+      footer.appendChild(confirm);
+      appendDialog(root, header, body, footer);
+      bodyHost.appendChild(root);
+    }
+    function render(modalState) {
+      modalNode.className = "modal";
+      modalNode.setAttribute("aria-hidden", "true");
+      if (typeof cleanup === "function") {
+        cleanup();
+        cleanup = null;
+      }
+      bodyHost.replaceChildren();
+      if (!modalState.isOpen) {
+        syncPageState();
         return;
       }
-      dropdown.classList.toggle("is-hidden", !isOpen);
-      trigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
-    }
-    function syncThemeImageName() {
-      const nameField = getThemeField("theme-background-image-name");
-      const dataField = getThemeField("theme-background-image-data-url");
-      const fileNameField = getThemeField("theme-background-image-file-name");
-      if (!nameField) {
+      if (modalState.content === "extend") {
+        const mountExtensionModal = getExtensionModalMount();
+        if (typeof mountExtensionModal === "function") {
+          cleanup = mountExtensionModal(bodyHost, { survey: modalState.data, onClose }) || null;
+        } else {
+          const message = document.createElement("div");
+          message.textContent = "Модуль продления не загружен.";
+          bodyHost.appendChild(message);
+        }
+      } else if (modalState.content === "report") {
+        renderReport(modalState);
+      } else if (["copy", "update", "delete"].includes(modalState.content)) {
+        renderSurveyAction(modalState);
+      } else if (modalState.content === "message") {
+        renderMessage(modalState);
+      } else {
         return;
       }
-      const fileName = fileNameField?.value || "";
-      nameField.value = fileName || getDefaultThemeImageFileName(dataField?.value) || "Изображение не выбрано";
+      reveal();
     }
-    function getDefaultThemeImageFileName(dataUrl) {
-      const normalizedDataUrl = String(dataUrl || "").trim().toLowerCase();
-      if (normalizedDataUrl.startsWith("data:image/webp;base64,")) {
-        return "background-image.webp";
+    modalClose.addEventListener("click", onClose);
+    return {
+      render,
+      destroy() {
+        if (typeof cleanup === "function") {
+          cleanup();
+        }
+        modalNode.remove();
       }
-      if (normalizedDataUrl.startsWith("data:image/jpeg;base64,") || normalizedDataUrl.startsWith("data:image/jpg;base64,")) {
-        return "background-image.jpg";
-      }
-      return normalizedDataUrl.startsWith("data:image/png;base64,") ? "background-image.png" : "";
+    };
+  }
+
+  // Web/wwwroot/js/features/admin/admin-organization-actions.js
+  function requireOrganizationId(organizationId) {
+    if (!organizationId) {
+      throw new Error("ID организации не указан.");
     }
-    function collectThemeSettingsPayload() {
-      const opacityValue = Number.parseInt(getThemeField("theme-background-image-opacity")?.value || "", 10);
+  }
+  function createAdminOrganizationActions({
+    fetchPage,
+    getActiveTab,
+    getModalData,
+    getRequestVerificationToken,
+    openModalWhenReady,
+    setActiveTab
+  }) {
+    async function removeCurrentOrganization() {
+      const modalData = getModalData();
+      const organizationId = modalData?.id_organization ?? modalData?.organizationId;
+      const response = await fetch(`/organizations/${organizationId}/delete`, {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          "X-Admin-Inline-Request": "true",
+          RequestVerificationToken: getRequestVerificationToken()
+        }
+      });
+      if (!response.ok) {
+        throw new Error(await response.text() || "Ошибка при удалении организации.");
+      }
+      await fetchPage("/organizations");
+      setActiveTab("get_organization");
+    }
+    return {
+      async add() {
+        const modalIsReady = getActiveTab() === "get_organization" && document.getElementById("addOrganizationModal");
+        if (!modalIsReady) {
+          await fetchPage("/organizations");
+        }
+        setActiveTab("get_organization");
+        openModalWhenReady("addOrganizationModal", window.openAddOrganizationModal);
+      },
+      async edit(organizationId) {
+        requireOrganizationId(organizationId);
+        await fetchPage(`/organizations/${organizationId}/edit`);
+        setActiveTab("update_organization");
+      },
+      removeCurrentOrganization
+    };
+  }
+
+  // Web/wwwroot/js/features/admin/admin-survey-actions.js
+  function requireSurveyId(surveyId) {
+    if (!surveyId) {
+      throw new Error("ID анкеты не указан.");
+    }
+  }
+  function createAdminSurveyActions({
+    fetchPage,
+    getActiveTab,
+    getModalData,
+    getRequestVerificationToken,
+    notify,
+    openModalWhenReady,
+    setActiveTab
+  }) {
+    async function removeCurrentSurvey() {
+      const surveyId = getModalData()?.id_survey;
+      const response = await fetch(`/survey/${surveyId}/delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          RequestVerificationToken: getRequestVerificationToken()
+        },
+        body: JSON.stringify({ surveyId })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Ошибка при удалении анкеты.");
+      }
+      await fetchPage("/survey");
+      notify(result.message, "success");
+      setActiveTab("get_surveys");
+      return result;
+    }
+    return {
+      async add() {
+        const editorIsReady = getActiveTab() === "get_surveys" && document.getElementById("surveyEditorModal") && !document.getElementById("surveyId");
+        if (!editorIsReady) {
+          await fetchPage("/survey");
+        }
+        setActiveTab("get_surveys");
+        openModalWhenReady("surveyEditorModal", window.openAddSurveyModal);
+      },
+      async copy(surveyId) {
+        requireSurveyId(surveyId);
+        await fetchPage("/survey");
+        setActiveTab("get_surveys");
+        openModalWhenReady(
+          "surveyEditorModal",
+          () => window.openCopySurveyModalById?.(surveyId, { skipListRefresh: true })
+        );
+      },
+      async edit(surveyId, { archived = false } = {}) {
+        requireSurveyId(surveyId);
+        const endpoint = archived ? `/survey/archive/${surveyId}/edit` : `/survey/${surveyId}/edit`;
+        await fetchPage(endpoint);
+        setActiveTab(archived ? "archived_surveys" : "get_surveys");
+        openModalWhenReady("surveyEditorModal", window.openEditSurveyModal);
+      },
+      removeCurrentSurvey
+    };
+  }
+
+  // Web/wwwroot/js/features/admin/admin-inline-tab-registry.js
+  var listPageDefinitions = Object.freeze({
+    get_surveys: { pathname: "/survey" },
+    list_answers_users: { pathname: "/survey/answer" },
+    archived_surveys: { pathname: "/survey/archive" },
+    get_logs: { pathname: "/logs" },
+    get_users: { pathname: "/users" },
+    get_organization: { pathname: "/organizations" },
+    archive_list_organizations: { pathname: "/organizations/archive" },
+    archived_users: { pathname: "/users/archive", activeTab: "archived_users" },
+    archive_list_users: { pathname: "/users/archive", activeTab: "archived_users" }
+  });
+  var staticPageDefinitions = Object.freeze({
+    open_statistics: { pathname: "/statistics" },
+    organization_surveys: { pathname: "/organizations/survey" },
+    help: { pathname: "/help" },
+    reports: { pathname: "/reports" },
+    survey_auto_creation: { pathname: "/settings/survey-creation" },
+    theme_settings: { pathname: "/settings/theme" },
+    email: { pathname: "/email", activeTab: "email_new" },
+    email_new: { pathname: "/email", activeTab: "email_new" },
+    email_settings: { pathname: "/settings/email" }
+  });
+  var entityPageDefinitions = Object.freeze({
+    get_survey_signatures: {
+      pathname: (id) => `/survey/${id}/signatures`,
+      missingIdMessage: "ID анкеты не указан."
+    }
+  });
+  function hasIdentifier(value) {
+    return value !== null && value !== void 0 && value !== "";
+  }
+  function resolveAdminTabPageRequest(tab, id, buildListRequestUrl) {
+    const listDefinition = listPageDefinitions[tab];
+    if (listDefinition) {
       return {
-        fontColor: getThemeTrimmedValue("theme-font-color"),
-        backgroundColor: getThemeTrimmedValue("theme-background-color"),
-        effectSnow: Boolean(getThemeField("theme-effect-snow")?.checked),
-        effectFireworks: Boolean(getThemeField("theme-effect-fireworks")?.checked),
-        effectGrass: Boolean(getThemeField("theme-effect-grass")?.checked),
-        effectRain: Boolean(getThemeField("theme-effect-rain")?.checked),
-        backgroundImageDataUrl: getThemeImagePayloadValue(),
-        backgroundImageFileName: getThemeImageFileNamePayloadValue(),
-        backgroundImageOpacity: Number.isFinite(opacityValue) ? opacityValue : 0,
-        headerDarkenPercent: getThemePercentValue("theme-header-darken-percent", 42),
-        footerDarkenPercent: getThemePercentValue("theme-footer-darken-percent", 42),
-        buttonDarkenPercent: getThemePercentValue("theme-button-darken-percent", 42),
-        surfaceTintOpacityPercent: getThemePercentValue("theme-surface-tint-opacity-percent", 59)
+        url: buildListRequestUrl(listDefinition.pathname, id),
+        activeTab: listDefinition.activeTab || tab
       };
     }
-    function validateThemeSettingsPayload(settings) {
-      clearThemeInvalidStates();
-      const errors = [];
-      const colorRegex = /^#[0-9a-f]{6}$/i;
-      const colorFields = [
-        ["theme-font-color", settings.fontColor, "Цвет шрифта"],
-        ["theme-background-color", settings.backgroundColor, "Цвет фона"]
-      ];
-      colorFields.forEach(([fieldId, value, label]) => {
-        if (!colorRegex.test(String(value || ""))) {
-          errors.push(`Поле «${label}» заполнено некорректно`);
-          setThemeInvalidState(fieldId, true);
-        }
-      });
-      if (!Number.isInteger(settings.backgroundImageOpacity) || settings.backgroundImageOpacity < 0 || settings.backgroundImageOpacity > 100) {
-        errors.push("Поле «Прозрачность изображения» должно быть числом от 0 до 100.");
-        setThemeInvalidState("theme-background-image-opacity", true);
-      }
-      THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
-        const value = settings[propertyName];
-        if (!Number.isInteger(value) || value < 0 || value > 100) {
-          errors.push("Значения яркости должны быть от 0 до 100.");
-          setThemeInvalidState(fieldId, true);
-        }
-      });
-      const imageValue = String(settings.backgroundImageDataUrl || "");
-      if (imageValue) {
-        const allowedPrefixes = [
-          "data:image/png;base64,",
-          "data:image/jpeg;base64,",
-          "data:image/jpg;base64,",
-          "data:image/webp;base64,"
-        ];
-        if (!allowedPrefixes.some((prefix) => imageValue.startsWith(prefix))) {
-          errors.push("Фоновое изображение должно быть PNG, JPEG или WebP.");
-          setThemeInvalidState("theme-background-image-file", true);
-        }
-      }
-      return errors;
-    }
-    async function readThemeImageFile(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = () => reject(new Error("Не удалось прочитать изображение."));
-        reader.readAsDataURL(file);
-      });
-    }
-    async function handleThemeImageChange(event) {
-      const input = event?.currentTarget;
-      const file = input?.files?.[0];
-      if (!file) {
-        return;
-      }
-      try {
-        const dataUrl = await readThemeImageFile(file);
-        const hiddenField = getThemeField("theme-background-image-data-url");
-        if (hiddenField) {
-          hiddenField.value = dataUrl;
-        }
-        const fileNameField = getThemeField("theme-background-image-file-name");
-        if (fileNameField) {
-          fileNameField.value = file.name;
-        }
-        syncThemeImageName();
-        applyThemeDraftState();
-      } catch (error) {
-        showEmailToast(error.message || "Не удалось загрузить изображение", "error", "Изображение не загружено", { duration: 0 });
-      } finally {
-        input.value = "";
-      }
-    }
-    function populateThemeForm(settings) {
-      const normalizedSettings = normalizeThemeSettingsPayload(settings);
-      const fontColor = getThemeField("theme-font-color");
-      if (fontColor) {
-        fontColor.value = normalizedSettings.fontColor;
-      }
-      const backgroundColor = getThemeField("theme-background-color");
-      if (backgroundColor) {
-        backgroundColor.value = normalizedSettings.backgroundColor;
-      }
-      const effectSnow = getThemeField("theme-effect-snow");
-      if (effectSnow) {
-        effectSnow.checked = normalizedSettings.effectSnow;
-      }
-      const effectFireworks = getThemeField("theme-effect-fireworks");
-      if (effectFireworks) {
-        effectFireworks.checked = normalizedSettings.effectFireworks;
-      }
-      const effectGrass = getThemeField("theme-effect-grass");
-      if (effectGrass) {
-        effectGrass.checked = normalizedSettings.effectGrass;
-      }
-      const effectRain = getThemeField("theme-effect-rain");
-      if (effectRain) {
-        effectRain.checked = normalizedSettings.effectRain;
-      }
-      const imageDataField = getThemeField("theme-background-image-data-url");
-      if (imageDataField) {
-        imageDataField.value = normalizedSettings.backgroundImageDataUrl;
-      }
-      const imageFileNameField = getThemeField("theme-background-image-file-name");
-      if (imageFileNameField) {
-        imageFileNameField.value = normalizedSettings.backgroundImageFileName || getDefaultThemeImageFileName(normalizedSettings.backgroundImageDataUrl);
-      }
-      const opacityField = getThemeField("theme-background-image-opacity");
-      if (opacityField) {
-        opacityField.value = String(normalizedSettings.backgroundImageOpacity);
-      }
-      THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
-        const field = getThemeField(fieldId);
-        if (field) {
-          field.value = String(normalizedSettings[propertyName]);
-        }
-      });
-      syncThemeOpacityLabel(normalizedSettings);
-      syncThemeEffectsSummary();
-      syncThemeImageName();
-    }
-    function applyThemeDraftState() {
-      if (!hasThemeSettingsForm()) {
-        return normalizeThemeSettingsPayload(
-          window.__appThemeDraftSettings || window.__appThemeSavedSettings || window.__appThemeSettings
-        );
-      }
-      const settings = normalizeThemeSettingsPayload(collectThemeSettingsPayload());
-      syncThemeOpacityLabel(settings);
-      window.__appThemeDraftSettings = { ...settings };
-      if (typeof window.applyThemeSettings === "function") {
-        window.applyThemeSettings(settings);
-      }
-      return settings;
-    }
-    function resetThemeSettings() {
-      const savedSettings = normalizeThemeSettingsPayload(
-        themeSettingsPageState.savedSettings || window.__appThemeSavedSettings || window.__appThemeSettings
-      );
-      clearThemeInvalidStates();
-      window.__appThemeDraftSettings = null;
-      populateThemeForm(savedSettings);
-      themeSettingsPageState.savedSettings = { ...savedSettings };
-      if (typeof window.applyThemeSettings === "function") {
-        window.applyThemeSettings(savedSettings);
-      }
-    }
-    async function submitThemeSettings() {
-      const settings = normalizeThemeSettingsPayload(collectThemeSettingsPayload());
-      const validationErrors = validateThemeSettingsPayload(settings);
-      if (validationErrors.length > 0) {
-        showEmailValidationErrors(validationErrors);
-        return false;
-      }
-      setEmailButtonsBusy(true, {
-        activeButtonId: "theme-save-button"
-      });
-      try {
-        const response = await fetch("/theme/settings", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify(settings)
-        });
-        if (!response.ok) {
-          throw new Error((await extractEmailApiErrors(response)).join(" "));
-        }
-        const payload = await response.json();
-        clearThemeInvalidStates();
-        themeSettingsPageState.savedSettings = { ...settings };
-        window.__appThemeSavedSettings = { ...settings };
-        window.__appThemeDraftSettings = null;
-        if (typeof window.persistThemeSettings === "function") {
-          window.persistThemeSettings(settings);
-        }
-        if (typeof window.applyThemeSettings === "function") {
-          window.applyThemeSettings(settings);
-        }
-        showEmailToast(
-          payload?.message || "Настройки темы сохранены.",
-          "success",
-          "Настройки сохранены"
-        );
-        return true;
-      } catch (error) {
-        showEmailToast(
-          error.message || "Не удалось сохранить настройки темы.",
-          "error",
-          "Сохранение не выполнено",
-          { duration: 0 }
-        );
-        return false;
-      } finally {
-        setEmailButtonsBusy(false);
-      }
-    }
-    function bindThemeAction(buttonId, action) {
-      const button = document.getElementById(buttonId);
-      if (!button || button.dataset.themeActionBound === "true") {
-        return;
-      }
-      button.dataset.themeActionBound = "true";
-      button.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        action();
-      });
-    }
-    function bindThemeInput(id, eventName = "input") {
-      const element = getThemeField(id);
-      if (!element || element.dataset.themePreviewBound === "true") {
-        return;
-      }
-      element.dataset.themePreviewBound = "true";
-      element.addEventListener(eventName, applyThemeDraftState);
-    }
-    function bindThemeEffectInput(id) {
-      bindThemeInput(id, "change");
-      const element = getThemeField(id);
-      if (!element || element.dataset.themeEffectSummaryBound === "true") {
-        return;
-      }
-      element.dataset.themeEffectSummaryBound = "true";
-      element.addEventListener("change", syncThemeEffectsSummary);
-    }
-    function bindThemeEffectsPicker() {
-      const trigger = getThemeField("theme-effects-toggle");
-      if (trigger && trigger.dataset.themeEffectsToggleBound !== "true") {
-        trigger.dataset.themeEffectsToggleBound = "true";
-        trigger.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const dropdown = document.getElementById("theme-effects-dropdown");
-          setThemeEffectsDropdownOpen(dropdown?.classList.contains("is-hidden"));
-        });
-      }
-      if (themeSettingsPageState.effectPickerGlobalBound) {
-        return;
-      }
-      themeSettingsPageState.effectPickerGlobalBound = true;
-      document.addEventListener("click", (event) => {
-        const page = document.querySelector('[data-page="theme-settings-page"]');
-        if (!page) {
-          return;
-        }
-        const target = event.target;
-        if (target instanceof Element && target.closest("#theme-effects-toggle, #theme-effects-dropdown")) {
-          return;
-        }
-        setThemeEffectsDropdownOpen(false);
-      });
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          setThemeEffectsDropdownOpen(false);
-        }
-      });
-    }
-    function bindThemeColorPickerCursor(id) {
-      const element = getThemeField(id);
-      if (!element || element.dataset.themePickerCursorBound === "true") {
-        return;
-      }
-      element.dataset.themePickerCursorBound = "true";
-      const suppressCursor = () => {
-        window.AppPickerCursor?.suppress(element);
+    const staticDefinition = staticPageDefinitions[tab];
+    if (staticDefinition) {
+      return {
+        url: staticDefinition.pathname,
+        activeTab: staticDefinition.activeTab || tab
       };
-      element.addEventListener("pointerdown", suppressCursor);
-      element.addEventListener("click", suppressCursor);
-      element.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          suppressCursor();
+    }
+    const entityDefinition = entityPageDefinitions[tab];
+    if (!entityDefinition) {
+      return null;
+    }
+    if (!hasIdentifier(id)) {
+      throw new Error(entityDefinition.missingIdMessage);
+    }
+    return {
+      url: entityDefinition.pathname(id),
+      activeTab: entityDefinition.activeTab || tab
+    };
+  }
+
+  // Web/wwwroot/js/features/admin/admin-user-actions.js
+  function requireUserId(userId) {
+    if (!userId) {
+      throw new Error("ID пользователя не указан.");
+    }
+  }
+  function createAdminUserActions({
+    fetchPage,
+    getActiveTab,
+    getModalData,
+    getRequestVerificationToken,
+    notify,
+    openModalWhenReady,
+    setActiveTab
+  }) {
+    async function removeCurrentUser() {
+      const userId = getModalData()?.id_user;
+      const response = await fetch(`/users/${userId}/delete`, {
+        method: "POST",
+        headers: {
+          RequestVerificationToken: getRequestVerificationToken()
         }
       });
+      const message = await response.text();
+      if (!response.ok) {
+        throw new Error(message || "Ошибка при удалении пользователя.");
+      }
+      await fetchPage("/users");
+      notify(message, "success");
+      setActiveTab("get_users");
+      return message;
     }
-    window.saveThemeSettings = submitThemeSettings;
-    window.resetThemeSettings = resetThemeSettings;
-    window.initThemeSettingsPage = function initThemeSettingsPage() {
-      if (!hasThemeSettingsForm()) {
-        themeSettingsPageState.isMounted = false;
-        return;
-      }
-      themeSettingsPageState.isMounted = true;
-      bindThemeAction("theme-save-button", window.saveThemeSettings);
-      bindThemeAction("theme-reset-button", window.resetThemeSettings);
-      bindThemeAction("theme-background-image-upload", () => getThemeField("theme-background-image-file")?.click());
-      bindThemeInput("theme-font-color");
-      bindThemeInput("theme-background-color");
-      bindThemeColorPickerCursor("theme-font-color");
-      bindThemeColorPickerCursor("theme-background-color");
-      bindThemeInput("theme-background-image-opacity");
-      THEME_PERCENT_FIELDS.forEach(([fieldId]) => bindThemeInput(fieldId));
-      THEME_EFFECT_FIELDS.forEach(([fieldId]) => bindThemeEffectInput(fieldId));
-      bindThemeEffectsPicker();
-      const fileInput = getThemeField("theme-background-image-file");
-      if (fileInput && fileInput.dataset.themeFileBound !== "true") {
-        fileInput.dataset.themeFileBound = "true";
-        fileInput.addEventListener("change", handleThemeImageChange);
-      }
-      const savedSettings = normalizeThemeSettingsPayload(
-        window.__appThemeSavedSettings || window.__appThemeSettings || collectThemeSettingsPayload()
-      );
-      const initialSettings = normalizeThemeSettingsPayload(
-        window.__appThemeDraftSettings || savedSettings
-      );
-      populateThemeForm(initialSettings);
-      themeSettingsPageState.savedSettings = { ...savedSettings };
-      window.__appThemeSavedSettings = { ...savedSettings };
-      if (window.__appThemeDraftSettings && typeof window.applyThemeSettings === "function") {
-        window.applyThemeSettings(initialSettings);
-      }
+    return {
+      async add() {
+        const modalIsReady = getActiveTab() === "get_users" && document.getElementById("addUserModal");
+        if (!modalIsReady) {
+          await fetchPage("/users");
+        }
+        setActiveTab("get_users");
+        openModalWhenReady("addUserModal", window.openAddUserModal);
+      },
+      async edit(userId) {
+        requireUserId(userId);
+        await fetchPage(`/users/${userId}/edit`);
+        setActiveTab("update_user");
+      },
+      removeCurrentUser
     };
-    window.teardownThemeSettingsPage = function teardownThemeSettingsPage() {
-      if (!themeSettingsPageState.isMounted) {
-        return;
-      }
-      themeSettingsPageState.isMounted = false;
-      const nextSettings = normalizeThemeSettingsPayload(
-        themeSettingsPageState.savedSettings || window.__appThemeSavedSettings || window.__appThemeSettings
-      );
-      window.__appThemeDraftSettings = null;
-      if (typeof window.applyThemeSettings === "function") {
-        window.applyThemeSettings(nextSettings);
-      }
-    };
-  })();
+  }
 
   // Web/wwwroot/js/features/admin/admin-inline-core.js
   (() => {
-    const DETACHED_CONTENT_HOST_ID = "admin-inline-detached-content";
-    const loadedStylesheetUrls = /* @__PURE__ */ new Set();
-    const loadedScriptUrls = /* @__PURE__ */ new Set();
-    let loadedAssetsPrimed = false;
-    function normalizePathname(pathname) {
-      if (!pathname) {
-        return "/";
-      }
-      return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
-    }
-    function normalizeLocationUrl(pathname, search = "") {
-      const normalizedPath = normalizePathname(pathname);
-      return `${normalizedPath}${search || ""}`;
-    }
-    function normalizeLogsHistoryId(value) {
-      const rawValue = String(value || "").trim();
-      if (!rawValue) {
-        return null;
-      }
-      const normalizedValue = rawValue.startsWith("?") ? rawValue.slice(1) : rawValue;
-      return normalizedValue.length > 0 ? normalizedValue : null;
-    }
-    function resolveQueryHistoryId(pathname, value, preserveCurrentWhenMissing = false) {
-      if (value === void 0) {
-        return preserveCurrentWhenMissing && normalizePathname(window.location.pathname) === normalizePathname(pathname) ? normalizeLogsHistoryId(window.location.search) : null;
-      }
-      return normalizeLogsHistoryId(value);
-    }
-    function buildQueryHistoryEntry(tab, pathname, value, options = {}) {
-      const query = resolveQueryHistoryId(
-        pathname,
-        value,
-        options.preserveCurrentWhenMissing === true
-      );
-      return {
-        tab,
-        id: query,
-        url: query ? `${pathname}?${query}` : pathname
-      };
-    }
-    function buildAdminHistoryEntry(tab, id = void 0, modalData = null) {
-      const surveyId = id ?? modalData?.id_survey ?? null;
-      const userId = id ?? modalData?.id_user ?? null;
-      const organizationId = id ?? modalData?.id_organization ?? modalData?.organizationId ?? null;
-      switch (tab) {
-        case "get_surveys":
-          return buildQueryHistoryEntry(tab, "/survey", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "list_answers_users":
-          return buildQueryHistoryEntry(tab, "/survey/answer", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "archived_surveys":
-          return buildQueryHistoryEntry(tab, "/survey/archive", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "get_survey_signatures":
-          return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/signatures` } : null;
-        case "add_survey":
-          return { tab, id: null, url: "/survey/create" };
-        case "copy_survey":
-          return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/copy` } : null;
-        case "update_survey":
-          return surveyId ? { tab, id: surveyId, url: `/survey/${surveyId}/edit` } : null;
-        case "update_archived_survey":
-          return surveyId ? { tab, id: surveyId, url: `/survey/archive/${surveyId}/edit` } : null;
-        case "open_statistics":
-          return { tab, id: null, url: "/statistics" };
-        case "get_users":
-          return buildQueryHistoryEntry(tab, "/users", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "add_user":
-          return { tab, id: null, url: "/users/create" };
-        case "update_user":
-          return userId ? { tab, id: userId, url: `/users/${userId}/edit` } : null;
-        case "archived_users":
-        case "archive_list_users":
-          return buildQueryHistoryEntry("archived_users", "/users/archive", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "get_organization":
-          return buildQueryHistoryEntry(tab, "/organizations", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "organization_surveys":
-          return { tab, id: null, url: "/organizations/survey" };
-        case "add_organization":
-          return { tab, id: null, url: "/organizations/create" };
-        case "update_organization":
-          return organizationId ? { tab, id: organizationId, url: `/organizations/${organizationId}/edit` } : null;
-        case "archive_list_organizations":
-          return buildQueryHistoryEntry(tab, "/organizations/archive", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "reports":
-          return { tab, id: null, url: "/reports" };
-        case "survey_auto_creation":
-          return { tab, id: null, url: "/settings/survey-creation" };
-        case "theme_settings":
-          return { tab, id: null, url: "/settings/theme" };
-        case "get_logs":
-          return buildQueryHistoryEntry(tab, "/logs", id, { preserveCurrentWhenMissing: id === void 0 });
-        case "email":
-        case "email_new":
-          return { tab: tab === "email" ? "email_new" : tab, id: null, url: "/email" };
-        case "email_settings":
-          return { tab, id: null, url: "/settings/email" };
-        case "help":
-          return { tab, id: null, url: "/help" };
-        default:
-          return null;
-      }
-    }
-    function getAdminHistoryEntryFromLocation(pathname, search = "") {
-      const normalizedPath = normalizePathname(pathname);
-      if (normalizedPath === "/survey" || normalizedPath === "/surveys") {
-        return buildAdminHistoryEntry("get_surveys", search || "");
-      }
-      if (normalizedPath === "/survey/answer" || normalizedPath === "/surveys/answers") {
-        return buildAdminHistoryEntry("list_answers_users", search || "");
-      }
-      if (normalizedPath === "/survey/archive" || normalizedPath === "/surveys/archive") {
-        return buildAdminHistoryEntry("archived_surveys", search || "");
-      }
-      if (normalizedPath === "/survey/create" || normalizedPath === "/surveys/create") {
-        return buildAdminHistoryEntry("add_survey");
-      }
-      if (normalizedPath === "/statistics") {
-        return buildAdminHistoryEntry("open_statistics");
-      }
-      if (normalizedPath === "/users") {
-        return buildAdminHistoryEntry("get_users", search || "");
-      }
-      if (normalizedPath === "/users/create") {
-        return buildAdminHistoryEntry("add_user");
-      }
-      if (normalizedPath === "/users/archive") {
-        return buildAdminHistoryEntry("archived_users", search || "");
-      }
-      if (normalizedPath === "/organizations") {
-        return buildAdminHistoryEntry("get_organization", search || "");
-      }
-      if (normalizedPath === "/organizations/survey" || normalizedPath === "/organizations/surveys") {
-        return buildAdminHistoryEntry("organization_surveys");
-      }
-      if (normalizedPath === "/organizations/create") {
-        return buildAdminHistoryEntry("add_organization");
-      }
-      if (normalizedPath === "/organizations/archive") {
-        return buildAdminHistoryEntry("archive_list_organizations", search || "");
-      }
-      if (normalizedPath === "/reports") {
-        return buildAdminHistoryEntry("reports");
-      }
-      if (normalizedPath === "/settings/survey-creation" || normalizedPath === "/survey-auto-creation") {
-        return buildAdminHistoryEntry("survey_auto_creation");
-      }
-      if (normalizedPath === "/settings/theme" || normalizedPath === "/theme/configuration" || normalizedPath === "/theme-settings") {
-        return buildAdminHistoryEntry("theme_settings");
-      }
-      if (normalizedPath === "/logs" || normalizedPath === "/event-log") {
-        return buildAdminHistoryEntry("get_logs", search || "");
-      }
-      if (normalizedPath === "/email" || normalizedPath === "/mail" || normalizedPath === "/mail/new") {
-        return buildAdminHistoryEntry("email_new");
-      }
-      if (normalizedPath === "/settings/email" || normalizedPath === "/mail/configuration" || normalizedPath === "/mail-settings") {
-        return buildAdminHistoryEntry("email_settings");
-      }
-      if (normalizedPath === "/help") {
-        return buildAdminHistoryEntry("help");
-      }
-      let match = normalizedPath.match(/^\/survey\/(\d+)\/signatures$/) || normalizedPath.match(/^\/surveys\/(\d+)\/signatures$/);
-      if (match) {
-        return buildAdminHistoryEntry("get_survey_signatures", Number(match[1]));
-      }
-      match = normalizedPath.match(/^\/survey\/archive\/(\d+)\/edit$/) || normalizedPath.match(/^\/surveys\/archive\/(\d+)\/edit$/);
-      if (match) {
-        return buildAdminHistoryEntry("update_archived_survey", Number(match[1]));
-      }
-      match = normalizedPath.match(/^\/survey\/(\d+)\/edit$/) || normalizedPath.match(/^\/surveys\/(\d+)\/edit$/);
-      if (match) {
-        return buildAdminHistoryEntry("update_survey", Number(match[1]));
-      }
-      match = normalizedPath.match(/^\/survey\/(\d+)\/copy$/) || normalizedPath.match(/^\/surveys\/(\d+)\/copy$/);
-      if (match) {
-        return buildAdminHistoryEntry("copy_survey", Number(match[1]));
-      }
-      match = normalizedPath.match(/^\/users\/(\d+)\/edit$/);
-      if (match) {
-        return buildAdminHistoryEntry("update_user", Number(match[1]));
-      }
-      match = normalizedPath.match(/^\/organizations\/(\d+)\/edit$/);
-      if (match) {
-        return buildAdminHistoryEntry("update_organization", Number(match[1]));
-      }
-      return null;
-    }
-    function createClosedModalState() {
-      return {
-        isOpen: false,
-        content: "",
-        data: null,
-        message: null,
-        isSuccess: false
-      };
-    }
     function getRequestVerificationToken() {
-      return document.querySelector('input[name="__RequestVerificationToken"]')?.value || "";
-    }
-    function parseHtmlDocument(html) {
-      const parser = new DOMParser();
-      return parser.parseFromString(html || "", "text/html");
-    }
-    function normalizeAssetUrl(url) {
-      if (!url) {
-        return "";
-      }
-      try {
-        return new URL(url, window.location.origin).href;
-      } catch (error) {
-        return "";
-      }
-    }
-    function primeLoadedAssets() {
-      if (loadedAssetsPrimed) {
-        return;
-      }
-      document.querySelectorAll('link[rel="stylesheet"][href]').forEach((link) => {
-        const href = normalizeAssetUrl(link.href);
-        if (href) {
-          loadedStylesheetUrls.add(href);
-        }
-      });
-      document.querySelectorAll("script[src]").forEach((script) => {
-        const src = normalizeAssetUrl(script.src);
-        if (src) {
-          loadedScriptUrls.add(src);
-        }
-      });
-      loadedAssetsPrimed = true;
-    }
-    function isThemeStylesheetUrl(href) {
-      try {
-        return new URL(href, window.location.origin).pathname.endsWith("/css/shared/app-theme.css");
-      } catch (error) {
-        return false;
-      }
-    }
-    function getThemeStylesheetAnchor() {
-      return Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).find((link) => isThemeStylesheetUrl(link.getAttribute("href") || link.href)) || document.getElementById("app-theme-inline");
-    }
-    function normalizeThemeStylesheetOrder() {
-      const themeAnchor = getThemeStylesheetAnchor();
-      const head = themeAnchor?.parentNode;
-      if (!head) {
-        return;
-      }
-      const children = Array.from(head.children);
-      const themeIndex = children.indexOf(themeAnchor);
-      if (themeIndex < 0) {
-        return;
-      }
-      children.slice(themeIndex + 1).forEach((node) => {
-        if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet" && !isThemeStylesheetUrl(node.getAttribute("href") || node.href)) {
-          head.insertBefore(node, themeAnchor);
-        }
-      });
-    }
-    function insertStylesheetBeforeTheme(link) {
-      normalizeThemeStylesheetOrder();
-      const themeAnchor = getThemeStylesheetAnchor();
-      if (themeAnchor?.parentNode) {
-        themeAnchor.parentNode.insertBefore(link, themeAnchor);
-        return;
-      }
-      document.head.appendChild(link);
-    }
-    function loadStylesheetsFromDocument(parsedDocument) {
-      primeLoadedAssets();
-      normalizeThemeStylesheetOrder();
-      parsedDocument.querySelectorAll('link[rel="stylesheet"][href]').forEach((sourceLink) => {
-        const href = normalizeAssetUrl(sourceLink.getAttribute("href"));
-        if (!href || loadedStylesheetUrls.has(href)) {
-          return;
-        }
-        loadedStylesheetUrls.add(href);
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.href = href;
-        if (sourceLink.media) {
-          link.media = sourceLink.media;
-        }
-        insertStylesheetBeforeTheme(link);
-      });
-    }
-    function loadScriptAsset(src) {
-      return new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = false;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`Не удалось загрузить скрипт: ${src}`));
-        document.body.appendChild(script);
-      });
-    }
-    async function loadScriptsFromDocument(parsedDocument) {
-      primeLoadedAssets();
-      let loadedAnyScript = false;
-      const scriptSources = Array.from(parsedDocument.querySelectorAll("script[src]")).map((script) => normalizeAssetUrl(script.getAttribute("src"))).filter(Boolean).filter((src, index, list) => list.indexOf(src) === index);
-      for (const src of scriptSources) {
-        if (loadedScriptUrls.has(src)) {
-          continue;
-        }
-        loadedScriptUrls.add(src);
-        try {
-          await loadScriptAsset(src);
-          loadedAnyScript = true;
-        } catch (error) {
-          loadedScriptUrls.delete(src);
-          throw error;
-        }
-      }
-      return loadedAnyScript;
-    }
-    function shouldSkipFetchedNode(node) {
-      if (!node) {
-        return true;
-      }
-      if (node.nodeType === Node.TEXT_NODE) {
-        return !node.textContent.trim();
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) {
-        return false;
-      }
-      const element = node;
-      if (["SCRIPT", "LINK", "STYLE", "META", "TITLE"].includes(element.tagName)) {
-        return true;
-      }
-      if ([
-        "global-antiforgery-token",
-        "layout-chrome-context",
-        "chrome-context",
-        "chrome-header",
-        "chrome-navigation",
-        "chrome-footer",
-        "app-theme-background",
-        "app-theme-effects-root",
-        "app-theme-foreground-effects-root",
-        "root",
-        DETACHED_CONTENT_HOST_ID
-      ].includes(element.id)) {
-        return true;
-      }
-      if (element.tagName === "TEMPLATE" && ["nav-template-admin", "nav-template-user", "header-template", "footer-template", "admin-extension-modal-template", "admin-extension-modal-row-template", "admin-statistics-template"].includes(element.id)) {
-        return true;
-      }
-      if (element.querySelector && element.querySelector("#content_admin")) {
-        return true;
-      }
-      return false;
-    }
-    function getPrimaryRenderableNodes(sourceDocument) {
-      const contentHost = sourceDocument.getElementById("content_admin");
-      if (contentHost) {
-        return Array.from(contentHost.childNodes);
-      }
-      const pageContent = sourceDocument.getElementById("default_content");
-      return pageContent ? [pageContent] : Array.from(sourceDocument.body.childNodes);
-    }
-    function getDetachedRenderableNodes(sourceDocument) {
-      const contentHost = sourceDocument.getElementById("content_admin");
-      const pageContent = sourceDocument.getElementById("default_content");
-      const primaryNode = contentHost || pageContent;
-      if (!primaryNode) {
-        return [];
-      }
-      const nodes = [];
-      const seen = /* @__PURE__ */ new Set();
-      const detachedSelectors = [
-        ".modal",
-        '[id$="Modal"]',
-        "template",
-        "#notification",
-        "#loadingOverlay",
-        "#survey-edit-selected-organization-names"
-      ];
-      const appendNode = (node) => {
-        if (!node || seen.has(node) || node === primaryNode || shouldSkipFetchedNode(node)) {
-          return;
-        }
-        if (primaryNode.contains?.(node)) {
-          return;
-        }
-        if (node.nodeType === Node.ELEMENT_NODE && (node.querySelector?.("#content_admin") || node.querySelector?.("#default_content"))) {
-          return;
-        }
-        seen.add(node);
-        nodes.push(node);
-      };
-      Array.from(sourceDocument.body.childNodes).forEach(appendNode);
-      sourceDocument.body.querySelectorAll(detachedSelectors.join(",")).forEach(appendNode);
-      return nodes;
-    }
-    function buildFragmentFromNodes(nodes, cloneNodes = true) {
-      const fragment = document.createDocumentFragment();
-      (nodes || []).forEach((node) => {
-        if (!shouldSkipFetchedNode(node)) {
-          fragment.appendChild(cloneNodes ? node.cloneNode(true) : node);
-        }
-      });
-      return fragment;
-    }
-    function buildRenderableFragment(parsedDocument) {
-      return buildFragmentFromNodes(getPrimaryRenderableNodes(parsedDocument));
-    }
-    function ensureDetachedContentHost() {
-      let host = document.getElementById(DETACHED_CONTENT_HOST_ID);
-      if (host) {
-        return host;
-      }
-      host = document.createElement("div");
-      host.id = DETACHED_CONTENT_HOST_ID;
-      document.body.appendChild(host);
-      return host;
-    }
-    function syncDetachedContent(sourceDocument, cloneNodes = true) {
-      const host = ensureDetachedContentHost();
-      host.innerHTML = "";
-      host.appendChild(buildFragmentFromNodes(getDetachedRenderableNodes(sourceDocument), cloneNodes));
-    }
-    function captureInitialDetachedContent() {
-      if (!document.body) {
-        return;
-      }
-      syncDetachedContent(document, false);
-    }
-    function hydrateFetchedContentState() {
-      const selectedOrganizationNamesElement = document.getElementById("survey-edit-selected-organization-names");
-      if (!selectedOrganizationNamesElement) {
-        window.selectedOrganizationNames = [];
-        return;
-      }
-      try {
-        window.selectedOrganizationNames = JSON.parse(selectedOrganizationNamesElement.content.textContent.trim());
-      } catch (error) {
-        console.warn("Не удалось восстановить выбранные организации из шаблона.", error);
-        window.selectedOrganizationNames = [];
-      }
+      return window.AppHttp?.getAntiforgeryToken() || "";
     }
     function createContentWrapper() {
       const wrapper = document.createElement("div");
@@ -2384,8 +1429,7 @@
     const initialHistoryEntry = getAdminHistoryEntryFromLocation(window.location.pathname, window.location.search) || buildAdminHistoryEntry("get_surveys");
     const userRole = initialData.userRole || "";
     const hasAccess = Boolean(userRole);
-    const availablePages = window.AdminInlineAppPages || {};
-    const mountExtensionModal = availablePages.mountExtensionModal;
+    const getExtensionModalMount = () => window.AdminInlineAppPages?.mountExtensionModal || null;
     if (!hasAccess) {
       if (!rootElement) {
         return;
@@ -2413,16 +1457,16 @@
       activeTab: initialHistoryEntry?.tab || "get_surveys",
       loading: false,
       showLoader: false,
-      modal: createClosedModalState()
+      modal: createClosedAdminModalState()
     };
     let contentCleanup = null;
-    let modalCleanup = null;
     let headerCleanup = null;
     let navCleanup = null;
     let footerCleanup = null;
     let loaderTimer = null;
     let initTogglesTimer = null;
     let initEditTimer = null;
+    let contentLifecycleScope = null;
     let pageContainer = rootElement ? document.createElement("div") : existingHeaderHost.closest(".page-container") || document.body;
     let headerHost = existingHeaderHost;
     let navHost = existingNavHost;
@@ -2445,25 +1489,17 @@
       pageContainer.appendChild(footerHost);
       rootElement.appendChild(pageContainer);
     }
-    let modalNode = document.getElementById("admin-inline-modal-host");
-    if (modalNode) {
-      modalNode.remove();
-    }
-    modalNode = document.createElement("div");
-    modalNode.id = "admin-inline-modal-host";
-    const modalContent = document.createElement("div");
-    modalContent.className = "modal-content";
-    const modalClose = document.createElement("span");
-    modalClose.className = "modal-close";
-    const modalIcon = document.createElement("i");
-    modalIcon.className = "fas fa-xmark";
-    const modalBodyHost = document.createElement("div");
-    modalBodyHost.className = "modal-body";
-    modalClose.appendChild(modalIcon);
-    modalContent.appendChild(modalClose);
-    modalContent.appendChild(modalBodyHost);
-    modalNode.appendChild(modalContent);
-    pageContainer.appendChild(modalNode);
+    const adminModalRenderer = createAdminModalRenderer({
+      pageContainer,
+      getExtensionModalMount,
+      onClose: () => closeModal(),
+      onCopySurvey: () => handleCopySurvey(),
+      onUpdateSurvey: () => handleUpdateSurvey(),
+      onDeleteSurvey: () => handleDeleteSurvey(),
+      onCreateMonthlyReport: (surveyId) => createMonthlyReport(surveyId),
+      onCreateMonthlySummaryReport: () => createMonthlySummaryReport(),
+      onCreateQuarterlyReport: (quarter) => createQuarterlyReport(quarter)
+    });
     const syncBrowserHistory = (historyEntry, mode = "push") => {
       if (!historyEntry) {
         return;
@@ -2525,7 +1561,7 @@
       }
     };
     const closeModal = () => {
-      state.modal = createClosedModalState();
+      state.modal = createClosedAdminModalState();
       renderModal();
     };
     const setModal = (nextModal) => {
@@ -2534,59 +1570,55 @@
     };
     const schedulePostContentHooks = () => {
       const mountedPage = contentAdmin.querySelector(".app-page[data-page]")?.dataset.page || "";
+      const schedule = (callback) => {
+        if (contentLifecycleScope) {
+          contentLifecycleScope.timeout(callback, 0);
+          return;
+        }
+        window.setTimeout(callback, 0);
+      };
       if (initTogglesTimer) {
         window.clearTimeout(initTogglesTimer);
       }
-      initTogglesTimer = window.setTimeout(() => {
+      const initializePasswordToggles = () => {
         if (window.initPasswordToggles) {
           window.initPasswordToggles(document);
         }
-      }, 0);
+      };
+      if (contentLifecycleScope) {
+        contentLifecycleScope.timeout(initializePasswordToggles, 0);
+      } else {
+        initTogglesTimer = window.setTimeout(initializePasswordToggles, 0);
+      }
       if (initEditTimer) {
         window.clearTimeout(initEditTimer);
         initEditTimer = null;
       }
       if (state.activeTab === "update_survey") {
-        initEditTimer = window.setTimeout(() => {
+        const initializeSurveyEdit = () => {
           if (typeof window.surveyEditInit === "function") {
             window.surveyEditInit();
           }
-        }, 0);
+        };
+        if (contentLifecycleScope) {
+          contentLifecycleScope.timeout(initializeSurveyEdit, 0);
+        } else {
+          initEditTimer = window.setTimeout(initializeSurveyEdit, 0);
+        }
       }
       if (mountedPage === "answers-statistics") {
-        window.setTimeout(() => {
+        schedule(() => {
           if (typeof window.initAnswerStatisticsPage === "function") {
             window.initAnswerStatisticsPage();
           }
-        }, 0);
+        });
       }
       if (mountedPage === "mail-settings-page" || mountedPage === "mail-compose") {
-        window.setTimeout(() => {
+        schedule(() => {
           if (typeof window.initEmailSettingsPage === "function") {
             window.initEmailSettingsPage();
           }
-        }, 0);
-      }
-      if (mountedPage === "theme-settings-page") {
-        window.setTimeout(() => {
-          if (typeof window.initThemeSettingsPage === "function") {
-            window.initThemeSettingsPage();
-          }
-        }, 0);
-      }
-      if (mountedPage === "survey-auto-creation") {
-        window.setTimeout(() => {
-          if (typeof window.initSurveyAutoCreationPage === "function") {
-            window.initSurveyAutoCreationPage();
-          }
-        }, 0);
-      }
-      if (mountedPage === "help-page") {
-        window.setTimeout(() => {
-          if (typeof window.initHelpPage === "function") {
-            window.initHelpPage(document);
-          }
-        }, 0);
+        });
       }
     };
     const setContentMount = (mountFn) => {
@@ -2597,12 +1629,16 @@
         contentCleanup();
         contentCleanup = null;
       }
+      window.AppPageLifecycle?.unmount(contentAdmin);
+      contentLifecycleScope?.dispose();
+      contentLifecycleScope = window.AppPageLifecycle?.createScope?.() || null;
       contentAdmin.innerHTML = "";
       const wrapper = createContentWrapper();
       contentAdmin.appendChild(wrapper);
       if (typeof mountFn === "function") {
         contentCleanup = mountFn(wrapper) || null;
       }
+      window.AppPageLifecycle?.mount(contentAdmin);
       schedulePostContentHooks();
       renderLoader();
     };
@@ -2643,188 +1679,7 @@
       }
       return response;
     };
-    const deleteSurvey = async (surveyId) => {
-      const response = await fetch(`/survey/${surveyId}/delete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "RequestVerificationToken": getRequestVerificationToken()
-        },
-        body: JSON.stringify({ surveyId })
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.message || "Ошибка при удалении анкеты.");
-      }
-      return result;
-    };
-    const deleteUser = async (userId) => {
-      const response = await fetch(`/users/${userId}/delete`, {
-        method: "POST",
-        headers: {
-          RequestVerificationToken: getRequestVerificationToken()
-        }
-      });
-      const responseText = await response.text();
-      if (!response.ok) {
-        throw new Error(responseText || "Ошибка при удалении пользователя.");
-      }
-      return responseText;
-    };
-    const revealRenderedModal = () => {
-      modalNode.classList.add("modal--visible");
-      modalNode.setAttribute("aria-hidden", "false");
-      window.syncSiteModalBodyState?.();
-    };
-    const renderModal = () => {
-      modalNode.className = "modal";
-      modalNode.setAttribute("aria-hidden", "true");
-      if (typeof modalCleanup === "function") {
-        modalCleanup();
-        modalCleanup = null;
-      }
-      modalBodyHost.innerHTML = "";
-      if (!state.modal.isOpen) {
-        window.syncSiteModalBodyState?.();
-        return;
-      }
-      const modalData = state.modal.data;
-      switch (state.modal.content) {
-        case "extend":
-          if (typeof mountExtensionModal === "function") {
-            modalCleanup = mountExtensionModal(modalBodyHost, { survey: modalData, onClose: closeModal }) || null;
-          } else {
-            const msg = document.createElement("div");
-            msg.textContent = "Модуль продления не загружен.";
-            modalBodyHost.appendChild(msg);
-          }
-          revealRenderedModal();
-          return;
-        case "report": {
-          const wrap = document.createElement("div");
-          const title = document.createElement("h2");
-          title.className = "modal-title";
-          title.textContent = "Создать отчёт";
-          wrap.appendChild(title);
-          const actions = document.createElement("div");
-          actions.style.display = "flex";
-          actions.style.gap = "10px";
-          actions.style.justifyContent = "space-between";
-          actions.style.marginTop = "1.5rem";
-          const month = document.createElement("div");
-          month.className = "submenu2-container";
-          month.style.flex = "1";
-          const monthBtn = document.createElement("button");
-          monthBtn.style.width = "100%";
-          monthBtn.textContent = "Отчёт за месяц";
-          const monthMenu = document.createElement("div");
-          monthMenu.className = "submenu2";
-          const bySurvey = document.createElement("div");
-          bySurvey.textContent = "По выбранной анкете";
-          bySurvey.addEventListener("click", () => createMonthlyReport(modalData?.id_survey));
-          const allSurveys = document.createElement("div");
-          allSurveys.textContent = "По всем анкетам";
-          allSurveys.addEventListener("click", () => createMonthlySummaryReport());
-          monthMenu.appendChild(bySurvey);
-          monthMenu.appendChild(allSurveys);
-          month.appendChild(monthBtn);
-          month.appendChild(monthMenu);
-          const quarter = document.createElement("div");
-          quarter.className = "submenu2-container";
-          quarter.style.flex = "1";
-          const quarterBtn = document.createElement("button");
-          quarterBtn.style.width = "100%";
-          quarterBtn.textContent = "Отчёт за квартал";
-          const quarterMenu = document.createElement("div");
-          quarterMenu.className = "submenu2";
-          [1, 2, 3, 4].forEach((q) => {
-            const item = document.createElement("div");
-            item.textContent = `${q} квартал`;
-            item.addEventListener("click", () => createQuarterlyReport(q));
-            quarterMenu.appendChild(item);
-          });
-          quarter.appendChild(quarterBtn);
-          quarter.appendChild(quarterMenu);
-          actions.appendChild(month);
-          actions.appendChild(quarter);
-          wrap.appendChild(actions);
-          modalBodyHost.appendChild(wrap);
-          revealRenderedModal();
-          return;
-        }
-        case "copy":
-        case "update":
-        case "delete": {
-          const isCopy = state.modal.content === "copy";
-          const isUpdate = state.modal.content === "update";
-          const titleText = isCopy ? "Копирование анкеты" : isUpdate ? "Редактирование анкеты" : "Удаление анкеты";
-          const messageText = isCopy ? `Вы уверены, что хотите создать копию анкеты "${modalData?.name_survey}"?` : isUpdate ? `Вы переходите к редактированию анкеты "${modalData?.name_survey}".` : `Вы уверены, что хотите удалить анкету "${modalData?.name_survey}"?`;
-          const okText = isCopy ? "Копировать" : isUpdate ? "Продолжить" : "Удалить";
-          const okHandler = isCopy ? handleCopySurvey : isUpdate ? handleUpdateSurvey : handleDeleteSurvey;
-          const root = document.createElement("div");
-          const header = document.createElement("div");
-          header.className = "modal-header";
-          const h2 = document.createElement("h2");
-          h2.className = "h2_modal";
-          h2.textContent = titleText;
-          header.appendChild(h2);
-          const body = document.createElement("div");
-          body.className = "modal-body";
-          const p = document.createElement("p");
-          p.className = "modal-message";
-          p.textContent = messageText;
-          body.appendChild(p);
-          const footer = document.createElement("div");
-          footer.className = "modal-footer";
-          const ok = document.createElement("button");
-          ok.className = "modal_btn modal_btn-primary";
-          ok.textContent = okText;
-          ok.addEventListener("click", okHandler);
-          const cancel = document.createElement("button");
-          cancel.className = "modal_btn modal_btn-secondary";
-          cancel.textContent = "Отмена";
-          cancel.addEventListener("click", closeModal);
-          footer.appendChild(cancel);
-          footer.appendChild(ok);
-          root.appendChild(header);
-          root.appendChild(body);
-          root.appendChild(footer);
-          modalBodyHost.appendChild(root);
-          revealRenderedModal();
-          return;
-        }
-        case "message": {
-          const root = document.createElement("div");
-          const header = document.createElement("div");
-          header.className = "modal-header";
-          const h2 = document.createElement("h2");
-          h2.className = "h2_modal";
-          h2.textContent = state.modal.isSuccess ? "Успешно" : "Ошибка";
-          header.appendChild(h2);
-          const body = document.createElement("div");
-          body.className = "modal-body";
-          const message = document.createElement("div");
-          message.className = `modal-message ${state.modal.isSuccess ? "success-message" : "error-message"}`;
-          message.textContent = state.modal.message || "";
-          body.appendChild(message);
-          const footer = document.createElement("div");
-          footer.className = "modal-footer";
-          const ok = document.createElement("button");
-          ok.className = "modal_btn modal_btn-primary";
-          ok.textContent = "OK";
-          ok.addEventListener("click", closeModal);
-          footer.appendChild(ok);
-          root.appendChild(header);
-          root.appendChild(body);
-          root.appendChild(footer);
-          modalBodyHost.appendChild(root);
-          revealRenderedModal();
-          return;
-        }
-        default:
-          return;
-      }
-    };
+    const renderModal = () => adminModalRenderer.render(state.modal);
     const setActiveTabAndRefreshNav = (tab) => {
       state.activeTab = tab;
       remountNavigation();
@@ -2849,6 +1704,23 @@
         }
       }, 50);
     };
+    const actionDependencies = {
+      fetchPage: fetchHtmlPage,
+      getActiveTab: () => state.activeTab,
+      getModalData: () => state.modal.data,
+      getRequestVerificationToken,
+      openModalWhenReady,
+      setActiveTab: setActiveTabAndRefreshNav
+    };
+    const surveyActions = createAdminSurveyActions({
+      ...actionDependencies,
+      notify: (...args) => window.AppUi?.notify?.(...args)
+    });
+    const userActions = createAdminUserActions({
+      ...actionDependencies,
+      notify: (...args) => window.AppUi?.notify?.(...args)
+    });
+    const organizationActions = createAdminOrganizationActions(actionDependencies);
     function scrollToSelector(selector) {
       if (!selector) {
         return false;
@@ -2883,9 +1755,10 @@
       } else {
         window.AppScrollState?.saveCurrentPosition();
       }
-      if (tab === "get_surveys") {
-        await fetchHtmlPage(buildListRequestUrl("/survey", resolvedId));
-        setActiveTabAndRefreshNav(tab);
+      const initialPageRequest = tab === "get_surveys" ? resolveAdminTabPageRequest(tab, resolvedId, buildListRequestUrl) : null;
+      if (initialPageRequest) {
+        await fetchHtmlPage(initialPageRequest.url);
+        setActiveTabAndRefreshNav(initialPageRequest.activeTab);
         if (historyMode !== "none") {
           syncBrowserHistory(historyEntry, historyMode);
         }
@@ -2896,186 +1769,78 @@
       }
       setLoading(true);
       try {
-        switch (tab) {
-          case "open_statistics":
-            await fetchHtmlPage("/statistics");
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "list_answers_users":
-            await fetchHtmlPage(buildListRequestUrl("/survey/answer", resolvedId));
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "archived_surveys":
-            await fetchHtmlPage(buildListRequestUrl("/survey/archive", resolvedId));
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "get_survey_signatures":
-            if (!id) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage(`/survey/${id}/signatures`);
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "add_survey":
-            if (!(state.activeTab === "get_surveys" && document.getElementById("surveyEditorModal") && !document.getElementById("surveyId"))) {
-              await fetchHtmlPage("/survey");
-            }
-            setActiveTabAndRefreshNav("get_surveys");
-            openModalWhenReady("surveyEditorModal", window.openAddSurveyModal);
-            break;
-          case "get_logs":
-            await fetchHtmlPage(buildListRequestUrl("/logs", resolvedId));
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "download_logs": {
-            const response = await fetch("/logs/export");
-            if (!response.ok) {
-              throw new Error(window.getResponseErrorMessage ? window.getResponseErrorMessage(response, "Ошибка выгрузки логов") : `Ошибка выгрузки логов: ${response.status}`);
-            }
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = downloadUrl;
-            link.download = "logs.txt";
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(downloadUrl);
-            break;
-          }
-          case "get_users":
-            await fetchHtmlPage(buildListRequestUrl("/users", resolvedId));
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "get_organization":
-            await fetchHtmlPage(buildListRequestUrl("/organizations", resolvedId));
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "organization_surveys":
-            await fetchHtmlPage("/organizations/survey");
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "copy_survey":
-            if (!resolvedId) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage("/survey");
-            setActiveTabAndRefreshNav("get_surveys");
-            openModalWhenReady("surveyEditorModal", () => window.openCopySurveyModalById?.(resolvedId, { skipListRefresh: true }));
-            break;
-          case "update_survey":
-            if (!resolvedId) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage(`/survey/${resolvedId}/edit`);
-            setActiveTabAndRefreshNav("get_surveys");
-            openModalWhenReady("surveyEditorModal", window.openEditSurveyModal);
-            break;
-          case "update_archived_survey":
-            if (!resolvedId) throw new Error("ID анкеты не указан.");
-            await fetchHtmlPage(`/survey/archive/${resolvedId}/edit`);
-            setActiveTabAndRefreshNav("archived_surveys");
-            openModalWhenReady("surveyEditorModal", window.openEditSurveyModal);
-            break;
-          case "delete_survey": {
-            const result = await deleteSurvey(state.modal.data?.id_survey);
-            await fetchHtmlPage("/survey");
-            window.siteNotify?.(result.message, "success");
-            setActiveTabAndRefreshNav("get_surveys");
-            break;
-          }
-          case "add_user":
-            if (!(state.activeTab === "get_users" && document.getElementById("addUserModal"))) {
-              await fetchHtmlPage("/users");
-            }
-            setActiveTabAndRefreshNav("get_users");
-            openModalWhenReady("addUserModal", window.openAddUserModal);
-            break;
-          case "update_user":
-            if (!resolvedId) throw new Error("ID пользователя не указан.");
-            await fetchHtmlPage(`/users/${resolvedId}/edit`);
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "delete_user": {
-            const message = await deleteUser(state.modal.data?.id_user);
-            await fetchHtmlPage("/users");
-            window.siteNotify?.(message, "success");
-            setActiveTabAndRefreshNav("get_users");
-            break;
-          }
-          case "archive_list_organizations":
-            await fetchHtmlPage(buildListRequestUrl("/organizations/archive", resolvedId));
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "archived_users":
-          case "archive_list_users":
-            await fetchHtmlPage(buildListRequestUrl("/users/archive", resolvedId));
-            setActiveTabAndRefreshNav("archived_users");
-            break;
-          case "add_organization":
-            if (!(state.activeTab === "get_organization" && document.getElementById("addOrganizationModal"))) {
-              await fetchHtmlPage("/organizations");
-            }
-            setActiveTabAndRefreshNav("get_organization");
-            openModalWhenReady("addOrganizationModal", window.openAddOrganizationModal);
-            break;
-          case "update_organization":
-            if (!resolvedId) throw new Error("ID организации не указан.");
-            await fetchHtmlPage(`/organizations/${resolvedId}/edit`);
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "delete_organization":
-            {
-              const response = await fetch(`/organizations/${state.modal.data?.id_organization ?? state.modal.data?.organizationId}/delete`, {
-                method: "POST",
-                cache: "no-store",
-                headers: {
-                  "X-Admin-Inline-Request": "true",
-                  RequestVerificationToken: getRequestVerificationToken()
-                }
-              });
+        const pageRequest = resolveAdminTabPageRequest(tab, resolvedId, buildListRequestUrl);
+        if (pageRequest) {
+          await fetchHtmlPage(pageRequest.url);
+          setActiveTabAndRefreshNav(pageRequest.activeTab);
+        } else {
+          switch (tab) {
+            case "add_survey":
+              await surveyActions.add();
+              break;
+            case "download_logs": {
+              const response = await fetch("/logs/export");
               if (!response.ok) {
-                throw new Error(await response.text() || "Ошибка при удалении организации.");
+                throw new Error(window.getResponseErrorMessage ? window.getResponseErrorMessage(response, "Ошибка выгрузки логов") : `Ошибка выгрузки логов: ${response.status}`);
               }
+              const blob = await response.blob();
+              const downloadUrl = window.URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = downloadUrl;
+              link.download = "logs.txt";
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              window.URL.revokeObjectURL(downloadUrl);
+              break;
             }
-            await fetchHtmlPage("/organizations");
-            setActiveTabAndRefreshNav("get_organization");
-            break;
-          case "help":
-            await fetchHtmlPage("/help");
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "monthly_summary_report":
-            createMonthlySummaryReport();
-            await fetchHtmlPage("/reports");
-            setActiveTabAndRefreshNav("reports");
-            break;
-          case "quarterly_report_q1":
-          case "quarterly_report_q2":
-          case "quarterly_report_q3":
-          case "quarterly_report_q4":
-            createQuarterlyReport(Number(tab.slice(-1)));
-            await fetchHtmlPage("/reports");
-            setActiveTabAndRefreshNav("reports");
-            break;
-          case "reports":
-            await fetchHtmlPage("/reports");
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "survey_auto_creation":
-            await fetchHtmlPage("/settings/survey-creation");
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "theme_settings":
-            await fetchHtmlPage("/settings/theme");
-            setActiveTabAndRefreshNav(tab);
-            break;
-          case "email":
-          case "email_new":
-            await fetchHtmlPage("/email");
-            setActiveTabAndRefreshNav("email_new");
-            break;
-          case "email_settings":
-            await fetchHtmlPage("/settings/email");
-            setActiveTabAndRefreshNav("email_settings");
-            break;
-          default:
-            console.warn(`Вкладка ${tab} не обработана.`);
-            break;
+            case "copy_survey":
+              await surveyActions.copy(resolvedId);
+              break;
+            case "update_survey":
+              await surveyActions.edit(resolvedId);
+              break;
+            case "update_archived_survey":
+              await surveyActions.edit(resolvedId, { archived: true });
+              break;
+            case "delete_survey":
+              await surveyActions.removeCurrentSurvey();
+              break;
+            case "add_user":
+              await userActions.add();
+              break;
+            case "update_user":
+              await userActions.edit(resolvedId);
+              break;
+            case "delete_user":
+              await userActions.removeCurrentUser();
+              break;
+            case "add_organization":
+              await organizationActions.add();
+              break;
+            case "update_organization":
+              await organizationActions.edit(resolvedId);
+              break;
+            case "delete_organization":
+              await organizationActions.removeCurrentOrganization();
+              break;
+            case "monthly_summary_report":
+              createMonthlySummaryReport();
+              await fetchHtmlPage("/reports");
+              setActiveTabAndRefreshNav("reports");
+              break;
+            case "quarterly_report_q1":
+            case "quarterly_report_q2":
+            case "quarterly_report_q3":
+            case "quarterly_report_q4":
+              createQuarterlyReport(Number(tab.slice(-1)));
+              await fetchHtmlPage("/reports");
+              setActiveTabAndRefreshNav("reports");
+              break;
+            default:
+              console.warn(`Вкладка ${tab} не обработана.`);
+              break;
+          }
         }
         if (historyMode !== "none") {
           const nextHistory = ["delete_survey"].includes(tab) ? buildAdminHistoryEntry("get_surveys") : ["add_survey", "update_survey"].includes(tab) ? buildAdminHistoryEntry("get_surveys") : ["update_archived_survey"].includes(tab) ? buildAdminHistoryEntry("archived_surveys") : ["add_user"].includes(tab) ? buildAdminHistoryEntry("get_users") : ["add_organization"].includes(tab) ? buildAdminHistoryEntry("get_organization") : ["delete_user"].includes(tab) ? buildAdminHistoryEntry("get_users") : ["delete_organization"].includes(tab) ? buildAdminHistoryEntry("get_organization") : ["monthly_summary_report", "quarterly_report_q1", "quarterly_report_q2", "quarterly_report_q3", "quarterly_report_q4"].includes(tab) ? buildAdminHistoryEntry("reports") : historyEntry;
@@ -3088,7 +1853,7 @@
         }
       } catch (error) {
         console.error("Ошибка переключения вкладки:", error);
-        window.siteNotify?.(error.message || "Произошла ошибка загрузки.", "error");
+        window.AppUi?.notify?.(error.message || "Произошла ошибка загрузки.", "error");
       } finally {
         setLoading(false);
       }
@@ -3104,18 +1869,14 @@
     const handleDeleteSurvey = async () => {
       try {
         setLoading(true);
-        const result = await deleteSurvey(state.modal.data?.id_survey);
-        await fetchHtmlPage("/survey");
-        window.siteNotify?.(result.message, "success");
-        setActiveTabAndRefreshNav("get_surveys");
+        await surveyActions.removeCurrentSurvey();
       } catch (error) {
         console.error("Ошибка при удалении анкеты:", error);
-        window.siteNotify?.(error.message || "Не удалось удалить анкету.", "error");
+        window.AppUi?.notify?.(error.message || "Не удалось удалить анкету.", "error");
       } finally {
         setLoading(false);
       }
     };
-    modalClose.addEventListener("click", closeModal);
     remountChrome();
     renderLoader();
     renderModal();
@@ -3253,254 +2014,5 @@
     }
     openTab("get_surveys", initialHistoryEntry?.id ?? null, { historyMode: "replace", force: true, scrollMode: "restore" });
   })();
-
-  // Web/wwwroot/js/features/admin/admin-survey-edit.js
-  function surveyEditNotify(message, type = "error", options = {}) {
-    const normalizedMessage = String(message || "").trim();
-    if (!normalizedMessage) {
-      return;
-    }
-    if (typeof window.siteNotify === "function") {
-      window.siteNotify(normalizedMessage, type, {
-        title: options.title,
-        duration: options.duration ?? (type === "error" ? 0 : 4500)
-      });
-      return;
-    }
-    window.alert(normalizedMessage);
-  }
-  function surveyEditToggleOrganizationSelection(element) {
-    const orgId = parseInt(element.dataset.id, 10);
-    const orgName = element.dataset.name || element.querySelector("label")?.textContent?.trim() || "";
-    if (!Number.isFinite(orgId) || !orgName) {
-      return;
-    }
-    if (typeof window.toggleOrganizationSelection === "function") {
-      window.toggleOrganizationSelection(orgId, orgName);
-      return;
-    }
-    const checkbox = element.querySelector('input[type="checkbox"]');
-    const nextSelected = element.dataset.selected !== "true";
-    element.dataset.selected = nextSelected ? "true" : "false";
-    element.classList.toggle("selected", nextSelected);
-    if (checkbox) {
-      checkbox.checked = nextSelected;
-    }
-  }
-  function surveyEditSaveSelectedOrganization() {
-    if (typeof window.surveyEditCloseOrganizationDropdown === "function") {
-      window.surveyEditCloseOrganizationDropdown();
-    } else {
-      surveyEditCloseModal("organizationModal");
-    }
-    if (typeof window.updateSelectedOrganizationDisplay === "function") {
-      window.updateSelectedOrganizationDisplay();
-    }
-  }
-  function surveyEditUpdateSelectedOrganizationDisplay() {
-    if (typeof window.updateSelectedOrganizationDisplay === "function") {
-      window.updateSelectedOrganizationDisplay();
-    }
-  }
-  function surveyEditRemoveOrganization(orgId) {
-    if (typeof window.removeSelectedOrganization === "function") {
-      window.removeSelectedOrganization(orgId);
-      return;
-    }
-  }
-  function surveyEditAddCriteria() {
-    if (typeof window.appendSurveyCriteriaField === "function") {
-      window.appendSurveyCriteriaField("");
-    }
-  }
-  async function surveyEditUpdate() {
-    const surveyTitle = document.getElementById("surveyTitle");
-    const surveyDescription = document.getElementById("surveyDescription");
-    const startDate = document.getElementById("startDate");
-    const endDate = document.getElementById("endDate");
-    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
-    const surveyId = document.getElementById("surveyId")?.value;
-    try {
-      if (typeof window.surveyEditValidateForm === "function" && !window.surveyEditValidateForm()) {
-        return;
-      }
-      if (!token || !surveyId) {
-        surveyEditNotify("Ошибка безопасности.");
-        return;
-      }
-      const formData = {
-        Title: surveyTitle.value.trim(),
-        Description: surveyDescription?.value.trim() || "",
-        StartDate: window.AppDate?.getInputIso(startDate) || "",
-        EndDate: window.AppDate?.getInputIso(endDate) || "",
-        Organizations: (typeof window.getSelectedOrganizations === "function" ? window.getSelectedOrganizations() : surveyEditSelectedOrganization).map((org) => org.id),
-        Criteria: Array.from(document.querySelectorAll(".criteriy")).map((input) => input.value.trim()).filter((text) => text !== "")
-      };
-      const response = await fetch(`/survey/${surveyId}/update`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "RequestVerificationToken": token,
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(formData)
-      });
-      if (!response.ok) {
-        let errorMessage = "Ошибка сервера";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (e) {
-          console.error("Ошибка при чтении ответа:", e);
-        }
-        throw new Error(errorMessage);
-      }
-      const result = await response.json();
-      if (result.success) {
-        if (typeof window.handleSurveyUpdateSuccess === "function") {
-          window.handleSurveyUpdateSuccess(result);
-          return;
-        }
-        if (typeof window.handleAdminMutationSuccess === "function") {
-          await window.handleAdminMutationSuccess({
-            message: result.message || "Анкета успешно обновлена!",
-            tabName: "get_surveys",
-            fallbackUrl: "/survey"
-          });
-          return;
-        }
-        surveyEditNotify(result.message || "Анкета успешно обновлена!", "success");
-        window.location.reload();
-      } else {
-        throw new Error(result.message || "Неизвестная ошибка");
-      }
-    } catch (error) {
-      console.error("Ошибка при обновлении анкеты:", error);
-      let userMessage = error.message;
-      if (error.message.includes("jsonb") && error.message.includes("text")) {
-        userMessage = "Ошибка формата данных.";
-      } else if (error.message.includes("date")) {
-        userMessage = "Ошибка в датах. Проверьте правильность введенных дат.";
-      } else if (error.message.includes("validation")) {
-        userMessage = "Ошибка валидации данных: " + error.message;
-      }
-      surveyEditNotify(userMessage);
-      const showDetails = await window.siteConfirm("Показать технические подробности ошибки?", {
-        title: "Подробности ошибки",
-        confirmText: "Показать",
-        cancelText: "Закрыть"
-      });
-      if (showDetails) {
-        console.error("Техническая информация:", error.stack || error.message);
-        window.siteNotify("Подробности ошибки выведены в консоль браузера.", "info");
-      }
-    }
-  }
-  function surveyEditValidateForm() {
-    let isValid = true;
-    const requiredFields = [
-      { element: document.getElementById("surveyTitle"), errorId: "titleError" },
-      { element: document.getElementById("startDate"), errorId: "startDateError" },
-      { element: document.getElementById("endDate"), errorId: "endDateError" }
-    ];
-    requiredFields.forEach((field) => {
-      const errorElement = document.getElementById(field.errorId);
-      if (!field.element.value.trim()) {
-        field.element.classList.add("invalid");
-        if (errorElement) errorElement.style.display = "block";
-        isValid = false;
-      } else {
-        field.element.classList.remove("invalid");
-        if (errorElement) errorElement.style.display = "none";
-      }
-    });
-    const startDate = document.getElementById("startDate");
-    const endDate = document.getElementById("endDate");
-    const endDateError = document.getElementById("endDateError");
-    const startDateIso = window.AppDate?.getInputIso(startDate) || "";
-    const endDateIso = window.AppDate?.getInputIso(endDate) || "";
-    if (startDate.value && !startDateIso || endDate.value && !endDateIso) {
-      surveyEditNotify("Используйте формат даты ДД.ММ.ГГГГ.");
-      isValid = false;
-    } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
-      endDate.classList.add("invalid");
-      if (endDateError) {
-        endDateError.textContent = "Дата конца должна быть позже даты начала";
-        endDateError.style.display = "block";
-      }
-      isValid = false;
-    }
-    const organizationError = document.getElementById("organizationError");
-    const selectedOrganizations = typeof window.getSelectedOrganizations === "function" ? window.getSelectedOrganizations() : surveyEditSelectedOrganization;
-    if (selectedOrganizations.length === 0) {
-      if (organizationError) organizationError.style.display = "block";
-      isValid = false;
-    } else {
-      if (organizationError) organizationError.style.display = "none";
-    }
-    if (typeof window.validateSurveyCriteriaFields === "function" && !window.validateSurveyCriteriaFields()) {
-      isValid = false;
-    }
-    return isValid;
-  }
-  function copySurvey(id) {
-    const startDate = window.AppDate?.getInputIso("startDate") || "";
-    const endDate = window.AppDate?.getInputIso("endDate") || "";
-    const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-    if (!startDate || !endDate) {
-      showNotification("Пожалуйста, заполните все обязательные поля", false);
-      return;
-    }
-    if ((window.AppDate?.compare(endDate, startDate) ?? -1) <= 0) {
-      showNotification("Дата конца должна быть позже даты начала", false);
-      return;
-    }
-    document.getElementById("loadingOverlay").style.display = "flex";
-    fetch("/survey/" + id + "/copy", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "RequestVerificationToken": token
-      },
-      body: JSON.stringify({
-        StartDate: startDate,
-        EndDate: endDate
-      })
-    }).then((response) => {
-      if (!response.ok) {
-        return response.json().then((err) => {
-          throw new Error(err.message || "Ошибка сервера");
-        });
-      }
-      return response.json();
-    }).then((data) => {
-      document.getElementById("loadingOverlay").style.display = "none";
-      if (data.success) {
-        if (typeof window.handleAdminMutationSuccess === "function") {
-          return window.handleAdminMutationSuccess({
-            message: data.message || "Анкета успешно скопирована!",
-            tabName: "get_surveys",
-            fallbackUrl: "/survey"
-          });
-        }
-        surveyEditNotify("Анкета успешно скопирована!", "success");
-        window.location.reload();
-      } else {
-        throw new Error(data.message || "Ошибка при копировании анкеты");
-      }
-    }).catch((error) => {
-      document.getElementById("loadingOverlay").style.display = "none";
-      showNotification(error.message, false);
-      console.error("Error:", error);
-    });
-  }
-  window.surveyEditToggleOrganizationSelection = surveyEditToggleOrganizationSelection;
-  window.surveyEditSaveSelectedOrganization = surveyEditSaveSelectedOrganization;
-  window.surveyEditUpdateSelectedOrganizationDisplay = surveyEditUpdateSelectedOrganizationDisplay;
-  window.surveyEditRemoveOrganization = surveyEditRemoveOrganization;
-  window.surveyEditAddCriteria = surveyEditAddCriteria;
-  window.surveyEditUpdate = surveyEditUpdate;
-  window.surveyEditValidateForm = surveyEditValidateForm;
-  window.copySurvey = copySurvey;
 })();
 //# sourceMappingURL=admin-inline-app.js.map

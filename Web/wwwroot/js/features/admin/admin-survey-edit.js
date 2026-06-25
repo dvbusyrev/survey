@@ -9,15 +9,10 @@ function surveyEditNotify(message, type = 'error', options = {}) {
         return;
     }
 
-    if (typeof window.siteNotify === 'function') {
-        window.siteNotify(normalizedMessage, type, {
-            title: options.title,
-            duration: options.duration ?? (type === 'error' ? 0 : 4500)
-        });
-        return;
-    }
-
-    window.alert(normalizedMessage);
+    window.AppUi.notify(normalizedMessage, type, {
+        title: options.title,
+        duration: options.duration ?? (type === 'error' ? 0 : 4500)
+    });
 }
 
 function surveyEditGetElementByRole(role) {
@@ -95,7 +90,7 @@ function surveyEditSaveSelectedOrganization() {
         const surveyDescription = document.getElementById('surveyDescription');
         const startDate = document.getElementById('startDate');
         const endDate = document.getElementById('endDate');
-        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        const token = window.AppHttp?.getAntiforgeryToken() || '';
         const surveyId = document.getElementById('surveyId')?.value;
         try {
             if (typeof window.surveyEditValidateForm === 'function' && !window.surveyEditValidateForm()) {
@@ -187,7 +182,7 @@ function surveyEditSaveSelectedOrganization() {
 
             if (showDetails) {
                 console.error('Техническая информация:', error.stack || error.message);
-                window.siteNotify('Подробности ошибки выведены в консоль браузера.', 'info');
+                window.AppUi?.notify?.('Подробности ошибки выведены в консоль браузера.', 'info');
             }
         }
     }
@@ -273,15 +268,15 @@ function surveyEditSaveSelectedOrganization() {
             function copySurvey(id) {
                 const startDate = window.AppDate?.getInputIso('startDate') || '';
                 const endDate = window.AppDate?.getInputIso('endDate') || '';
-                const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                const token = window.AppHttp?.getAntiforgeryToken() || '';
                 
                 if (!startDate || !endDate) {
-                    showNotification('Пожалуйста, заполните все обязательные поля', false);
+                    window.AppUi?.notify?.('Пожалуйста, заполните все обязательные поля', 'error');
                     return;
                 }
                 
                 if ((window.AppDate?.compare(endDate, startDate) ?? -1) <= 0) {
-                    showNotification('Дата конца должна быть позже даты начала', false);
+                    window.AppUi?.notify?.('Дата конца должна быть позже даты начала', 'error');
                     return;
                 }
 
@@ -326,7 +321,7 @@ function surveyEditSaveSelectedOrganization() {
                 })
                 .catch(error => {
                     document.getElementById('loadingOverlay').style.display = 'none';
-                    showNotification(error.message, false);
+                    window.AppUi?.notify?.(error.message, 'error');
                     console.error('Error:', error);
                 });
             }

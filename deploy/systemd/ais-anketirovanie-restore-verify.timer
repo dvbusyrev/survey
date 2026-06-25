@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly AIS Anketirovanie PostgreSQL restore verification
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=30m
+Unit=ais-anketirovanie-restore-verify.service
+
+[Install]
+WantedBy=timers.target

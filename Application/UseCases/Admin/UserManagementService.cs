@@ -21,34 +21,37 @@ public sealed class UserManagementService : IUserManagementService
         _userRepository = userRepository;
     }
 
-    public UserListPageViewModel GetActiveUsersPage(
+    public Task<UserListPageViewModel> GetActiveUsersPageAsync(
         int currentPage,
         string? sortBy,
         string? sortDirection,
-        bool openAddUserModal = false)
+        bool openAddUserModal = false,
+        CancellationToken cancellationToken = default)
     {
-        return GetUsersPage(currentPage, sortBy, sortDirection, includeArchived: false, openAddUserModal);
+        return GetUsersPageAsync(currentPage, sortBy, sortDirection, includeArchived: false, openAddUserModal, cancellationToken);
     }
 
-    public IReadOnlyList<User> GetArchivedUsers()
+    public Task<IReadOnlyList<User>> GetArchivedUsersAsync(CancellationToken cancellationToken = default)
     {
-        return GetUsers(includeArchived: true);
+        return GetUsersAsync(includeArchived: true, cancellationToken);
     }
 
-    public UserListPageViewModel GetArchivedUsersPage(
+    public Task<UserListPageViewModel> GetArchivedUsersPageAsync(
         int currentPage,
         string? sortBy,
-        string? sortDirection)
+        string? sortDirection,
+        CancellationToken cancellationToken = default)
     {
-        return GetUsersPage(currentPage, sortBy, sortDirection, includeArchived: true);
+        return GetUsersPageAsync(currentPage, sortBy, sortDirection, includeArchived: true, cancellationToken: cancellationToken);
     }
 
-    private UserListPageViewModel GetUsersPage(
+    private async Task<UserListPageViewModel> GetUsersPageAsync(
         int currentPage,
         string? sortBy,
         string? sortDirection,
         bool includeArchived,
-        bool openAddUserModal = false)
+        bool openAddUserModal = false,
+        CancellationToken cancellationToken = default)
     {
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeUserSortField(hasExplicitSort ? sortBy : null);
@@ -56,14 +59,21 @@ public sealed class UserManagementService : IUserManagementService
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeUserSortDirection(null, normalizedSortBy);
 
-        var totalCount = _userRepository.Count(includeArchived);
+        var totalCount = await _userRepository.CountAsync(includeArchived, cancellationToken);
         var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
-        var users = _userRepository.GetPage(includeArchived, normalizedSortBy, normalizedSortDirection, pageWindow.PageSize, pageWindow.Offset);
+        var users = await _userRepository.GetPageAsync(
+            includeArchived,
+            normalizedSortBy,
+            normalizedSortDirection,
+            pageWindow.PageSize,
+            pageWindow.Offset,
+            cancellationToken);
+        var organizations = await _userRepository.GetActiveOrganizationOptionsAsync(cancellationToken);
 
         return new UserListPageViewModel
         {
             Users = users,
-            Organizations = _userRepository.GetActiveOrganizationOptions(),
+            Organizations = organizations,
             OpenAddUserModal = openAddUserModal,
             CurrentPage = pageWindow.CurrentPage,
             TotalPages = pageWindow.TotalPages,
@@ -76,12 +86,12 @@ public sealed class UserManagementService : IUserManagementService
         };
     }
 
-    public User? GetUserById(int id)
+    public Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        return _userRepository.GetById(id);
+        return _userRepository.GetByIdAsync(id, cancellationToken);
     }
 
-    public OperationResult CreateUser(UserSaveRequest request)
+    public async Task<OperationResult> CreateUserAsync(UserSaveRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryValidateUserCreateRequest(
             request,
@@ -99,7 +109,7 @@ public sealed class UserManagementService : IUserManagementService
             };
         }
 
-        var affectedRows = _userRepository.Create(new UserWriteModel(
+        var affectedRows = await _userRepository.CreateAsync(new UserWriteModel(
             organizationId,
             request.Username.Trim(),
             request.FullName.Trim(),
@@ -107,7 +117,7 @@ public sealed class UserManagementService : IUserManagementService
             PasswordHasher.HashPassword(request.Username.Trim(), request.Password),
             string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
             dateBegin,
-            dateEnd));
+            dateEnd), cancellationToken);
 
         return new OperationResult
         {
@@ -118,7 +128,7 @@ public sealed class UserManagementService : IUserManagementService
         };
     }
 
-    public OperationResult UpdateUser(int id, UserUpdateRequest request)
+    public async Task<OperationResult> UpdateUserAsync(int id, UserUpdateRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryValidateUserUpdateRequest(request, out var organizationId, out var normalizedRole, out var dateBegin, out var dateEnd, out var passwordHash, out var validationError))
         {
@@ -130,7 +140,7 @@ public sealed class UserManagementService : IUserManagementService
             };
         }
 
-        var affectedRows = _userRepository.Update(id, new UserWriteModel(
+        var affectedRows = await _userRepository.UpdateAsync(id, new UserWriteModel(
             organizationId,
             request.Username.Trim(),
             request.FullName.Trim(),
@@ -138,7 +148,7 @@ public sealed class UserManagementService : IUserManagementService
             passwordHash,
             string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
             dateBegin,
-            dateEnd));
+            dateEnd), cancellationToken);
 
         return new OperationResult
         {
@@ -149,9 +159,9 @@ public sealed class UserManagementService : IUserManagementService
         };
     }
 
-    public OperationResult DeleteUser(int id)
+    public async Task<OperationResult> DeleteUserAsync(int id, CancellationToken cancellationToken = default)
     {
-        var result = _userRepository.DeleteIfAllowed(id);
+        var result = await _userRepository.DeleteIfAllowedAsync(id, cancellationToken);
         if (!result.Found || result.User == null)
         {
             return new OperationResult
@@ -182,40 +192,9 @@ public sealed class UserManagementService : IUserManagementService
         };
     }
 
-    private IReadOnlyList<User> GetUsers(bool includeArchived)
+    private Task<IReadOnlyList<User>> GetUsersAsync(bool includeArchived, CancellationToken cancellationToken)
     {
-        return _userRepository.GetAll(includeArchived);
-    }
-
-
-    private static List<User> SortUsers(IEnumerable<User> users, string? sortBy, string? sortDirection)
-    {
-        var normalizedSortBy = NormalizeUserSortField(sortBy);
-        var normalizedSortDirection = NormalizeUserSortDirection(sortDirection, normalizedSortBy);
-        var descending = string.Equals(normalizedSortDirection, "desc", StringComparison.Ordinal);
-
-        IOrderedEnumerable<User> orderedUsers = normalizedSortBy switch
-        {
-            UserListSortFields.Organization => descending
-                ? users.OrderByDescending(user => user.OrganizationName ?? string.Empty, AppListPaging.RuStringComparer)
-                : users.OrderBy(user => user.OrganizationName ?? string.Empty, AppListPaging.RuStringComparer),
-            UserListSortFields.Role => descending
-                ? users.OrderByDescending(user => AppRoles.GetDisplayName(user.NameRole), AppListPaging.RuStringComparer)
-                : users.OrderBy(user => AppRoles.GetDisplayName(user.NameRole), AppListPaging.RuStringComparer),
-            UserListSortFields.DateBegin => descending
-                ? users.OrderByDescending(user => user.DateBegin ?? DateTime.MinValue)
-                : users.OrderBy(user => user.DateBegin ?? DateTime.MaxValue),
-            UserListSortFields.DateEnd => descending
-                ? users.OrderByDescending(user => user.DateEnd ?? DateTime.MinValue)
-                : users.OrderBy(user => user.DateEnd ?? DateTime.MaxValue),
-            _ => descending
-                ? users.OrderByDescending(user => user.FullName ?? user.NameUser ?? string.Empty, AppListPaging.RuStringComparer)
-                : users.OrderBy(user => user.FullName ?? user.NameUser ?? string.Empty, AppListPaging.RuStringComparer)
-        };
-
-        return orderedUsers
-            .ThenBy(user => user.IdUser)
-            .ToList();
+        return _userRepository.GetAllAsync(includeArchived, cancellationToken);
     }
 
     private static string NormalizeUserSortField(string? sortBy)

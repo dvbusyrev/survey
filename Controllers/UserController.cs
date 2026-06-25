@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 
+[Authorize(Roles = AppRoles.Admin)]
 public class UserController : Controller
 {
     private readonly IUserManagementService _userManagementService;
@@ -13,45 +17,47 @@ public class UserController : Controller
     }
 
     [HttpGet("users")]
-    public IActionResult GetUsers(
+    public async Task<IActionResult> GetUsers(
         int page = 1,
         string? sortBy = null,
-        string? sortDirection = null)
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            return View("get_users", _userManagementService.GetActiveUsersPage(page, sortBy, sortDirection));
+            return View("get_users", await _userManagementService.GetActiveUsersPageAsync(page, sortBy, sortDirection, cancellationToken: cancellationToken));
         }
         catch (Exception ex)
         {
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении пользователей: {ex.Message}" });
+            return this.SafeErrorView(ex, "Не удалось загрузить список пользователей.", "Ошибка при получении пользователей");
         }
     }
 
     [HttpGet("users/create")]
-    public IActionResult AddUser(
+    public async Task<IActionResult> AddUser(
         int page = 1,
         string? sortBy = null,
-        string? sortDirection = null)
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             return View(
                 "get_users",
-                _userManagementService.GetActiveUsersPage(page, sortBy, sortDirection, openAddUserModal: true));
+                await _userManagementService.GetActiveUsersPageAsync(page, sortBy, sortDirection, openAddUserModal: true, cancellationToken: cancellationToken));
         }
         catch (Exception ex)
         {
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при открытии формы добавления пользователя: {ex.Message}" });
+            return this.SafeErrorView(ex, "Не удалось открыть форму добавления пользователя.", "Ошибка при открытии формы добавления пользователя");
         }
     }
 
     [HttpGet("users/{id:int}/edit")]
-    public IActionResult UpdateUser(int id)
+    public async Task<IActionResult> UpdateUser(int id, CancellationToken cancellationToken)
     {
         try
         {
-            var user = _userManagementService.GetUserById(id);
+            var user = await _userManagementService.GetUserByIdAsync(id, cancellationToken);
             if (user == null)
             {
                 return NotFound("Клиент не найден.");
@@ -61,16 +67,16 @@ public class UserController : Controller
         }
         catch (Exception ex)
         {
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении данных пользователя: {ex.Message}" });
+            return this.SafeErrorView(ex, "Не удалось загрузить данные пользователя.", "Ошибка при получении данных пользователя");
         }
     }
 
     [HttpPost("users/create")]
-    public IActionResult CreateUser([FromBody] UserSaveRequest request)
+    public async Task<IActionResult> CreateUser([FromBody] UserSaveRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = _userManagementService.CreateUser(request);
+            var result = await _userManagementService.CreateUserAsync(request, cancellationToken);
             return Json(new
             {
                 success = result.Success,
@@ -79,20 +85,16 @@ public class UserController : Controller
         }
         catch (Exception ex)
         {
-            return Json(new
-            {
-                success = false,
-                message = $"Серверная ошибка: {ex.Message}"
-            });
+            return this.SafeError(ex, "Не удалось создать пользователя.", "Ошибка при создании пользователя");
         }
     }
 
     [HttpPost("users/{id:int}/update")]
-    public IActionResult UpdateUserAction(int id, [FromBody] UserUpdateRequest request)
+    public async Task<IActionResult> UpdateUserAction(int id, [FromBody] UserUpdateRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = _userManagementService.UpdateUser(id, request);
+            var result = await _userManagementService.UpdateUserAsync(id, request, cancellationToken);
             if (!result.Success)
             {
                 return BadRequest(new
@@ -110,20 +112,16 @@ public class UserController : Controller
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new
-            {
-                success = false,
-                message = $"Ошибка при обновлении: {ex.Message}"
-            });
+            return this.SafeError(ex, "Не удалось обновить пользователя.", "Ошибка при обновлении пользователя");
         }
     }
 
     [HttpPost("users/{id:int}/delete")]
-    public IActionResult DeleteUser(int id)
+    public async Task<IActionResult> DeleteUser(int id, CancellationToken cancellationToken)
     {
         try
         {
-            var result = _userManagementService.DeleteUser(id);
+            var result = await _userManagementService.DeleteUserAsync(id, cancellationToken);
             if (!result.Success)
             {
                 return BadRequest(result.Message);
@@ -133,23 +131,24 @@ public class UserController : Controller
         }
         catch (Exception ex)
         {
-            return BadRequest($"Ошибка при удалении пользователя: {ex.Message}");
+            return this.SafeError(ex, "Не удалось удалить пользователя.", "Ошибка при удалении пользователя");
         }
     }
 
     [HttpGet("users/archive")]
-    public IActionResult ArchiveListUsers(
+    public async Task<IActionResult> ArchiveListUsers(
         int page = 1,
         string? sortBy = null,
-        string? sortDirection = null)
+        string? sortDirection = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            return View("archived_users", _userManagementService.GetArchivedUsersPage(page, sortBy, sortDirection));
+            return View("archived_users", await _userManagementService.GetArchivedUsersPageAsync(page, sortBy, sortDirection, cancellationToken));
         }
         catch (Exception ex)
         {
-            return View("Error", new ErrorViewModel { Message = $"Ошибка при получении пользователей: {ex.Message}" });
+            return this.SafeErrorView(ex, "Не удалось загрузить список пользователей.", "Ошибка при получении архивных пользователей");
         }
     }
 }

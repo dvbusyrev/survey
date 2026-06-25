@@ -244,20 +244,23 @@ public sealed class AuditLogServiceTests
 
     private sealed class ThrowingAuditLogRepository : IAuditLogRepository
     {
-        public int GetEventCount()
-            => throw new NotSupportedException("Database access is not used in these tests.");
+        public Task<int> GetEventCountAsync(CancellationToken cancellationToken = default)
+            => Task.FromException<int>(new NotSupportedException("Database access is not used in these tests."));
 
-        public AuditLogReadResult GetPage(int currentPage, int pageSize, string sortBy, string sortDirection, bool includeDetails)
-            => throw new NotSupportedException("Database access is not used in these tests.");
+        public Task<AuditLogReadResult> GetPageAsync(
+            int currentPage, int pageSize, string sortBy, string sortDirection, bool includeDetails,
+            CancellationToken cancellationToken = default)
+            => Task.FromException<AuditLogReadResult>(new NotSupportedException("Database access is not used in these tests."));
 
-        public AuditLogReadResult GetDetails(long idAudit, string? sourceTable)
-            => throw new NotSupportedException("Database access is not used in these tests.");
+        public Task<AuditLogReadResult> GetDetailsAsync(long idAudit, string? sourceTable, CancellationToken cancellationToken = default)
+            => Task.FromException<AuditLogReadResult>(new NotSupportedException("Database access is not used in these tests."));
 
-        public AuditLogReadResult GetAll()
-            => throw new NotSupportedException("Database access is not used in these tests.");
+        public Task<AuditLogReadResult> GetAllAsync(CancellationToken cancellationToken = default)
+            => Task.FromException<AuditLogReadResult>(new NotSupportedException("Database access is not used in these tests."));
 
-        public AuditAnswerContext? GetAnswerContext(int? organizationSurveyId, int? answerId)
-            => throw new NotSupportedException("Database access is not used in these tests.");
+        public Task<AuditAnswerContext?> GetAnswerContextAsync(
+            int? organizationSurveyId, int? answerId, CancellationToken cancellationToken = default)
+            => Task.FromException<AuditAnswerContext?>(new NotSupportedException("Database access is not used in these tests."));
     }
 
     private static string? InvokeBuildAuditSql(IReadOnlyCollection<string> availableAuditTables)

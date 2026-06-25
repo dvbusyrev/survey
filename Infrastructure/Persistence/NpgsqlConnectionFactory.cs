@@ -14,21 +14,29 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
         _currentUserService = currentUserService;
     }
 
-    public NpgsqlConnection CreateConnection()
+    public async Task<NpgsqlConnection> CreateConnectionAsync(CancellationToken cancellationToken = default)
     {
         var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
-        ApplySessionAuditContext(connection);
-        return connection;
+        try
+        {
+            await connection.OpenAsync(cancellationToken);
+            await ApplySessionAuditContextAsync(connection, cancellationToken);
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
     }
 
-    private void ApplySessionAuditContext(NpgsqlConnection connection)
+    private async Task ApplySessionAuditContextAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
     {
-        using var command = new NpgsqlCommand(
+        await using var command = new NpgsqlCommand(
             "SELECT set_config('app.current_user_id', @userId, false);",
             connection);
 
         command.Parameters.AddWithValue("@userId", _currentUserService.UserId?.ToString() ?? string.Empty);
-        command.ExecuteNonQuery();
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 }

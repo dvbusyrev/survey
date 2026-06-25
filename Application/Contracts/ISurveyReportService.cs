@@ -4,8 +4,8 @@ namespace MainProject.Application.Contracts;
 
 public interface ISurveyReportService
 {
-    IReadOnlyList<int> GetAvailableReportYears();
-    GeneratedFileResult CreateSurveyMonthlyReport(int surveyId, int organizationId);
-    GeneratedFileResult CreateAllMonthlyReport(int month, int year);
-    GeneratedFileResult CreateQuarterlyReport(int quarter, int year);
+    Task<IReadOnlyList<int>> GetAvailableReportYearsAsync(CancellationToken cancellationToken = default);
+    Task<GeneratedFileResult> CreateSurveyMonthlyReportAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<GeneratedFileResult> CreateAllMonthlyReportAsync(int month, int year, CancellationToken cancellationToken = default);
+    Task<GeneratedFileResult> CreateQuarterlyReportAsync(int quarter, int year, CancellationToken cancellationToken = default);
 }

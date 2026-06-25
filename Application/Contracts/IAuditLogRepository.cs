@@ -4,18 +4,22 @@ namespace MainProject.Application.Contracts;
 
 public interface IAuditLogRepository
 {
-    int GetEventCount();
+    Task<int> GetEventCountAsync(CancellationToken cancellationToken = default);
 
-    AuditLogReadResult GetPage(
+    Task<AuditLogReadResult> GetPageAsync(
         int currentPage,
         int pageSize,
         string sortBy,
         string sortDirection,
-        bool includeDetails);
+        bool includeDetails,
+        CancellationToken cancellationToken = default);
 
-    AuditLogReadResult GetDetails(long idAudit, string? sourceTable);
+    Task<AuditLogReadResult> GetDetailsAsync(long idAudit, string? sourceTable, CancellationToken cancellationToken = default);
 
-    AuditLogReadResult GetAll();
+    Task<AuditLogReadResult> GetAllAsync(CancellationToken cancellationToken = default);
 
-    AuditAnswerContext? GetAnswerContext(int? organizationSurveyId, int? answerId);
+    Task<AuditAnswerContext?> GetAnswerContextAsync(
+        int? organizationSurveyId,
+        int? answerId,
+        CancellationToken cancellationToken = default);
 }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class AnswerAdminController : Controller
@@ -17,7 +18,7 @@ public class AnswerAdminController : Controller
 
     [HttpGet("survey/answer")]
     [HttpGet("surveys/answers")]
-    public IActionResult GetListAnswers(
+    public async Task<IActionResult> GetListAnswers(
         int page = 1,
         string? sortBy = null,
         string? sortDirection = null,
@@ -26,13 +27,14 @@ public class AnswerAdminController : Controller
         string? year = null,
         string? month = null,
         string? dateFrom = null,
-        string? dateTo = null)
+        string? dateTo = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             return View(
                 "~/Web/Views/Answer/get_list_answers.cshtml",
-                _answerAdminService.GetAnswersPage(
+                await _answerAdminService.GetAnswersPageAsync(
                     page,
                     sortBy,
                     sortDirection,
@@ -41,18 +43,18 @@ public class AnswerAdminController : Controller
                     year,
                     month,
                     dateFrom,
-                    dateTo));
+                    dateTo,
+                    cancellationToken));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении списка ответов");
-            return StatusCode(500, "Произошла ошибка на сервере");
+            return this.SafeError(ex, "Не удалось загрузить список ответов.", "Ошибка при получении списка ответов");
         }
     }
 
     [HttpGet("survey/{id:int}/signatures")]
     [HttpGet("surveys/{id:int}/signatures")]
-    public IActionResult GetSurveySignatures(int id)
+    public async Task<IActionResult> GetSurveySignatures(int id, CancellationToken cancellationToken = default)
     {
         if (id <= 0)
         {
@@ -61,12 +63,13 @@ public class AnswerAdminController : Controller
 
         try
         {
-            return View("~/Web/Views/Answer/survey_signatures.cshtml", _answerAdminService.GetSignaturePage(id));
+            return View(
+                "~/Web/Views/Answer/survey_signatures.cshtml",
+                await _answerAdminService.GetSignaturePageAsync(id, cancellationToken));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении статуса подписей для анкеты {SurveyId}", id);
-            return StatusCode(500, $"Внутренняя ошибка сервера: {ex.Message}");
+            return this.SafeError(ex, "Не удалось загрузить статус подписей.", $"Ошибка при получении статуса подписей анкеты {id}");
         }
     }
 
@@ -77,16 +80,15 @@ public class AnswerAdminController : Controller
     }
 
     [HttpGet("statistics/data")]
-    public IActionResult GetStatisticsData()
+    public async Task<IActionResult> GetStatisticsData(CancellationToken cancellationToken = default)
     {
         try
         {
-            return Json(_answerAdminService.GetStatistics());
+            return Json(await _answerAdminService.GetStatisticsAsync(cancellationToken));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении данных статистики");
-            return StatusCode(500, "Внутренняя ошибка сервера");
+            return this.SafeError(ex, "Не удалось загрузить данные статистики.", "Ошибка при получении данных статистики");
         }
     }
 }

@@ -6,18 +6,20 @@ namespace MainProject.Application.Contracts;
 
 public interface IUserManagementService
 {
-    UserListPageViewModel GetActiveUsersPage(
+    Task<UserListPageViewModel> GetActiveUsersPageAsync(
         int currentPage,
         string? sortBy,
         string? sortDirection,
-        bool openAddUserModal = false);
-    UserListPageViewModel GetArchivedUsersPage(
+        bool openAddUserModal = false,
+        CancellationToken cancellationToken = default);
+    Task<UserListPageViewModel> GetArchivedUsersPageAsync(
         int currentPage,
         string? sortBy,
-        string? sortDirection);
-    IReadOnlyList<User> GetArchivedUsers();
-    User? GetUserById(int id);
-    OperationResult CreateUser(UserSaveRequest request);
-    OperationResult UpdateUser(int id, UserUpdateRequest request);
-    OperationResult DeleteUser(int id);
+        string? sortDirection,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<User>> GetArchivedUsersAsync(CancellationToken cancellationToken = default);
+    Task<User?> GetUserByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<OperationResult> CreateUserAsync(UserSaveRequest request, CancellationToken cancellationToken = default);
+    Task<OperationResult> UpdateUserAsync(int id, UserUpdateRequest request, CancellationToken cancellationToken = default);
+    Task<OperationResult> DeleteUserAsync(int id, CancellationToken cancellationToken = default);
 }

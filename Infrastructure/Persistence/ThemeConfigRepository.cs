@@ -15,7 +15,7 @@ public sealed class ThemeConfigRepository : IThemeConfigRepository
 
     public async Task<ThemeConfigRecord?> GetAsync(int configId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         return await connection.QueryFirstOrDefaultAsync<ThemeConfigRecord>(new CommandDefinition(
             """
             SELECT
@@ -43,7 +43,7 @@ public sealed class ThemeConfigRepository : IThemeConfigRepository
 
     public async Task SaveAsync(int configId, ThemeConfigRecord record, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO public.theme_config

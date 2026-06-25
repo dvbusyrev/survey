@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 using Npgsql;
 
@@ -18,19 +19,21 @@ public class SurveyAdminController : Controller
         _logger = logger;
     }
 
-    private SurveyListPageViewModel BuildSurveyListPage(
+    private async Task<SurveyListPageViewModel> BuildSurveyListPageAsync(
         int currentPage = 1,
         string? sortBy = null,
         string? sortDirection = null,
         string? organizationIds = null,
         bool openAddSurveyModal = false,
-        SurveyEditPageViewModel? editSurveyPage = null)
+        SurveyEditPageViewModel? editSurveyPage = null,
+        CancellationToken cancellationToken = default)
     {
-        var pageModel = _surveyAdminService.GetSurveysPage(
+        var pageModel = await _surveyAdminService.GetSurveysPageAsync(
             currentPage,
             sortBy,
             sortDirection,
-            organizationIds);
+            organizationIds,
+            cancellationToken);
 
         return new SurveyListPageViewModel
         {
@@ -49,22 +52,23 @@ public class SurveyAdminController : Controller
     }
 
     [HttpGet("surveys")]
-    public IActionResult GetSurveys(
+    public async Task<IActionResult> GetSurveys(
         int page = 1,
         string? sortBy = null,
         string? sortDirection = null,
-        string? organizationIds = null)
+        string? organizationIds = null,
+        CancellationToken cancellationToken = default)
     {
         return View(
             "~/Web/Views/Survey/get_surveys.cshtml",
-            BuildSurveyListPage(page, sortBy, sortDirection, organizationIds));
+            await BuildSurveyListPageAsync(page, sortBy, sortDirection, organizationIds, cancellationToken: cancellationToken));
     }
 
     [HttpGet("survey/data")]
     [HttpGet("surveys/data")]
-    public IActionResult GetSurveyOptions()
+    public async Task<IActionResult> GetSurveyOptions(CancellationToken cancellationToken)
     {
-        var surveys = _surveyAdminService.GetSurveys()
+        var surveys = (await _surveyAdminService.GetSurveysAsync(cancellationToken))
             .Select(survey => new
             {
                 id = survey.IdSurvey,
@@ -79,25 +83,26 @@ public class SurveyAdminController : Controller
 
     [HttpGet("survey/create")]
     [HttpGet("surveys/create")]
-    public IActionResult AddSurvey(
+    public async Task<IActionResult> AddSurvey(
         int page = 1,
         string? sortBy = null,
         string? sortDirection = null,
-        string? organizationIds = null)
+        string? organizationIds = null,
+        CancellationToken cancellationToken = default)
     {
         return View(
             "~/Web/Views/Survey/get_surveys.cshtml",
-            BuildSurveyListPage(page, sortBy, sortDirection, organizationIds, openAddSurveyModal: true));
+            await BuildSurveyListPageAsync(page, sortBy, sortDirection, organizationIds, openAddSurveyModal: true, cancellationToken: cancellationToken));
     }
 
     [HttpPost("survey/create")]
     [HttpPost("surveys/create")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateSurvey([FromBody] SurveyAddRequest? request)
+    public async Task<IActionResult> CreateSurvey([FromBody] SurveyAddRequest? request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await _surveyAdminService.CreateSurveyAsync(request);
+            var result = await _surveyAdminService.CreateSurveyAsync(request, cancellationToken);
             if (!result.Success)
             {
                 return BadRequest(new { success = false, message = result.Message });
@@ -112,32 +117,22 @@ public class SurveyAdminController : Controller
         }
         catch (PostgresException ex)
         {
-            _logger.LogError(ex, "Ошибка базы данных при создании анкеты");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Ошибка базы данных: " + ex.Message
-            });
+            return this.SafeError(ex, "Не удалось создать анкету.", "Ошибка PostgreSQL при создании анкеты");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при создании анкеты");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Внутренняя ошибка сервера: " + ex.Message
-            });
+            return this.SafeError(ex, "Не удалось создать анкету.", "Ошибка при создании анкеты");
         }
     }
 
     [HttpPost("survey/{id:int}/update")]
     [HttpPost("surveys/{id:int}/update")]
     [ValidateAntiForgeryToken]
-    public IActionResult UpdateSurvey(int id, [FromBody] SurveyUpdateRequest? model)
+    public async Task<IActionResult> UpdateSurvey(int id, [FromBody] SurveyUpdateRequest? model, CancellationToken cancellationToken)
     {
         try
         {
-            var result = _surveyAdminService.UpdateSurvey(id, model);
+            var result = await _surveyAdminService.UpdateSurveyAsync(id, model, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -157,24 +152,18 @@ public class SurveyAdminController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении анкеты ID: {SurveyId}", id);
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Произошла ошибка при обновлении анкеты",
-                error = ex.Message
-            });
+            return this.SafeError(ex, "Не удалось обновить анкету.", $"Ошибка при обновлении анкеты {id}");
         }
     }
 
     [HttpPost("survey/active/work-period")]
     [HttpPost("surveys/active/work-period")]
     [ValidateAntiForgeryToken]
-    public IActionResult UpdateActiveSurveysWorkPeriod([FromBody] SurveyWorkPeriodRequest? request)
+    public async Task<IActionResult> UpdateActiveSurveysWorkPeriod([FromBody] SurveyWorkPeriodRequest? request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = _surveyAdminService.UpdateActiveSurveysWorkPeriod(request);
+            var result = await _surveyAdminService.UpdateActiveSurveysWorkPeriodAsync(request, cancellationToken);
             if (!result.Success)
             {
                 return BadRequest(new { success = false, message = result.Message });
@@ -188,24 +177,18 @@ public class SurveyAdminController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при обновлении периода работы активных анкет");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Произошла ошибка при сохранении периода работы",
-                error = ex.Message
-            });
+            return this.SafeError(ex, "Не удалось сохранить период работы.", "Ошибка при сохранении периода работы активных анкет");
         }
     }
 
     [HttpPost("survey/{id:int}/copy")]
     [HttpPost("surveys/{id:int}/copy")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CopySurveySubmission(int id, [FromBody] SurveyCopyRequest? request)
+    public async Task<IActionResult> CopySurveySubmission(int id, [FromBody] SurveyCopyRequest? request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await _surveyAdminService.CopySurveyAsync(id, request);
+            var result = await _surveyAdminService.CopySurveyAsync(id, request, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -225,27 +208,17 @@ public class SurveyAdminController : Controller
         }
         catch (PostgresException ex)
         {
-            _logger.LogError(ex, "Ошибка базы данных при копировании анкеты {Id}", id);
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Ошибка базы данных: " + ex.Message
-            });
+            return this.SafeError(ex, "Не удалось скопировать анкету.", $"Ошибка PostgreSQL при копировании анкеты {id}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при копировании анкеты {Id}", id);
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Внутренняя ошибка сервера: " + ex.Message
-            });
+            return this.SafeError(ex, "Не удалось скопировать анкету.", $"Ошибка при копировании анкеты {id}");
         }
     }
 
     [HttpPost("survey/{id:int}/delete")]
     [HttpPost("surveys/{id:int}/delete")]
-    public IActionResult DeleteSurvey(int? id, [FromBody] DeleteSurveyRequest? request)
+    public async Task<IActionResult> DeleteSurvey(int? id, [FromBody] DeleteSurveyRequest? request, CancellationToken cancellationToken)
     {
         var surveyId = request?.SurveyId ?? id ?? 0;
         if (surveyId <= 0)
@@ -255,7 +228,7 @@ public class SurveyAdminController : Controller
 
         try
         {
-            var surveys = _surveyAdminService.DeleteSurvey(surveyId);
+            var surveys = await _surveyAdminService.DeleteSurveyAsync(surveyId, cancellationToken);
             if (surveys == null)
             {
                 return NotFound(new { success = false, message = "Анкета не найдена" });
@@ -270,44 +243,37 @@ public class SurveyAdminController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при удалении анкеты {SurveyId}", surveyId);
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Внутренняя ошибка сервера при удалении анкеты",
-                error = ex.Message
-            });
+            return this.SafeError(ex, "Не удалось удалить анкету.", $"Ошибка при удалении анкеты {surveyId}");
         }
     }
 
     [HttpGet("survey/{id:int}/edit")]
     [HttpGet("surveys/{id:int}/edit")]
-    public IActionResult UpdateSurveyPage(int id)
+    public async Task<IActionResult> UpdateSurveyPage(int id, CancellationToken cancellationToken)
     {
         try
         {
-            var pageModel = _surveyAdminService.GetSurveyEditPage(id);
+            var pageModel = await _surveyAdminService.GetSurveyEditPageAsync(id, cancellationToken);
             if (pageModel == null)
             {
                 return NotFound("Анкета не найдена");
             }
 
-            return View("~/Web/Views/Survey/get_surveys.cshtml", BuildSurveyListPage(editSurveyPage: pageModel));
+            return View("~/Web/Views/Survey/get_surveys.cshtml", await BuildSurveyListPageAsync(editSurveyPage: pageModel, cancellationToken: cancellationToken));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении анкеты {SurveyId} для редактирования", id);
-            return StatusCode(500, "Произошла ошибка при загрузке анкеты");
+            return this.SafeError(ex, "Не удалось загрузить анкету.", $"Ошибка при получении анкеты {id} для редактирования");
         }
     }
 
     [HttpGet("survey/{id:int}/copy")]
     [HttpGet("surveys/{id:int}/copy")]
-    public IActionResult CopySurvey(int id)
+    public async Task<IActionResult> CopySurvey(int id, CancellationToken cancellationToken)
     {
         try
         {
-            var survey = _surveyAdminService.GetSurveyForCopy(id);
+            var survey = await _surveyAdminService.GetSurveyForCopyAsync(id, cancellationToken);
             if (survey == null)
             {
                 return NotFound("Анкета не найдена");
@@ -317,18 +283,17 @@ public class SurveyAdminController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при загрузке анкеты для копирования (ID: {SurveyId})", id);
-            return StatusCode(500, "Внутренняя ошибка сервера");
+            return this.SafeError(ex, "Не удалось загрузить анкету для копирования.", $"Ошибка при загрузке анкеты {id} для копирования");
         }
     }
 
     [HttpGet("survey/{id:int}/copy-template")]
     [HttpGet("surveys/{id:int}/copy-template")]
-    public IActionResult GetSurveyCopyTemplate(int id)
+    public async Task<IActionResult> GetSurveyCopyTemplate(int id, CancellationToken cancellationToken)
     {
         try
         {
-            var pageModel = _surveyAdminService.GetSurveyEditPage(id);
+            var pageModel = await _surveyAdminService.GetSurveyEditPageAsync(id, cancellationToken);
             if (pageModel == null)
             {
                 return NotFound(new { success = false, message = "Анкета не найдена." });
@@ -357,8 +322,7 @@ public class SurveyAdminController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при подготовке шаблона копирования анкеты {SurveyId}", id);
-            return StatusCode(500, new { success = false, message = "Не удалось подготовить данные для копирования анкеты." });
+            return this.SafeError(ex, "Не удалось подготовить данные для копирования анкеты.", $"Ошибка при подготовке шаблона копирования анкеты {id}");
         }
     }
 }

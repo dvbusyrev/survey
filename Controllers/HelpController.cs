@@ -188,26 +188,26 @@ public class HelpController : Controller
     }
 
     [HttpGet("help")]
-    public IActionResult HelpPage()
+    public async Task<IActionResult> HelpPage(CancellationToken cancellationToken = default)
     {
         if (!User.IsInRole(AppRoles.Admin))
         {
             var documentModel = new HelpDocumentViewModel();
-            ViewData["ClientSurveyActiveCount"] = GetCurrentClientActiveSurveyCount();
+            ViewData["ClientSurveyActiveCount"] = await GetCurrentClientActiveSurveyCountAsync(cancellationToken);
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
                 return PartialView("~/Web/Views/Help/_ClientHelpContent.cshtml", documentModel);
             }
 
-            ViewBag.SurveyUserBootstrapJson = BuildClientSurveyBootstrapJson();
+            ViewBag.SurveyUserBootstrapJson = await BuildClientSurveyBootstrapJsonAsync(cancellationToken);
             return View("client_help_page", documentModel);
         }
 
         return View("help_page", BuildAdminHelpPageModel());
     }
 
-    private int GetCurrentClientActiveSurveyCount()
+    private async Task<int> GetCurrentClientActiveSurveyCountAsync(CancellationToken cancellationToken)
     {
         var userId = _currentUserService.UserId;
         if (!userId.HasValue || userId.Value <= 0)
@@ -215,14 +215,14 @@ public class HelpController : Controller
             return 0;
         }
 
-        return _surveyUserService.GetActiveSurveysPage(userId.Value, 1, null)?.TotalCount ?? 0;
+        return (await _surveyUserService.GetActiveSurveysPageAsync(userId.Value, 1, null, cancellationToken))?.TotalCount ?? 0;
     }
 
-    private string BuildClientSurveyBootstrapJson()
+    private async Task<string> BuildClientSurveyBootstrapJsonAsync(CancellationToken cancellationToken)
     {
         var userId = _currentUserService.UserId ?? 0;
         var userOrganizationId = userId > 0
-            ? _surveyUserService.GetUserOrganizationId(userId) ?? 0
+            ? await _surveyUserService.GetUserOrganizationIdAsync(userId, cancellationToken) ?? 0
             : 0;
         var userName = _currentUserService.UserName;
         var organizationName = _currentUserService.OrganizationName;

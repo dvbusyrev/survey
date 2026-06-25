@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using System.Security.Claims;
 
 public class AuthController : Controller
@@ -50,7 +51,7 @@ public class AuthController : Controller
     [AllowAnonymous]
     [HttpPost("auth/login")]
     [EnableRateLimiting("login-attempts")]
-    public async Task<IActionResult> Login([FromBody] string[] userData)
+    public async Task<IActionResult> Login([FromBody] string[] userData, CancellationToken cancellationToken)
     {
         if (userData == null || userData.Length != 2)
             return StatusCode(400, "Неверный формат данных");
@@ -63,7 +64,7 @@ public class AuthController : Controller
 
         try
         {
-            var loginResult = _authService.Authenticate(username, password);
+            var loginResult = await _authService.AuthenticateAsync(username, password, cancellationToken);
             if (!loginResult.Success)
             {
                 return StatusCode(loginResult.StatusCode, loginResult.ErrorMessage);
@@ -90,9 +91,9 @@ public class AuthController : Controller
                 nameOrganization = loginResult.OrganizationName
             });
         }
-        catch
+        catch (Exception ex)
         {
-            return StatusCode(500, "Ошибка сервера при попытке авторизации");
+            return this.SafeError(ex, "Не удалось выполнить вход.", "Ошибка при попытке авторизации");
         }
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 
 [Authorize]
@@ -28,7 +29,7 @@ public class SurveyArchiveController : Controller
         _logger = logger;
     }
 
-    private IActionResult RenderAdminArchivePage(
+    private async Task<IActionResult> RenderAdminArchivePageAsync(
         int currentPage = 1,
         string? sortBy = null,
         string? sortDirection = null,
@@ -38,9 +39,10 @@ public class SurveyArchiveController : Controller
         string? month = null,
         string? dateFrom = null,
         string? dateTo = null,
-        SurveyEditPageViewModel? editSurveyPage = null)
+        SurveyEditPageViewModel? editSurveyPage = null,
+        CancellationToken cancellationToken = default)
     {
-        var pageModel = _surveyArchiveService.GetAdminArchivedSurveysPage(
+        var pageModel = await _surveyArchiveService.GetAdminArchivedSurveysPageAsync(
             currentPage,
             sortBy,
             sortDirection,
@@ -49,7 +51,8 @@ public class SurveyArchiveController : Controller
             year,
             month,
             dateFrom,
-            dateTo);
+            dateTo,
+            cancellationToken);
 
         return View(
             "~/Web/Views/Survey/archived_surveys.cshtml",
@@ -96,7 +99,7 @@ public class SurveyArchiveController : Controller
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("survey/archive")]
     [HttpGet("surveys/archive")]
-    public IActionResult ArchivedSurveys(
+    public async Task<IActionResult> ArchivedSurveys(
         int page = 1,
         string? sortBy = null,
         string? sortDirection = null,
@@ -105,9 +108,10 @@ public class SurveyArchiveController : Controller
         string? year = null,
         string? month = null,
         string? dateFrom = null,
-        string? dateTo = null)
+        string? dateTo = null,
+        CancellationToken cancellationToken = default)
     {
-        return RenderAdminArchivePage(
+        return await RenderAdminArchivePageAsync(
             page,
             sortBy,
             sortDirection,
@@ -116,13 +120,14 @@ public class SurveyArchiveController : Controller
             year,
             month,
             dateFrom,
-            dateTo);
+            dateTo,
+            cancellationToken: cancellationToken);
     }
 
     [Authorize(Roles = AppRoles.Admin)]
     [HttpGet("survey/archive/{id:int}/edit")]
     [HttpGet("surveys/archive/{id:int}/edit")]
-    public IActionResult ArchivedSurveyEdit(
+    public async Task<IActionResult> ArchivedSurveyEdit(
         int id,
         int page = 1,
         string? sortBy = null,
@@ -132,16 +137,17 @@ public class SurveyArchiveController : Controller
         string? year = null,
         string? month = null,
         string? dateFrom = null,
-        string? dateTo = null)
+        string? dateTo = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var pageModel = _surveyAdminService.GetSurveyEditPage(id);
+            var pageModel = await _surveyAdminService.GetSurveyEditPageAsync(id, cancellationToken);
             if (pageModel == null)
             {
                 return NotFound("Анкета не найдена");
             }
-            return RenderAdminArchivePage(
+            return await RenderAdminArchivePageAsync(
                 page,
                 sortBy,
                 sortDirection,
@@ -151,18 +157,18 @@ public class SurveyArchiveController : Controller
                 month,
                 dateFrom,
                 dateTo,
-                pageModel);
+                pageModel,
+                cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при открытии архивной анкеты {SurveyId} для редактирования", id);
-            return StatusCode(500, "Произошла ошибка при загрузке анкеты");
+            return this.SafeError(ex, "Не удалось загрузить анкету.", $"Ошибка при открытии архивной анкеты {id} для редактирования");
         }
     }
 
     [HttpGet("archive")]
     [HttpGet("my-surveys/archive")]
-    public IActionResult ArchivedSurveysForUser()
+    public async Task<IActionResult> ArchivedSurveysForUser(CancellationToken cancellationToken = default)
     {
         if (!_currentUserService.UserId.HasValue)
         {
@@ -175,24 +181,26 @@ public class SurveyArchiveController : Controller
             return accessResult;
         }
 
-        var pageModel = _surveyArchiveService.GetUserArchivePage(
+        var pageModel = await _surveyArchiveService.GetUserArchivePageAsync(
             _currentUserService.UserId.Value,
             1,
             searchTerm: null,
             date: null,
             dateFrom: null,
             dateTo: null,
-            signedOnly: false);
+            signedOnly: false,
+            cancellationToken: cancellationToken);
 
         if (pageModel == null)
         {
             return NotFound(new { error = "Клиент не найден" });
         }
 
-        var activePageModel = _surveyUserService.GetActiveSurveysPage(
+        var activePageModel = await _surveyUserService.GetActiveSurveysPageAsync(
             _currentUserService.UserId.Value,
             1,
-            searchTerm: null);
+            searchTerm: null,
+            cancellationToken);
 
         ViewBag.ActiveTabContentModel = BuildActiveContentModel(
             activePageModel,
@@ -203,7 +211,7 @@ public class SurveyArchiveController : Controller
 
     [HttpGet("archive/{id:int}")]
     [HttpGet("my-surveys/archive/{id:int}")]
-    public IActionResult GetListArchive(
+    public async Task<IActionResult> GetListArchive(
         int id,
         int? page,
         string searchTerm = "",
@@ -211,7 +219,8 @@ public class SurveyArchiveController : Controller
         string dateFrom = "",
         string dateTo = "",
         bool signedOnly = false,
-        bool countOnly = false)
+        bool countOnly = false,
+        CancellationToken cancellationToken = default)
     {
         var accessResult = EnsureUserRouteAccess(id);
         if (accessResult != null)
@@ -221,14 +230,15 @@ public class SurveyArchiveController : Controller
 
         try
         {
-            var pageModel = _surveyArchiveService.GetUserArchivePage(
+            var pageModel = await _surveyArchiveService.GetUserArchivePageAsync(
                 id,
                 page ?? 1,
                 searchTerm,
                 date,
                 dateFrom,
                 dateTo,
-                signedOnly);
+                signedOnly,
+                cancellationToken);
 
             if (pageModel == null)
             {
@@ -240,10 +250,11 @@ public class SurveyArchiveController : Controller
                 return Ok(new { totalCount = pageModel.TotalCount });
             }
 
-            var activePageModel = _surveyUserService.GetActiveSurveysPage(
+            var activePageModel = await _surveyUserService.GetActiveSurveysPageAsync(
                 id,
                 1,
-                searchTerm: null);
+                searchTerm: null,
+                cancellationToken);
 
             var archiveContentModel = BuildArchivedContentModel(
                 pageModel,
@@ -262,12 +273,7 @@ public class SurveyArchiveController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при получении архивных анкет пользователя {UserId}", id);
-            return StatusCode(500, new
-            {
-                error = "Внутренняя ошибка сервера",
-                details = ex.Message
-            });
+            return this.SafeError(ex, "Не удалось загрузить архив анкет.", $"Ошибка при получении архивных анкет пользователя {id}");
         }
     }
 
@@ -307,7 +313,7 @@ public class SurveyArchiveController : Controller
     [Authorize(Roles = AppRoles.Admin)]
     [HttpPost("survey/archive/copy")]
     [HttpPost("surveys/archive/copy")]
-    public async Task<IActionResult> CopyArchivedSurvey([FromBody] ArchiveSurveyCopyRequest request)
+    public async Task<IActionResult> CopyArchivedSurvey([FromBody] ArchiveSurveyCopyRequest request, CancellationToken cancellationToken)
     {
         if (request == null || request.SurveyId <= 0)
         {
@@ -316,7 +322,7 @@ public class SurveyArchiveController : Controller
 
         try
         {
-            var id = await _surveyArchiveService.CopyArchiveSurveyAsync(request);
+            var id = await _surveyArchiveService.CopyArchiveSurveyAsync(request, cancellationToken);
             return Ok(new
             {
                 message = "Анкета успешно добавлена",
@@ -325,8 +331,7 @@ public class SurveyArchiveController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при копировании архивной анкеты {SurveyId}", request.SurveyId);
-            return StatusCode(500, $"Ошибка при добавлении анкеты: {ex.Message}");
+            return this.SafeError(ex, "Не удалось скопировать анкету.", $"Ошибка при копировании архивной анкеты {request.SurveyId}");
         }
     }
 }

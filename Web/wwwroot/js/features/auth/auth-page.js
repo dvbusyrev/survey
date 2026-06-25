@@ -55,15 +55,10 @@
             ? message.trim()
             : 'Проверьте правильность введенных данных.';
 
-        if (typeof window.siteNotify === 'function') {
-            window.siteNotify(safeMessage, 'error', {
-                title: 'Ошибка авторизации',
-                duration: 0
-            });
-            return;
-        }
-
-        window.alert(safeMessage);
+        window.AppUi.notify(safeMessage, 'error', {
+            title: 'Ошибка авторизации',
+            duration: 0
+        });
     }
 
     function renderEyeIcon() {

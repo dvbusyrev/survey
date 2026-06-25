@@ -560,9 +560,23 @@
         return true;
     }
 
-    window.siteNotify = function (message, type, options) {
-        showToast(normalizeClientErrorMessage(message), type, options);
+    const appUi = window.AppUi || {};
+
+    appUi.notify = function (message, type, options) {
+        const normalizedMessage = normalizeClientErrorMessage(message);
+        if (!normalizedMessage) {
+            return false;
+        }
+
+        showToast(normalizedMessage, type, options);
+        return true;
     };
+
+    appUi.setModalVisibility = function (target, isVisible) {
+        return isVisible ? showSiteModal(target) : hideSiteModal(target);
+    };
+
+    window.AppUi = appUi;
 
     window.siteConfirm = function (message, options) {
         return showConfirm(message, options);
@@ -572,25 +586,6 @@
     window.hideSiteModal = hideSiteModal;
     window.createSiteModalFrame = createSiteModalFrame;
     window.syncSiteModalBodyState = syncBodyModalState;
-
-    const nativeShowNotification = window.showNotification;
-    window.showNotification = function (message, isSuccess) {
-        showToast(normalizeClientErrorMessage(message), isSuccess ? 'success' : 'error');
-    };
-
-    window.alert = function (message) {
-        const normalizedMessage = normalizeClientErrorMessage(message);
-        const hasErrorTone = /ошиб|не удалось|некоррект|проверьте|не найден|не заполн|не может/i.test(normalizedMessage);
-        const hasSuccessTone = /успешно|сохранен|создан|обновлен|добавлен|загружен|удален|отправлен/i.test(normalizedMessage);
-        const toastType = hasErrorTone ? 'error' : hasSuccessTone ? 'success' : 'info';
-        const title = toastType === 'error'
-            ? 'Ошибка'
-            : toastType === 'success'
-                ? 'Успешно'
-                : 'Сообщение';
-
-        showToast(normalizedMessage, toastType, { title });
-    };
 
     window.normalizeClientErrorMessage = normalizeClientErrorMessage;
 

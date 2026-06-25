@@ -1,6 +1,6 @@
-using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.DTO.Configuration;
 using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Web.ViewModels;
@@ -21,30 +21,37 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
     private readonly ILogger<SurveyAutoCreationService> _logger;
     private readonly IClock _clock;
     private readonly ISurveyAssignmentRepository _assignmentRepository;
+    private readonly ISurveyDefinitionRepository _definitionRepository;
+    private readonly IAutoCreationConfigRepository _configRepository;
 
     public SurveyAutoCreationService(
         IDbConnectionFactory connectionFactory,
         ILogger<SurveyAutoCreationService> logger,
         IClock clock,
-        ISurveyAssignmentRepository assignmentRepository)
+        ISurveyAssignmentRepository assignmentRepository,
+        ISurveyDefinitionRepository definitionRepository,
+        IAutoCreationConfigRepository configRepository)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
         _clock = clock;
         _assignmentRepository = assignmentRepository;
+        _definitionRepository = definitionRepository;
+        _configRepository = configRepository;
     }
 
     public async Task<SurveyAutoCreationPageViewModel> GetPageModelAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        if (!await HasStorageAsync(connection, null, cancellationToken))
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        if (!await _configRepository.HasCurrentStorageAsync(connection, null, cancellationToken))
         {
             _logger.LogWarning("Страница автосоздания открыта до применения актуальной миграции таблиц автосоздания.");
             return BuildDefaultPageModel();
         }
 
         var config = await GetOrCreateConfigurationAsync(connection, null, cancellationToken, lockRow: false);
-        var selectedSurveys = await GetSelectedSurveysAsync(connection, null, cancellationToken);
+        var selectedSurveys = await _configRepository.GetSelectedSurveysAsync(
+            connection, null, SingletonConfigId, cancellationToken);
 
         return new SurveyAutoCreationPageViewModel
         {
@@ -64,19 +71,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
 
     public async Task<IReadOnlyList<SurveySelectionItem>> GetSurveyOptionsAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        var surveys = await connection.QueryAsync<SurveySelectionItem>(
-            new CommandDefinition(
-                """
-                SELECT
-                    s.id_survey AS Id,
-                    s.name_survey AS Name
-                FROM public.survey s
-                ORDER BY lower(s.name_survey), s.id_survey;
-                """,
-                cancellationToken: cancellationToken));
-
-        return surveys.ToArray();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await _definitionRepository.GetSelectionOptionsAsync(connection, cancellationToken: cancellationToken);
     }
 
     public Task<SurveyAutoCreationCommandResult> SaveAsync(SurveyAutoCreationSettingsRequest? request, CancellationToken cancellationToken = default)
@@ -87,8 +83,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
 
     public async Task<SurveyAutoCreationCommandResult> StopAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        if (!await HasStorageAsync(connection, null, cancellationToken))
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        if (!await _configRepository.HasCurrentStorageAsync(connection, null, cancellationToken))
         {
             return BuildStorageUnavailableCommandResult();
         }
@@ -97,16 +93,7 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
 
         await GetOrCreateConfigurationAsync(connection, transaction, cancellationToken, lockRow: true);
 
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                UPDATE public.auto_creation_config
-                SET is_enabled = FALSE
-                WHERE id_config = @ConfigId;
-                """,
-                new { ConfigId = SingletonConfigId },
-                transaction,
-                cancellationToken: cancellationToken));
+        await _configRepository.SetEnabledAsync(connection, transaction, SingletonConfigId, false, cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
 
@@ -115,14 +102,14 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             Success = true,
             Message = "Автосоздание анкет остановлено.",
             IsEnabled = false,
-            SelectedSurveyCount = await GetSelectedSurveyCountAsync(connection, cancellationToken)
+            SelectedSurveyCount = await _configRepository.GetSelectedSurveyCountAsync(connection, SingletonConfigId, cancellationToken)
         };
     }
 
     public async Task<SurveyAutoCreationRunResult> RunPendingAsync(CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        if (!await HasStorageAsync(connection, null, cancellationToken))
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        if (!await _configRepository.HasCurrentStorageAsync(connection, null, cancellationToken))
         {
             _logger.LogWarning("Фоновое автосоздание анкет пропущено: таблицы автосоздания отсутствуют или не обновлены до актуальной схемы.");
             return new SurveyAutoCreationRunResult
@@ -143,19 +130,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        var selectedSurveyIds = await connection.QueryAsync<int>(
-            new CommandDefinition(
-                """
-                SELECT id_survey
-                FROM public.survey_auto_creation_config
-                WHERE id_config = @ConfigId
-                ORDER BY id_survey;
-                """,
-                new { ConfigId = SingletonConfigId },
-                transaction,
-                cancellationToken: cancellationToken));
-
-        var surveyIdArray = selectedSurveyIds.ToArray();
+        var surveyIdArray = (await _configRepository.GetSelectedSurveyIdsAsync(
+            connection, transaction, SingletonConfigId, cancellationToken)).ToArray();
         if (surveyIdArray.Length == 0)
         {
             await transaction.CommitAsync(cancellationToken);
@@ -228,8 +204,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         bool runImmediately,
         CancellationToken cancellationToken)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        if (!await HasStorageAsync(connection, null, cancellationToken))
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        if (!await _configRepository.HasCurrentStorageAsync(connection, null, cancellationToken))
         {
             return BuildStorageUnavailableCommandResult();
         }
@@ -256,69 +232,16 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             normalizedRequest = normalizeResult.NormalizedRequest;
             var isEnabled = enableOverride ?? current.IsEnabled;
 
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    INSERT INTO public.auto_creation_config
-                    (
-                        id_config,
-                        id_creation_day,
-                        id_begin_day,
-                        working_period,
-                        is_enabled
-                    )
-                    VALUES
-                    (
-                        @IdConfig,
-                        @CreationDayId,
-                        @BeginDayId,
-                        @WorkingPeriod,
-                        @IsEnabled
-                    )
-                    ON CONFLICT (id_config) DO UPDATE
-                    SET
-                        id_creation_day = EXCLUDED.id_creation_day,
-                        id_begin_day = EXCLUDED.id_begin_day,
-                        working_period = EXCLUDED.working_period,
-                        is_enabled = EXCLUDED.is_enabled;
-                    """,
-                    new
-                    {
-                        IdConfig = SingletonConfigId,
-                        normalizeResult.CreationDayId,
-                        normalizeResult.BeginDayId,
-                        WorkingPeriod = normalizedRequest.EndOffsetBusinessDays,
-                        IsEnabled = isEnabled
-                    },
-                    transaction,
-                    cancellationToken: cancellationToken));
-
-            await connection.ExecuteAsync(
-                new CommandDefinition(
-                    """
-                    DELETE FROM public.survey_auto_creation_config
-                    WHERE id_config = @ConfigId;
-                    """,
-                    new { ConfigId = SingletonConfigId },
-                    transaction,
-                    cancellationToken: cancellationToken));
-
-            foreach (var surveyId in normalizedRequest.SurveyIds)
-            {
-                await connection.ExecuteAsync(
-                    new CommandDefinition(
-                        """
-                        INSERT INTO public.survey_auto_creation_config (id_config, id_survey)
-                        VALUES (@ConfigId, @SurveyId);
-                        """,
-                        new
-                        {
-                            ConfigId = SingletonConfigId,
-                            SurveyId = surveyId
-                        },
-                        transaction,
-                        cancellationToken: cancellationToken));
-            }
+            await _configRepository.SaveAsync(
+                connection,
+                transaction,
+                SingletonConfigId,
+                normalizeResult.CreationDayId,
+                normalizeResult.BeginDayId,
+                normalizedRequest.EndOffsetBusinessDays,
+                isEnabled,
+                normalizedRequest.SurveyIds,
+                cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
         }
@@ -422,8 +345,14 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        var creationDayId = await GetWeekDayIdAsync(connection, transaction, creationWeekNumber, creationDayOfWeek, cancellationToken);
-        var beginDayId = await GetWeekDayIdAsync(connection, transaction, beginWeekNumber, beginDayOfWeek, cancellationToken);
+        var creationDayName = SurveyAutoCreationScheduleHelper.GetPatternWeekdayName(creationDayOfWeek);
+        var beginDayName = SurveyAutoCreationScheduleHelper.GetPatternWeekdayName(beginDayOfWeek);
+        var creationDayId = string.IsNullOrWhiteSpace(creationDayName)
+            ? null
+            : await _configRepository.GetWeekDayIdAsync(connection, transaction, creationWeekNumber, creationDayName, cancellationToken);
+        var beginDayId = string.IsNullOrWhiteSpace(beginDayName)
+            ? null
+            : await _configRepository.GetWeekDayIdAsync(connection, transaction, beginWeekNumber, beginDayName, cancellationToken);
         if (creationDayId == null || beginDayId == null)
         {
             return new NormalizeSurveyAutoCreationRequestResult
@@ -432,16 +361,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             };
         }
 
-        var existingSurveyIds = (await connection.QueryAsync<int>(
-            new CommandDefinition(
-                """
-                SELECT s.id_survey
-                FROM public.survey s
-                WHERE s.id_survey = ANY(@SurveyIds);
-                """,
-                new { SurveyIds = surveyIds },
-                transaction,
-                cancellationToken: cancellationToken))).ToHashSet();
+        var existingSurveyIds = await _definitionRepository.GetExistingIdsAsync(
+            connection, transaction, surveyIds, cancellationToken);
 
         if (existingSurveyIds.Count != surveyIds.Length)
         {
@@ -466,189 +387,32 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         };
     }
 
-    private async Task<SurveyAutoCreationConfigRow> GetOrCreateConfigurationAsync(
+    private Task<AutoCreationConfigRecord> GetOrCreateConfigurationAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
         CancellationToken cancellationToken,
         bool lockRow)
-    {
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                INSERT INTO public.auto_creation_config
-                (
-                    id_config,
-                    id_creation_day,
-                    id_begin_day,
-                    working_period,
-                    is_enabled
-                )
-                VALUES
-                (
-                    @ConfigId,
-                    @CreationDayId,
-                    @BeginDayId,
-                    @WorkingPeriod,
-                    FALSE
-                )
-                ON CONFLICT (id_config) DO NOTHING;
-                """,
-                new
-                {
-                    ConfigId = SingletonConfigId,
-                    CreationDayId = DefaultCreationDayId,
-                    BeginDayId = DefaultBeginDayId,
-                    WorkingPeriod = DefaultWorkingPeriod
-                },
-                transaction,
-                cancellationToken: cancellationToken));
-
-        var lockClause = lockRow ? "FOR UPDATE" : string.Empty;
-        return await connection.QuerySingleAsync<SurveyAutoCreationConfigRow>(
-            new CommandDefinition(
-                $"""
-                SELECT
-                    c.id_config AS IdConfig,
-                    c.id_creation_day AS CreationDayId,
-                    c.id_begin_day AS BeginDayId,
-                    c.working_period AS WorkingPeriod,
-                    c.is_enabled AS IsEnabled,
-                    creation_day.en_name_day AS CreationDayName,
-                    creation_day.week_number AS CreationWeekNumber,
-                    begin_day.en_name_day AS BeginDayName,
-                    begin_day.week_number AS BeginWeekNumber,
-                    creation_day.week_number::text || '-' || lower(creation_day.en_name_day) AS CreationPattern,
-                    begin_day.week_number::text || '-' || lower(begin_day.en_name_day) AS StartPattern
-                FROM public.auto_creation_config c
-                INNER JOIN public.week_day creation_day
-                    ON creation_day.id_day = c.id_creation_day
-                INNER JOIN public.week_day begin_day
-                    ON begin_day.id_day = c.id_begin_day
-                WHERE c.id_config = @ConfigId
-                {lockClause};
-                """,
-                new { ConfigId = SingletonConfigId },
-                transaction,
-                cancellationToken: cancellationToken));
-    }
-
-    private static async Task<int?> GetWeekDayIdAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction? transaction,
-        int weekNumber,
-        DayOfWeek dayOfWeek,
-        CancellationToken cancellationToken)
-    {
-        var dayName = SurveyAutoCreationScheduleHelper.GetPatternWeekdayName(dayOfWeek);
-        if (string.IsNullOrWhiteSpace(dayName))
-        {
-            return null;
-        }
-
-        return await connection.ExecuteScalarAsync<int?>(
-            new CommandDefinition(
-                """
-                SELECT id_day
-                FROM public.week_day
-                WHERE week_number = @WeekNumber
-                  AND lower(en_name_day) = lower(@DayName)
-                LIMIT 1;
-                """,
-                new
-                {
-                    WeekNumber = weekNumber,
-                    DayName = dayName
-                },
-                transaction,
-                cancellationToken: cancellationToken));
-    }
+        => _configRepository.GetOrCreateAsync(
+            connection,
+            transaction,
+            SingletonConfigId,
+            DefaultCreationDayId,
+            DefaultBeginDayId,
+            DefaultWorkingPeriod,
+            lockRow,
+            cancellationToken);
 
     private static bool TryParseDayOfWeek(string? dayName, out DayOfWeek dayOfWeek)
         => Enum.TryParse(dayName, ignoreCase: true, out dayOfWeek)
            && dayOfWeek is >= DayOfWeek.Monday and <= DayOfWeek.Friday;
 
-    private static Task<IReadOnlyList<SurveySelectionItem>> GetSelectedSurveysAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction? transaction,
-        CancellationToken cancellationToken)
-        => QuerySelectedSurveysAsync(connection, transaction, cancellationToken);
-
-    private static async Task<IReadOnlyList<SurveySelectionItem>> QuerySelectedSurveysAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction? transaction,
-        CancellationToken cancellationToken)
-    {
-        var surveys = await connection.QueryAsync<SurveySelectionItem>(
-            new CommandDefinition(
-                """
-                SELECT
-                    s.id_survey AS Id,
-                    s.name_survey AS Name
-                FROM public.survey_auto_creation_config cs
-                INNER JOIN public.survey s
-                    ON s.id_survey = cs.id_survey
-                WHERE cs.id_config = @ConfigId
-                ORDER BY lower(s.name_survey), s.id_survey;
-                """,
-                new { ConfigId = SingletonConfigId },
-                transaction,
-                cancellationToken: cancellationToken));
-
-        return surveys.ToArray();
-    }
-
-    private async Task<int> GetSelectedSurveyCountAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
-    {
-        return await connection.ExecuteScalarAsync<int>(
-            new CommandDefinition(
-                """
-                SELECT COUNT(*)
-                FROM public.survey_auto_creation_config
-                WHERE id_config = @ConfigId;
-                """,
-                new { ConfigId = SingletonConfigId },
-                cancellationToken: cancellationToken));
-    }
-
     private async Task<bool> GetIsEnabledAsync(CancellationToken cancellationToken)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         var config = await GetOrCreateConfigurationAsync(connection, null, cancellationToken, lockRow: false);
         return config.IsEnabled;
     }
 
-    private async Task<bool> HasStorageAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction? transaction,
-        CancellationToken cancellationToken)
-    {
-        return await connection.ExecuteScalarAsync<bool>(
-            new CommandDefinition(
-                """
-                SELECT
-                    to_regclass('public.week_day') IS NOT NULL
-                    AND to_regclass('public.auto_creation_config') IS NOT NULL
-                    AND to_regclass('public.survey_auto_creation_config') IS NOT NULL
-                    AND EXISTS (
-                        SELECT 1
-                        FROM information_schema.columns
-                        WHERE table_schema = 'public'
-                          AND table_name = 'auto_creation_config'
-                          AND column_name = 'working_period'
-                          AND is_nullable = 'YES'
-                    )
-                    AND EXISTS (
-                        SELECT 1
-                        FROM information_schema.columns
-                        WHERE table_schema = 'public'
-                          AND table_name = 'organization_survey'
-                          AND column_name = 'date_end'
-                          AND is_nullable = 'YES'
-                    );
-                """,
-                transaction: transaction,
-                cancellationToken: cancellationToken));
-    }
 
     private static SurveyAutoCreationPageViewModel BuildDefaultPageModel()
     {
@@ -677,19 +441,8 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
         DateTime? endDate,
         CancellationToken cancellationToken)
     {
-        var originalSurvey = await connection.QueryFirstOrDefaultAsync<SurveyCopySourceRow>(
-            new CommandDefinition(
-                """
-                SELECT
-                    s.id_survey AS IdSurvey,
-                    s.name_survey AS NameSurvey,
-                    s.description AS Description
-                FROM public.survey s
-                WHERE s.id_survey = @SurveyId;
-                """,
-                new { SurveyId = surveyId },
-                transaction,
-                cancellationToken: cancellationToken));
+        var originalSurvey = await _definitionRepository.GetByIdAsync(
+            connection, transaction, surveyId, cancellationToken);
 
         if (originalSurvey == null)
         {
@@ -710,38 +463,11 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             return false;
         }
 
-        var newSurveyId = await connection.ExecuteScalarAsync<int>(
-            new CommandDefinition(
-                """
-                INSERT INTO public.survey (name_survey, description)
-                VALUES (@NameSurvey, @Description)
-                RETURNING id_survey;
-                """,
-                new
-                {
-                    NameSurvey = copyName,
-                    originalSurvey.Description
-                },
-                transaction,
-                cancellationToken: cancellationToken));
+        var newSurveyId = await _definitionRepository.CreateAsync(
+            connection, transaction, copyName, originalSurvey.Description, cancellationToken);
 
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                """
-                INSERT INTO public.survey_question (id_survey, question_order, question_text)
-                SELECT @NewSurveyId, question_order, question_text
-                FROM public.survey_question
-                WHERE id_survey = @SourceSurveyId
-                ON CONFLICT (id_survey, question_order) DO UPDATE
-                SET question_text = EXCLUDED.question_text;
-                """,
-                new
-                {
-                    NewSurveyId = newSurveyId,
-                    SourceSurveyId = surveyId
-                },
-                transaction,
-                cancellationToken: cancellationToken));
+        await _definitionRepository.CopyQuestionsAsync(
+            connection, transaction, surveyId, newSurveyId, cancellationToken);
 
         var organizationIds = await _assignmentRepository.GetOrganizationIdsAsync(
             connection,
@@ -758,28 +484,6 @@ public sealed class SurveyAutoCreationService : ISurveyAutoCreationService
             cancellationToken);
 
         return true;
-    }
-
-    private sealed class SurveyAutoCreationConfigRow
-    {
-        public int IdConfig { get; init; }
-        public int CreationDayId { get; init; }
-        public int BeginDayId { get; init; }
-        public int? WorkingPeriod { get; init; } = DefaultWorkingPeriod;
-        public string CreationPattern { get; init; } = DefaultPattern;
-        public string StartPattern { get; init; } = DefaultPattern;
-        public string CreationDayName { get; init; } = "Monday";
-        public int CreationWeekNumber { get; init; } = 1;
-        public string BeginDayName { get; init; } = "Monday";
-        public int BeginWeekNumber { get; init; } = 1;
-        public bool IsEnabled { get; init; }
-    }
-
-    private sealed class SurveyCopySourceRow
-    {
-        public int IdSurvey { get; init; }
-        public string NameSurvey { get; init; } = string.Empty;
-        public string? Description { get; init; }
     }
 
     private sealed class NormalizeSurveyAutoCreationRequestResult

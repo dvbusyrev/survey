@@ -1,22 +1,29 @@
 using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO.Configuration;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace MainProject.Infrastructure.Persistence;
 
 public sealed class EmailConfigRepository : IEmailConfigRepository
 {
-    private readonly IDbConnectionFactory _connectionFactory;
+    private const string SmtpPasswordProtectionPurpose = "MainProject.EmailTemplate.SmtpPassword";
 
-    public EmailConfigRepository(IDbConnectionFactory connectionFactory)
+    private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IDataProtector _passwordProtector;
+
+    public EmailConfigRepository(
+        IDbConnectionFactory connectionFactory,
+        IDataProtectionProvider dataProtectionProvider)
     {
         _connectionFactory = connectionFactory;
+        _passwordProtector = dataProtectionProvider.CreateProtector(SmtpPasswordProtectionPurpose);
     }
 
     public async Task<EmailConfigRecord?> GetAsync(int configId, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        return await connection.QueryFirstOrDefaultAsync<EmailConfigRecord>(new CommandDefinition(
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var storedRecord = await connection.QueryFirstOrDefaultAsync<StoredEmailConfigRecord>(new CommandDefinition(
             """
             SELECT
                 recipient_emails AS To,
@@ -26,7 +33,7 @@ public sealed class EmailConfigRepository : IEmailConfigRepository
                 smtp_port AS SmtpPort,
                 smtp_enable_ssl AS SmtpEnableSsl,
                 smtp_user_name AS SmtpUserName,
-                smtp_password AS SmtpPasswordEncrypted,
+                smtp_password AS ProtectedSmtpPassword,
                 from_address AS FromAddress,
                 from_display_name AS FromDisplayName
             FROM public.email_config
@@ -35,11 +42,27 @@ public sealed class EmailConfigRepository : IEmailConfigRepository
             """,
             new { ConfigId = configId },
             cancellationToken: cancellationToken));
+
+        return storedRecord == null
+            ? null
+            : new EmailConfigRecord
+            {
+                To = storedRecord.To,
+                Subject = storedRecord.Subject,
+                Content = storedRecord.Content,
+                SmtpHost = storedRecord.SmtpHost,
+                SmtpPort = storedRecord.SmtpPort,
+                SmtpEnableSsl = storedRecord.SmtpEnableSsl,
+                SmtpUserName = storedRecord.SmtpUserName,
+                SmtpPassword = UnprotectPassword(storedRecord.ProtectedSmtpPassword),
+                FromAddress = storedRecord.FromAddress,
+                FromDisplayName = storedRecord.FromDisplayName
+            };
     }
 
     public async Task SaveAsync(int configId, EmailConfigRecord record, CancellationToken cancellationToken = default)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO public.email_config
@@ -50,7 +73,7 @@ public sealed class EmailConfigRepository : IEmailConfigRepository
             VALUES
             (
                 @ConfigId, @To, @Subject, @Content, @SmtpHost, @SmtpPort,
-                @SmtpEnableSsl, @SmtpUserName, @SmtpPasswordEncrypted, @FromAddress, @FromDisplayName
+                @SmtpEnableSsl, @SmtpUserName, @ProtectedSmtpPassword, @FromAddress, @FromDisplayName
             )
             ON CONFLICT (id_config) DO UPDATE
             SET
@@ -75,10 +98,38 @@ public sealed class EmailConfigRepository : IEmailConfigRepository
                 record.SmtpPort,
                 record.SmtpEnableSsl,
                 record.SmtpUserName,
-                record.SmtpPasswordEncrypted,
+                ProtectedSmtpPassword = ProtectPassword(record.SmtpPassword),
                 record.FromAddress,
                 record.FromDisplayName
             },
             cancellationToken: cancellationToken));
+    }
+
+    private string ProtectPassword(string? password)
+    {
+        return string.IsNullOrWhiteSpace(password)
+            ? string.Empty
+            : _passwordProtector.Protect(password);
+    }
+
+    private string UnprotectPassword(string? protectedPassword)
+    {
+        return string.IsNullOrWhiteSpace(protectedPassword)
+            ? string.Empty
+            : _passwordProtector.Unprotect(protectedPassword);
+    }
+
+    private sealed class StoredEmailConfigRecord
+    {
+        public string? To { get; init; }
+        public string? Subject { get; init; }
+        public string? Content { get; init; }
+        public string? SmtpHost { get; init; }
+        public int SmtpPort { get; init; }
+        public bool SmtpEnableSsl { get; init; }
+        public string? SmtpUserName { get; init; }
+        public string? ProtectedSmtpPassword { get; init; }
+        public string? FromAddress { get; init; }
+        public string? FromDisplayName { get; init; }
     }
 }

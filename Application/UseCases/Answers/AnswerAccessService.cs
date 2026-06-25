@@ -17,44 +17,54 @@ public sealed class AnswerAccessService : IAnswerAccessService
     public bool IsAdmin => _currentUserService.IsAdmin;
     public int? UserId => _currentUserService.UserId;
 
-    public int? GetCurrentUserOrganizationId()
+    public async Task<int?> GetCurrentUserOrganizationIdAsync(CancellationToken cancellationToken = default)
     {
         if (!UserId.HasValue)
         {
             return null;
         }
 
-        return _answerDataService.GetUserOrganizationId(UserId.Value);
+        return await _answerDataService.GetUserOrganizationIdAsync(UserId.Value, cancellationToken);
     }
 
-    public bool CanAccessOrganization(int requestedOrganizationId)
+    public async Task<bool> CanAccessOrganizationAsync(
+        int requestedOrganizationId,
+        CancellationToken cancellationToken = default)
     {
         if (IsAdmin)
         {
             return true;
         }
 
-        var currentOrganizationId = GetCurrentUserOrganizationId();
+        var currentOrganizationId = await GetCurrentUserOrganizationIdAsync(cancellationToken);
         return currentOrganizationId.HasValue && currentOrganizationId.Value == requestedOrganizationId;
     }
 
-    public bool CanSubmitAnswer(int surveyId, int requestedOrganizationId)
+    public async Task<bool> CanSubmitAnswerAsync(
+        int surveyId,
+        int requestedOrganizationId,
+        CancellationToken cancellationToken = default)
     {
-        if (!CanAccessOrganization(requestedOrganizationId))
+        if (!await CanAccessOrganizationAsync(requestedOrganizationId, cancellationToken))
         {
             return false;
         }
 
-        return IsAdmin || _answerDataService.IsSurveyAssignedToOrganization(surveyId, requestedOrganizationId);
+        return IsAdmin || await _answerDataService.IsSurveyAssignedToOrganizationAsync(
+            surveyId, requestedOrganizationId, cancellationToken);
     }
 
-    public bool CanAccessAnswerRecord(int surveyId, int requestedOrganizationId)
+    public async Task<bool> CanAccessAnswerRecordAsync(
+        int surveyId,
+        int requestedOrganizationId,
+        CancellationToken cancellationToken = default)
     {
-        if (!CanAccessOrganization(requestedOrganizationId))
+        if (!await CanAccessOrganizationAsync(requestedOrganizationId, cancellationToken))
         {
             return false;
         }
 
-        return IsAdmin || _answerDataService.AnswerRecordExists(surveyId, requestedOrganizationId);
+        return IsAdmin || await _answerDataService.AnswerRecordExistsAsync(
+            surveyId, requestedOrganizationId, cancellationToken);
     }
 }

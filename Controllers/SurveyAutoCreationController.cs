@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class SurveyAutoCreationController : Controller
@@ -43,8 +44,7 @@ public class SurveyAutoCreationController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при сохранении настроек автосоздания анкет");
-            return StatusCode(500, new { success = false, message = "Не удалось сохранить настройки автосоздания анкет." });
+            return this.SafeError(ex, "Не удалось сохранить настройки автосоздания анкет.", "Ошибка при сохранении настроек автосоздания анкет");
         }
     }
 
@@ -65,8 +65,7 @@ public class SurveyAutoCreationController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при запуске автосоздания анкет");
-            return StatusCode(500, new { success = false, message = "Не удалось запустить автосоздание анкет." });
+            return this.SafeError(ex, "Не удалось запустить автосоздание анкет.", "Ошибка при запуске автосоздания анкет");
         }
     }
 
@@ -87,8 +86,7 @@ public class SurveyAutoCreationController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка при остановке автосоздания анкет");
-            return StatusCode(500, new { success = false, message = "Не удалось остановить автосоздание анкет." });
+            return this.SafeError(ex, "Не удалось остановить автосоздание анкет.", "Ошибка при остановке автосоздания анкет");
         }
     }
 }

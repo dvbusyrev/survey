@@ -1,9 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using Npgsql;
 using System.Text.Json;
 
+[Authorize(Roles = AppRoles.Admin)]
 public class SurveyExtensionController : Controller
 {
     private readonly ISurveyExtensionService _surveyExtensionService;
@@ -18,7 +22,7 @@ public class SurveyExtensionController : Controller
     [HttpPost]
     [Route("survey-extensions")]
     [Route("survey_extensions")]
-    public IActionResult SaveSurveyExtensions([FromBody] SurveyExtensionRequest? request)
+    public async Task<IActionResult> SaveSurveyExtensions([FromBody] SurveyExtensionRequest? request, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Получен запрос на продление анкеты: {Request}", JsonSerializer.Serialize(request));
 
@@ -29,7 +33,7 @@ public class SurveyExtensionController : Controller
 
         try
         {
-            var result = _surveyExtensionService.SaveExtensions(request);
+            var result = await _surveyExtensionService.SaveExtensionsAsync(request, cancellationToken);
             if (result.Success)
             {
                 return Ok(new
@@ -52,42 +56,24 @@ public class SurveyExtensionController : Controller
 
             if (!string.IsNullOrWhiteSpace(result.Code))
             {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = result.Message,
-                    error = result.Error,
-                    code = result.Code
-                });
+                return this.SafeError(
+                    new InvalidOperationException(result.Error ?? result.Message),
+                    "Не удалось продлить анкету.",
+                    $"Ошибка продления анкеты с кодом {result.Code}");
             }
 
-            return StatusCode(500, new
-            {
-                success = false,
-                message = result.Message,
-                error = result.Error
-            });
+            return this.SafeError(
+                new InvalidOperationException(result.Error ?? result.Message),
+                "Не удалось продлить анкету.",
+                "Неизвестная ошибка продления анкеты");
         }
         catch (PostgresException pgEx)
         {
-            _logger.LogError(pgEx, "Ошибка PostgreSQL при обработке запроса продления");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Ошибка базы данных",
-                error = pgEx.Message,
-                code = pgEx.SqlState
-            });
+            return this.SafeError(pgEx, "Не удалось продлить анкету.", "Ошибка PostgreSQL при продлении анкеты");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Критическая ошибка в методе SaveSurveyExtensions");
-            return StatusCode(500, new
-            {
-                success = false,
-                message = "Внутренняя ошибка сервера",
-                error = ex.Message
-            });
+            return this.SafeError(ex, "Не удалось продлить анкету.", "Критическая ошибка при продлении анкеты");
         }
     }
 }

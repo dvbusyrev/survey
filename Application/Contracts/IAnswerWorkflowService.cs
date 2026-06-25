@@ -6,10 +6,15 @@ namespace MainProject.Application.Contracts;
 
 public interface IAnswerWorkflowService
 {
-    AnswerMutationResult InsertAnswer(AnswerRecord answerRecord);
-    AnswerMutationResult UpdateAnswer(AnswerRecord answerRecord);
-    AnswerMutationResult SaveDraftAnswer(AnswerRecord answerRecord);
-    AnswerRecord? GetDraftAnswer(int surveyId, int organizationId);
-    UpdateAnswerPageViewModel? GetUpdateAnswerPage(int surveyId, int organizationId);
-    SurveyAnswersResponse GetAnswersResponse(int surveyId, int organizationId, string? type, bool includeAllOrganizationAnswers);
+    Task<AnswerMutationResult> InsertAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default);
+    Task<AnswerMutationResult> UpdateAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default);
+    Task<AnswerMutationResult> SaveDraftAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default);
+    Task<AnswerRecord?> GetDraftAnswerAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<UpdateAnswerPageViewModel?> GetUpdateAnswerPageAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default);
+    Task<SurveyAnswersResponse> GetAnswersResponseAsync(
+        int surveyId,
+        int organizationId,
+        string? type,
+        bool includeAllOrganizationAnswers,
+        CancellationToken cancellationToken = default);
 }

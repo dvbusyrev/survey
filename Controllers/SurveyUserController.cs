@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
+using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 
 [Authorize]
@@ -51,7 +52,9 @@ public class SurveyUserController : Controller
         return null;
     }
 
-    private IActionResult? EnsureOrganizationAccess(int requestedOrganizationId)
+    private async Task<IActionResult?> EnsureOrganizationAccessAsync(
+        int requestedOrganizationId,
+        CancellationToken cancellationToken)
     {
         if (_currentUserService.IsAdmin)
         {
@@ -63,7 +66,9 @@ public class SurveyUserController : Controller
             return Challenge();
         }
 
-        var currentOrganizationId = _surveyUserService.GetUserOrganizationId(_currentUserService.UserId.Value);
+        var currentOrganizationId = await _surveyUserService.GetUserOrganizationIdAsync(
+            _currentUserService.UserId.Value,
+            cancellationToken);
         if (!currentOrganizationId.HasValue || currentOrganizationId.Value != requestedOrganizationId)
         {
             return Forbid();
@@ -73,19 +78,20 @@ public class SurveyUserController : Controller
     }
 
     [HttpGet("survey")]
-    public IActionResult Survey(
+    public async Task<IActionResult> Survey(
         int? page,
         string? searchTerm,
         string? date,
         string? sortBy = null,
         string? sortDirection = null,
-        string? organizationIds = null)
+        string? organizationIds = null,
+        CancellationToken cancellationToken = default)
     {
         if (_currentUserService.IsAdmin)
         {
             return View(
                 "~/Web/Views/Survey/get_surveys.cshtml",
-                BuildAdminSurveyListPage(page ?? 1, sortBy, sortDirection, organizationIds));
+                await BuildAdminSurveyListPageAsync(page ?? 1, sortBy, sortDirection, organizationIds, cancellationToken));
         }
 
         if (!_currentUserService.UserId.HasValue)
@@ -93,31 +99,37 @@ public class SurveyUserController : Controller
             return Challenge();
         }
 
-        return RenderSurveyListPage(_currentUserService.UserId.Value, page, searchTerm, date);
+        return await RenderSurveyListPageAsync(_currentUserService.UserId.Value, page, searchTerm, date, cancellationToken);
     }
 
     [HttpGet("my-surveys")]
-    public IActionResult MySurveys(int? page, string? searchTerm, string? date)
+    public async Task<IActionResult> MySurveys(
+        int? page,
+        string? searchTerm,
+        string? date,
+        CancellationToken cancellationToken = default)
     {
         if (!_currentUserService.UserId.HasValue)
         {
             return Challenge();
         }
 
-        return RenderSurveyListPage(_currentUserService.UserId.Value, page, searchTerm, date);
+        return await RenderSurveyListPageAsync(_currentUserService.UserId.Value, page, searchTerm, date, cancellationToken);
     }
 
-    private SurveyListPageViewModel BuildAdminSurveyListPage(
+    private async Task<SurveyListPageViewModel> BuildAdminSurveyListPageAsync(
         int currentPage = 1,
         string? sortBy = null,
         string? sortDirection = null,
-        string? organizationIds = null)
+        string? organizationIds = null,
+        CancellationToken cancellationToken = default)
     {
-        var pageModel = _surveyAdminService.GetSurveysPage(
+        var pageModel = await _surveyAdminService.GetSurveysPageAsync(
             currentPage,
             sortBy,
             sortDirection,
-            organizationIds);
+            organizationIds,
+            cancellationToken);
 
         return new SurveyListPageViewModel
         {
@@ -133,7 +145,12 @@ public class SurveyUserController : Controller
         };
     }
 
-    private IActionResult RenderSurveyListPage(int id, int? page, string? searchTerm, string? date)
+    private async Task<IActionResult> RenderSurveyListPageAsync(
+        int id,
+        int? page,
+        string? searchTerm,
+        string? date,
+        CancellationToken cancellationToken)
     {
         var accessResult = EnsureUserRouteAccess(id);
         if (accessResult != null)
@@ -143,7 +160,8 @@ public class SurveyUserController : Controller
 
         try
         {
-            var pageModel = _surveyUserService.GetActiveSurveysPage(id, page ?? 1, searchTerm);
+            var pageModel = await _surveyUserService.GetActiveSurveysPageAsync(
+                id, page ?? 1, searchTerm, cancellationToken);
             if (pageModel == null)
             {
                 return NotFound(new { error = "Клиент не найден" });
@@ -160,13 +178,12 @@ public class SurveyUserController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка в survey_list_user для пользователя {UserId}", id);
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
-                return StatusCode(500, new { error = "Ошибка сервера" });
+                return this.SafeError(ex, "Не удалось загрузить доступные анкеты.", $"Ошибка при загрузке доступных анкет пользователя {id}");
             }
 
-            throw;
+            return this.SafeErrorView(ex, "Не удалось загрузить доступные анкеты.", $"Ошибка при загрузке доступных анкет пользователя {id}");
         }
     }
 
@@ -188,29 +205,35 @@ public class SurveyUserController : Controller
 
     [HttpGet("survey/{id:int}/organizations/{organizationId:int}/questions")]
     [HttpGet("surveys/{id:int}/organizations/{organizationId:int}/questions")]
-    public IActionResult GetSurveyQuestions(int id, int organizationId)
+    public async Task<IActionResult> GetSurveyQuestions(
+        int id,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureSurveyAccess(id, organizationId);
+        var accessResult = await EnsureSurveyAccessAsync(id, organizationId, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
         }
 
-        var questions = _surveyUserService.GetSurveyQuestions(id);
+        var questions = await _surveyUserService.GetSurveyQuestionsAsync(id, cancellationToken);
         return Json(new { questions });
     }
 
     [HttpGet("survey/{id:int}/organizations/{organizationId:int}/fill-content")]
     [HttpGet("surveys/{id:int}/organizations/{organizationId:int}/fill-content")]
-    public IActionResult GetSurveyFillContent(int id, int organizationId)
+    public async Task<IActionResult> GetSurveyFillContent(
+        int id,
+        int organizationId,
+        CancellationToken cancellationToken = default)
     {
-        var accessResult = EnsureSurveyAccess(id, organizationId);
+        var accessResult = await EnsureSurveyAccessAsync(id, organizationId, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
         }
 
-        var survey = _surveyUserService.GetSurveyInfo(id);
+        var survey = await _surveyUserService.GetSurveyInfoAsync(id, cancellationToken);
         if (survey == null)
         {
             return NotFound("Анкета не найдена.");
@@ -220,16 +243,19 @@ public class SurveyUserController : Controller
         {
             Survey = survey,
             OrganizationId = organizationId,
-            Questions = _surveyUserService.GetSurveyQuestions(id),
-            DraftAnswer = _answerWorkflowService.GetDraftAnswer(id, organizationId)
+            Questions = await _surveyUserService.GetSurveyQuestionsAsync(id, cancellationToken),
+            DraftAnswer = await _answerWorkflowService.GetDraftAnswerAsync(id, organizationId, cancellationToken)
         };
 
         return PartialView("~/Web/Views/Survey/Partials/_UserSurveyFillContent.cshtml", model);
     }
 
-    private IActionResult? EnsureSurveyAccess(int surveyId, int organizationId)
+    private async Task<IActionResult?> EnsureSurveyAccessAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken)
     {
-        var organizationAccessResult = EnsureOrganizationAccess(organizationId);
+        var organizationAccessResult = await EnsureOrganizationAccessAsync(organizationId, cancellationToken);
         if (organizationAccessResult != null)
         {
             return organizationAccessResult;
@@ -240,7 +266,7 @@ public class SurveyUserController : Controller
             return null;
         }
 
-        if (!_surveyUserService.IsSurveyAssignedToOrganization(surveyId, organizationId))
+        if (!await _surveyUserService.IsSurveyAssignedToOrganizationAsync(surveyId, organizationId, cancellationToken))
         {
             return Forbid();
         }
