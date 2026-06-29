@@ -219,7 +219,7 @@
     @if (isAuthenticated && layoutUserRole == AppRoles.Admin)
     {
         @await Html.PartialAsync("~/Web/Views/Shared/_AdminInlineTemplates.cshtml")
-        <script src="~/js/dist/admin-inline-app.js" asp-append-version="true"></script>
+        <script type="module" src="~/js/entries/admin-inline-app.js" asp-append-version="true"></script>
     }
     @RenderSection("Scripts", required: false)
 </body>
