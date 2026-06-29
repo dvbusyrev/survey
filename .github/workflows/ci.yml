@@ -30,18 +30,25 @@ jobs:
         run: npm ci
 
       - name: Restore .NET projects
-        run: dotnet restore Tests/Unit/MainProject.Tests/MainProject.Tests.csproj
+        run: |
+          dotnet restore tests/Unit/MainProject.Tests/MainProject.Tests.csproj
+          dotnet restore tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj
 
       - name: Verify formatting
         run: |
           dotnet format main_project.csproj --verify-no-changes --no-restore
-          dotnet format Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --verify-no-changes --no-restore
+          dotnet format tests/Unit/MainProject.Tests/MainProject.Tests.csproj --verify-no-changes --no-restore
+          dotnet format tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj --verify-no-changes --no-restore
 
       - name: Run analyzers as errors
-        run: dotnet build Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -warnaserror
+        run: |
+          dotnet build tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -warnaserror
+          dotnet build tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -warnaserror
 
       - name: Check .NET dependencies
-        run: dotnet list Tests/Unit/MainProject.Tests/MainProject.Tests.csproj package --vulnerable --include-transitive
+        run: |
+          dotnet list tests/Unit/MainProject.Tests/MainProject.Tests.csproj package --vulnerable --include-transitive
+          dotnet list tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj package --vulnerable --include-transitive
 
       - name: Check npm dependencies
         run: npm audit --audit-level=high
@@ -88,16 +95,23 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes postgresql-client
 
       - name: Restore test project
-        run: dotnet restore Tests/Unit/MainProject.Tests/MainProject.Tests.csproj
+        run: |
+          dotnet restore tests/Unit/MainProject.Tests/MainProject.Tests.csproj
+          dotnet restore tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj
 
       - name: Build test project
-        run: dotnet build Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore
+        run: |
+          dotnet build tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore
+          dotnet build tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj --configuration Release --no-restore
 
-      - name: Run tests
+      - name: Run unit tests
+        run: dotnet test tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-build --no-restore
+
+      - name: Run integration tests
         env:
           SURVEY_TEST_CONNECTION: Host=localhost;Port=5432;Database=survey_contract_tests;Username=postgres;Password=postgres
           SURVEY_TEST_PSQL: psql
-        run: dotnet test Tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-build --no-restore
+        run: dotnet test tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj --configuration Release --no-build --no-restore
 
   migration-rehearsal:
     runs-on: ubuntu-latest
@@ -199,7 +213,6 @@ jobs:
         env:
           PGPASSWORD: postgres
           ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=survey_smoke_test;Username=postgres;Password=postgres
-          DataProtection__KeyRingPath: /tmp/ais-anketirovanie-e2e-keys
           ASPNETCORE_ENVIRONMENT: Development
           urls: http://127.0.0.1:5080
           SMOKE_BASE_URL: http://127.0.0.1:5080
@@ -212,7 +225,7 @@ jobs:
           trap 'kill "$application_pid"' EXIT
           application_ready=false
           for attempt in {1..30}; do
-            if curl --fail --silent --show-error http://127.0.0.1:5080/health/live; then
+            if curl --fail --silent --show-error http://127.0.0.1:5080/; then
               application_ready=true
               break
             fi

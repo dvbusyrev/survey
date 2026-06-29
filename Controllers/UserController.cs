@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.UseCases.Admin;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
@@ -9,9 +9,9 @@ using MainProject.Web.ViewModels;
 [Authorize(Roles = AppRoles.Admin)]
 public class UserController : Controller
 {
-    private readonly IUserManagementService _userManagementService;
+    private readonly UserManagementService _userManagementService;
 
-    public UserController(IUserManagementService userManagementService)
+    public UserController(UserManagementService userManagementService)
     {
         _userManagementService = userManagementService;
     }

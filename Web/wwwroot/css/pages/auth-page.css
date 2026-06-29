@@ -81,7 +81,7 @@ option,
 .form-title {
     color: var(--app-theme-font-color);
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 400;
     margin-bottom: 2rem;
     text-align: center;
     line-height: 1.2;

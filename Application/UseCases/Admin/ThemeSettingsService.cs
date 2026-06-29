@@ -1,12 +1,13 @@
 using System.Text.RegularExpressions;
+using Dapper;
 using MainProject.Application.Contracts;
-using MainProject.Application.DTO.Configuration;
 using MainProject.Application.DTO.Theme;
+using MainProject.Infrastructure.Persistence;
 using Npgsql;
 
 namespace MainProject.Application.UseCases.Admin;
 
-public sealed class ThemeSettingsService : IThemeSettingsService
+public class ThemeSettingsService
 {
     private const int DefaultConfigId = 1;
     private const int MaxBackgroundImageBytes = 4_000_000;
@@ -22,22 +23,28 @@ public sealed class ThemeSettingsService : IThemeSettingsService
             ["image/webp"] = "background-image.webp"
         };
 
-    private readonly IThemeConfigRepository _themeConfigRepository;
+    private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<ThemeSettingsService> _logger;
 
+    protected ThemeSettingsService()
+    {
+        _connectionFactory = null!;
+        _logger = null!;
+    }
+
     public ThemeSettingsService(
-        IThemeConfigRepository themeConfigRepository,
+        IDbConnectionFactory connectionFactory,
         ILogger<ThemeSettingsService> logger)
     {
-        _themeConfigRepository = themeConfigRepository;
+        _connectionFactory = connectionFactory;
         _logger = logger;
     }
 
-    public async Task<ThemeSettings> GetAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<ThemeSettings> GetAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var row = await _themeConfigRepository.GetAsync(DefaultConfigId, cancellationToken);
+            var row = await GetThemeConfigAsync(DefaultConfigId, cancellationToken);
 
             if (row == null)
             {
@@ -72,12 +79,12 @@ public sealed class ThemeSettingsService : IThemeSettingsService
         }
     }
 
-    public async Task SaveAsync(ThemeSettings settings, CancellationToken cancellationToken = default)
+    public virtual async Task SaveAsync(ThemeSettings settings, CancellationToken cancellationToken = default)
     {
         var normalized = NormalizeAndValidate(settings);
         var backgroundImage = ParseBackgroundImage(normalized.BackgroundImageDataUrl, normalized.BackgroundImageFileName);
 
-        await _themeConfigRepository.SaveAsync(
+        await SaveThemeConfigAsync(
             DefaultConfigId,
             new ThemeConfigRecord
             {
@@ -97,6 +104,96 @@ public sealed class ThemeSettingsService : IThemeSettingsService
                 SurfaceTintOpacityPercent = normalized.SurfaceTintOpacityPercent
             },
             cancellationToken);
+    }
+
+    private async Task<ThemeConfigRecord?> GetThemeConfigAsync(
+        int configId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryFirstOrDefaultAsync<ThemeConfigRecord>(new CommandDefinition(
+            """
+            SELECT
+                font_color AS FontColor,
+                background_color AS BackgroundColor,
+                effect_snow AS EffectSnow,
+                effect_fireworks AS EffectFireworks,
+                effect_grass AS EffectGrass,
+                effect_rain AS EffectRain,
+                background_image AS BackgroundImage,
+                background_image_file_name AS BackgroundImageFileName,
+                background_image_content_type AS BackgroundImageContentType,
+                background_image_opacity AS BackgroundImageOpacity,
+                header_darken_percent AS HeaderDarkenPercent,
+                footer_darken_percent AS FooterDarkenPercent,
+                button_darken_percent AS ButtonDarkenPercent,
+                surface_tint_opacity_percent AS SurfaceTintOpacityPercent
+            FROM public.theme_config
+            WHERE id_config = @ConfigId
+            LIMIT 1;
+            """,
+            new { ConfigId = configId },
+            cancellationToken: cancellationToken));
+    }
+
+    private async Task SaveThemeConfigAsync(
+        int configId,
+        ThemeConfigRecord record,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO public.theme_config
+            (
+                id_config, font_color, background_color, effect_snow, effect_fireworks, effect_grass,
+                effect_rain, background_image, background_image_file_name, background_image_content_type,
+                background_image_opacity, header_darken_percent, footer_darken_percent,
+                button_darken_percent, surface_tint_opacity_percent
+            )
+            VALUES
+            (
+                @ConfigId, @FontColor, @BackgroundColor, @EffectSnow, @EffectFireworks, @EffectGrass,
+                @EffectRain, @BackgroundImage, @BackgroundImageFileName, @BackgroundImageContentType,
+                @BackgroundImageOpacity, @HeaderDarkenPercent, @FooterDarkenPercent,
+                @ButtonDarkenPercent, @SurfaceTintOpacityPercent
+            )
+            ON CONFLICT (id_config) DO UPDATE
+            SET
+                font_color = EXCLUDED.font_color,
+                background_color = EXCLUDED.background_color,
+                effect_snow = EXCLUDED.effect_snow,
+                effect_fireworks = EXCLUDED.effect_fireworks,
+                effect_grass = EXCLUDED.effect_grass,
+                effect_rain = EXCLUDED.effect_rain,
+                background_image = EXCLUDED.background_image,
+                background_image_file_name = EXCLUDED.background_image_file_name,
+                background_image_content_type = EXCLUDED.background_image_content_type,
+                background_image_opacity = EXCLUDED.background_image_opacity,
+                header_darken_percent = EXCLUDED.header_darken_percent,
+                footer_darken_percent = EXCLUDED.footer_darken_percent,
+                button_darken_percent = EXCLUDED.button_darken_percent,
+                surface_tint_opacity_percent = EXCLUDED.surface_tint_opacity_percent;
+            """,
+            new
+            {
+                ConfigId = configId,
+                record.FontColor,
+                record.BackgroundColor,
+                record.EffectSnow,
+                record.EffectFireworks,
+                record.EffectGrass,
+                record.EffectRain,
+                record.BackgroundImage,
+                record.BackgroundImageFileName,
+                record.BackgroundImageContentType,
+                record.BackgroundImageOpacity,
+                record.HeaderDarkenPercent,
+                record.FooterDarkenPercent,
+                record.ButtonDarkenPercent,
+                record.SurfaceTintOpacityPercent
+            },
+            cancellationToken: cancellationToken));
     }
 
     private static ThemeSettings NormalizeAndValidate(ThemeSettings? settings)
@@ -277,4 +374,22 @@ public sealed class ThemeSettingsService : IThemeSettingsService
     }
 
     private sealed record BackgroundImagePayload(byte[]? Bytes, string FileName, string ContentType);
+}
+
+internal sealed class ThemeConfigRecord
+{
+    public string? FontColor { get; init; }
+    public string? BackgroundColor { get; init; }
+    public bool EffectSnow { get; init; }
+    public bool EffectFireworks { get; init; }
+    public bool EffectGrass { get; init; }
+    public bool EffectRain { get; init; }
+    public byte[]? BackgroundImage { get; init; }
+    public string BackgroundImageFileName { get; init; } = string.Empty;
+    public string BackgroundImageContentType { get; init; } = string.Empty;
+    public int BackgroundImageOpacity { get; init; }
+    public int HeaderDarkenPercent { get; init; }
+    public int FooterDarkenPercent { get; init; }
+    public int ButtonDarkenPercent { get; init; }
+    public int SurfaceTintOpacityPercent { get; init; }
 }

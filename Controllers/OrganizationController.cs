@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Admin;
 using MainProject.Infrastructure.Security;
 using MainProject.Application.DTO;
 using MainProject.Web.Infrastructure;
@@ -9,9 +9,9 @@ using MainProject.Web.ViewModels;
 [Authorize(Roles = AppRoles.Admin)]
 public class OrganizationController : Controller
 {
-    private readonly IOrganizationManagementService _organizationManagementService;
+    private readonly OrganizationManagementService _organizationManagementService;
 
-    public OrganizationController(IOrganizationManagementService organizationManagementService)
+    public OrganizationController(OrganizationManagementService organizationManagementService)
     {
         _organizationManagementService = organizationManagementService;
     }

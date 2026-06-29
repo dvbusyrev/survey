@@ -1,22 +1,19 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Answers;
 using MainProject.Web.Infrastructure;
 
 [Authorize]
 public class AnswerExportController : Controller
 {
-    private readonly IAnswerAccessService _answerAccessService;
-    private readonly IAnswerExportService _answerExportService;
+    private readonly AnswerService _answerService;
     private readonly ILogger<AnswerExportController> _logger;
 
     public AnswerExportController(
-        IAnswerAccessService answerAccessService,
-        IAnswerExportService answerExportService,
+        AnswerService answerService,
         ILogger<AnswerExportController> logger)
     {
-        _answerAccessService = answerAccessService;
-        _answerExportService = answerExportService;
+        _answerService = answerService;
         _logger = logger;
     }
 
@@ -34,7 +31,7 @@ public class AnswerExportController : Controller
 
         try
         {
-            var result = await _answerExportService.CreatePdfReportAsync(idSurvey, idOrganization, cancellationToken);
+            var result = await _answerService.CreatePdfReportAsync(idSurvey, idOrganization, cancellationToken);
             if (result == null)
             {
                 return NotFound("Ответы не найдены");
@@ -62,7 +59,7 @@ public class AnswerExportController : Controller
 
         try
         {
-            var result = await _answerExportService.CreateSignedArchiveAsync(idSurvey, idOrganization, cancellationToken);
+            var result = await _answerService.CreateSignedArchiveAsync(idSurvey, idOrganization, cancellationToken);
             if (result == null)
             {
                 return NotFound("Ответы не найдены");
@@ -91,7 +88,7 @@ public class AnswerExportController : Controller
 
         try
         {
-            var result = await _answerExportService.CreateSurveyReportAsync(idSurvey, idOrganization, type, cancellationToken);
+            var result = await _answerService.CreateSurveyReportAsync(idSurvey, idOrganization, type, cancellationToken);
             if (result == null)
             {
                 return NotFound("Не удалось создать отчет");
@@ -119,12 +116,12 @@ public class AnswerExportController : Controller
         int requestedOrganizationId,
         CancellationToken cancellationToken)
     {
-        if (!_answerAccessService.IsAuthenticated)
+        if (!_answerService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!await _answerAccessService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
+        if (!await _answerService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }

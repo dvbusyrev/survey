@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Hosting;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Surveys;
 
 namespace MainProject.Application.UseCases.Admin;
 
@@ -43,7 +43,7 @@ public sealed class SurveyAutoCreationHostedService : BackgroundService
         try
         {
             using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<ISurveyAutoCreationService>();
+            var service = scope.ServiceProvider.GetRequiredService<SurveyService>();
             var result = await service.RunPendingAsync(cancellationToken);
 
             if (result.Processed)

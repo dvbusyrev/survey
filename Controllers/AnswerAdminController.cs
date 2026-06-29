@@ -1,18 +1,18 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Answers;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class AnswerAdminController : Controller
 {
-    private readonly IAnswerAdminService _answerAdminService;
+    private readonly AnswerService _answerService;
     private readonly ILogger<AnswerAdminController> _logger;
 
-    public AnswerAdminController(IAnswerAdminService answerAdminService, ILogger<AnswerAdminController> logger)
+    public AnswerAdminController(AnswerService answerService, ILogger<AnswerAdminController> logger)
     {
-        _answerAdminService = answerAdminService;
+        _answerService = answerService;
         _logger = logger;
     }
 
@@ -34,7 +34,7 @@ public class AnswerAdminController : Controller
         {
             return View(
                 "~/Web/Views/Answer/get_list_answers.cshtml",
-                await _answerAdminService.GetAnswersPageAsync(
+                await _answerService.GetAnswersPageAsync(
                     page,
                     sortBy,
                     sortDirection,
@@ -65,7 +65,7 @@ public class AnswerAdminController : Controller
         {
             return View(
                 "~/Web/Views/Answer/survey_signatures.cshtml",
-                await _answerAdminService.GetSignaturePageAsync(id, cancellationToken));
+                await _answerService.GetSignaturePageAsync(id, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -84,7 +84,7 @@ public class AnswerAdminController : Controller
     {
         try
         {
-            return Json(await _answerAdminService.GetStatisticsAsync(cancellationToken));
+            return Json(await _answerService.GetStatisticsAsync(cancellationToken));
         }
         catch (Exception ex)
         {

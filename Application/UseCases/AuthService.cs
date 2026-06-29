@@ -1,27 +1,32 @@
-using MainProject.Application.Contracts;
+using Dapper;
 using MainProject.Application.DTO;
-using MainProject.Application.DTO.Read;
 using MainProject.Infrastructure.Security;
+using MainProject.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 
 namespace MainProject.Application.UseCases;
 
-public sealed class AuthService : IAuthService
+public class AuthService
 {
-    private readonly IAuthRepository _authRepository;
+    private readonly IDbConnectionFactory _connectionFactory;
     private static readonly PasswordHasher<string> PasswordHasher = new();
 
-    public AuthService(IAuthRepository authRepository)
+    protected AuthService()
     {
-        _authRepository = authRepository;
+        _connectionFactory = null!;
     }
 
-    public async Task<LoginResult> AuthenticateAsync(
+    public AuthService(IDbConnectionFactory connectionFactory)
+    {
+        _connectionFactory = connectionFactory;
+    }
+
+    public virtual async Task<LoginResult> AuthenticateAsync(
         string username,
         string password,
         CancellationToken cancellationToken = default)
     {
-        var user = await _authRepository.GetByLoginAsync(username, cancellationToken);
+        var user = await GetByLoginAsync(username, cancellationToken);
 
         if (user == null)
         {
@@ -57,7 +62,7 @@ public sealed class AuthService : IAuthService
 
         if (verificationResult == PasswordVerificationResult.SuccessRehashNeeded)
         {
-            await _authRepository.UpdatePasswordHashAsync(
+            await UpdatePasswordHashAsync(
                 user.UserId,
                 PasswordHasher.HashPassword(user.UserName, password),
                 cancellationToken);
@@ -72,6 +77,42 @@ public sealed class AuthService : IAuthService
             UserName = user.UserName,
             OrganizationName = user.OrganizationName
         };
+    }
+
+    private async Task<AuthUserRecord?> GetByLoginAsync(string login, CancellationToken cancellationToken)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryFirstOrDefaultAsync<AuthUserRecord>(new CommandDefinition(
+            """
+            SELECT
+                u.id_user AS UserId,
+                u.role AS Role,
+                u.login AS UserName,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS OrganizationName,
+                u.password AS PasswordHash
+            FROM public.app_user u
+            LEFT JOIN public.organization o
+                ON u.id_organization = o.id_organization
+            WHERE u.login = @Login;
+            """,
+            new { Login = login },
+            cancellationToken: cancellationToken));
+    }
+
+    private async Task UpdatePasswordHashAsync(
+        int userId,
+        string passwordHash,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE public.app_user
+            SET password = @PasswordHash
+            WHERE id_user = @UserId;
+            """,
+            new { UserId = userId, PasswordHash = passwordHash },
+            cancellationToken: cancellationToken));
     }
 
     private static PasswordVerificationResult VerifyPassword(string username, string storedHash, string password)
@@ -97,3 +138,10 @@ public sealed class AuthService : IAuthService
         return PasswordVerificationResult.Failed;
     }
 }
+
+internal sealed record AuthUserRecord(
+    int UserId,
+    string Role,
+    string UserName,
+    string OrganizationName,
+    string PasswordHash);

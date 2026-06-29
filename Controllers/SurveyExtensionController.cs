@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 using Npgsql;
@@ -10,12 +10,12 @@ using System.Text.Json;
 [Authorize(Roles = AppRoles.Admin)]
 public class SurveyExtensionController : Controller
 {
-    private readonly ISurveyExtensionService _surveyExtensionService;
+    private readonly SurveyService _surveyAdminService;
     private readonly ILogger<SurveyExtensionController> _logger;
 
-    public SurveyExtensionController(ISurveyExtensionService surveyExtensionService, ILogger<SurveyExtensionController> logger)
+    public SurveyExtensionController(SurveyService surveyAdminService, ILogger<SurveyExtensionController> logger)
     {
-        _surveyExtensionService = surveyExtensionService;
+        _surveyAdminService = surveyAdminService;
         _logger = logger;
     }
 
@@ -33,7 +33,7 @@ public class SurveyExtensionController : Controller
 
         try
         {
-            var result = await _surveyExtensionService.SaveExtensionsAsync(request, cancellationToken);
+            var result = await _surveyAdminService.SaveExtensionsAsync(request, cancellationToken);
             if (result.Success)
             {
                 return Ok(new

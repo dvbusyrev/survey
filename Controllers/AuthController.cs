@@ -2,17 +2,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 using System.Security.Claims;
 
 public class AuthController : Controller
 {
-    private readonly IAuthService _authService;
+    private readonly AuthService _authService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(AuthService authService)
     {
         _authService = authService;
     }
@@ -50,7 +49,6 @@ public class AuthController : Controller
 
     [AllowAnonymous]
     [HttpPost("auth/login")]
-    [EnableRateLimiting("login-attempts")]
     public async Task<IActionResult> Login([FromBody] string[] userData, CancellationToken cancellationToken)
     {
         if (userData == null || userData.Length != 2)

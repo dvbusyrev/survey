@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Admin;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
@@ -12,10 +13,10 @@ using MainProject.Application.Support;
 public class LogController : Controller
 {
     private const int LogsPageSize = 10;
-    private readonly IAuditLogService _auditLogService;
+    private readonly AuditLogService _auditLogService;
     private readonly IClock _clock;
 
-    public LogController(IAuditLogService auditLogService, IClock clock)
+    public LogController(AuditLogService auditLogService, IClock clock)
     {
         _auditLogService = auditLogService;
         _clock = clock;

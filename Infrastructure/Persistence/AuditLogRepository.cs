@@ -5,7 +5,7 @@ using MainProject.Application.Support;
 
 namespace MainProject.Infrastructure.Persistence;
 
-public sealed class AuditLogRepository : IAuditLogRepository
+public class AuditLogRepository
 {
     private const string ExistingAuditTablesSql = """
         SELECT table_name
@@ -27,12 +27,17 @@ public sealed class AuditLogRepository : IAuditLogRepository
 
     private readonly IDbConnectionFactory _connectionFactory;
 
+    protected AuditLogRepository()
+    {
+        _connectionFactory = null!;
+    }
+
     public AuditLogRepository(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
     }
 
-    public async Task<int> GetEventCountAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<int> GetEventCountAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         var metadata = await LoadMetadataAsync(connection, cancellationToken);
@@ -42,7 +47,7 @@ public sealed class AuditLogRepository : IAuditLogRepository
             : ClampCount(await connection.QuerySingleAsync<long>(new CommandDefinition(countSql, cancellationToken: cancellationToken)));
     }
 
-    public async Task<AuditLogReadResult> GetPageAsync(
+    public virtual async Task<AuditLogReadResult> GetPageAsync(
         int currentPage,
         int pageSize,
         string sortBy,
@@ -72,7 +77,7 @@ public sealed class AuditLogRepository : IAuditLogRepository
         return new AuditLogReadResult(rows, metadata.SourceColumnOrders);
     }
 
-    public async Task<AuditLogReadResult> GetDetailsAsync(
+    public virtual async Task<AuditLogReadResult> GetDetailsAsync(
         long idAudit,
         string? sourceTable,
         CancellationToken cancellationToken = default)
@@ -119,7 +124,7 @@ public sealed class AuditLogRepository : IAuditLogRepository
             metadata.SourceColumnOrders);
     }
 
-    public async Task<AuditLogReadResult> GetAllAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<AuditLogReadResult> GetAllAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         var metadata = await LoadMetadataAsync(connection, cancellationToken);
@@ -130,7 +135,7 @@ public sealed class AuditLogRepository : IAuditLogRepository
         return new AuditLogReadResult(rows, metadata.SourceColumnOrders);
     }
 
-    public async Task<AuditAnswerContext?> GetAnswerContextAsync(
+    public virtual async Task<AuditAnswerContext?> GetAnswerContextAsync(
         int? organizationSurveyId,
         int? answerId,
         CancellationToken cancellationToken = default)

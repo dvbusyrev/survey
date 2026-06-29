@@ -2,7 +2,7 @@ using MainProject.Application.Support;
 
 namespace MainProject.Infrastructure.Persistence;
 
-public static class AuditLogQueryBuilder
+internal static class AuditLogQueryBuilder
 {
     private const string AuditRowJsonExclusions = """
         - 'id_audit'

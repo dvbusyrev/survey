@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.ViewModels;
 using System.Globalization;
@@ -19,10 +20,10 @@ public class HelpController : Controller
     private const string UserGuideDownloadFileName = "АИС Анкетирование. Инструкция пользователя.docx";
 
     private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
-    private readonly ISurveyUserService _surveyUserService;
+    private readonly SurveyService _surveyUserService;
     private readonly ICurrentUserService _currentUserService;
 
-    public HelpController(ISurveyUserService surveyUserService, ICurrentUserService currentUserService)
+    public HelpController(SurveyService surveyUserService, ICurrentUserService currentUserService)
     {
         _surveyUserService = surveyUserService;
         _currentUserService = currentUserService;

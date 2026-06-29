@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
@@ -9,22 +10,16 @@ using MainProject.Web.ViewModels;
 [Authorize]
 public class SurveyArchiveController : Controller
 {
-    private readonly ISurveyArchiveService _surveyArchiveService;
-    private readonly ISurveyAdminService _surveyAdminService;
-    private readonly ISurveyUserService _surveyUserService;
+    private readonly SurveyService _surveyService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SurveyArchiveController> _logger;
 
     public SurveyArchiveController(
-        ISurveyArchiveService surveyArchiveService,
-        ISurveyAdminService surveyAdminService,
-        ISurveyUserService surveyUserService,
+        SurveyService surveyService,
         ICurrentUserService currentUserService,
         ILogger<SurveyArchiveController> logger)
     {
-        _surveyArchiveService = surveyArchiveService;
-        _surveyAdminService = surveyAdminService;
-        _surveyUserService = surveyUserService;
+        _surveyService = surveyService;
         _currentUserService = currentUserService;
         _logger = logger;
     }
@@ -42,7 +37,7 @@ public class SurveyArchiveController : Controller
         SurveyEditPageViewModel? editSurveyPage = null,
         CancellationToken cancellationToken = default)
     {
-        var pageModel = await _surveyArchiveService.GetAdminArchivedSurveysPageAsync(
+        var pageModel = await _surveyService.GetAdminArchivedSurveysPageAsync(
             currentPage,
             sortBy,
             sortDirection,
@@ -142,7 +137,7 @@ public class SurveyArchiveController : Controller
     {
         try
         {
-            var pageModel = await _surveyAdminService.GetSurveyEditPageAsync(id, cancellationToken);
+            var pageModel = await _surveyService.GetSurveyEditPageAsync(id, cancellationToken);
             if (pageModel == null)
             {
                 return NotFound("Анкета не найдена");
@@ -181,7 +176,7 @@ public class SurveyArchiveController : Controller
             return accessResult;
         }
 
-        var pageModel = await _surveyArchiveService.GetUserArchivePageAsync(
+        var pageModel = await _surveyService.GetUserArchivePageAsync(
             _currentUserService.UserId.Value,
             1,
             searchTerm: null,
@@ -196,7 +191,7 @@ public class SurveyArchiveController : Controller
             return NotFound(new { error = "Клиент не найден" });
         }
 
-        var activePageModel = await _surveyUserService.GetActiveSurveysPageAsync(
+        var activePageModel = await _surveyService.GetActiveSurveysPageAsync(
             _currentUserService.UserId.Value,
             1,
             searchTerm: null,
@@ -230,7 +225,7 @@ public class SurveyArchiveController : Controller
 
         try
         {
-            var pageModel = await _surveyArchiveService.GetUserArchivePageAsync(
+            var pageModel = await _surveyService.GetUserArchivePageAsync(
                 id,
                 page ?? 1,
                 searchTerm,
@@ -250,7 +245,7 @@ public class SurveyArchiveController : Controller
                 return Ok(new { totalCount = pageModel.TotalCount });
             }
 
-            var activePageModel = await _surveyUserService.GetActiveSurveysPageAsync(
+            var activePageModel = await _surveyService.GetActiveSurveysPageAsync(
                 id,
                 1,
                 searchTerm: null,
@@ -322,7 +317,7 @@ public class SurveyArchiveController : Controller
 
         try
         {
-            var id = await _surveyArchiveService.CopyArchiveSurveyAsync(request, cancellationToken);
+            var id = await _surveyService.CopyArchiveSurveyAsync(request, cancellationToken);
             return Ok(new
             {
                 message = "Анкета успешно добавлена",

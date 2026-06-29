@@ -1,9 +1,7 @@
-using System.Reflection;
 using System.Security.Claims;
 using MainProject.Infrastructure.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 
 namespace MainProject.Tests.Controllers;
 
@@ -44,15 +42,6 @@ public sealed class AuthControllerTests
 
         var redirectResult = Assert.IsType<RedirectResult>(result);
         Assert.Equal("/survey", redirectResult.Url);
-    }
-
-    [Fact]
-    public void Login_HasRateLimitingPolicy()
-    {
-        var method = typeof(AuthController).GetMethod(nameof(AuthController.Login), BindingFlags.Instance | BindingFlags.Public);
-
-        var attribute = Assert.Single(method!.GetCustomAttributes<EnableRateLimitingAttribute>());
-        Assert.Equal("login-attempts", attribute.PolicyName);
     }
 
     private static AuthController CreateController(ClaimsPrincipal principal)

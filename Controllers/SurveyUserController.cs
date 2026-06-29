@@ -1,28 +1,27 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Answers;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
 
 [Authorize]
 public class SurveyUserController : Controller
 {
-    private readonly ISurveyUserService _surveyUserService;
-    private readonly ISurveyAdminService _surveyAdminService;
-    private readonly IAnswerWorkflowService _answerWorkflowService;
+    private readonly SurveyService _surveyService;
+    private readonly AnswerService _answerService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<SurveyUserController> _logger;
 
     public SurveyUserController(
-        ISurveyUserService surveyUserService,
-        ISurveyAdminService surveyAdminService,
-        IAnswerWorkflowService answerWorkflowService,
+        SurveyService surveyService,
+        AnswerService answerService,
         ICurrentUserService currentUserService,
         ILogger<SurveyUserController> logger)
     {
-        _surveyUserService = surveyUserService;
-        _surveyAdminService = surveyAdminService;
-        _answerWorkflowService = answerWorkflowService;
+        _surveyService = surveyService;
+        _answerService = answerService;
         _currentUserService = currentUserService;
         _logger = logger;
     }
@@ -66,7 +65,7 @@ public class SurveyUserController : Controller
             return Challenge();
         }
 
-        var currentOrganizationId = await _surveyUserService.GetUserOrganizationIdAsync(
+        var currentOrganizationId = await _surveyService.GetUserOrganizationIdAsync(
             _currentUserService.UserId.Value,
             cancellationToken);
         if (!currentOrganizationId.HasValue || currentOrganizationId.Value != requestedOrganizationId)
@@ -124,7 +123,7 @@ public class SurveyUserController : Controller
         string? organizationIds = null,
         CancellationToken cancellationToken = default)
     {
-        var pageModel = await _surveyAdminService.GetSurveysPageAsync(
+        var pageModel = await _surveyService.GetSurveysPageAsync(
             currentPage,
             sortBy,
             sortDirection,
@@ -160,7 +159,7 @@ public class SurveyUserController : Controller
 
         try
         {
-            var pageModel = await _surveyUserService.GetActiveSurveysPageAsync(
+            var pageModel = await _surveyService.GetActiveSurveysPageAsync(
                 id, page ?? 1, searchTerm, cancellationToken);
             if (pageModel == null)
             {
@@ -216,7 +215,7 @@ public class SurveyUserController : Controller
             return accessResult;
         }
 
-        var questions = await _surveyUserService.GetSurveyQuestionsAsync(id, cancellationToken);
+        var questions = await _surveyService.GetSurveyQuestionsAsync(id, cancellationToken);
         return Json(new { questions });
     }
 
@@ -233,7 +232,7 @@ public class SurveyUserController : Controller
             return accessResult;
         }
 
-        var survey = await _surveyUserService.GetSurveyInfoAsync(id, cancellationToken);
+        var survey = await _surveyService.GetSurveyInfoAsync(id, cancellationToken);
         if (survey == null)
         {
             return NotFound("Анкета не найдена.");
@@ -243,8 +242,8 @@ public class SurveyUserController : Controller
         {
             Survey = survey,
             OrganizationId = organizationId,
-            Questions = await _surveyUserService.GetSurveyQuestionsAsync(id, cancellationToken),
-            DraftAnswer = await _answerWorkflowService.GetDraftAnswerAsync(id, organizationId, cancellationToken)
+            Questions = await _surveyService.GetSurveyQuestionsAsync(id, cancellationToken),
+            DraftAnswer = await _answerService.GetDraftAnswerAsync(id, organizationId, cancellationToken)
         };
 
         return PartialView("~/Web/Views/Survey/Partials/_UserSurveyFillContent.cshtml", model);
@@ -266,7 +265,7 @@ public class SurveyUserController : Controller
             return null;
         }
 
-        if (!await _surveyUserService.IsSurveyAssignedToOrganizationAsync(surveyId, organizationId, cancellationToken))
+        if (!await _surveyService.IsSurveyAssignedToOrganizationAsync(surveyId, organizationId, cancellationToken))
         {
             return Forbid();
         }

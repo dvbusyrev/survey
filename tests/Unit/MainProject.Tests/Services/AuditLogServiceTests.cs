@@ -1,7 +1,7 @@
 using MainProject.Application.UseCases.Admin;
 using MainProject.Application.DTO.Audit;
-using MainProject.Application.Contracts;
 using MainProject.Domain.Entities;
+using MainProject.Infrastructure.Persistence;
 using Newtonsoft.Json.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -242,23 +242,23 @@ public sealed class AuditLogServiceTests
         Assert.Single(Regex.Matches(result, "- organization_survey: 2 \\(ID: 2\\)").Cast<Match>());
     }
 
-    private sealed class ThrowingAuditLogRepository : IAuditLogRepository
+    private sealed class ThrowingAuditLogRepository : AuditLogRepository
     {
-        public Task<int> GetEventCountAsync(CancellationToken cancellationToken = default)
+        public override Task<int> GetEventCountAsync(CancellationToken cancellationToken = default)
             => Task.FromException<int>(new NotSupportedException("Database access is not used in these tests."));
 
-        public Task<AuditLogReadResult> GetPageAsync(
+        public override Task<AuditLogReadResult> GetPageAsync(
             int currentPage, int pageSize, string sortBy, string sortDirection, bool includeDetails,
             CancellationToken cancellationToken = default)
             => Task.FromException<AuditLogReadResult>(new NotSupportedException("Database access is not used in these tests."));
 
-        public Task<AuditLogReadResult> GetDetailsAsync(long idAudit, string? sourceTable, CancellationToken cancellationToken = default)
+        public override Task<AuditLogReadResult> GetDetailsAsync(long idAudit, string? sourceTable, CancellationToken cancellationToken = default)
             => Task.FromException<AuditLogReadResult>(new NotSupportedException("Database access is not used in these tests."));
 
-        public Task<AuditLogReadResult> GetAllAsync(CancellationToken cancellationToken = default)
+        public override Task<AuditLogReadResult> GetAllAsync(CancellationToken cancellationToken = default)
             => Task.FromException<AuditLogReadResult>(new NotSupportedException("Database access is not used in these tests."));
 
-        public Task<AuditAnswerContext?> GetAnswerContextAsync(
+        public override Task<AuditAnswerContext?> GetAnswerContextAsync(
             int? organizationSurveyId, int? answerId, CancellationToken cancellationToken = default)
             => Task.FromException<AuditAnswerContext?>(new NotSupportedException("Database access is not used in these tests."));
     }

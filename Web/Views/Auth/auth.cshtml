@@ -1,5 +1,5 @@
 ﻿@using System.Text.Json
-@inject MainProject.Application.Contracts.IThemeSettingsService ThemeSettingsService
+@inject MainProject.Application.UseCases.Admin.ThemeSettingsService ThemeSettingsService
 @{
     Layout = null;
     var layoutThemeSettings = await ThemeSettingsService.GetAsync();
@@ -63,7 +63,7 @@
             <div class="inner-container">
                 <form id="loginForm">
                     <h1 class="form-title">
-                        <span class="welcome-text">АНКЕТИРОВАНИЕ</span>
+                        <span class="welcome-text">Анкетирование</span>
                     </h1>
 
                     <div class="form-group">

@@ -1,47 +1,18 @@
 # Эксплуатация
 
-## Data Protection и cookie
+## Запуск
 
-В production обязательно задайте постоянный каталог ключей и смонтируйте его как отдельный том. Все экземпляры приложения должны использовать один каталог и одинаковое `ApplicationName`:
+Приложение рассчитано на внутреннюю сеть и небольшое число пользователей. Для запуска нужны приложение, PostgreSQL и применённые миграции.
+
+Data Protection по умолчанию хранит ключи в локальном каталоге `data-protection-keys` рядом с приложением. При необходимости путь можно переопределить:
 
 ```bash
-export DataProtection__ApplicationName='AIS.Anketirovanie'
 export DataProtection__KeyRingPath='/var/lib/ais-anketirovanie/data-protection-keys'
 ```
 
-При отсутствии `DataProtection__KeyRingPath` production-процесс не запускается. Каталог ключей должен быть доступен только пользователю процесса приложения. Cookie аутентификации имеют `HttpOnly`, `SameSite=Lax` и `Secure=Always` вне Development.
+Пароль SMTP защищается тем же Data Protection key ring в таблице `email_config`. Если удалить или заменить каталог ключей, сохранённый SMTP-пароль нужно будет ввести заново.
 
-Пароль SMTP защищается тем же Data Protection key ring непосредственно в репозитории `email_config`: в `smtp_password` хранится ciphertext, а не исходный пароль. Не теряйте и не заменяйте key ring без процедуры ротации: без исходных ключей SMTP-пароль нельзя расшифровать.
-
-## Allowed hosts
-
-Для production задайте внешние доменные имена приложения явно:
-
-```bash
-export AllowedHosts='survey.example.ru;survey.internal.example.ru'
-```
-
-Production-процесс не стартует при пустом `AllowedHosts` или wildcard `*`. Значения для локальной разработки можно оставить в `appsettings.json`.
-
-## Reverse proxy
-
-По умолчанию приложение не доверяет `X-Forwarded-For`. Если оно работает за reverse proxy, укажите IP-адреса самих proxy, а не клиентских сетей:
-
-```bash
-export ReverseProxy__KnownProxies__0='10.0.0.10'
-```
-
-Только от перечисленных адресов принимаются `X-Forwarded-For` и `X-Forwarded-Proto`. После обработки заголовка лимит попыток входа использует нормализованный `RemoteIpAddress`.
-
-## Мониторинг и health check
-
-Все endpoints не требуют аутентификации и возвращают безопасный JSON без деталей подключения к PostgreSQL:
-
-- `GET /health/live` возвращает `200`, когда процесс приложения отвечает. Используйте его для liveness probe.
-- `GET /health/ready` возвращает `200`, когда доступна PostgreSQL, и `503`, когда база недоступна. Используйте его для readiness probe.
-- `GET /health` сохранён как совместимый alias readiness probe.
-
-Логи приложения пишутся в stdout одной JSON-записью на событие. Запись завершённого HTTP-запроса содержит `TraceId`, метод, путь, IP клиента, статус и длительность. Подключите stdout контейнера или процесса к внешнему сборщику логов и мониторинга, а `TraceId` используйте для связи сообщения пользователя с записью в логах.
+Логи приложения пишутся в stdout одной JSON-записью на событие. Запись завершённого HTTP-запроса содержит `TraceId`, метод, путь, IP клиента, статус и длительность.
 
 ## Резервное копирование PostgreSQL
 

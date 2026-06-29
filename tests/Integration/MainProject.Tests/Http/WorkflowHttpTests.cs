@@ -8,6 +8,8 @@ using System.Text.RegularExpressions;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.DTO.Theme;
+using MainProject.Application.UseCases;
+using MainProject.Application.UseCases.Admin;
 using MainProject.Application.UseCases.Answers;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Security;
@@ -84,12 +86,12 @@ public sealed class WorkflowHttpTests
         using var forbiddenRequest = CreateJsonRequest(HttpMethod.Post, "/answers/draft", CreateAnswerRecord());
         forbiddenRequest.Headers.Add(TestAuthenticationHandler.RoleHeaderName, WorkflowIdentityRole);
         AddAntiforgeryHeaders(forbiddenRequest, antiforgery);
-        factory.AnswerAccess.AllowSubmission = false;
+        factory.Answers.AllowSubmission = false;
 
         using var forbiddenResponse = await client.SendAsync(forbiddenRequest);
 
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
-        Assert.Equal(0, factory.Workflow.SaveDraftCalls);
+        Assert.Equal(0, factory.Answers.SaveDraftCalls);
     }
 
     [Fact]
@@ -109,7 +111,7 @@ public sealed class WorkflowHttpTests
         using var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal(0, factory.Workflow.SaveDraftCalls);
+        Assert.Equal(0, factory.Answers.SaveDraftCalls);
     }
 
     [Fact]
@@ -142,16 +144,16 @@ public sealed class WorkflowHttpTests
         Assert.Equal(HttpStatusCode.OK, draftResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, answerResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, signatureResponse.StatusCode);
-        Assert.Equal(1, factory.Workflow.SaveDraftCalls);
-        Assert.Equal(1, factory.Workflow.InsertAnswerCalls);
-        Assert.Equal(1, factory.Signing.SaveDraftSignatureCalls);
+        Assert.Equal(1, factory.Answers.SaveDraftCalls);
+        Assert.Equal(1, factory.Answers.InsertAnswerCalls);
+        Assert.Equal(1, factory.Answers.SaveDraftSignatureCalls);
     }
 
     [Fact]
     public async Task WorkflowException_UsesSafeApiErrorWithoutInternalDetails()
     {
         await using var factory = new WorkflowApplicationFactory();
-        factory.Workflow.ThrowOnSaveDraft = true;
+        factory.Answers.ThrowOnSaveDraft = true;
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
@@ -230,25 +232,19 @@ public sealed class WorkflowHttpTests
     {
         protected override void ConfigureTestServices(IServiceCollection services)
         {
-            services.RemoveAll<IAuthService>();
-            services.AddSingleton<IAuthService, SuccessfulAuthService>();
+            services.RemoveAll<AuthService>();
+            services.AddSingleton<AuthService, SuccessfulAuthService>();
         }
     }
 
     private sealed class WorkflowApplicationFactory : ApplicationFactoryBase
     {
-        public FakeAnswerAccessService AnswerAccess { get; } = new();
-        public FakeAnswerWorkflowService Workflow { get; } = new();
-        public FakeAnswerSigningService Signing { get; } = new();
+        public FakeAnswerService Answers { get; } = new();
 
         protected override void ConfigureTestServices(IServiceCollection services)
         {
-            services.RemoveAll<IAnswerAccessService>();
-            services.RemoveAll<IAnswerWorkflowService>();
-            services.RemoveAll<IAnswerSigningService>();
-            services.AddSingleton<IAnswerAccessService>(AnswerAccess);
-            services.AddSingleton<IAnswerWorkflowService>(Workflow);
-            services.AddSingleton<IAnswerSigningService>(Signing);
+            services.RemoveAll<AnswerService>();
+            services.AddSingleton<AnswerService>(Answers);
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = TestAuthenticationHandler.SchemeName;
@@ -282,8 +278,8 @@ public sealed class WorkflowHttpTests
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IHostedService>();
-                services.RemoveAll<IThemeSettingsService>();
-                services.AddSingleton<IThemeSettingsService, FixedThemeSettingsService>();
+                services.RemoveAll<ThemeSettingsService>();
+                services.AddSingleton<ThemeSettingsService, FixedThemeSettingsService>();
                 ConfigureTestServices(services);
             });
         }
@@ -335,9 +331,9 @@ public sealed class WorkflowHttpTests
         }
     }
 
-    private sealed class SuccessfulAuthService : IAuthService
+    private sealed class SuccessfulAuthService : AuthService
     {
-        public Task<LoginResult> AuthenticateAsync(
+        public override Task<LoginResult> AuthenticateAsync(
             string username,
             string password,
             CancellationToken cancellationToken = default) =>
@@ -353,43 +349,41 @@ public sealed class WorkflowHttpTests
             });
     }
 
-    private sealed class FixedThemeSettingsService : IThemeSettingsService
+    private sealed class FixedThemeSettingsService : ThemeSettingsService
     {
-        public Task<ThemeSettings> GetAsync(CancellationToken cancellationToken = default) =>
+        public override Task<ThemeSettings> GetAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new ThemeSettings());
 
-        public Task SaveAsync(ThemeSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public override Task SaveAsync(ThemeSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class FakeAnswerAccessService : IAnswerAccessService
+    private sealed class FakeAnswerService : AnswerService
     {
         public bool AllowSubmission { get; set; } = true;
-        public bool IsAuthenticated => true;
-        public bool IsAdmin => false;
-        public int? UserId => 42;
-
-        public Task<int?> GetCurrentUserOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult<int?>(10);
-        public Task<bool> CanAccessOrganizationAsync(int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
-        public Task<bool> CanSubmitAnswerAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(AllowSubmission);
-        public Task<bool> CanAccessAnswerRecordAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
-    }
-
-    private sealed class FakeAnswerWorkflowService : IAnswerWorkflowService
-    {
         public int InsertAnswerCalls { get; private set; }
         public int SaveDraftCalls { get; private set; }
+        public int SaveDraftSignatureCalls { get; private set; }
         public bool ThrowOnSaveDraft { get; set; }
 
-        public Task<AnswerMutationResult> InsertAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
+        public override bool IsAuthenticated => true;
+        public override bool IsAdmin => false;
+        public override int? UserId => 42;
+
+        public override Task<int?> GetCurrentUserOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult<int?>(10);
+        public override Task<bool> CanAccessOrganizationAsync(int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public override Task<bool> CanSubmitAnswerAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(AllowSubmission);
+        public override Task<bool> CanAccessAnswerRecordAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+        public override Task<AnswerMutationResult> InsertAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
         {
             InsertAnswerCalls++;
             return Task.FromResult(new AnswerMutationResult { Success = true });
         }
 
-        public Task<AnswerMutationResult> UpdateAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default) =>
+        public override Task<AnswerMutationResult> UpdateAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AnswerMutationResult { Success = true });
 
-        public Task<AnswerMutationResult> SaveDraftAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
+        public override Task<AnswerMutationResult> SaveDraftAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
         {
             SaveDraftCalls++;
             if (ThrowOnSaveDraft)
@@ -400,38 +394,33 @@ public sealed class WorkflowHttpTests
             return Task.FromResult(new AnswerMutationResult { Success = true });
         }
 
-        public Task<AnswerRecord?> GetDraftAnswerAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
+        public override Task<AnswerRecord?> GetDraftAnswerAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
             Task.FromResult<AnswerRecord?>(null);
 
-        public Task<MainProject.Web.ViewModels.UpdateAnswerPageViewModel?> GetUpdateAnswerPageAsync(
+        public override Task<MainProject.Web.ViewModels.UpdateAnswerPageViewModel?> GetUpdateAnswerPageAsync(
             int surveyId,
             int organizationId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<MainProject.Web.ViewModels.UpdateAnswerPageViewModel?>(null);
 
-        public Task<SurveyAnswersResponse> GetAnswersResponseAsync(
+        public override Task<SurveyAnswersResponse> GetAnswersResponseAsync(
             int surveyId,
             int organizationId,
             string? type,
             bool includeAllOrganizationAnswers,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new SurveyAnswersResponse { Success = true });
-    }
 
-    private sealed class FakeAnswerSigningService : IAnswerSigningService
-    {
-        public int SaveDraftSignatureCalls { get; private set; }
-
-        public Task<AnswerSigningPayload> GetSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
+        public override Task<AnswerSigningPayload> GetSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AnswerSigningPayload());
 
-        public Task<bool> SaveSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default) =>
+        public override Task<bool> SaveSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(true);
 
-        public Task<AnswerSigningPayload> GetDraftSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
+        public override Task<AnswerSigningPayload> GetDraftSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AnswerSigningPayload());
 
-        public Task<bool> SaveDraftSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default)
+        public override Task<bool> SaveDraftSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default)
         {
             SaveDraftSignatureCalls++;
             return Task.FromResult(true);

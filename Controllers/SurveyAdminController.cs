@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 using MainProject.Web.ViewModels;
@@ -10,10 +10,10 @@ using Npgsql;
 [Authorize(Roles = AppRoles.Admin)]
 public class SurveyAdminController : Controller
 {
-    private readonly ISurveyAdminService _surveyAdminService;
+    private readonly SurveyService _surveyAdminService;
     private readonly ILogger<SurveyAdminController> _logger;
 
-    public SurveyAdminController(ISurveyAdminService surveyAdminService, ILogger<SurveyAdminController> logger)
+    public SurveyAdminController(SurveyService surveyAdminService, ILogger<SurveyAdminController> logger)
     {
         _surveyAdminService = surveyAdminService;
         _logger = logger;

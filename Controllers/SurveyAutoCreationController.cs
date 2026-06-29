@@ -1,18 +1,18 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 
 [Authorize(Roles = AppRoles.Admin)]
 public class SurveyAutoCreationController : Controller
 {
-    private readonly ISurveyAutoCreationService _surveyAutoCreationService;
+    private readonly SurveyService _surveyAutoCreationService;
     private readonly ILogger<SurveyAutoCreationController> _logger;
 
     public SurveyAutoCreationController(
-        ISurveyAutoCreationService surveyAutoCreationService,
+        SurveyService surveyAutoCreationService,
         ILogger<SurveyAutoCreationController> logger)
     {
         _surveyAutoCreationService = surveyAutoCreationService;

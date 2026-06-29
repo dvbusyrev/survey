@@ -1,16 +1,16 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 
 [Authorize]
 public class SurveyAnswersController : Controller
 {
-    private readonly ISurveyAnswersService _surveyAnswersService;
+    private readonly SurveyService _surveyAnswersService;
     private readonly ILogger<SurveyAnswersController> _logger;
 
-    public SurveyAnswersController(ISurveyAnswersService surveyAnswersService, ILogger<SurveyAnswersController> logger)
+    public SurveyAnswersController(SurveyService surveyAnswersService, ILogger<SurveyAnswersController> logger)
     {
         _surveyAnswersService = surveyAnswersService;
         _logger = logger;

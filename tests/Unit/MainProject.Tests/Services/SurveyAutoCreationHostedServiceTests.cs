@@ -1,7 +1,6 @@
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.UseCases.Admin;
-using MainProject.Web.ViewModels;
+using MainProject.Application.UseCases.Surveys;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -14,7 +13,7 @@ public sealed class SurveyAutoCreationHostedServiceTests
     {
         var autoCreationService = new RecordingAutoCreationService();
         var services = new ServiceCollection();
-        services.AddScoped<ISurveyAutoCreationService>(_ => autoCreationService);
+        services.AddScoped<SurveyService>(_ => autoCreationService);
         await using var provider = services.BuildServiceProvider();
 
         var hostedService = new SurveyAutoCreationHostedService(
@@ -29,33 +28,16 @@ public sealed class SurveyAutoCreationHostedServiceTests
         Assert.Equal(1, autoCreationService.RunCount);
     }
 
-    private sealed class RecordingAutoCreationService : ISurveyAutoCreationService
+    private sealed class RecordingAutoCreationService : SurveyService
     {
         public TaskCompletionSource<CancellationToken> RunToken { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int RunCount { get; private set; }
 
-        public Task<SurveyAutoCreationRunResult> RunPendingAsync(CancellationToken cancellationToken = default)
+        public override Task<SurveyAutoCreationRunResult> RunPendingAsync(CancellationToken cancellationToken = default)
         {
             RunCount++;
             RunToken.TrySetResult(cancellationToken);
             return Task.FromResult(new SurveyAutoCreationRunResult());
         }
-
-        public Task<SurveyAutoCreationPageViewModel> GetPageModelAsync(CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<IReadOnlyList<SurveySelectionItem>> GetSurveyOptionsAsync(CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<SurveyAutoCreationCommandResult> SaveAsync(
-            SurveyAutoCreationSettingsRequest? request,
-            CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public Task<SurveyAutoCreationCommandResult> StartAsync(
-            SurveyAutoCreationSettingsRequest? request,
-            CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public Task<SurveyAutoCreationCommandResult> StopAsync(CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
     }
 }

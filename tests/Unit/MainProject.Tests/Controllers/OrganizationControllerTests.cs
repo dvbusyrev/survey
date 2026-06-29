@@ -1,5 +1,5 @@
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.UseCases.Admin;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -42,7 +42,7 @@ public sealed class OrganizationControllerTests
             badRequestResult.Value);
     }
 
-    private sealed class StubOrganizationManagementService : IOrganizationManagementService
+    private sealed class StubOrganizationManagementService : OrganizationManagementService
     {
         private readonly OperationResult _archiveResult;
 
@@ -51,7 +51,7 @@ public sealed class OrganizationControllerTests
             _archiveResult = archiveResult;
         }
 
-        public Task<OrganizationListPageViewModel> GetActiveOrganizationsPageAsync(
+        public override Task<OrganizationListPageViewModel> GetActiveOrganizationsPageAsync(
             int currentPage,
             string? sortBy,
             string? sortDirection,
@@ -59,35 +59,35 @@ public sealed class OrganizationControllerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(new OrganizationListPageViewModel());
 
-        public Task<OrganizationListPageViewModel> GetArchivedOrganizationsPageAsync(
+        public override Task<OrganizationListPageViewModel> GetArchivedOrganizationsPageAsync(
             int currentPage,
             string? sortBy,
             string? sortDirection,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new OrganizationListPageViewModel());
 
-        public Task<OrganizationSurveyAssignmentsPageViewModel> GetOrganizationSurveyAssignmentsPageAsync(CancellationToken cancellationToken = default)
+        public override Task<OrganizationSurveyAssignmentsPageViewModel> GetOrganizationSurveyAssignmentsPageAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new OrganizationSurveyAssignmentsPageViewModel());
 
-        public Task<IReadOnlyList<Organization>> GetArchivedOrganizationsAsync(CancellationToken cancellationToken = default)
+        public override Task<IReadOnlyList<Organization>> GetArchivedOrganizationsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<Organization>>(Array.Empty<Organization>());
 
-        public Task<IReadOnlyList<OrganizationDataResponse>> GetOrganizationOptionsAsync(CancellationToken cancellationToken = default)
+        public override Task<IReadOnlyList<OrganizationDataResponse>> GetOrganizationOptionsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<OrganizationDataResponse>>(Array.Empty<OrganizationDataResponse>());
 
-        public Task<Organization?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default)
+        public override Task<Organization?> GetOrganizationByIdAsync(int id, CancellationToken cancellationToken = default)
             => Task.FromResult<Organization?>(null);
 
-        public Task<OperationResult> CreateOrganizationAsync(OrganizationSaveRequest request, CancellationToken cancellationToken = default)
+        public override Task<OperationResult> CreateOrganizationAsync(OrganizationSaveRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<OperationResult> UpdateOrganizationAsync(int id, OrganizationSaveRequest request, CancellationToken cancellationToken = default)
+        public override Task<OperationResult> UpdateOrganizationAsync(int id, OrganizationSaveRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<OperationResult> ArchiveOrganizationAsync(int id, CancellationToken cancellationToken = default)
+        public override Task<OperationResult> ArchiveOrganizationAsync(int id, CancellationToken cancellationToken = default)
             => Task.FromResult(_archiveResult);
 
-        public Task<OrganizationSurveyEndDateUpdateResult> UpdateOrganizationSurveyEndDatesAsync(OrganizationSurveyEndDateUpdateRequest request, CancellationToken cancellationToken = default)
+        public override Task<OrganizationSurveyEndDateUpdateResult> UpdateOrganizationSurveyEndDatesAsync(OrganizationSurveyEndDateUpdateRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
     }
 }

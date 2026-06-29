@@ -1,23 +1,20 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Answers;
 using MainProject.Application.DTO;
 using MainProject.Web.Infrastructure;
 
 [Authorize]
 public class AnswerSigningController : Controller
 {
-    private readonly IAnswerAccessService _answerAccessService;
-    private readonly IAnswerSigningService _answerSigningService;
+    private readonly AnswerService _answerService;
     private readonly ILogger<AnswerSigningController> _logger;
 
     public AnswerSigningController(
-        IAnswerAccessService answerAccessService,
-        IAnswerSigningService answerSigningService,
+        AnswerService answerService,
         ILogger<AnswerSigningController> logger)
     {
-        _answerAccessService = answerAccessService;
-        _answerSigningService = answerSigningService;
+        _answerService = answerService;
         _logger = logger;
     }
 
@@ -32,7 +29,7 @@ public class AnswerSigningController : Controller
 
         try
         {
-            return Json(await _answerSigningService.GetSigningDataAsync(id, idOrganization, cancellationToken));
+            return Json(await _answerService.GetSigningDataAsync(id, idOrganization, cancellationToken));
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
@@ -64,7 +61,7 @@ public class AnswerSigningController : Controller
                 return BadRequest("Signature не может быть пустым.");
             }
 
-            if (!await _answerSigningService.SaveSignatureAsync(id, idOrganization, request, cancellationToken))
+            if (!await _answerService.SaveSignatureAsync(id, idOrganization, request, cancellationToken))
             {
                 return NotFound("Запись для обновления не найдена.");
             }
@@ -96,7 +93,7 @@ public class AnswerSigningController : Controller
 
         try
         {
-            return Json(await _answerSigningService.GetDraftSigningDataAsync(id, idOrganization, cancellationToken));
+            return Json(await _answerService.GetDraftSigningDataAsync(id, idOrganization, cancellationToken));
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
@@ -128,7 +125,7 @@ public class AnswerSigningController : Controller
                 return BadRequest("Signature не может быть пустым.");
             }
 
-            if (!await _answerSigningService.SaveDraftSignatureAsync(id, idOrganization, request, cancellationToken))
+            if (!await _answerService.SaveDraftSignatureAsync(id, idOrganization, request, cancellationToken))
             {
                 return NotFound("Черновик для обновления не найден.");
             }
@@ -154,12 +151,12 @@ public class AnswerSigningController : Controller
         int requestedOrganizationId,
         CancellationToken cancellationToken)
     {
-        if (!_answerAccessService.IsAuthenticated)
+        if (!_answerService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!await _answerAccessService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
+        if (!await _answerService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }
@@ -172,12 +169,12 @@ public class AnswerSigningController : Controller
         int requestedOrganizationId,
         CancellationToken cancellationToken)
     {
-        if (!_answerAccessService.IsAuthenticated)
+        if (!_answerService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!await _answerAccessService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
+        if (!await _answerService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }

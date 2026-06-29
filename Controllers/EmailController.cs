@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using MainProject.Infrastructure.Security;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO.Email;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Web.Infrastructure;
@@ -9,9 +8,9 @@ using MainProject.Web.Infrastructure;
 [Authorize(Roles = AppRoles.Admin)]
 public class EmailController : Controller
 {
-    private readonly IEmailTemplateService _emailTemplateService;
+    private readonly EmailTemplateService _emailTemplateService;
 
-    public EmailController(IEmailTemplateService emailTemplateService)
+    public EmailController(EmailTemplateService emailTemplateService)
     {
         _emailTemplateService = emailTemplateService;
     }

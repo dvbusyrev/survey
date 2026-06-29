@@ -1,9 +1,6 @@
 using System.Reflection;
 using MainProject.Application.Contracts;
-using MainProject.Application.DTO;
-using MainProject.Application.DTO.Organization;
 using MainProject.Application.UseCases.Admin;
-using MainProject.Domain.Entities;
 
 namespace MainProject.Tests.Services;
 
@@ -40,7 +37,7 @@ public sealed class OrganizationManagementServiceTests
     public async Task GetOrganizationSurveyAssignmentsPage_UsesInjectedClockForExpirationStatus()
     {
         var clock = new FixedClock(new DateTime(2030, 5, 10));
-        var repository = new StubOrganizationRepository([
+        IReadOnlyList<OrganizationSurveyAssignmentRecord> assignmentsSource = [
             new OrganizationSurveyAssignmentRecord
             {
                 OrganizationId = 1,
@@ -57,8 +54,8 @@ public sealed class OrganizationManagementServiceTests
                 SurveyName = "Анкета сегодня",
                 AssignmentDateEnd = new DateTime(2030, 5, 10)
             }
-        ]);
-        var service = new OrganizationManagementService(repository, clock);
+        ];
+        var service = new TestOrganizationManagementService(assignmentsSource, clock);
 
         var page = await service.GetOrganizationSurveyAssignmentsPageAsync();
         var assignments = Assert.Single(page.Organizations).Surveys;
@@ -88,21 +85,12 @@ public sealed class OrganizationManagementServiceTests
         public DateTime Now => now;
     }
 
-    private sealed class StubOrganizationRepository(
-        IReadOnlyList<OrganizationSurveyAssignmentRecord> assignments) : IOrganizationRepository
+    private sealed class TestOrganizationManagementService(
+        IReadOnlyList<OrganizationSurveyAssignmentRecord> assignments,
+        IClock clock) : OrganizationManagementService(clock)
     {
-        public Task<IReadOnlyList<OrganizationSurveyAssignmentRecord>> GetLatestUnansweredAssignmentsAsync(
+        protected override Task<IReadOnlyList<OrganizationSurveyAssignmentRecord>> LoadLatestUnansweredAssignmentsAsync(
             IReadOnlyCollection<int>? organizationIds = null,
             CancellationToken cancellationToken = default) => Task.FromResult(assignments);
-
-        public Task<int> CountAsync(bool includeArchived, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<Organization>> GetPageAsync(bool includeArchived, string sortBy, string sortDirection, int pageSize, int offset, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<Organization>> GetAllAsync(bool includeArchived, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<IReadOnlyList<OrganizationDataResponse>> GetActiveOptionsAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<Organization?> GetByIdAsync(int organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<int> CreateAsync(OrganizationWriteModel organization, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<int> UpdateAsync(int organizationId, OrganizationWriteModel organization, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<OrganizationArchiveResult> ArchiveIfUnusedAsync(int organizationId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<bool> UpdateAssignmentEndDatesAsync(IReadOnlyCollection<(int OrganizationId, int SurveyId)> assignments, DateTime dateEnd, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

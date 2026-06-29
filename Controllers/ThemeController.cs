@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO.Theme;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Infrastructure.Security;
@@ -9,9 +8,9 @@ using MainProject.Web.Infrastructure;
 [Authorize(Roles = AppRoles.Admin)]
 public class ThemeController : Controller
 {
-    private readonly IThemeSettingsService _themeSettingsService;
+    private readonly ThemeSettingsService _themeSettingsService;
 
-    public ThemeController(IThemeSettingsService themeSettingsService)
+    public ThemeController(ThemeSettingsService themeSettingsService)
     {
         _themeSettingsService = themeSettingsService;
     }

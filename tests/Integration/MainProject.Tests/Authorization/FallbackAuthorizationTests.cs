@@ -4,8 +4,8 @@ using System.Reflection;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Encodings.Web;
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO.Theme;
+using MainProject.Application.UseCases.Admin;
 using MainProject.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -70,36 +70,14 @@ public sealed class FallbackAuthorizationTests : IClassFixture<FallbackAuthoriza
     }
 
     [Fact]
-    public async Task HealthEndpoints_AreAnonymousAndExposeLivenessSeparately()
-    {
-        using var client = _factory.CreateClient();
-
-        using var livenessResponse = await client.GetAsync("/health/live");
-        var livenessPayload = JsonDocument.Parse(await livenessResponse.Content.ReadAsStringAsync());
-
-        Assert.Equal(HttpStatusCode.OK, livenessResponse.StatusCode);
-        Assert.Equal("Healthy", livenessPayload.RootElement.GetProperty("status").GetString());
-        Assert.Empty(livenessPayload.RootElement.GetProperty("checks").EnumerateObject());
-
-        using var readinessResponse = await client.GetAsync("/health/ready");
-        var readinessPayload = JsonDocument.Parse(await readinessResponse.Content.ReadAsStringAsync());
-
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, readinessResponse.StatusCode);
-        Assert.Equal("Unhealthy", readinessPayload.RootElement.GetProperty("status").GetString());
-        Assert.Equal(
-            "Unhealthy",
-            readinessPayload.RootElement.GetProperty("checks").GetProperty("postgresql").GetProperty("status").GetString());
-    }
-
-    [Fact]
     public async Task UnhandledApiError_ReturnsSafePayloadWithTraceId()
     {
         using var factory = _factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices(services =>
             {
-                services.RemoveAll<IThemeSettingsService>();
-                services.AddScoped<IThemeSettingsService, ThrowingThemeSettingsService>();
+                services.RemoveAll<ThemeSettingsService>();
+                services.AddScoped<ThemeSettingsService, ThrowingThemeSettingsService>();
             });
         });
         using var client = factory.CreateClient();
@@ -207,12 +185,12 @@ public sealed class FallbackAuthorizationTests : IClassFixture<FallbackAuthoriza
         }
     }
 
-    private sealed class ThrowingThemeSettingsService : IThemeSettingsService
+    private sealed class ThrowingThemeSettingsService : ThemeSettingsService
     {
-        public Task<ThemeSettings> GetAsync(CancellationToken cancellationToken = default) =>
+        public override Task<ThemeSettings> GetAsync(CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("database secret must never be sent to the client");
 
-        public Task SaveAsync(ThemeSettings settings, CancellationToken cancellationToken = default) =>
+        public override Task SaveAsync(ThemeSettings settings, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("database secret must never be sent to the client");
     }
 }

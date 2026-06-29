@@ -29,8 +29,7 @@
     const instances = new Map();
     const organizationInstances = new Map();
     const surveyNameInstances = new Map();
-    const serverFilterConfigs = new WeakMap();
-    const PENDING_OPEN_FILTER_STORAGE_KEY = 'surveyAdminPendingOpenFilter';
+    const serverFilters = window.SurveyServerFilterState;
     let unregisterLifecycle = null;
 
     function ensurePopoverHeader(root) {
@@ -208,270 +207,6 @@
         return page?.dataset?.filterDateSummary || 'у которых дата начала и дата конца попадают';
     }
 
-    function parseIntegerList(values) {
-        if (!Array.isArray(values)) {
-            return [];
-        }
-
-        return values
-            .map((value) => Number.parseInt(String(value), 10))
-            .filter((value, index, array) => Number.isInteger(value) && array.indexOf(value) === index);
-    }
-
-    function getServerFilterConfig(page) {
-        if (!(page instanceof Element)) {
-            return null;
-        }
-
-        if (serverFilterConfigs.has(page)) {
-            return serverFilterConfigs.get(page);
-        }
-
-        const bootstrapNode = page.querySelector('script[data-role="server-filter-bootstrap"]');
-        if (!bootstrapNode) {
-            serverFilterConfigs.set(page, null);
-            return null;
-        }
-
-        try {
-            const parsed = JSON.parse(bootstrapNode.textContent || '{}');
-            const config = {
-                basePath: String(parsed?.BasePath || parsed?.basePath || '').trim(),
-                enableDateFilter: Boolean(parsed?.EnableDateFilter ?? parsed?.enableDateFilter),
-                enableOrganizationFilter: Boolean(parsed?.EnableOrganizationFilter ?? parsed?.enableOrganizationFilter),
-                enableSurveyFilter: Boolean(parsed?.EnableSurveyFilter ?? parsed?.enableSurveyFilter),
-                organizationOptions: Array.isArray(parsed?.OrganizationOptions ?? parsed?.organizationOptions)
-                    ? (parsed.OrganizationOptions ?? parsed.organizationOptions).map((option) => ({
-                        id: Number.parseInt(String(option?.Id ?? option?.id ?? ''), 10),
-                        name: String(option?.Name ?? option?.name ?? '').trim()
-                    })).filter((option) => Number.isInteger(option.id) && option.name)
-                    : [],
-                selectedOrganizationIds: parseIntegerList(parsed?.SelectedOrganizationIds ?? parsed?.selectedOrganizationIds),
-                surveyOptions: Array.isArray(parsed?.SurveyOptions ?? parsed?.surveyOptions)
-                    ? (parsed.SurveyOptions ?? parsed.surveyOptions).map((option) => ({
-                        id: Number.parseInt(String(option?.Id ?? option?.id ?? ''), 10),
-                        name: String(option?.Name ?? option?.name ?? '').trim()
-                    })).filter((option) => Number.isInteger(option.id) && option.name)
-                    : [],
-                selectedSurveyIds: parseIntegerList(parsed?.SelectedSurveyIds ?? parsed?.selectedSurveyIds),
-                year: Number.isInteger(parsed?.Year) ? parsed.Year : Number.parseInt(String(parsed?.Year ?? parsed?.year ?? ''), 10),
-                month: String(parsed?.Month ?? parsed?.month ?? '').trim(),
-                dateFrom: String(parsed?.DateFrom ?? parsed?.dateFrom ?? '').trim(),
-                dateTo: String(parsed?.DateTo ?? parsed?.dateTo ?? '').trim()
-            };
-
-            if (!Number.isInteger(config.year)) {
-                config.year = null;
-            }
-
-            serverFilterConfigs.set(page, config);
-            return config;
-        } catch (error) {
-            serverFilterConfigs.set(page, null);
-            return null;
-        }
-    }
-
-    function isServerFilterPage(page) {
-        const config = getServerFilterConfig(page);
-        return Boolean(config?.basePath);
-    }
-
-    function getServerFilterTabName(page) {
-        switch (page?.dataset?.page) {
-            case 'surveys-list':
-                return 'get_surveys';
-            case 'surveys-archive':
-                return 'archived_surveys';
-            case 'answers-list':
-                return 'list_answers_users';
-            default:
-                return '';
-        }
-    }
-
-    function getSelectedOptionNames(options, selectedIds) {
-        const selectedIdSet = new Set(parseIntegerList(selectedIds));
-        return options
-            .filter((option) => selectedIdSet.has(option.id))
-            .map((option) => option.name)
-            .sort((left, right) => left.localeCompare(right, 'ru'));
-    }
-
-    function buildServerFilterUrl(page) {
-        const config = getServerFilterConfig(page);
-        if (!config?.basePath) {
-            return '';
-        }
-
-        const currentPath = normalizeCurrentPath(window.location.pathname);
-        const basePath = normalizeCurrentPath(config.basePath);
-        const params = currentPath === basePath
-            ? new URLSearchParams(window.location.search)
-            : new URLSearchParams();
-
-        ['page', 'organizationIds', 'surveyIds', 'year', 'month', 'dateFrom', 'dateTo'].forEach((key) => {
-            params.delete(key);
-        });
-
-        if (config.selectedOrganizationIds.length > 0) {
-            params.set('organizationIds', config.selectedOrganizationIds.join(','));
-        }
-
-        if (config.selectedSurveyIds.length > 0) {
-            params.set('surveyIds', config.selectedSurveyIds.join(','));
-        }
-
-        if (Number.isInteger(config.year)) {
-            params.set('year', String(config.year));
-        } else if (config.month) {
-            params.set('month', config.month);
-        } else {
-            if (config.dateFrom) {
-                params.set('dateFrom', config.dateFrom);
-            }
-
-            if (config.dateTo) {
-                params.set('dateTo', config.dateTo);
-            }
-        }
-
-        const queryString = params.toString();
-        return queryString
-            ? `${config.basePath}?${queryString}`
-            : config.basePath;
-    }
-
-    function rememberPendingOpenFilter(page, filterName) {
-        const normalizedFilterName = String(filterName || '').trim();
-        if (!normalizedFilterName) {
-            return;
-        }
-
-        const config = getServerFilterConfig(page);
-        const payload = {
-            filterName: normalizedFilterName,
-            pageName: page?.dataset?.page || '',
-            basePath: normalizeCurrentPath(config?.basePath || window.location.pathname),
-            createdAt: Date.now()
-        };
-
-        window.__surveyAdminPendingOpenFilter = payload;
-        try {
-            window.sessionStorage?.setItem(PENDING_OPEN_FILTER_STORAGE_KEY, JSON.stringify(payload));
-        } catch (error) {
-            // sessionStorage can be unavailable in restricted browser modes.
-        }
-    }
-
-    function readPendingOpenFilter() {
-        if (window.__surveyAdminPendingOpenFilter) {
-            return window.__surveyAdminPendingOpenFilter;
-        }
-
-        try {
-            const rawValue = window.sessionStorage?.getItem(PENDING_OPEN_FILTER_STORAGE_KEY);
-            return rawValue ? JSON.parse(rawValue) : null;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    function clearPendingOpenFilter() {
-        window.__surveyAdminPendingOpenFilter = null;
-        try {
-            window.sessionStorage?.removeItem(PENDING_OPEN_FILTER_STORAGE_KEY);
-        } catch (error) {
-            // sessionStorage can be unavailable in restricted browser modes.
-        }
-    }
-
-    function consumePendingOpenFilter(page, filterName) {
-        const payload = readPendingOpenFilter();
-        if (!payload || payload.filterName !== filterName) {
-            return false;
-        }
-
-        if (Date.now() - Number(payload.createdAt || 0) > 15000) {
-            clearPendingOpenFilter();
-            return false;
-        }
-
-        const config = getServerFilterConfig(page);
-        const expectedPath = normalizeCurrentPath(config?.basePath || window.location.pathname);
-        if (payload.basePath && payload.basePath !== expectedPath) {
-            return false;
-        }
-
-        if (payload.pageName && payload.pageName !== (page?.dataset?.page || '')) {
-            return false;
-        }
-
-        clearPendingOpenFilter();
-        return true;
-    }
-
-    function normalizeCurrentPath(pathname) {
-        if (!pathname) {
-            return '/';
-        }
-
-        return pathname.length > 1 && pathname.endsWith('/')
-            ? pathname.slice(0, -1)
-            : pathname;
-    }
-
-    function navigateServerFilterPage(page, openFilterName = '') {
-        const url = buildServerFilterUrl(page);
-        if (!url) {
-            return;
-        }
-
-        rememberPendingOpenFilter(page, openFilterName);
-
-        const config = getServerFilterConfig(page);
-        const queryIndex = url.indexOf('?');
-        const queryString = queryIndex >= 0 ? url.slice(queryIndex + 1) : '';
-        const tabName = getServerFilterTabName(page);
-        const scrollTargetSelector = page?.dataset?.tableScrollTarget || '';
-
-        if (typeof window.refreshAdminTab === 'function' && tabName) {
-            window.refreshAdminTab(tabName, queryString || null, {
-                scrollTargetSelector
-            });
-            return;
-        }
-
-        window.location.assign(url);
-    }
-
-    function syncServerDateFilterState(instance) {
-        const config = getServerFilterConfig(instance?.page);
-        if (!config) {
-            return;
-        }
-
-        config.year = null;
-        config.month = '';
-        config.dateFrom = '';
-        config.dateTo = '';
-
-        if (instance.state.activeFilterType === 'year' && Number.isInteger(instance.state.activeYear)) {
-            config.year = instance.state.activeYear;
-            return;
-        }
-
-        if (instance.state.activeFilterType === 'month' && instance.state.activeMonth) {
-            config.month = `${instance.state.activeMonth.year}-${pad(instance.state.activeMonth.monthIndex + 1)}`;
-            return;
-        }
-
-        if (instance.state.activeFilterType === 'range' && instance.state.rangeStart && instance.state.rangeEnd) {
-            config.dateFrom = instance.state.rangeStart;
-            config.dateTo = instance.state.rangeEnd;
-        }
-    }
-
     function getInitialDateState(page, today) {
         const state = {
             isOpen: false,
@@ -485,7 +220,7 @@
             rangeStart: '',
             rangeEnd: ''
         };
-        const config = getServerFilterConfig(page);
+        const config = serverFilters.getConfig(page);
         if (!config?.enableDateFilter) {
             return state;
         }
@@ -635,7 +370,7 @@
 
     function updateOrganizationFilterSummary(instance, visibleCount, totalCount) {
         const selectedOrganizations = instance.state.serverMode
-            ? getSelectedOptionNames(instance.state.availableOrganizationOptions, instance.state.selectedOrganizationIds)
+            ? serverFilters.getSelectedOptionNames(instance.state.availableOrganizationOptions, instance.state.selectedOrganizationIds)
             : instance.state.selectedOrganizations;
         const label = getOrganizationFilterLabel(selectedOrganizations);
         const itemLabel = getPageItemLabel(instance.page);
@@ -663,7 +398,7 @@
 
     function updateSurveyNameFilterSummary(instance, visibleCount, totalCount) {
         const selectedSurveyNames = instance.state.serverMode
-            ? getSelectedOptionNames(instance.state.availableSurveyOptions, instance.state.selectedSurveyIds)
+            ? serverFilters.getSelectedOptionNames(instance.state.availableSurveyOptions, instance.state.selectedSurveyIds)
             : instance.state.selectedSurveyNames;
         const label = getSurveyNameFilterLabel(selectedSurveyNames);
         const itemLabel = getPageItemLabel(instance.page);
@@ -709,7 +444,7 @@
 
     function applyPageFilters(page) {
         const rows = getDataRowsFromPage(page);
-        if (isServerFilterPage(page)) {
+        if (serverFilters.isServerPage(page)) {
             updatePageSummaries(
                 page,
                 rows.length,
@@ -1042,9 +777,9 @@
         instance.state.rangeStart = '';
         instance.state.rangeEnd = '';
         render(instance);
-        if (isServerFilterPage(instance.page)) {
-            syncServerDateFilterState(instance);
-            navigateServerFilterPage(instance.page, 'date');
+        if (serverFilters.isServerPage(instance.page)) {
+            serverFilters.syncDateState(instance.page, instance.state);
+            serverFilters.navigate(instance.page, 'date');
             return;
         }
 
@@ -1065,9 +800,9 @@
         state.monthViewYear = year;
         state.yearViewStart = getDecadeStart(year);
         render(instance);
-        if (isServerFilterPage(instance.page)) {
-            syncServerDateFilterState(instance);
-            navigateServerFilterPage(instance.page, 'date');
+        if (serverFilters.isServerPage(instance.page)) {
+            serverFilters.syncDateState(instance.page, instance.state);
+            serverFilters.navigate(instance.page, 'date');
             return;
         }
         applyFilter(instance);
@@ -1092,9 +827,9 @@
             monthIndex
         };
         render(instance);
-        if (isServerFilterPage(instance.page)) {
-            syncServerDateFilterState(instance);
-            navigateServerFilterPage(instance.page, 'date');
+        if (serverFilters.isServerPage(instance.page)) {
+            serverFilters.syncDateState(instance.page, instance.state);
+            serverFilters.navigate(instance.page, 'date');
             return;
         }
         applyFilter(instance);
@@ -1108,7 +843,7 @@
             state.rangeEnd = '';
             state.activeFilterType = 'all';
             render(instance);
-            if (isServerFilterPage(instance.page)) {
+            if (serverFilters.isServerPage(instance.page)) {
                 return;
             }
             applyFilter(instance);
@@ -1125,9 +860,9 @@
         state.activeFilterType = 'range';
         state.activeYear = null;
         render(instance);
-        if (isServerFilterPage(instance.page)) {
-            syncServerDateFilterState(instance);
-            navigateServerFilterPage(instance.page, 'date');
+        if (serverFilters.isServerPage(instance.page)) {
+            serverFilters.syncDateState(instance.page, instance.state);
+            serverFilters.navigate(instance.page, 'date');
             return;
         }
         applyFilter(instance);
@@ -1173,12 +908,12 @@
         }
 
         instance.state.selectedOrganizationIds = Array.from(nextSelectedOrganizationIds).sort((left, right) => left - right);
-        const config = getServerFilterConfig(instance.page);
+        const config = serverFilters.getConfig(instance.page);
         if (config) {
             config.selectedOrganizationIds = [...instance.state.selectedOrganizationIds];
         }
         renderOrganization(instance);
-        navigateServerFilterPage(instance.page, 'organization');
+        serverFilters.navigate(instance.page, 'organization');
     }
 
     function toggleSurveyNameSelection(instance, surveyName, isSelected) {
@@ -1213,12 +948,12 @@
         }
 
         instance.state.selectedSurveyIds = Array.from(nextSelectedSurveyIds).sort((left, right) => left - right);
-        const config = getServerFilterConfig(instance.page);
+        const config = serverFilters.getConfig(instance.page);
         if (config) {
             config.selectedSurveyIds = [...instance.state.selectedSurveyIds];
         }
         renderSurveyName(instance);
-        navigateServerFilterPage(instance.page, 'survey');
+        serverFilters.navigate(instance.page, 'survey');
     }
 
     function bindInstance(root) {
@@ -1375,7 +1110,7 @@
         instances.set(root, instance);
         render(instance);
         applyFilter(instance);
-        if (consumePendingOpenFilter(page, 'date')) {
+        if (serverFilters.consumePendingOpenFilter(page, 'date')) {
             closeAllPopovers(root);
             setPopoverOpen(instance, true);
         }
@@ -1397,11 +1132,11 @@
             page,
             state: {
                 isOpen: false,
-                serverMode: isServerFilterPage(page),
+                serverMode: serverFilters.isServerPage(page),
                 availableOrganizations: collectAvailableOrganizations(page),
-                availableOrganizationOptions: getServerFilterConfig(page)?.organizationOptions || [],
+                availableOrganizationOptions: serverFilters.getConfig(page)?.organizationOptions || [],
                 selectedOrganizations: [],
-                selectedOrganizationIds: [...(getServerFilterConfig(page)?.selectedOrganizationIds || [])]
+                selectedOrganizationIds: [...(serverFilters.getConfig(page)?.selectedOrganizationIds || [])]
             },
             refs: {
                 trigger: root.querySelector('[data-role="survey-organization-filter-trigger"]'),
@@ -1436,12 +1171,12 @@
                 event.preventDefault();
                 if (instance.state.serverMode) {
                     instance.state.selectedOrganizationIds = [];
-                    const config = getServerFilterConfig(instance.page);
+                    const config = serverFilters.getConfig(instance.page);
                     if (config) {
                         config.selectedOrganizationIds = [];
                     }
                     renderOrganization(instance);
-                    navigateServerFilterPage(instance.page, 'organization');
+                    serverFilters.navigate(instance.page, 'organization');
                     return;
                 }
 
@@ -1475,7 +1210,7 @@
         organizationInstances.set(root, instance);
         renderOrganization(instance);
         applyPageFilters(instance.page);
-        if (consumePendingOpenFilter(page, 'organization')) {
+        if (serverFilters.consumePendingOpenFilter(page, 'organization')) {
             closeAllPopovers(root);
             setPopoverOpen(instance, true);
         }
@@ -1497,11 +1232,11 @@
             page,
             state: {
                 isOpen: false,
-                serverMode: isServerFilterPage(page),
+                serverMode: serverFilters.isServerPage(page),
                 availableSurveyNames: collectAvailableSurveyNames(page),
-                availableSurveyOptions: getServerFilterConfig(page)?.surveyOptions || [],
+                availableSurveyOptions: serverFilters.getConfig(page)?.surveyOptions || [],
                 selectedSurveyNames: [],
-                selectedSurveyIds: [...(getServerFilterConfig(page)?.selectedSurveyIds || [])]
+                selectedSurveyIds: [...(serverFilters.getConfig(page)?.selectedSurveyIds || [])]
             },
             refs: {
                 trigger: root.querySelector('[data-role="survey-name-filter-trigger"]'),
@@ -1536,12 +1271,12 @@
                 event.preventDefault();
                 if (instance.state.serverMode) {
                     instance.state.selectedSurveyIds = [];
-                    const config = getServerFilterConfig(instance.page);
+                    const config = serverFilters.getConfig(instance.page);
                     if (config) {
                         config.selectedSurveyIds = [];
                     }
                     renderSurveyName(instance);
-                    navigateServerFilterPage(instance.page, 'survey');
+                    serverFilters.navigate(instance.page, 'survey');
                     return;
                 }
 
@@ -1575,7 +1310,7 @@
         surveyNameInstances.set(root, instance);
         renderSurveyName(instance);
         applyPageFilters(instance.page);
-        if (consumePendingOpenFilter(page, 'survey')) {
+        if (serverFilters.consumePendingOpenFilter(page, 'survey')) {
             closeAllPopovers(root);
             setPopoverOpen(instance, true);
         }

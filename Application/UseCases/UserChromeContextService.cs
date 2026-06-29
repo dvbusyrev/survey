@@ -1,19 +1,21 @@
+using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.Security;
 
 namespace MainProject.Application.UseCases;
 
-public sealed class UserChromeContextService : IUserChromeContextService
+public sealed class UserChromeContextService
 {
-    private readonly IUserChromeRepository _userChromeRepository;
+    private readonly IDbConnectionFactory _connectionFactory;
     private readonly ICurrentUserService _currentUserService;
 
     public UserChromeContextService(
-        IUserChromeRepository userChromeRepository,
+        IDbConnectionFactory connectionFactory,
         ICurrentUserService currentUserService)
     {
-        _userChromeRepository = userChromeRepository;
+        _connectionFactory = connectionFactory;
         _currentUserService = currentUserService;
     }
 
@@ -25,7 +27,7 @@ public sealed class UserChromeContextService : IUserChromeContextService
             return fallbackContext;
         }
 
-        var row = await _userChromeRepository.GetByUserIdAsync(
+        var row = await GetByUserIdAsync(
             _currentUserService.UserId.Value,
             cancellationToken);
 
@@ -41,6 +43,25 @@ public sealed class UserChromeContextService : IUserChromeContextService
             UserName = row.UserName ?? string.Empty,
             OrganizationName = row.OrganizationName ?? string.Empty
         };
+    }
+
+    private async Task<UserChromeContext?> GetByUserIdAsync(int userId, CancellationToken cancellationToken)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryFirstOrDefaultAsync<UserChromeContext>(new CommandDefinition(
+            """
+            SELECT
+                u.id_user AS UserId,
+                u.role AS UserRole,
+                u.login AS UserName,
+                COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name, '') AS OrganizationName
+            FROM public.app_user u
+            LEFT JOIN public.organization o
+                ON o.id_organization = u.id_organization
+            WHERE u.id_user = @UserId;
+            """,
+            new { UserId = userId },
+            cancellationToken: cancellationToken));
     }
 
     private UserChromeContext BuildFallbackContext()

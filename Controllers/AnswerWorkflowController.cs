@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MainProject.Application.Contracts;
+using MainProject.Application.UseCases.Answers;
 using MainProject.Application.DTO;
 using MainProject.Domain.Entities;
 using MainProject.Web.Infrastructure;
@@ -9,17 +9,14 @@ using MainProject.Web.ViewModels;
 [Authorize]
 public class AnswerWorkflowController : Controller
 {
-    private readonly IAnswerAccessService _answerAccessService;
-    private readonly IAnswerWorkflowService _answerWorkflowService;
+    private readonly AnswerService _answerService;
     private readonly ILogger<AnswerWorkflowController> _logger;
 
     public AnswerWorkflowController(
-        IAnswerAccessService answerAccessService,
-        IAnswerWorkflowService answerWorkflowService,
+        AnswerService answerService,
         ILogger<AnswerWorkflowController> logger)
     {
-        _answerAccessService = answerAccessService;
-        _answerWorkflowService = answerWorkflowService;
+        _answerService = answerService;
         _logger = logger;
     }
 
@@ -48,7 +45,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var result = await _answerWorkflowService.InsertAnswerAsync(answerData, cancellationToken);
+            var result = await _answerService.InsertAnswerAsync(answerData, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -105,7 +102,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var result = await _answerWorkflowService.SaveDraftAnswerAsync(answerData, cancellationToken);
+            var result = await _answerService.SaveDraftAnswerAsync(answerData, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -136,7 +133,7 @@ public class AnswerWorkflowController : Controller
         CancellationToken cancellationToken = default)
     {
         var includeAllOrganizationAnswers = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase)
-            && _answerAccessService.IsAdmin;
+            && _answerService.IsAdmin;
 
         if (!includeAllOrganizationAnswers)
         {
@@ -149,7 +146,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var response = await _answerWorkflowService.GetAnswersResponseAsync(
+            var response = await _answerService.GetAnswersResponseAsync(
                 idSurvey, idOrganization, type, includeAllOrganizationAnswers, cancellationToken);
             if (!response.Success)
             {
@@ -178,7 +175,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var response = await _answerWorkflowService.GetAnswersResponseAsync(
+            var response = await _answerService.GetAnswersResponseAsync(
                 idSurvey, idOrganization, "regular", false, cancellationToken);
             if (!response.Success || response.Survey == null)
             {
@@ -214,7 +211,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var model = await _answerWorkflowService.GetUpdateAnswerPageAsync(idSurvey, idOrganization, cancellationToken);
+            var model = await _answerService.GetUpdateAnswerPageAsync(idSurvey, idOrganization, cancellationToken);
             if (model == null)
             {
                 return NotFound("Ответы не найдены");
@@ -247,7 +244,7 @@ public class AnswerWorkflowController : Controller
 
         try
         {
-            var result = await _answerWorkflowService.UpdateAnswerAsync(answerData, cancellationToken);
+            var result = await _answerService.UpdateAnswerAsync(answerData, cancellationToken);
             if (!result.Success)
             {
                 if (result.NotFound)
@@ -275,12 +272,12 @@ public class AnswerWorkflowController : Controller
         int requestedOrganizationId,
         CancellationToken cancellationToken)
     {
-        if (!_answerAccessService.IsAuthenticated)
+        if (!_answerService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!await _answerAccessService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
+        if (!await _answerService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }
@@ -293,12 +290,12 @@ public class AnswerWorkflowController : Controller
         int requestedOrganizationId,
         CancellationToken cancellationToken)
     {
-        if (!_answerAccessService.IsAuthenticated)
+        if (!_answerService.IsAuthenticated)
         {
             return Challenge();
         }
 
-        if (!await _answerAccessService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
+        if (!await _answerService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }
