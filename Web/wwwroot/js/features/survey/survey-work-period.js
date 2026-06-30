@@ -22,7 +22,9 @@
     ];
     const WEEKDAY_NAMES = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     const instances = new Map();
-    let observer = null;
+    const mountedPageControllers = new Set();
+    const mountedPageControllerByPage = new WeakMap();
+    let documentListenerMountCount = 0;
 
     function pad(value) {
         return String(value).padStart(2, '0');
@@ -110,11 +112,20 @@
     }
 
     function getPagesFromNode(node) {
+        if (node === document || node?.nodeType === Node.DOCUMENT_NODE) {
+            return Array.from(document.querySelectorAll(PAGE_SELECTOR));
+        }
+
         if (!(node instanceof Element)) {
             return [];
         }
 
         const pages = [];
+        const ownerPage = node.closest(PAGE_SELECTOR);
+        if (ownerPage) {
+            pages.push(ownerPage);
+        }
+
         if (node.matches(PAGE_SELECTOR)) {
             pages.push(node);
         }
@@ -123,7 +134,7 @@
             pages.push(page);
         });
 
-        return pages;
+        return Array.from(new Set(pages));
     }
 
     function setPopoverOpen(instance, isOpen) {
@@ -449,20 +460,6 @@
         render(instance);
     }
 
-    function bindAvailablePages(root = document) {
-        cleanupDetachedInstances();
-        const pages = root === document
-            ? Array.from(document.querySelectorAll(PAGE_SELECTOR))
-            : getPagesFromNode(root);
-
-        pages.forEach((page) => {
-            const workPeriodRoot = page.querySelector(ROOT_SELECTOR);
-            if (workPeriodRoot) {
-                bindInstance(workPeriodRoot);
-            }
-        });
-    }
-
     function handleDocumentClick(event) {
         cleanupDetachedInstances();
 
@@ -492,17 +489,26 @@
         });
     }
 
-    function destroy() {
-        instances.forEach((instance, root) => {
-            if (instance.handlers?.click) {
-                root.removeEventListener('click', instance.handlers.click);
-            }
-        });
-        instances.clear();
+    function installDocumentListeners() {
+        documentListenerMountCount += 1;
+        if (documentListenerMountCount !== 1) {
+            return;
+        }
 
-        if (observer) {
-            observer.disconnect();
-            observer = null;
+        document.addEventListener('click', handleDocumentClick, true);
+        document.addEventListener('keydown', handleDocumentKeydown);
+        window.addEventListener('resize', handleWindowResize);
+    }
+
+    function removeDocumentListeners() {
+        if (documentListenerMountCount <= 0) {
+            documentListenerMountCount = 0;
+            return;
+        }
+
+        documentListenerMountCount -= 1;
+        if (documentListenerMountCount !== 0) {
+            return;
         }
 
         document.removeEventListener('click', handleDocumentClick, true);
@@ -510,35 +516,116 @@
         window.removeEventListener('resize', handleWindowResize);
     }
 
-    window.__surveyWorkPeriodController = {
+    function getInstanceForPage(page) {
+        return Array.from(instances.values()).find((instance) => instance.page === page) || null;
+    }
+
+    function unbindPageInstances(page) {
+        Array.from(instances.entries()).forEach(([root, instance]) => {
+            if (instance.page !== page) {
+                return;
+            }
+
+            if (instance.handlers?.click) {
+                root.removeEventListener('click', instance.handlers.click);
+            }
+            instances.delete(root);
+        });
+    }
+
+    function mountSinglePage(page) {
+        if (!(page instanceof Element)) {
+            return null;
+        }
+
+        const existingController = mountedPageControllerByPage.get(page);
+        if (existingController) {
+            return existingController;
+        }
+
+        cleanupDetachedInstances();
+
+        const workPeriodRoot = page.querySelector(ROOT_SELECTOR);
+        if (!workPeriodRoot) {
+            return null;
+        }
+
+        bindInstance(workPeriodRoot);
+        const instance = getInstanceForPage(page);
+        if (!instance) {
+            return null;
+        }
+
+        let isDestroyed = false;
+        const controller = {
+            page,
+            destroy() {
+                if (isDestroyed) {
+                    return;
+                }
+
+                isDestroyed = true;
+                removeDocumentListeners();
+                page.removeEventListener('page:unmount', controller.destroy);
+                unbindPageInstances(page);
+                mountedPageControllerByPage.delete(page);
+                mountedPageControllers.delete(controller);
+                cleanupDetachedInstances();
+            }
+        };
+
+        installDocumentListeners();
+        page.addEventListener('page:unmount', controller.destroy);
+        mountedPageControllerByPage.set(page, controller);
+        mountedPageControllers.add(controller);
+        return controller;
+    }
+
+    function createCompositeController(controllers) {
+        let isDestroyed = false;
+        return {
+            destroy() {
+                if (isDestroyed) {
+                    return;
+                }
+
+                isDestroyed = true;
+                controllers.forEach((controller) => controller?.destroy?.());
+            }
+        };
+    }
+
+    function mount(root = document) {
+        const controllers = getPagesFromNode(root)
+            .map((page) => mountSinglePage(page))
+            .filter(Boolean);
+
+        return createCompositeController(controllers);
+    }
+
+    function destroy(root = document) {
+        if (root === document || root?.nodeType === Node.DOCUMENT_NODE) {
+            Array.from(mountedPageControllers).forEach((controller) => controller.destroy());
+            return;
+        }
+
+        if (!(root instanceof Element)) {
+            return;
+        }
+
+        Array.from(mountedPageControllers).forEach((controller) => {
+            if (controller.page === root || root.contains(controller.page)) {
+                controller.destroy();
+            }
+        });
+    }
+
+    window.SurveyWorkPeriod = {
+        mount,
         destroy
     };
 
-    document.addEventListener('click', handleDocumentClick, true);
-    document.addEventListener('keydown', handleDocumentKeydown);
-    window.addEventListener('resize', handleWindowResize);
-
-    if (typeof MutationObserver !== 'undefined' && document.body) {
-        observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                mutation.addedNodes.forEach((node) => {
-                    bindAvailablePages(node);
-                });
-            });
-        });
-
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            bindAvailablePages(document);
-        });
-        return;
-    }
-
-    bindAvailablePages(document);
+    window.__surveyWorkPeriodController = {
+        destroy
+    };
 })();

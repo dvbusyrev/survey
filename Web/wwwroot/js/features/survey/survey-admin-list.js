@@ -1,9 +1,5 @@
 (function () {
-    const page = document.querySelector('.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"]');
-    if (!page) {
-        return;
-    }
-
+    const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"]';
     let extensionModal = null;
     let extensionHost = null;
     let extensionCleanup = null;
@@ -14,6 +10,9 @@
     let signaturesTitle = null;
     const loadedStylesheetUrls = new Set();
     let loadedStylesheetsPrimed = false;
+    const mountedPageControllers = new Set();
+    const mountedPageControllerByPage = new WeakMap();
+    let pendingRouteTimer = null;
 
     function createStandardModalFrame(options) {
         if (typeof window.createSiteModalFrame === 'function') {
@@ -632,15 +631,15 @@
         }
     }
 
-    document.addEventListener('site-modal:hidden', function (event) {
+    function handleSurveyEditorHidden(event) {
         if (event.target?.id !== 'surveyEditorModal') {
             return;
         }
 
         syncSurveyListHistory();
-    });
+    }
 
-    window.setTimeout(function () {
+    function openEditorFromCurrentRoute() {
         if (window.location.pathname.toLowerCase() === '/survey/create'
             || window.location.pathname.toLowerCase() === '/surveys/create') {
             openAddSurveyModal();
@@ -653,7 +652,73 @@
             || /\/surveys\/archive\/\d+\/edit$/i.test(window.location.pathname)) {
             openEditSurveyModal();
         }
-    }, 0);
+    }
+
+    function mount(page) {
+        if (!(page instanceof Element) || !page.matches(PAGE_SELECTOR)) {
+            return null;
+        }
+
+        const existingController = mountedPageControllerByPage.get(page);
+        if (existingController) {
+            return existingController;
+        }
+
+        let isDestroyed = false;
+        const controller = {
+            page,
+            destroy() {
+                if (isDestroyed) {
+                    return;
+                }
+
+                isDestroyed = true;
+                page.removeEventListener('page:unmount', controller.destroy);
+                document.removeEventListener('site-modal:hidden', handleSurveyEditorHidden);
+                mountedPageControllerByPage.delete(page);
+                mountedPageControllers.delete(controller);
+
+                if (pendingRouteTimer) {
+                    window.clearTimeout(pendingRouteTimer);
+                    pendingRouteTimer = null;
+                }
+            }
+        };
+
+        page.addEventListener('page:unmount', controller.destroy);
+        document.addEventListener('site-modal:hidden', handleSurveyEditorHidden);
+
+        if (pendingRouteTimer) {
+            window.clearTimeout(pendingRouteTimer);
+        }
+        pendingRouteTimer = window.setTimeout(() => {
+            pendingRouteTimer = null;
+            if (!isDestroyed) {
+                openEditorFromCurrentRoute();
+            }
+        }, 0);
+
+        mountedPageControllerByPage.set(page, controller);
+        mountedPageControllers.add(controller);
+        return controller;
+    }
+
+    function destroy(root = document) {
+        if (root === document || root?.nodeType === Node.DOCUMENT_NODE) {
+            Array.from(mountedPageControllers).forEach((controller) => controller.destroy());
+            return;
+        }
+
+        if (!(root instanceof Element)) {
+            return;
+        }
+
+        Array.from(mountedPageControllers).forEach((controller) => {
+            if (controller.page === root || root.contains(controller.page)) {
+                controller.destroy();
+            }
+        });
+    }
 
     window.openSurveyExtensionModalFromTrigger = openSurveyExtensionModalFromTrigger;
     window.openSurveyCompletionModalFromTrigger = openSurveyCompletionModalFromTrigger;
@@ -667,4 +732,8 @@
     window.closeSurveyEditorModal = closeSurveyEditorModal;
     window.handleSurveyCreateSuccess = handleSurveyCreateSuccess;
     window.handleSurveyUpdateSuccess = handleSurveyUpdateSuccess;
+    window.SurveyAdminList = {
+        mount,
+        destroy
+    };
 })();

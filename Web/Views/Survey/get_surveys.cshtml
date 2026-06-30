@@ -94,16 +94,20 @@
 @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyEditorModal.cshtml", Model)
 
 @section Scripts {
-    @await Html.PartialAsync("~/Web/Views/Shared/_NavigationTemplates.cshtml")
-    @await Html.PartialAsync("~/Web/Views/Shared/_AppChromeScripts.cshtml")
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminInlineTemplates.cshtml")
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminReportScripts.cshtml")
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyEditorScripts.cshtml")
     <script src="~/js/features/admin/admin-inline-pages.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-filter-core.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-server-filter-state.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-filter-popover.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-filter-summary.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-date-filter.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-checkbox-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-work-period.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/surveys-page.js" asp-append-version="true"></script>
     <script>
         (function () {
             const contextNode = document.getElementById('chrome-context');

@@ -117,6 +117,17 @@
         }
     }
 
+    function dispatchPageEvent(node, eventName) {
+        try {
+            node?.dispatchEvent?.(new CustomEvent(eventName, {
+                bubbles: false,
+                detail: { node }
+            }));
+        } catch (error) {
+            reportLifecycleError(eventName, error);
+        }
+    }
+
     function mount(root = document) {
         registrations.forEach((registration, name) => {
             getMatchingNodes(root, registration.selector).forEach((node) => {
@@ -131,6 +142,7 @@
                 return;
             }
 
+            dispatchPageEvent(node, 'page:unmount');
             Array.from(controllers.values()).reverse().forEach((dispose) => dispose());
             mountedControllers.delete(node);
         });
