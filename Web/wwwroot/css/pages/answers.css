@@ -45,7 +45,7 @@
   min-width: 148px;
   max-width: min(260px, 80vw);
   display: block;
-  padding: 10px 14px;
+  padding: var(--app-gap-md) var(--app-gap-lg);
   color: var(--text-main);
   font-size: 0.85rem;
   font-weight: 500;
@@ -54,7 +54,7 @@
   line-height: 1.35;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 12px;
+  border-radius: var(--app-section-radius);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
   opacity: 0;
   visibility: hidden;
@@ -80,7 +80,7 @@
 }
 
 .answers-modal__title-main {
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .answers-modal__title-name {
@@ -93,8 +93,8 @@
   display: grid;
   align-content: center;
   width: 100%;
-  min-height: 44px;
-  padding: 0.75rem 0.9rem;
+  min-height: var(--app-field-min-height);
+  padding: var(--app-field-padding);
   color: var(--text-main);
   font-weight: 400;
   line-height: 1.4;
@@ -179,7 +179,7 @@
 .answers-page__update {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: var(--app-card-padding);
 }
 
 .answers-page .note,
@@ -190,7 +190,7 @@
 
 .survey-signatures-modal__body {
   display: grid;
-  gap: 16px;
+  gap: var(--app-gap-lg);
 }
 
 .survey-signatures-modal__body .table-responsive {
@@ -225,8 +225,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: var(--app-chip-min-height);
+  height: var(--app-chip-min-height);
   font-size: 1.18rem;
   line-height: 1;
   border-radius: 999px;
@@ -288,7 +288,7 @@
 
 .answers-page__actions {
   display: flex;
-  gap: 10px;
+  gap: var(--app-gap-md);
   margin-top: 20px;
 }
 
@@ -318,7 +318,7 @@
 
 .answers-page__error {
   color: var(--danger);
-  padding: 20px;
+  padding: var(--app-card-padding);
   text-align: center;
 }
 
@@ -365,13 +365,13 @@
 .answers-page__statistics .note,
 .answers-page__statistics-card {
   background-color: white;
-  border-radius: 8px;
+  border-radius: var(--app-section-radius);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .answers-page__statistics .note {
-  padding: 20px;
-  margin-bottom: 20px;
+  padding: var(--app-section-padding);
+  margin-bottom: var(--app-section-padding);
 }
 
 .answers-page__statistics-note-title,
@@ -397,7 +397,7 @@
 .answers-page__statistics-card {
   position: relative;
   min-height: 0;
-  padding: 20px;
+  padding: var(--app-card-padding);
 }
 
 .answers-page__statistics-card--wide {
@@ -463,13 +463,13 @@
   width: auto;
   box-sizing: border-box;
   overflow: hidden;
-  padding: 10px 15px;
+  padding: var(--app-tooltip-padding);
   transform: translate(-50%, -50%);
   white-space: nowrap;
   color: #8b0000;
   font-weight: bold;
   background-color: #ffcccc;
-  border-radius: 10px;
+  border-radius: var(--app-tooltip-radius);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 

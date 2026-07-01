@@ -94,7 +94,7 @@
   min-width: 148px;
   max-width: min(260px, 80vw);
   display: block;
-  padding: 10px 14px;
+  padding: var(--app-tooltip-padding);
   color: var(--text-main);
   font-size: 0.85rem;
   font-weight: 500;
@@ -104,7 +104,7 @@
   pointer-events: none;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 12px;
+  border-radius: var(--app-section-radius);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
   opacity: 0;
   visibility: hidden;
@@ -136,8 +136,8 @@
 }
 
 .logs-modal__value-field {
-  min-height: 3rem;
-  padding: 0.75rem 0.9rem;
+  min-height: var(--app-field-min-height);
+  padding: var(--app-field-padding);
   color: var(--text-main);
   font-family: inherit;
   font-size: 0.95rem;

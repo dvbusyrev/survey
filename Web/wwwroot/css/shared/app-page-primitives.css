@@ -1,7 +1,7 @@
 .answers-container {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 20px;
+  padding: var(--app-card-padding);
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -32,7 +32,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--app-gap-sm);
   margin: 15px 0 20px;
   color: var(--text-secondary);
   font-size: 0.875rem;
@@ -78,7 +78,7 @@
   font-size: 0.8125rem;
   font-weight: 600;
   background-color: #3b82f6;
-  border-radius: 12px;
+  border-radius: var(--app-badge-radius, 999px);
 }
 
 .access-denied {
@@ -118,7 +118,7 @@
 
 .error-container {
   margin: 20px 0;
-  padding: 20px;
+  padding: var(--app-card-padding);
   background-color: #fef2f2;
   border-left: 4px solid #ef4444;
 }
@@ -129,12 +129,12 @@
 }
 
 .empty-message {
-  padding: 20px;
+  padding: var(--app-card-padding);
   color: #6b7280;
   text-align: center;
   background-color: #f9fafb;
   border: 1px dashed #d1d5db;
-  border-radius: 8px;
+  border-radius: var(--app-section-radius);
 }
 
 @media (max-width: 900px) {

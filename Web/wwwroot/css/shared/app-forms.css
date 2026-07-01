@@ -1,8 +1,8 @@
 .form-group {
   grid-template-columns: minmax(140px, 170px) minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--app-form-group-gap, var(--app-gap-md));
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--app-form-group-margin-bottom, var(--app-gap-lg));
 }
 
 .form-group label {
@@ -35,15 +35,15 @@ input[type="checkbox"],
 .form-control,
 .organization-dropdown,
 .admin-extension-input {
-  margin-top: 15px;
+  margin-top: var(--app-field-top-offset);
   width: 100%;
   min-width: 0;
-  min-height: 44px;
-  padding: 0.75rem 0.9rem;
+  min-height: var(--app-field-min-height);
+  padding: var(--app-field-padding);
   color: var(--text-main);
   font-family: inherit;
-  font-size: 0.95rem;
-  line-height: 1.4;
+  font-size: var(--app-field-font-size);
+  line-height: var(--app-field-line-height);
   background: white;
   border: 1px solid var(--border-dark);
   border-radius: var(--app-field-radius);
@@ -138,8 +138,8 @@ textarea.form-control {
   align-items: center;
   width: 100%;
   min-width: 0;
-  min-height: 44px;
-  margin-top: 15px;
+  min-height: var(--app-field-min-height);
+  margin-top: var(--app-field-top-offset);
   gap: 0;
   overflow: hidden;
   background: #ffffff;
@@ -148,8 +148,8 @@ textarea.form-control {
 }
 
 .form-group .icon-container {
-  flex: 0 0 2.875rem;
-  width: 2.875rem;
+  flex: 0 0 var(--app-field-icon-size);
+  width: var(--app-field-icon-size);
   min-height: 42px;
   display: flex;
   align-items: center;
@@ -213,13 +213,13 @@ textarea.form-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: var(--app-field-toggle-size);
+  height: var(--app-field-toggle-size);
   padding: 0;
   color: var(--app-theme-font-color, var(--text-main));
   background: #ffffff;
   border: 1px solid color-mix(in srgb, var(--app-theme-font-color, var(--text-main)) 18%, transparent 82%);
-  border-radius: 0.45rem;
+  border-radius: var(--app-button-radius);
   cursor: pointer;
   opacity: 1;
   transform: translateY(-50%);
@@ -405,7 +405,7 @@ input[type="date"][data-date-native="true"].admin-extension-input {
   color: var(--text-main);
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(203, 213, 225, 0.92);
-  border-radius: 12px;
+  border-radius: var(--app-calendar-radius, var(--app-section-radius));
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.18);
 }
 
@@ -431,13 +431,13 @@ input[type="date"][data-date-native="true"].admin-extension-input {
 .app-date-field__calendar-nav {
   display: inline-grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: var(--app-field-toggle-size);
+  height: var(--app-field-toggle-size);
   padding: 0;
   color: var(--primary-dark);
   background: rgba(248, 250, 252, 0.98);
   border: 1px solid rgba(203, 213, 225, 0.92);
-  border-radius: 8px;
+  border-radius: var(--app-calendar-day-radius);
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
@@ -489,7 +489,7 @@ input[type="date"][data-date-native="true"].admin-extension-input {
   font-weight: 500;
   background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--app-calendar-day-radius);
   cursor: pointer;
   transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
@@ -523,7 +523,7 @@ input[type="date"][data-date-native="true"].admin-extension-input {
 .form-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: var(--app-form-row-gap, var(--app-gap-md));
   align-items: start;
 }
 
@@ -531,7 +531,7 @@ input[type="date"][data-date-native="true"].admin-extension-input {
 .criteria-buttons-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--app-button-container-gap, var(--app-gap-md));
   align-items: center;
   margin-top: 1.5rem;
 }
@@ -545,6 +545,7 @@ input[type="date"][data-date-native="true"].admin-extension-input {
 .modal-button,
 .notification-close,
 .submit-button,
+.reset-button,
 .criteria-btn,
 .reset-filter-btn,
 .pagination-button,
@@ -556,7 +557,7 @@ input[type="date"][data-date-native="true"].admin-extension-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: var(--app-button-gap);
   max-width: 100%;
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
@@ -574,6 +575,7 @@ button i,
 .modal-button i,
 .notification-close i,
 .submit-button i,
+.reset-button i,
 .criteria-btn i,
 .reset-filter-btn i,
 .pagination-button i,
@@ -590,6 +592,7 @@ button:disabled,
 .modal-button:disabled,
 .notification-close:disabled,
 .submit-button:disabled,
+.reset-button:disabled,
 .criteria-btn:disabled,
 .reset-filter-btn:disabled,
 .pagination-button:disabled,
@@ -617,11 +620,21 @@ a.btn:focus,
 .modal_btn-primary {
   position: relative;
   color: var(--app-theme-button-text-color);
-  font-weight: 400;
+  font-weight: var(--app-button-font-weight);
   background: var(--app-theme-button-color);
   background-image: none;
   border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
-  border-radius: 10px;
+  border-radius: var(--app-button-radius);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+}
+
+.reset-button {
+  position: relative;
+  color: var(--app-theme-font-color);
+  font-weight: var(--app-button-font-weight);
+  background: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--app-theme-font-color) 18%, transparent 82%);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
@@ -638,13 +651,19 @@ a.btn:focus,
   border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
+.reset-button:hover {
+  color: var(--app-theme-font-color);
+  background: #ffffff;
+  border-color: color-mix(in srgb, var(--app-theme-font-color) 18%, transparent 82%);
+}
+
 .criteria-buttons-container > * {
   flex: 0 0 auto;
 }
 
 .criteria-btn {
   min-width: 0;
-  font-weight: 500;
+  font-weight: var(--app-button-font-weight);
 }
 
 .app-checkbox-dropdown {
@@ -680,6 +699,8 @@ a.btn:focus,
 .criteria-btn:focus-visible,
 .submit-button:focus,
 .submit-button:focus-visible,
+.reset-button:focus,
+.reset-button:focus-visible,
 .reset-filter-btn:focus,
 .reset-filter-btn:focus-visible,
 .app-checkbox-dropdown__trigger:focus,
@@ -726,7 +747,7 @@ a[role="button"]:focus-visible {
   padding: 0.5rem;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(203, 213, 225, 0.92);
-  border-radius: 10px;
+  border-radius: var(--app-dropdown-radius, var(--app-button-radius));
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
 }
 
@@ -757,24 +778,24 @@ a[role="button"]:focus-visible {
 }
 
 .selected-organization {
-  margin-top: 15px;
-  padding: 15px;
+  margin-top: var(--app-field-top-offset);
+  padding: var(--app-section-padding);
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--app-section-radius);
   box-shadow: var(--shadow-sm);
 }
 
 .selected-organization-item {
   
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--app-chip-radius);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--app-chip-gap);
   max-width: 100%;
   margin: 5px;
-  padding: 6px 12px;
+  padding: var(--app-chip-padding);
   color: var(--app-theme-button-text-color);
   font-size: 14px;
   line-height: 1.5;
@@ -790,8 +811,8 @@ a[role="button"]:focus-visible {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--app-chip-remove-size);
+  height: var(--app-chip-remove-size);
   margin: 0;
   padding: 0;
   color: var(--app-theme-button-text-color);
@@ -814,7 +835,7 @@ a[role="button"]:focus-visible {
 .app-checkbox-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--app-checkbox-list-gap);
   max-height: var(--app-checkbox-list-max-height, calc(100dvh - 10rem));
   margin: 0;
   padding: 2px;
@@ -825,13 +846,13 @@ a[role="button"]:focus-visible {
 .app-checkbox-option {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0.55rem 0.65rem;
+  gap: var(--app-dropdown-gap);
+  padding: var(--app-checkbox-option-padding);
   font-size: 0.84rem;
   font-weight: 400;
   background: rgba(248, 250, 252, 0.98);
   border: 1px solid rgba(203, 213, 225, 0.92);
-  border-radius: 10px;
+  border-radius: var(--app-checkbox-option-radius);
   cursor: pointer;
   transition: border-color 0.12s ease, background-color 0.12s ease;
 }
@@ -871,7 +892,7 @@ a[role="button"]:focus-visible {
 .password-eye-wrap {
   position: relative;
   width: 100%;
-  margin-top: 15px;
+  margin-top: var(--app-field-top-offset);
   display: flex;
   align-items: center;
 }
@@ -896,8 +917,8 @@ input[data-password-field="true"].is-password-masked {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: var(--app-field-toggle-size);
+  height: var(--app-field-toggle-size);
   padding: 0;
   color: var(--app-theme-font-color, var(--text-main));
   background: #ffffff;

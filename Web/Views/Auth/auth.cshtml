@@ -19,11 +19,16 @@
     <title>Авторизация</title>
 
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-reset.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/app-foundation.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-ui-utilities.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-forms.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/app-modals.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/shared/site-notifications.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/local-icons.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/shared/site-notifications.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/pages/auth-page.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/shared/app-theme.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/pages/auth-page.css" asp-append-version="true" />
     <style id="app-theme-inline">
         :root {
             --app-theme-font-color: @layoutThemeSettings.FontColor;
@@ -60,46 +65,48 @@
     <div id="root"></div>
     <template id="auth-login-template">
         <div class="content">
-            <div class="inner-container">
-                <form id="loginForm">
-                    <h1 class="form-title">
-                        <span class="welcome-text">Анкетирование</span>
-                    </h1>
+            <div class="inner-container modal-content auth-modal-content">
+                <form id="loginForm" class="auth-modal-form">
+                    <header class="modal-header auth-modal-header">
+                        <h1 class="modal-title auth-modal-title">Анкетирование</h1>
+                    </header>
 
-                    <div class="form-group">
-                        <label class="form-label" for="username">Логин</label>
-                        <div class="input-container">
-                            <div class="icon-container field-icon-container"><i class="fas fa-user"></i></div>
-                            <input type="text" class="form-input" id="username" name="username" required placeholder="Введите логин" />
+                    <div class="modal-body auth-modal-body">
+                        <div class="form-group">
+                            <label class="form-label" for="username">Логин</label>
+                            <div class="input-container">
+                                <div class="icon-container field-icon-container"><i class="fas fa-user"></i></div>
+                                <input type="text" class="form-control form-input" id="username" name="username" required placeholder="Введите логин" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="password">Пароль</label>
+                            <div class="input-container has-toggle">
+                                <div class="icon-container field-icon-container"><i class="fas fa-lock"></i></div>
+                                <input
+                                    type="text"
+                                    class="form-control form-input is-password-masked"
+                                    id="password"
+                                    name="password"
+                                    required
+                                    autoComplete="current-password"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellcheck="false"
+                                    inputmode="text"
+                                    lang="ru"
+                                    data-password-field="true"
+                                    placeholder="Введите пароль" />
+                                <button type="button" class="password-toggle-btn" aria-label="Показать пароль" title="Показать пароль"></button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="password">Пароль</label>
-                        <div class="input-container has-toggle">
-                            <div class="icon-container field-icon-container"><i class="fas fa-lock"></i></div>
-                            <input
-                                type="text"
-                                class="form-input is-password-masked"
-                                id="password"
-                                name="password"
-                                required
-                                autoComplete="current-password"
-                                autoCapitalize="none"
-                                autoCorrect="off"
-                                spellcheck="false"
-                                inputmode="text"
-                                lang="ru"
-                                data-password-field="true"
-                                placeholder="Введите пароль" />
-                            <button type="button" class="password-toggle-btn" aria-label="Показать пароль" title="Показать пароль"></button>
-                        </div>
-                    </div>
-
-                    <div class="auth-actions">
-                        <button type="reset" class="reset-button">Сброс</button>
-                        <button type="submit" class="submit-button">Войти</button>
-                    </div>
+                    <footer class="modal-footer auth-modal-footer">
+                        <button type="reset" class="modal_btn modal_btn-secondary reset-button">Сброс</button>
+                        <button type="submit" class="modal_btn modal_btn-primary submit-button">Войти</button>
+                    </footer>
                 </form>
             </div>
         </div>

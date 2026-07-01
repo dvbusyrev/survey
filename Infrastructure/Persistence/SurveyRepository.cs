@@ -451,6 +451,24 @@ public sealed class SurveyRepository
         return options.AsList();
     }
 
+    public async Task<IReadOnlyList<SelectionOption>> GetUserArchivedSurveyOptionsAsync(
+        NpgsqlConnection connection,
+        int organizationId,
+        CancellationToken cancellationToken = default)
+    {
+        var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
+            $"""
+            SELECT DISTINCT
+                archived.id_survey AS Id,
+                archived.name_survey AS Name
+            {UserArchiveBaseSql}
+            ORDER BY Name, Id;
+            """,
+            new { OrganizationId = organizationId },
+            cancellationToken: cancellationToken));
+        return options.AsList();
+    }
+
     public Task<int?> GetUserOrganizationIdAsync(
         NpgsqlConnection connection,
         int userId,
@@ -531,6 +549,7 @@ public sealed class SurveyRepository
         NpgsqlConnection connection,
         int organizationId,
         string searchTerm,
+        IReadOnlyCollection<int> surveyIds,
         DateTime? exactCompletionDate,
         DateTime? completionDateFrom,
         DateTime? completionDateTo,
@@ -543,12 +562,18 @@ public sealed class SurveyRepository
         var parameters = new DynamicParameters();
         parameters.Add("OrganizationId", organizationId);
         parameters.Add("SearchPattern", string.IsNullOrWhiteSpace(searchTerm) ? null : $"%{searchTerm}%");
+        parameters.Add("SurveyIds", surveyIds.ToArray());
         parameters.Add("Offset", offset);
         parameters.Add("PageSize", pageSize);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             filters.Add("archived.name_survey ILIKE @SearchPattern");
+        }
+
+        if (surveyIds.Count > 0)
+        {
+            filters.Add("archived.id_survey = ANY(@SurveyIds)");
         }
 
         if (exactCompletionDate.HasValue)
@@ -560,13 +585,13 @@ public sealed class SurveyRepository
         {
             if (completionDateFrom.HasValue)
             {
-                filters.Add("archived.completion_date >= @CompletionDateFrom");
+                filters.Add("archived.date_begin::date >= @CompletionDateFrom");
                 parameters.Add("CompletionDateFrom", completionDateFrom.Value);
             }
 
             if (completionDateTo.HasValue)
             {
-                filters.Add("archived.completion_date <= @CompletionDateTo");
+                filters.Add("archived.date_end IS NOT NULL AND archived.date_end::date <= @CompletionDateTo");
                 parameters.Add("CompletionDateTo", completionDateTo.Value);
             }
         }

@@ -163,7 +163,17 @@ public class SurveyArchiveController : Controller
 
     [HttpGet("archive")]
     [HttpGet("my-surveys/archive")]
-    public async Task<IActionResult> ArchivedSurveysForUser(CancellationToken cancellationToken = default)
+    public async Task<IActionResult> ArchivedSurveysForUser(
+        int? page,
+        string searchTerm = "",
+        string date = "",
+        string dateFrom = "",
+        string dateTo = "",
+        string surveyIds = "",
+        string year = "",
+        string month = "",
+        bool signedOnly = false,
+        CancellationToken cancellationToken = default)
     {
         if (!_currentUserService.UserId.HasValue)
         {
@@ -178,12 +188,15 @@ public class SurveyArchiveController : Controller
 
         var pageModel = await _surveyService.GetUserArchivePageAsync(
             _currentUserService.UserId.Value,
-            1,
-            searchTerm: null,
-            date: null,
-            dateFrom: null,
-            dateTo: null,
-            signedOnly: false,
+            page ?? 1,
+            searchTerm,
+            date,
+            dateFrom,
+            dateTo,
+            signedOnly,
+            surveyIds,
+            year,
+            month,
             cancellationToken: cancellationToken);
 
         if (pageModel == null)
@@ -213,6 +226,9 @@ public class SurveyArchiveController : Controller
         string date = "",
         string dateFrom = "",
         string dateTo = "",
+        string surveyIds = "",
+        string year = "",
+        string month = "",
         bool signedOnly = false,
         bool countOnly = false,
         CancellationToken cancellationToken = default)
@@ -233,6 +249,9 @@ public class SurveyArchiveController : Controller
                 dateFrom,
                 dateTo,
                 signedOnly,
+                surveyIds,
+                year,
+                month,
                 cancellationToken);
 
             if (pageModel == null)
@@ -301,7 +320,8 @@ public class SurveyArchiveController : Controller
             ActiveCount = activeCount,
             ArchivedCount = pageModel.TotalCount,
             SearchTerm = pageModel.SearchTerm,
-            SignedOnly = pageModel.SignedOnly
+            SignedOnly = pageModel.SignedOnly,
+            FilterState = pageModel.FilterState
         };
     }
 

@@ -35,6 +35,82 @@
   --app-theme-icon-hover-background: #D5D0FF;
   --app-theme-icon-hover-border: rgba(17, 24, 39, 0.18);
   --app-theme-icon-hover-color: #111827;
+  --app-gap-xs: 0.25rem;
+  --app-gap-sm: 0.5rem;
+  --app-gap-md: 0.75rem;
+  --app-gap-lg: 1rem;
+  --app-gap-xl: 1.5rem;
+  --app-button-min-height: 2rem;
+  --app-button-padding: 0.45rem 0.8rem;
+  --app-button-font-size: 0.72rem;
+  --app-button-font-weight: 400;
+  --app-button-radius: 0.335rem;
+  --app-button-gap: 0.5rem;
+  --app-button-container-gap: var(--app-gap-md);
+  --app-field-min-height: 44px;
+  --app-field-padding: 0.75rem 0.9rem;
+  --app-field-font-size: 0.95rem;
+  --app-field-line-height: 1.4;
+  --app-field-top-offset: 15px;
+  --app-field-radius: 0.5rem;
+  --app-field-icon-size: 2.875rem;
+  --app-field-toggle-size: 2rem;
+  --app-section-padding: 1rem;
+  --app-section-radius: 0.75rem;
+  --app-page-padding: 0.5vw;
+  --app-page-content-gap: 1vw;
+  --app-toolbar-gap: var(--app-gap-md);
+  --app-card-gap: 1.25rem;
+  --app-card-header-gap: var(--app-gap-sm);
+  --app-card-padding: 1.25rem;
+  --app-nav-panel-radius: 1rem;
+  --app-table-font-size: 0.8rem;
+  --app-table-cell-padding: 0.4em;
+  --app-table-line-height: 1.35;
+  --app-table-radius: 16px;
+  --app-table-scroll-margin-top: 0.32rem;
+  --app-modal-footer-padding: 16px 20px 20px;
+  --app-modal-footer-gap: 10px;
+  --app-modal-header-padding: 20px 56px 16px 24px;
+  --app-modal-alert-padding: 1.875rem;
+  --app-tab-gap: 0.55rem;
+  --app-tab-padding: var(--app-button-padding);
+  --app-tab-font-size: var(--app-button-font-size);
+  --app-tab-radius: 0.5rem 0.5rem 0 0;
+  --app-rating-button-size: 44px;
+  --app-rating-button-radius: 12px;
+  --app-compact-control-size: 1.75rem;
+  --app-popover-offset: var(--app-gap-sm);
+  --app-popover-padding: 0.875rem;
+  --app-popover-radius: 0.875rem;
+  --app-dropdown-gap: var(--app-gap-sm);
+  --app-dropdown-padding: var(--app-gap-sm);
+  --app-dropdown-radius: 0.625rem;
+  --app-filter-mode-gap: 0.375rem;
+  --app-filter-choice-min-height: 2.125rem;
+  --app-filter-choice-padding: 0.48rem 0.55rem;
+  --app-filter-choice-radius: var(--app-dropdown-radius);
+  --app-calendar-card-gap: 0.4375rem;
+  --app-calendar-card-padding: 0.625rem;
+  --app-calendar-grid-gap: var(--app-gap-xs);
+  --app-calendar-day-size: 1.75rem;
+  --app-calendar-day-radius: var(--app-field-radius);
+  --app-chip-min-height: 2rem;
+  --app-chip-padding: 0 0.75rem;
+  --app-chip-radius: 999px;
+  --app-chip-gap: var(--app-gap-sm);
+  --app-chip-remove-size: 1.375rem;
+  --app-tooltip-padding: 0.625rem 0.875rem;
+  --app-tooltip-radius: var(--app-section-radius);
+  --app-toast-padding: 1rem 1.125rem;
+  --app-toast-radius: var(--app-popover-radius);
+  --app-confirm-padding: 1.5rem;
+  --app-confirm-mobile-padding: 1.25rem 1rem;
+  --app-confirm-radius: var(--app-nav-panel-radius);
+  --app-status-padding: 0.9375rem;
+  --app-checkbox-list-gap: 0.375rem;
+  --app-checkbox-option-padding: 0.55rem 0.65rem;
+  --app-checkbox-option-radius: var(--app-dropdown-radius);
 }
 
 body,
@@ -268,7 +344,7 @@ body {
 }
 
 .modal_btn-secondary {
-  font-weight: 500 !important;
+  font-weight: var(--app-button-font-weight);
 }
 
 :is(
@@ -301,12 +377,11 @@ body {
   line-height: 1;
 }
 
-.survey-period-filter__trigger,
 .csp-btn-secondary,
 .app-checkbox-dropdown__trigger:not(.modal_btn-primary),
 .reset-filter-btn,
 .pagination-button {
-  font-weight: 500 !important;
+  font-weight: var(--app-button-font-weight);
 }
 
 .survey-period-filter__clear-button,

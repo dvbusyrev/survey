@@ -67,6 +67,16 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
 
     renderChromeShell();
 
+    function remountPageEnhancements() {
+        if (!(contentHost instanceof Element)) {
+            return;
+        }
+
+        window.SurveysPage?.destroy?.(contentHost);
+        window.SurveyFilters?.destroy?.(contentHost);
+        window.SurveyFilters?.mount?.(contentHost);
+    }
+
     const initialSnapshot = createSnapshotFromHost(contentHost);
     if (!initialSnapshot) {
         return;
@@ -366,18 +376,26 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
             return;
         }
 
+        const currentPath = normalizeSurveyUserPathname(window.location.pathname);
+        const shouldKeepCurrentQuery = tab === 'archived'
+            && currentPath === entry.url
+            && window.location.search;
+        const entryUrl = shouldKeepCurrentQuery
+            ? `${entry.url}${window.location.search}`
+            : entry.url;
         const nextState = { tab: entry.tab };
         if (mode === 'replace') {
-            window.history.replaceState(nextState, '', entry.url);
+            window.history.replaceState(nextState, '', entryUrl);
             return;
         }
 
-        const currentPath = normalizeSurveyUserPathname(window.location.pathname);
-        if (currentPath === entry.url && window.history.state?.tab === nextState.tab) {
+        if (currentPath === entry.url
+            && window.location.search === (shouldKeepCurrentQuery ? window.location.search : '')
+            && window.history.state?.tab === nextState.tab) {
             return;
         }
 
-        window.history.pushState(nextState, '', entry.url);
+        window.history.pushState(nextState, '', entryUrl);
     }
 
     function setLoading(isLoading) {
@@ -496,6 +514,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         setError('');
         populateDateFilters();
         applyLocalFilters();
+        remountPageEnhancements();
         syncActiveCountBadge();
         renderModals();
     }
@@ -522,17 +541,19 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         setError('');
         populateDateFilters();
         applyLocalFilters();
+        remountPageEnhancements();
         syncActiveCountBadge();
         renderModals();
     }
 
-    async function fetchSnapshot(tab, page, searchTerm, signedOnly) {
+    async function fetchSnapshot(tab, page, searchTerm, signedOnly, filterQuery = null) {
         return fetchSurveyUserSnapshot({
             tab,
             userId: initialData.userId,
             page,
             searchTerm,
-            signedOnly
+            signedOnly,
+            filterQuery
         });
     }
 
@@ -550,7 +571,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         }
 
         try {
-            const snapshot = await fetchSnapshot(tab, page, searchTerm, signedOnly);
+            const snapshot = await fetchSnapshot(tab, page, searchTerm, signedOnly, options.filterQuery ?? null);
             if (disposed) {
                 return null;
             }
@@ -877,6 +898,30 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
     };
     window.refreshSurveyUserPageData = refreshSurveyUserPageData;
 
+    const refreshSurveyUserArchiveFilters = function refreshSurveyUserArchiveFilters(queryString, options = {}) {
+        if (state.activeTab !== 'archived') {
+            return;
+        }
+
+        const normalizedQuery = String(queryString || '').replace(/^\?/, '').trim();
+        const nextHistoryUrl = normalizedQuery ? `/archive?${normalizedQuery}` : '/archive';
+        const currentUrl = `${normalizeSurveyUserPathname(window.location.pathname)}${window.location.search}`;
+        if (currentUrl === nextHistoryUrl && window.history.state?.tab === 'archived') {
+            window.history.replaceState({ tab: 'archived' }, '', nextHistoryUrl);
+        } else {
+            window.history.pushState({ tab: 'archived' }, '', nextHistoryUrl);
+        }
+        loadTabSnapshot('archived', {
+            page: 1,
+            searchTerm: state.currentSnapshot.searchTerm,
+            signedOnly: state.currentSnapshot.signedOnly,
+            filterQuery: normalizedQuery,
+            preserveFilters: true,
+            scrollToTableStart: Boolean(options.scrollTargetSelector)
+        });
+    };
+    window.refreshSurveyUserArchiveFilters = refreshSurveyUserArchiveFilters;
+
     window.addEventListener('popstate', handlePopState);
 
     const destroy = () => {
@@ -899,9 +944,14 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         contentHost.removeEventListener('submit', handleSubmit);
         contentHost.removeEventListener('change', handleChange);
         window.removeEventListener('popstate', handlePopState);
+        window.SurveysPage?.destroy?.(contentHost);
+        window.SurveyFilters?.destroy?.(contentHost);
 
         if (window.refreshSurveyUserPageData === refreshSurveyUserPageData) {
             delete window.refreshSurveyUserPageData;
+        }
+        if (window.refreshSurveyUserArchiveFilters === refreshSurveyUserArchiveFilters) {
+            delete window.refreshSurveyUserArchiveFilters;
         }
         if (window.__surveyUserListController?.destroy === destroy) {
             delete window.__surveyUserListController;

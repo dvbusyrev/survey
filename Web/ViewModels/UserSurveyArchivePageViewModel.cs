@@ -13,4 +13,5 @@ public sealed class UserSurveyArchivePageViewModel
     public string DateFrom { get; init; } = string.Empty;
     public string DateTo { get; init; } = string.Empty;
     public bool SignedOnly { get; init; }
+    public ServerTableFilterStateViewModel FilterState { get; init; } = new();
 }

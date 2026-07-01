@@ -16,13 +16,13 @@ footer p {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
+  gap: var(--app-card-gap);
 }
 
 .card {
-  padding: 15px;
+  padding: var(--app-section-padding);
   background-color: white;
-  border-radius: 8px;
+  border-radius: var(--app-section-radius);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s;
 }
@@ -35,10 +35,11 @@ footer p {
   -webkit-appearance: none;
   appearance: none;
   position: relative;
-  width: 3rem;
-  min-width: 2.75rem;
+  width: var(--app-rating-button-size);
+  min-width: var(--app-rating-button-size);
   aspect-ratio: 1 / 1;
   padding: 0;
+  border-radius: var(--app-rating-button-radius);
 }
 
 .btn_crit:hover:not(.active) {
@@ -57,8 +58,8 @@ footer p {
 
 @media (max-width: 768px) {
   .btn_crit {
-    width: 2.5rem;
-    min-width: 2.5rem;
+    width: var(--app-rating-button-size);
+    min-width: var(--app-rating-button-size);
     font-size: 1rem;
   }
 }

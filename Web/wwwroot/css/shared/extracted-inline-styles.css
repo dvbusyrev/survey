@@ -8,7 +8,7 @@
 
 .survey-loading-block {
     text-align: center;
-    padding: 20px;
+    padding: var(--app-card-padding);
 }
 
 .survey-loading-label {
@@ -43,6 +43,7 @@
     margin-top: 0;
     margin-bottom: 16px;
     font-size: 24px;
+    font-weight: 400;
 }
 
 .admin-extension-survey-name {
@@ -52,7 +53,7 @@
     line-height: 1.45;
     background: #f8fafc;
     border: 1px solid rgba(203, 213, 225, 0.8);
-    border-radius: 8px;
+    border-radius: var(--app-section-radius);
 }
 
 .admin-extension-error {
@@ -68,7 +69,7 @@
 .admin-extension-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: var(--app-button-container-gap);
     margin-top: 16px;
 }
 
@@ -106,8 +107,8 @@
     background: #ffebee;
     color: #e53935;
     border: 1px solid #ffcdd2;
-    padding: 10px 15px;
-    border-radius: 4px;
+    padding: var(--app-button-padding);
+    border-radius: var(--app-button-radius);
     cursor: pointer;
     height: 40px;
 }
@@ -121,5 +122,5 @@
 .admin-statistics-root {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: var(--app-card-padding);
 }

@@ -48,7 +48,7 @@
   margin: auto;
   padding: 0;
   background: white;
-  border-radius: 12px;
+  border-radius: var(--app-modal-radius, var(--app-section-radius));
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
 }
@@ -57,7 +57,7 @@
   position: relative;
   flex: 0 0 auto;
   min-height: 0;
-  padding: 20px 56px 16px 24px;
+  padding: var(--app-modal-header-padding);
   border-bottom: 1px solid #eee;
 }
 
@@ -65,14 +65,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--app-gap-md);
 }
 
 .modal-title {
   margin: 0;
   color: var(--primary-dark);
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 400;
   text-align: center;
 }
 
@@ -151,7 +151,7 @@
   .organization-dropdown,
   .admin-extension-input
 ) {
-  min-height: 3rem;
+  min-height: var(--app-field-min-height);
 }
 
 .modal .modal-body .form-group :is(
@@ -165,7 +165,7 @@
 
 .modal .modal-body .input-container {
   margin-top: 0;
-  min-height: 3rem;
+  min-height: var(--app-field-min-height);
 }
 
 .modal .modal-body > :last-child {
@@ -185,9 +185,9 @@
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: var(--app-modal-footer-gap);
   margin-top: 0;
-  padding: 16px 20px 20px;
+  padding: var(--app-modal-footer-padding);
   border-top: 1px solid #eee;
   flex-wrap: wrap;
 }
@@ -316,10 +316,10 @@
   position: relative;
   width: 90%;
   max-width: 500px;
-  padding: 30px;
+  padding: var(--app-modal-alert-padding);
   text-align: center;
   background: white;
-  border-radius: 8px;
+  border-radius: var(--app-section-radius);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   transform: translateY(-20px);
   transition: all 0.3s ease;
@@ -374,7 +374,7 @@ body.modal-open {
 }
 
 .confirmed-criteria {
-  padding: 15px;
+  padding: var(--app-status-padding);
   background-color: #d4edda;
   border-left: 4px solid #28a745;
   border-radius: 5px;
@@ -403,7 +403,7 @@ body.modal-open {
 }
 
 .loading-text {
-  margin-top: 15px;
+  margin-top: var(--app-gap-lg);
   color: white;
   font-size: 1rem;
   text-align: center;

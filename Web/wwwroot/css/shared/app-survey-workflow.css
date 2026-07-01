@@ -31,7 +31,7 @@
 }
 
 .success-message {
-  padding: 20px;
+  padding: var(--app-card-padding);
   color: var(--success);
   text-align: center;
 }

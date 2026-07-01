@@ -6,7 +6,7 @@
   height: 100%;
   margin: 0;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: var(--app-table-radius);
   box-shadow: none;
   overflow-x: hidden;
   overflow-y: auto;
@@ -21,7 +21,7 @@
 
 .extension-modal {
   max-width: min(100%, 800px);
-  padding: 20px;
+  padding: var(--app-card-padding);
 }
 
 .extension-form {
@@ -52,14 +52,15 @@
   margin-right: auto;
   margin-left: auto;
   color: var(--text-main);
+  font-weight: 400;
   text-align: center;
 }
 
 .menu-bar {
   display: flex;
-  gap: 10px;
+  gap: var(--app-tab-bar-gap, var(--app-gap-sm));
   flex-wrap: wrap;
-  padding-bottom: 4px;
+  padding-bottom: var(--app-tab-bar-padding-bottom, var(--app-gap-xs));
   overflow-x: visible;
   border-bottom: 1px solid var(--border);
 }
@@ -68,17 +69,17 @@
   display: flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 0.55rem;
+  gap: var(--app-tab-gap);
   max-width: 100%;
   min-height: var(--app-button-min-height);
-  padding: var(--app-button-padding);
+  padding: var(--app-tab-padding);
   color: var(--text-main);
-  font-size: var(--app-button-font-size);
+  font-size: var(--app-tab-font-size);
   font-weight: 500;
   text-decoration: none;
   background-color: rgba(255, 255, 255, 0.7);
   border: 1px solid transparent;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: var(--app-tab-radius);
   cursor: pointer;
   overflow-wrap: anywhere;
   transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
@@ -194,8 +195,7 @@
   .help-document-page__content table,
   .modal-content table
 ) {
-  --app-table-font-size: 0.8rem;
-  scroll-margin-top: 0.32rem;
+  scroll-margin-top: var(--app-table-scroll-margin-top);
   width: 100%;
   min-width: 100%;
   margin-top: 0;
@@ -206,12 +206,12 @@
   border-collapse: separate;
   border-spacing: 0;
   table-layout: auto;
-  border-radius: 16px;
+  border-radius: var(--app-table-radius);
   box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border);
 }
 
 .table-responsive {
-  scroll-margin-top: 0.32rem;
+  scroll-margin-top: var(--app-table-scroll-margin-top);
 }
 
 :where(
@@ -226,10 +226,10 @@
   .help-document-page__content table,
   .modal-content table
 ) :is(th, td) {
-  padding: 0.4em;
+  padding: var(--app-table-cell-padding);
   color: var(--text-main);
   font-size: var(--app-table-font-size);
-  line-height: 1.35;
+  line-height: var(--app-table-line-height);
   text-align: left;
   vertical-align: middle;
   white-space: normal;
@@ -365,7 +365,7 @@
 
 .table_tr {
   background-color: var(--app-theme-table-header-background);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--app-table-radius) var(--app-table-radius) 0 0;
 }
 
 :where(
@@ -396,7 +396,7 @@
   .help-document-page__content table,
   .modal-content table
 ) thead tr:first-child th:first-child {
-  border-top-left-radius: 16px;
+  border-top-left-radius: var(--app-table-radius);
 }
 
 :where(
@@ -411,7 +411,7 @@
   .help-document-page__content table,
   .modal-content table
 ) thead tr:first-child th:last-child {
-  border-top-right-radius: 16px;
+  border-top-right-radius: var(--app-table-radius);
 }
 
 .th-centered {
@@ -623,7 +623,7 @@
   display: flex;
   flex-wrap: nowrap;
   justify-content: center;
-  gap: 10px;
+  gap: var(--app-gap-md);
   width: max-content;
   max-width: none;
   margin-inline: auto;
@@ -675,7 +675,7 @@
   appearance: none;
   background-color: #ffffff;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--app-button-radius);
   cursor: pointer;
   overflow: visible;
   transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
@@ -717,7 +717,7 @@
   min-width: 148px;
   max-width: min(260px, 80vw);
   display: block;
-  padding: 10px 14px;
+  padding: var(--app-tooltip-padding);
   color: var(--text-main);
   font-size: 0.85rem;
   font-weight: 500;
@@ -726,7 +726,7 @@
   line-height: 1.35;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 12px;
+  border-radius: var(--app-section-radius);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
   opacity: 0;
   visibility: hidden;
@@ -780,7 +780,7 @@
 .no-results-message {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--app-gap-md);
   color: #ff4c5b;
   font-size: 1rem;
 }
@@ -794,7 +794,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--app-gap-md);
   flex-wrap: wrap;
   margin-top: 24px;
 }
@@ -853,6 +853,6 @@
   #content_admin,
   #content_user {
     padding: 0.875rem;
-    border-radius: 14px;
+    border-radius: var(--app-popover-radius);
   }
 }

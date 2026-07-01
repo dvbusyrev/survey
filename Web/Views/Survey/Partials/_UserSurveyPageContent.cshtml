@@ -37,6 +37,10 @@
             @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyDateFilter.cshtml")
             @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyNameFilter.cshtml")
         </div>
+
+        <script type="application/json" data-role="server-filter-bootstrap">
+            @Html.Raw(JsonSerializer.Serialize(pageModel.FilterState))
+        </script>
     }
 
     <section class="app-page__section u-hidden" data-role="loading">

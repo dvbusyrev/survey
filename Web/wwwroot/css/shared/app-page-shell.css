@@ -1,10 +1,10 @@
 .app-page {
   display: flex;
   flex-direction: column;
-  gap: 1vw;
+  gap: var(--app-page-content-gap);
   width: min(100%, var(--content-max-width));
   margin: 0 auto;
-  padding: 0.5vw;
+  padding: var(--app-page-padding);
 }
 
 .app-page--narrow {
@@ -15,7 +15,7 @@
 .app-page__section {
   background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--app-section-radius);
   box-shadow: var(--shadow-sm);
 }
 
@@ -77,7 +77,7 @@
 }
 
 .app-page__section {
-  padding: 1rem;
+  padding: var(--app-section-padding);
 }
 
 .app-page__section--flush {
@@ -86,16 +86,16 @@
 }
 
 .app-page__stack {
-  margin: 1rem;
+  margin: var(--app-section-padding);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--app-stack-gap, var(--app-gap-lg));
 }
 
 .app-page__toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--app-toolbar-gap);
   flex-wrap: wrap;
 }
 

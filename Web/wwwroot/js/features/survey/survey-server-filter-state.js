@@ -22,18 +22,20 @@
             return null;
         }
 
-        if (serverFilterConfigs.has(page)) {
-            return serverFilterConfigs.get(page);
+        const bootstrapNode = page.querySelector('script[data-role="server-filter-bootstrap"]');
+        const bootstrapRaw = bootstrapNode?.textContent || '';
+        const cachedConfig = serverFilterConfigs.get(page);
+        if (cachedConfig && cachedConfig.raw === bootstrapRaw) {
+            return cachedConfig.config;
         }
 
-        const bootstrapNode = page.querySelector('script[data-role="server-filter-bootstrap"]');
         if (!bootstrapNode) {
-            serverFilterConfigs.set(page, null);
+            serverFilterConfigs.set(page, { raw: '', config: null });
             return null;
         }
 
         try {
-            const parsed = JSON.parse(bootstrapNode.textContent || '{}');
+            const parsed = JSON.parse(bootstrapRaw || '{}');
             const config = {
                 basePath: String(parsed?.BasePath || parsed?.basePath || '').trim(),
                 enableDateFilter: Boolean(parsed?.EnableDateFilter ?? parsed?.enableDateFilter),
@@ -63,10 +65,10 @@
                 config.year = null;
             }
 
-            serverFilterConfigs.set(page, config);
+            serverFilterConfigs.set(page, { raw: bootstrapRaw, config });
             return config;
         } catch (error) {
-            serverFilterConfigs.set(page, null);
+            serverFilterConfigs.set(page, { raw: bootstrapRaw, config: null });
             return null;
         }
     }
@@ -237,6 +239,16 @@
             window.refreshAdminTab(tabName, queryString || null, {
                 scrollTargetSelector
             });
+            return;
+        }
+
+        if (page?.dataset?.page === 'user-surveys') {
+            if (typeof window.refreshSurveyUserArchiveFilters === 'function') {
+                window.refreshSurveyUserArchiveFilters(queryString || null, {
+                    openFilterName,
+                    scrollTargetSelector
+                });
+            }
             return;
         }
 

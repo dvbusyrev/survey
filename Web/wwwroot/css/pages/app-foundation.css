@@ -22,16 +22,11 @@
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
-  --app-field-radius: 0.5rem;
   --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --header-height: 1.9375rem;
   --page-gap: 0.5rem;
   --nav-width: 9.5rem;
   --content-max-width: 100rem;
-  --app-button-min-height: 2rem;
-  --app-button-padding: 0.45rem 0.8rem;
-  --app-button-font-size: 0.72rem;
-  --app-button-radius: 0.335rem;
 }
 
 html,
@@ -237,7 +232,7 @@ option,
 }
 
 .table-th--start {
-  border-radius: 16px 0 0 0;
+  border-radius: var(--app-table-radius) 0 0 0;
 }
 
 .table-th--end {

@@ -1,6 +1,5 @@
 .theme-settings-page__layout {
-  --theme-settings-control-height: 3rem;
-  --theme-settings-row-height: 4.625rem;
+  --theme-settings-control-height: var(--app-field-min-height);
   align-items: start;
 }
 
@@ -14,8 +13,8 @@
 
 .theme-settings-page__form {
   display: grid;
-  gap: 1.5rem;
-  grid-template-rows: repeat(6, var(--theme-settings-row-height)) auto;
+  gap: var(--app-gap-xl);
+  grid-auto-rows: auto;
 }
 
 .theme-settings-page__notice {
@@ -28,7 +27,6 @@
 }
 
 .theme-settings-page__main-row {
-  height: var(--theme-settings-row-height);
   min-height: 0;
 }
 
@@ -38,7 +36,7 @@
   margin: 0 0 0.5rem;
   padding-left: 0;
   color: var(--text-main);
-  font-size: 0.875rem;
+  font-size: var(--app-field-font-size);
   font-weight: 400;
   line-height: 1.25;
   text-align: left;
@@ -133,7 +131,6 @@
 .theme-settings-page__preview-button,
 .theme-settings-page__actions .modal_btn {
   box-sizing: border-box;
-  height: var(--app-button-min-height);
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
   font-size: var(--app-button-font-size);
@@ -153,7 +150,6 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
-  height: var(--theme-settings-control-height);
   min-height: var(--theme-settings-control-height);
   margin-top: 0;
 }
@@ -199,7 +195,7 @@
   width: 100%;
   min-width: 0;
   min-height: var(--theme-settings-control-height);
-  margin-top: 15px;
+  margin-top: var(--app-field-top-offset);
   padding: 0.25rem 0.9rem;
   color: var(--text-main);
   background: #ffffff;
@@ -212,7 +208,7 @@
   flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--app-gap-md);
   min-height: calc(var(--theme-settings-control-height) - 0.5rem);
   min-width: 0;
 }
@@ -229,14 +225,14 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  min-height: 2rem;
+  min-height: var(--app-chip-min-height);
   max-width: 100%;
-  padding: 0 0.75rem;
+  padding: var(--app-chip-padding);
   color: var(--text-main);
   font-weight: 600;
   overflow-wrap: anywhere;
   background: color-mix(in srgb, var(--primary-extra-light) 84%, white 16%);
-  border-radius: 999px;
+  border-radius: var(--app-chip-radius);
 }
 
 .theme-settings-page__selected-effects-text {
@@ -272,8 +268,8 @@
 
 .theme-settings-page__preview-list {
   display: grid;
-  gap: 1.5rem;
-  grid-template-rows: repeat(6, var(--theme-settings-row-height));
+  gap: var(--app-gap-xl);
+  grid-auto-rows: auto;
   min-width: 0;
 }
 
@@ -286,13 +282,12 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  height: var(--theme-settings-control-height);
   min-height: var(--theme-settings-control-height);
-  padding: 0.75rem 0.9rem;
+  padding: var(--app-field-padding);
   color: var(--text-main);
   font-family: inherit;
-  font-size: 0.95rem;
-  line-height: 1.4;
+  font-size: var(--app-field-font-size);
+  line-height: var(--app-field-line-height);
   background: #ffffff;
   border: 1px solid var(--border-dark);
   border-radius: var(--app-field-radius);
@@ -332,7 +327,7 @@
 
 .theme-settings-page__preview-table {
   width: 100%;
-  height: var(--theme-settings-control-height);
+  min-height: var(--theme-settings-control-height);
   min-width: 0;
   color: var(--text-main);
   background: #ffffff;
@@ -344,7 +339,7 @@
 }
 
 .theme-settings-page__preview-table th {
-  height: var(--theme-settings-control-height);
+  min-height: var(--theme-settings-control-height);
   padding: 0 0.9rem;
   color: var(--app-theme-detail-text-color);
   font-size: 0.95rem;
@@ -361,8 +356,7 @@
   }
 
   .theme-settings-page__main-row {
-    height: auto;
-    min-height: var(--theme-settings-row-height);
+    min-height: 0;
   }
 
   .theme-settings-page__shade-row {

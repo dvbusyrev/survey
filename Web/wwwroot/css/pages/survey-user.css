@@ -20,17 +20,17 @@
 
         .rating-buttons {
             display: flex;
-            gap: 0.75rem;
+            gap: var(--app-button-container-gap);
             margin-bottom: 1rem;
         }
 
         .btn_crit {
-            width: 3rem;
-            height: 3rem;
+            width: var(--app-rating-button-size);
+            height: var(--app-rating-button-size);
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 6px;
+            border-radius: var(--app-rating-button-radius);
             background-color: #ffffff;
             color: var(--text-main);
             font-weight: 600;
@@ -360,7 +360,7 @@
 
     .search-container {
         display: flex;
-        gap: 12px;
+        gap: var(--app-gap-md);
         margin-bottom: 1.5rem;
         align-items: center;
         flex-wrap: wrap;
@@ -492,7 +492,7 @@
     align-items: center;
     justify-content: center;
     z-index: 10000;
-    padding: 20px;
+    padding: var(--app-card-padding);
 }
 
 .csp-modal-content {
@@ -508,7 +508,7 @@
 
 .csp-modal h3 {
     margin: 0;
-    padding: 20px;
+    padding: var(--app-card-padding);
     font-size: 1.25rem;
     color: #333;
     border-bottom: 1px solid #eee;
@@ -521,11 +521,11 @@
 }
 
 .csp-modal-footer {
-    padding: 15px 20px;
+    padding: var(--app-modal-footer-padding);
     border-top: 1px solid #eee;
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: var(--app-modal-footer-gap);
 }
 
 /* Кнопки */
@@ -614,8 +614,8 @@
 /* Детали сертификата */
 .cert-details {
     background: #f8f9fa;
-    padding: 15px;
-    border-radius: 4px;
+    padding: var(--app-status-padding);
+    border-radius: var(--app-button-radius);
     margin-bottom: 15px;
     font-size: 14px;
 }
@@ -624,10 +624,10 @@
     margin: 5px 0;
 }
 
-        .podpis {
+.podpis {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--app-gap-sm);
     color: #4CAF50; /* Зеленый цвет для подписи */
     font-size: 14px;
     margin-top: 8px;
@@ -701,7 +701,7 @@
 .signature-info {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--app-gap-sm);
     margin-top: 10px;
     font-size: 14px;
 }
@@ -761,8 +761,8 @@
 
 
             .btn_crit {
-                width: 2.5rem;
-                height: 2.5rem;
+                width: var(--app-rating-button-size);
+                height: var(--app-rating-button-size);
                 font-size: 0.9rem;
             }
 
@@ -846,15 +846,15 @@
 .cert-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--app-gap-md);
     padding: 5px 0;
 }
 
 /* Элемент сертификата */
 .cert-item {
-    padding: 15px;
+    padding: var(--app-section-padding);
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: var(--app-section-radius);
     cursor: pointer;
     transition: background-color 0.12s ease, border-color 0.12s ease;
     background-color: white;
@@ -906,16 +906,16 @@
 
 .loading-content {
     background: white;
-    padding: 2rem;
-    border-radius: 8px;
+    padding: var(--app-card-padding);
+    border-radius: var(--app-section-radius);
     text-align: center;
 }
 
 /* Стили для блока фильтров */
 .filters {
     display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
+    gap: var(--app-toolbar-gap);
+    margin-bottom: var(--app-section-padding);
     flex-wrap: wrap;
     align-items: center;
 }
@@ -923,7 +923,7 @@
 .filter-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--app-gap-sm);
     font-size: 14px;
 }
 
@@ -1044,7 +1044,7 @@
     .date-filters {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: var(--app-gap-md);
     }
 
     .date-filters label {
@@ -1079,8 +1079,8 @@
         }
         
         .btn_crit {
-            width: 2.25rem;
-            height: 2.25rem;
+            width: var(--app-rating-button-size);
+            height: var(--app-rating-button-size);
             font-size: 0.9rem;
         }
     }
@@ -1119,7 +1119,7 @@
             margin-bottom: 2rem;
             padding: 1.5rem;
             background-color: white;
-            border-radius: 8px;
+            border-radius: var(--app-section-radius);
             box-shadow: var(--shadow-sm);
             border: 1px solid var(--border);
         }
@@ -1201,8 +1201,8 @@
             }
             
     .btn_crit {
-        width: 2.2rem;
-        height: 2.2rem;
+        width: var(--app-rating-button-size);
+        height: var(--app-rating-button-size);
         font-size: 0.9rem;
     }
         }
@@ -1221,7 +1221,7 @@
 }
 
 .user-survey-modal__title .answers-modal__title-main {
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .user-survey-modal__title .answers-modal__title-name {
@@ -1258,17 +1258,16 @@
 .search-container {
     display: flex;
     align-items: stretch;
-    gap: 12px;
+    gap: var(--app-gap-md);
     flex-wrap: nowrap;
 }
 
 .search-container .search-box,
 .search-container .filter-select {
     box-sizing: border-box;
-    height: 44px;
-    min-height: 44px;
+    min-height: var(--app-button-min-height);
     margin: 0;
-    font-size: 0.95rem;
+    font-size: var(--app-button-font-size);
     line-height: 1.2;
 }
 
@@ -1282,7 +1281,7 @@
 .search-container .filter-sort {
     display: flex;
     align-items: stretch;
-    gap: 12px;
+    gap: var(--app-gap-md);
     flex: 0 0 auto;
     flex-wrap: nowrap;
     margin: 0;
@@ -1291,7 +1290,8 @@
 .search-container .filter-select {
     width: 220px;
     min-width: 220px;
-    padding: 0 12px;
+    padding: var(--app-button-padding);
+    border-radius: var(--app-button-radius);
 }
 
 @media (max-width: 1100px) {
@@ -1342,15 +1342,16 @@
 .user-surveys-page__signed-filter {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--app-gap-md);
     margin-left: auto;
-    min-height: 44px;
-    padding: 0.75rem 0.9rem;
+    min-height: var(--app-button-min-height);
+    padding: var(--app-button-padding);
     color: var(--text-secondary);
-    font-weight: 500;
+    font-size: var(--app-button-font-size);
+    font-weight: var(--app-button-font-weight);
     background: rgba(255, 255, 255, 0.75);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--app-button-radius);
 }
 
 .user-surveys-page__error-message {
@@ -1511,8 +1512,8 @@
     display: grid;
     align-content: center;
     width: 100%;
-    min-height: 44px;
-    padding: 0.75rem 0.9rem;
+    min-height: var(--app-field-min-height);
+    padding: var(--app-field-padding);
     color: var(--text-main);
     font-weight: 400;
     line-height: 1.4;
@@ -1565,7 +1566,7 @@
 .user-survey-workflow__questions {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--app-gap-lg);
 }
 
 .user-survey-question {
@@ -1586,17 +1587,17 @@
 .user-survey-question__ratings {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: var(--app-button-container-gap, var(--app-gap-md));
 }
 
 .btn_crit {
-    width: 44px;
-    height: 44px;
+    width: var(--app-rating-button-size);
+    height: var(--app-rating-button-size);
     color: var(--text-main);
     font-weight: 500;
     background: #ffffff;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--app-rating-button-radius);
     box-shadow: none;
 }
 
@@ -1722,13 +1723,13 @@
 .survey-user-question-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--app-gap-lg);
 }
 
 .survey-user-question-card {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--app-gap-lg);
 }
 
 .survey-user-signature-status {
@@ -1775,6 +1776,21 @@
     gap: 1rem;
 }
 
+.client-surveys-page__filter-toolbar {
+    align-items: center;
+    gap: var(--app-toolbar-gap);
+}
+
+.client-surveys-page__filter-toolbar .survey-period-filter__trigger {
+    min-height: var(--app-field-min-height);
+    padding: var(--app-field-padding);
+    font-size: var(--app-field-font-size);
+}
+
+.client-surveys-page__filter-toolbar .survey-period-filter__trigger i {
+    font-size: 1em;
+}
+
 .client-surveys-page__content > script[data-role="survey-user-items"] {
     display: none;
 }
@@ -1814,7 +1830,7 @@
     min-width: 148px;
     max-width: min(260px, 80vw);
     display: block;
-    padding: 10px 14px;
+    padding: var(--app-tooltip-padding);
     color: var(--text-main);
     font-size: 0.85rem;
     font-weight: 500;
@@ -1823,7 +1839,7 @@
     white-space: normal;
     background: rgba(255, 255, 255, 0.98);
     border: 1px solid rgba(148, 163, 184, 0.28);
-    border-radius: 12px;
+    border-radius: var(--app-section-radius);
     box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
     opacity: 0;
     visibility: hidden;

@@ -10,9 +10,9 @@ body {
 
 .step {
   margin-bottom: 30px;
-  padding: 20px;
+  padding: var(--app-card-padding);
   background-color: rgba(255, 255, 255, 0.92);
-  border-radius: 8px;
+  border-radius: var(--app-section-radius);
   box-shadow: var(--shadow-sm);
 }
 
@@ -28,6 +28,7 @@ body {
   margin-right: auto;
   margin-left: auto;
   color: var(--primary-dark);
+  font-weight: 400;
   text-align: center;
 }
 
@@ -40,7 +41,7 @@ body {
 
 .table_tr {
   background-color: var(--app-theme-table-header-background);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--app-table-radius) var(--app-table-radius) 0 0;
 }
 
 .action-icons {
@@ -58,7 +59,7 @@ body {
   justify-content: center;
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: var(--app-button-radius);
   color: var(--text-secondary);
   background-color: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--app-theme-icon-hover-border);
@@ -85,7 +86,7 @@ body {
   min-width: 148px;
   max-width: 250px;
   display: block;
-  padding: 10px 14px;
+  padding: var(--app-tooltip-padding);
   visibility: hidden;
   opacity: 0;
   color: var(--text-main);
@@ -97,7 +98,7 @@ body {
   pointer-events: none;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--app-section-radius);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
   transform: translateX(-50%);
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;

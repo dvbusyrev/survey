@@ -12,6 +12,7 @@ public sealed class UserSurveyPageContentViewModel
     public int ArchivedCount { get; init; }
     public string SearchTerm { get; init; } = string.Empty;
     public bool SignedOnly { get; init; }
+    public ServerTableFilterStateViewModel FilterState { get; init; } = new();
 
     public bool IsArchive => string.Equals(ActiveTab, "archived", StringComparison.OrdinalIgnoreCase);
 

@@ -92,6 +92,9 @@ public partial class SurveyService
         string? dateFrom,
         string? dateTo,
         bool signedOnly,
+        string? surveyIds = null,
+        string? year = null,
+        string? month = null,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -108,6 +111,8 @@ public partial class SurveyService
         var normalizedDate = date?.Trim() ?? string.Empty;
         var normalizedDateFrom = dateFrom?.Trim() ?? string.Empty;
         var normalizedDateTo = dateTo?.Trim() ?? string.Empty;
+        var selectedSurveyIds = ParseArchiveSelectedIds(surveyIds);
+        var bounds = ResolveDateBounds(year, month, normalizedDateFrom, normalizedDateTo);
 
         DateTime? exactCompletionDate = null;
         DateTime? completionDateFrom = null;
@@ -118,21 +123,36 @@ public partial class SurveyService
         }
         else
         {
-            if (DateTime.TryParse(normalizedDateFrom, out var parsedDateFrom))
+            if (bounds.FilterType != ArchiveDateFilterType.None)
             {
-                completionDateFrom = parsedDateFrom;
+                completionDateFrom = bounds.Start;
+                completionDateTo = bounds.End;
             }
-
-            if (DateTime.TryParse(normalizedDateTo, out var parsedDateTo))
+            else
             {
-                completionDateTo = parsedDateTo;
+                if (DateTime.TryParse(normalizedDateFrom, out var parsedDateFrom))
+                {
+                    completionDateFrom = parsedDateFrom;
+                }
+
+                if (DateTime.TryParse(normalizedDateTo, out var parsedDateTo))
+                {
+                    completionDateTo = parsedDateTo;
+                }
             }
         }
+
+        var surveyOptions = BuildArchiveSelectionOptions(
+            await _surveyRepository.GetUserArchivedSurveyOptionsAsync(
+                connection,
+                userOrganizationId.Value,
+                cancellationToken));
 
         var pageData = await _surveyRepository.GetUserArchivePageAsync(
             connection,
             userOrganizationId.Value,
             normalizedSearchTerm,
+            selectedSurveyIds,
             exactCompletionDate,
             completionDateFrom,
             completionDateTo,
@@ -154,7 +174,19 @@ public partial class SurveyService
             SearchTerm = normalizedSearchTerm,
             DateFrom = normalizedDateFrom,
             DateTo = normalizedDateTo,
-            SignedOnly = signedOnly
+            SignedOnly = signedOnly,
+            FilterState = new ServerTableFilterStateViewModel
+            {
+                BasePath = "/archive",
+                EnableDateFilter = true,
+                EnableSurveyFilter = true,
+                SurveyOptions = surveyOptions,
+                SelectedSurveyIds = selectedSurveyIds,
+                Year = bounds.FilterType == ArchiveDateFilterType.Year ? bounds.Year : null,
+                Month = bounds.FilterType == ArchiveDateFilterType.Month ? bounds.Month : string.Empty,
+                DateFrom = bounds.FilterType == ArchiveDateFilterType.Range ? bounds.Start?.ToString("yyyy-MM-dd") ?? string.Empty : string.Empty,
+                DateTo = bounds.FilterType == ArchiveDateFilterType.Range ? bounds.End?.ToString("yyyy-MM-dd") ?? string.Empty : string.Empty
+            }
         };
     }
 

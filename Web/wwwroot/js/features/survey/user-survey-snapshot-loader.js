@@ -1,6 +1,6 @@
 import { createSnapshotFromHtml } from './user-survey-page-helpers.js';
 
-function buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly }) {
+function buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
     if (tab === 'help') {
         return '/help';
     }
@@ -9,7 +9,12 @@ function buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly }) {
         return `/survey?page=${page}&searchTerm=${encodeURIComponent(searchTerm || '')}`;
     }
 
-    return `/archive/${userId}?page=${page}&searchTerm=${encodeURIComponent(searchTerm || '')}&signedOnly=${signedOnly ? 'true' : 'false'}`;
+    const params = new URLSearchParams(filterQuery ?? window.location.search);
+    ['page', 'searchTerm', 'signedOnly'].forEach((key) => params.delete(key));
+    params.set('page', String(page));
+    params.set('searchTerm', searchTerm || '');
+    params.set('signedOnly', signedOnly ? 'true' : 'false');
+    return `/archive/${userId}?${params.toString()}`;
 }
 
 function getSnapshotLoadError(tab) {
@@ -24,8 +29,8 @@ function getSnapshotParseError(tab) {
         : 'Не удалось построить содержимое страницы анкет';
 }
 
-export async function fetchSurveyUserSnapshot({ tab, userId, page, searchTerm, signedOnly }) {
-    const response = await fetch(buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly }), {
+export async function fetchSurveyUserSnapshot({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
+    const response = await fetch(buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly, filterQuery }), {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }

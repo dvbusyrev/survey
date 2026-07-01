@@ -31,7 +31,8 @@
         ActiveCount = (ViewBag.ActiveTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel)?.ActiveCount ?? 0,
         ArchivedCount = Model.TotalCount,
         SearchTerm = Model.SearchTerm,
-        SignedOnly = Model.SignedOnly
+        SignedOnly = Model.SignedOnly,
+        FilterState = Model.FilterState
     };
     var activeTabContentModel = ViewBag.ActiveTabContentModel as MainProject.Web.ViewModels.UserSurveyPageContentViewModel;
 }
