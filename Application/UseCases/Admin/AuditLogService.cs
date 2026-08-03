@@ -110,7 +110,7 @@ public partial class AuditLogService
             normalizedPageSize,
             normalizedSortBy,
             normalizedSortDirection,
-            includeDetails: !stripDetails,
+            includeDetails: true,
             cancellationToken);
         var pageLogs = SortLogsForPage(
                 MapAuditRows(pageRead.Rows, pageRead.SourceColumnOrders, reconstructPreviousSnapshots: false),

@@ -232,19 +232,38 @@ internal static class AuditLogQueryBuilder
         var recordPkExpression = BuildRecordPkJsonExpression(source);
         var currentRowDataExpression = BuildAuditRowDataJsonExpression("current_row");
         var parentRowDataExpression = BuildAuditRowDataJsonExpression("parent_row");
+        var oldRowDataExpression = $$"""
+            CASE
+                WHEN current_row.operation = 'DELETE' THEN {{currentRowDataExpression}}
+                WHEN current_row.operation = 'UPDATE' AND parent_row.id_audit IS NOT NULL THEN {{parentRowDataExpression}}
+                ELSE NULL::jsonb
+            END
+            """;
+        var newRowDataExpression = $$"""
+            CASE
+                WHEN current_row.operation IN ('INSERT', 'UPDATE') THEN {{currentRowDataExpression}}
+                ELSE NULL::jsonb
+            END
+            """;
+        var eventFingerprintExpression = $$"""
+            md5(CONCAT_WS(
+                CHR(31),
+                current_row.changed_at::text,
+                COALESCE(current_row.changed_by_user_id::text, ''),
+                '{{source.SourceTable}}',
+                current_row.operation,
+                {{recordPkExpression}}::text,
+                {{currentRowDataExpression}}::text,
+                COALESCE(({{oldRowDataExpression}})::text, 'null'),
+                COALESCE(({{newRowDataExpression}})::text, 'null')
+            ))
+            """;
         var detailsProjection = includeDetails
             ? $$"""
                 {{recordPkExpression}}::text AS record_pk_json,
                 {{currentRowDataExpression}}::text AS row_data_json,
-                CASE
-                    WHEN current_row.operation = 'DELETE' THEN {{currentRowDataExpression}}
-                    WHEN current_row.operation = 'UPDATE' AND parent_row.id_audit IS NOT NULL THEN {{parentRowDataExpression}}
-                    ELSE NULL::jsonb
-                END::text AS old_row_data_json,
-                CASE
-                    WHEN current_row.operation IN ('INSERT', 'UPDATE') THEN {{currentRowDataExpression}}
-                    ELSE NULL::jsonb
-                END::text AS new_row_data_json
+                ({{oldRowDataExpression}})::text AS old_row_data_json,
+                ({{newRowDataExpression}})::text AS new_row_data_json
                 """
             : """
                 NULL::text AS record_pk_json,
@@ -276,6 +295,7 @@ internal static class AuditLogQueryBuilder
                 {{source.TargetIdSql}} AS target_id,
                 {{source.RelatedKindSql}} AS related_kind,
                 {{source.RelatedIdSql}} AS related_id,
+                {{eventFingerprintExpression}} AS event_fingerprint,
                 {{detailsProjection}}
             FROM {{sourceFrom}}
             LEFT JOIN public.{{source.AuditTableName}} parent_row
@@ -312,7 +332,7 @@ internal static class AuditLogQueryBuilder
                         COALESCE({tableAlias}.changed_by_user_id::text, ''),
                         '|',
                         {tableAlias}.changed_at::text)
-                ELSE CONCAT('audit|', {tableAlias}.source_table, '|', {tableAlias}.id_audit::text)
+                ELSE CONCAT('audit|', {tableAlias}.event_fingerprint)
             END
             """;
     }

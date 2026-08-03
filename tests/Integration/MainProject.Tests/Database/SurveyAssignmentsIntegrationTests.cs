@@ -153,6 +153,108 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task AuditLogPagination_DeduplicatesBeforeApplyingPageWindow()
+    {
+        var repository = new AuditLogRepository(_connectionFactory);
+        var service = new AuditLogService(repository);
+        var initialCount = await repository.GetEventCountAsync();
+
+        await using var connection = _fixture.CreateConnection();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO public.organization (organization_name, organization_short_name, date_begin)
+            SELECT
+                'Пагинация журнала ' || item::text,
+                'ПЖ ' || item::text,
+                CURRENT_DATE
+            FROM generate_series(1, 11) AS item;
+            """);
+
+        var sourceAuditId = await connection.ExecuteScalarAsync<long>(
+            """
+            SELECT id_audit
+            FROM public.organization_l
+            WHERE organization_name = 'Пагинация журнала 1'
+              AND operation = 'INSERT'
+            ORDER BY id_audit DESC
+            LIMIT 1;
+            """);
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO public.organization_l
+            (
+                operation,
+                changed_at,
+                changed_by_user_id,
+                parent_audit_id,
+                id_organization,
+                organization_name,
+                date_begin,
+                date_end,
+                email,
+                organization_short_name
+            )
+            SELECT
+                operation,
+                changed_at,
+                changed_by_user_id,
+                parent_audit_id,
+                id_organization,
+                organization_name,
+                date_begin,
+                date_end,
+                email,
+                organization_short_name
+            FROM public.organization_l
+            WHERE id_audit = @SourceAuditId;
+
+            INSERT INTO public.organization_l
+            (
+                operation,
+                changed_at,
+                changed_by_user_id,
+                parent_audit_id,
+                id_organization,
+                organization_name,
+                date_begin,
+                date_end,
+                email,
+                organization_short_name
+            )
+            SELECT
+                operation,
+                changed_at,
+                changed_by_user_id,
+                parent_audit_id,
+                id_organization,
+                organization_name,
+                date_begin,
+                date_end,
+                email,
+                organization_short_name
+            FROM public.organization_l
+            WHERE id_audit = @SourceAuditId;
+            """,
+            new { SourceAuditId = sourceAuditId });
+
+        const int pageSize = 10;
+        var firstPage = await service.GetLogsPageAsync(1, pageSize, null, null);
+
+        Assert.Equal(initialCount + 11, firstPage.TotalCount);
+        for (var pageNumber = 1; pageNumber <= firstPage.TotalPages; pageNumber++)
+        {
+            var page = pageNumber == 1
+                ? firstPage
+                : await service.GetLogsPageAsync(pageNumber, pageSize, null, null);
+            var expectedCount = pageNumber < firstPage.TotalPages
+                ? pageSize
+                : Math.Max(1, firstPage.TotalCount - ((pageNumber - 1) * pageSize));
+
+            Assert.Equal(expectedCount, page.Logs.Count);
+        }
+    }
+
+    [RequiresPostgresFact]
     public async Task ConfigurationAndManagementPersistence_PersistsCurrentSchemaContracts()
     {
         var organizationService = new OrganizationManagementService(_connectionFactory, _clock);
