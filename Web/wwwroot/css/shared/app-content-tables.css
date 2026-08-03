@@ -833,6 +833,10 @@
   hyphens: auto;
 }
 
+:where(.app-table, [data-role="main-table"]) tbody tr[data-hover-label] {
+  cursor: pointer;
+}
+
 @media (max-width: 900px) {
   #content_admin,
   #content_user,

@@ -57,8 +57,8 @@
             {
                 var organizationNamesJson = JsonSerializer.Serialize(survey.OrganizationNames ?? Array.Empty<string>());
                 <tr class="@(isArchive ? "active" : null)"
-                    data-dblclick-call="openEditSurveyModalFromTrigger"
-                    data-dblclick-pass-element="true"
+                    data-role="admin-survey-row"
+                    data-hover-label="Смотреть"
                     data-survey-id="@survey.IdSurvey"
                     data-survey-name="@(survey.NameSurvey ?? string.Empty)"
                     data-survey-date-begin="@survey.DateBegin.ToString("yyyy-MM-dd")"
@@ -110,9 +110,9 @@
                                 </button>
                                 <a class="icon-container"
                                    href="/survey/archive/@survey.IdSurvey/edit"
-                                   aria-label="Посмотреть / обновить">
+                                   aria-label="Редактировать">
                                     <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
-                                    <span class="icon-tooltip">Посмотреть / обновить</span>
+                                    <span class="icon-tooltip">Редактировать</span>
                                 </a>
                             }
                             else
@@ -129,9 +129,9 @@
                                 </button>
                                 <a class="icon-container"
                                    href="/survey/@survey.IdSurvey/edit"
-                                   aria-label="Посмотреть / обновить">
+                                   aria-label="Редактировать">
                                     <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
-                                    <span class="icon-tooltip">Посмотреть / обновить</span>
+                                    <span class="icon-tooltip">Редактировать</span>
                                 </a>
                             }
                             <button type="button"

@@ -40,7 +40,7 @@
   flex-direction: column;
   --app-modal-content-padding: 3rem;
   --app-modal-field-gap: 1.5rem;
-  --app-modal-label-gap: 0.5rem;
+  --app-modal-label-gap: var(--app-field-label-gap);
   width: min(960px, calc(100vw - 48px));
   max-width: calc(100vw - 48px);
   max-height: calc(100dvh - 48px);
@@ -154,7 +154,7 @@
 
 .answers-modal__info-block {
   display: grid;
-  gap: var(--app-modal-label-gap, 0.5rem);
+  gap: var(--app-modal-label-gap);
   color: var(--text-main);
 }
 
@@ -193,7 +193,7 @@
   gap: var(--app-modal-field-gap);
   min-height: 0;
   max-height: none;
-  padding: 1rem var(--app-modal-content-padding);
+  padding: var(--app-modal-field-gap) var(--app-modal-content-padding);
   overflow-y: auto;
   overflow-x: hidden; 
 }
@@ -203,13 +203,15 @@
 }
 
 .modal-body .app-field-group {
-  display: block;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--app-field-label-gap);
   margin-bottom: 0;
 }
 
 .modal-body .app-field-group > label {
   display: block;
-  margin: 0 0 var(--app-modal-label-gap);
+  margin: 0;
   padding-left: 0;
   color: var(--text-main);
   font-size: 0.875rem;
@@ -229,8 +231,7 @@
   select,
   textarea,
   .app-field,
-  .organization-dropdown,
-  .admin-extension-input
+  .organization-dropdown
 ) {
   margin-top: 0;
 }
@@ -245,8 +246,7 @@
   input[type="number"],
   select,
   .app-field,
-  .organization-dropdown,
-  .admin-extension-input
+  .organization-dropdown
 ) {
   min-height: var(--app-field-min-height);
 }
@@ -254,8 +254,7 @@
 .modal-body .app-field-group :is(
   .app-date-field,
   .app-native-date-field,
-  input[type="date"][data-date-native="true"].app-field,
-  input[type="date"][data-date-native="true"].admin-extension-input
+  input[type="date"][data-date-native="true"].app-field
 ) {
   width: 100%;
 }
@@ -280,6 +279,11 @@
   box-shadow: none;
 }
 
+.app-details-modal__body {
+  display: grid;
+  gap: var(--app-modal-field-gap);
+}
+
 .modal-footer {
   flex: 0 0 auto;
   display: flex;
@@ -289,6 +293,10 @@
   padding: var(--app-modal-footer-padding);
   border-top: 1px solid #eee;
   flex-wrap: wrap;
+}
+
+.modal-footer:empty {
+  display: none;
 }
 
 .app-button {

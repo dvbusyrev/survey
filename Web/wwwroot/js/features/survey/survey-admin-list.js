@@ -10,11 +10,16 @@
     let signaturesFrame = null;
     let signaturesHost = null;
     let signaturesTitle = null;
+    let detailsModal = null;
+    let detailsFrame = null;
+    let detailsHost = null;
+    let detailsRequestToken = 0;
     const loadedStylesheetUrls = new Set();
     let loadedStylesheetsPrimed = false;
     const mountedPageControllers = new Set();
     const mountedPageControllerByPage = new WeakMap();
     let pendingRouteTimer = null;
+    const SURVEY_ROW_SELECTOR = '.surveys-table tbody tr[data-survey-id]';
 
     function createSurveyModalFrame(options) {
         if (typeof window.createSiteModalFrame !== 'function') {
@@ -247,6 +252,134 @@
         }
     }
 
+    function ensureDetailsModal() {
+        if (detailsModal && detailsHost) {
+            return;
+        }
+
+        const frame = createSurveyModalFrame({
+            id: 'surveyDetailsModal',
+            className: 'survey-details-modal',
+            title: 'Просмотр анкеты',
+            bodyClassName: 'survey-details-modal__body',
+            footer: false,
+            onClose: closeSurveyDetailsModal
+        });
+
+        detailsModal = frame.modal;
+        detailsFrame = frame;
+        detailsHost = frame.body;
+    }
+
+    function closeSurveyDetailsModal() {
+        detailsRequestToken += 1;
+        detailsHost?.replaceChildren();
+        detailsFrame?.hide?.();
+    }
+
+    function createDetailsField(label, value, className = '') {
+        const field = window.AppUi.createField({
+            className,
+            text: String(value || '').trim() || 'Не указано'
+        });
+
+        return window.AppUi.createFieldGroup({ label, field });
+    }
+
+    function createOrganizationField(organizations) {
+        const values = Array.isArray(organizations)
+            ? organizations.map((value) => String(value || '').trim()).filter(Boolean)
+            : [];
+        const field = window.AppUi.createField({
+            className: 'survey-details-modal__organizations'
+        });
+
+        if (values.length === 0) {
+            field.textContent = 'Организации не выбраны';
+        } else {
+            values.forEach((name) => {
+                field.appendChild(window.AppUi.createElement('span', {
+                    className: 'app-chip',
+                    text: name
+                }));
+            });
+        }
+
+        return window.AppUi.createFieldGroup({ label: 'Организации', field });
+    }
+
+    function createCriteriaTable(criteria) {
+        const values = Array.isArray(criteria)
+            ? criteria.map((value) => String(value || '').trim()).filter(Boolean)
+            : [];
+        const tableWrap = window.AppUi.createElement('div', {
+            className: 'app-modal-table-wrap survey-details-modal__table-wrap'
+        });
+        const tableParts = window.AppUi.createTable({
+            className: 'app-modal-table survey-details-modal__table',
+            dataset: { disableColumnSort: 'true' },
+            headerCells: [{ className: 'table-th--start table-th--end', text: 'Критерий' }]
+        });
+
+        if (values.length === 0) {
+            tableParts.appendRow([{
+                className: 'table-empty-cell',
+                text: 'Критерии не добавлены'
+            }]);
+        } else {
+            values.forEach((criterion) => tableParts.appendRow([{ text: criterion }]));
+        }
+
+        tableWrap.appendChild(tableParts.table);
+        return tableWrap;
+    }
+
+    function renderSurveyDetails(details) {
+        detailsHost.replaceChildren(
+            createDetailsField('Название анкеты', details?.name),
+            createDetailsField('Описание', details?.description),
+            createDetailsField('Дата начала', details?.dateBegin),
+            createDetailsField('Дата конца', details?.dateEnd),
+            createOrganizationField(details?.organizations),
+            createCriteriaTable(details?.criteria)
+        );
+    }
+
+    async function fetchSurveyDetails(surveyId) {
+        const response = await fetch(`/survey/${surveyId}/details`, {
+            cache: 'no-store',
+            headers: { Accept: 'application/json' }
+        });
+        const responseText = await response.text();
+        const payload = responseText ? JSON.parse(responseText) : null;
+
+        if (!response.ok) {
+            throw new Error(payload?.message || 'Не удалось загрузить анкету.');
+        }
+
+        return payload || {};
+    }
+
+    async function openSurveyDetailsModalFromRow(row) {
+        const survey = buildSurveyData(row);
+        const requestToken = ++detailsRequestToken;
+
+        try {
+            const details = await fetchSurveyDetails(survey.id_survey);
+            if (requestToken !== detailsRequestToken) {
+                return;
+            }
+
+            ensureDetailsModal();
+            renderSurveyDetails(details);
+            detailsFrame?.show?.();
+        } catch (error) {
+            if (requestToken === detailsRequestToken) {
+                window.AppUi?.notify?.(error.message || 'Не удалось загрузить анкету.', 'error');
+            }
+        }
+    }
+
     function handleSurveyCreateSuccess(result) {
         window.AppUi?.notify?.(result?.message || 'Анкета успешно создана', 'success');
         closeSurveyEditorModal();
@@ -375,20 +508,14 @@
             className: 'survey-signatures-modal',
             title: 'Проверить прохождение',
             bodyClassName: 'app-modal-body--compact survey-signatures-modal__body',
+            footer: false,
             onClose: closeSurveySignaturesModal
         });
-
-        const footerCloseButton = window.AppUi.createButton({
-            variant: 'secondary',
-            text: 'Закрыть'
-        });
-        footerCloseButton.addEventListener('click', closeSurveySignaturesModal);
 
         signaturesModal = frame.modal;
         signaturesFrame = frame;
         signaturesHost = frame.body;
         signaturesTitle = frame.title;
-        frame.footer.appendChild(footerCloseButton);
     }
 
     function closeSurveySignaturesModal() {
@@ -601,6 +728,13 @@
         }
 
         let isDestroyed = false;
+        const rowViewer = window.AppUi?.mountRowViewer?.({
+            root: page,
+            rowSelector: SURVEY_ROW_SELECTOR,
+            label: 'Смотреть',
+            onOpen: openSurveyDetailsModalFromRow
+        });
+
         const controller = {
             page,
             destroy() {
@@ -611,6 +745,7 @@
                 isDestroyed = true;
                 page.removeEventListener('page:unmount', controller.destroy);
                 document.removeEventListener('site-modal:hidden', handleSurveyEditorHidden);
+                rowViewer?.destroy?.();
                 mountedPageControllerByPage.delete(page);
                 mountedPageControllers.delete(controller);
 

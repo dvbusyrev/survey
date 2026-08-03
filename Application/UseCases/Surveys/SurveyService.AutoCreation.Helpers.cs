@@ -170,7 +170,7 @@ public partial class SurveyService
             throw new InvalidOperationException($"Анкета {surveyId} не найдена для автосоздания.");
         }
 
-        var copyName = $"{originalSurvey.NameSurvey} (Копия)";
+        var copyName = originalSurvey.NameSurvey;
         var alreadyCreated = await _surveyRepository.HasSurveyWithScheduleAsync(
             connection,
             transaction,

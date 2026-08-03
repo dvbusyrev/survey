@@ -28,7 +28,7 @@
 
 .help-page__instruction {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--app-field-label-gap);
   min-width: 0;
   margin-bottom: 1.5rem;
 }
@@ -223,7 +223,7 @@ align-items: end;
 
 .reports-page__field {
 display: grid;
-gap: var(--app-gap-sm);
+gap: var(--app-field-label-gap);
 min-width: 0;
 }
 
@@ -250,7 +250,7 @@ text-align: center;
 
 .survey-auto-creation-page__card {
   --survey-auto-creation-field-gap: 1.5rem;
-  --survey-auto-creation-label-gap: 0.5rem;
+  --survey-auto-creation-label-gap: var(--app-field-label-gap);
   width: 100%;
   gap: var(--survey-auto-creation-field-gap);
 }

@@ -25,15 +25,6 @@
     padding: 0;
 }
 
-.admin-extension-modal .modal-content {
-    width: min(47.5rem, calc(100vw - 3rem));
-    overflow: visible;
-}
-
-.admin-extension-modal__body {
-    overflow: visible;
-}
-
 .admin-extension-modal-root--external-actions .admin-extension-modal-title,
 .admin-extension-modal-root--external-actions .admin-extension-actions {
     display: none;
@@ -47,13 +38,7 @@
 }
 
 .admin-extension-survey-name {
-    margin: 0;
-    padding: 0.75rem 0.875rem;
-    color: var(--text-main);
-    line-height: 1.45;
-    background: #f8fafc;
-    border: 1px solid rgba(203, 213, 225, 0.8);
-    border-radius: var(--app-section-radius);
+    overflow-wrap: anywhere;
 }
 
 .admin-extension-error {
@@ -75,48 +60,40 @@
 
 .admin-extension-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(14rem, 0.65fr);
-    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--app-modal-field-gap);
     margin: 0;
     align-items: start;
 }
 
-.admin-extension-col {
-    display: grid;
-    gap: 0.5rem;
+.admin-extension-selected-organizations {
     min-width: 0;
 }
 
-.admin-extension-col label {
-    margin: 0;
-    color: var(--text-main);
-    font-weight: 600;
-    text-align: left;
+.admin-extension-selected-organizations-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--app-gap-md);
+    min-height: 1.4em;
 }
 
-.admin-extension-input {
-    margin-top: 0;
-    min-width: 0;
+.admin-extension-organization-action,
+.admin-extension-organization-dropdown {
+    width: 100%;
 }
 
-.admin-extension-modal-root .app-date-field {
-    margin-top: 0;
+.admin-extension-organization-action {
+    display: flex;
+    justify-content: flex-start;
 }
 
-.admin-extension-remove {
-    background: #ffebee;
-    color: #e53935;
-    border: 1px solid #ffcdd2;
-    padding: var(--app-button-padding);
-    border-radius: var(--app-button-radius);
-    cursor: pointer;
-    height: 40px;
-}
-
-@media (max-width: 45rem) {
-    .admin-extension-row {
-        grid-template-columns: 1fr;
-    }
+.admin-extension-organization-dropdown :is(
+    .app-multiselect__menu,
+    .app-checkbox-dropdown__menu
+) {
+    width: 100%;
+    max-width: none;
 }
 
 .admin-statistics-root {

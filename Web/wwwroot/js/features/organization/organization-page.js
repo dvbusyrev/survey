@@ -1,4 +1,6 @@
 (function () {
+    let organizationDetailsFrame = window.__organizationDetailsFrame || null;
+
     function byId(id) {
         return document.getElementById(id);
     }
@@ -30,6 +32,70 @@
         if (modal) {
             window.AppUi?.setModalVisibility(modal, false);
         }
+    }
+
+    function closeOrganizationDetailsModal() {
+        organizationDetailsFrame?.hide?.();
+    }
+
+    function ensureOrganizationDetailsModal() {
+        if (organizationDetailsFrame?.modal?.isConnected) {
+            return organizationDetailsFrame;
+        }
+
+        if (typeof window.createSiteModalFrame !== 'function') {
+            throw new Error('Модуль модальных окон не загружен');
+        }
+
+        organizationDetailsFrame = window.createSiteModalFrame({
+            id: 'organizationDetailsModal',
+            className: 'organization-details-modal',
+            title: 'Просмотр организации',
+            bodyClassName: 'app-details-modal__body',
+            footer: false,
+            onClose: closeOrganizationDetailsModal
+        });
+        document.body.appendChild(organizationDetailsFrame.modal);
+        window.__organizationDetailsFrame = organizationDetailsFrame;
+        return organizationDetailsFrame;
+    }
+
+    function createOrganizationDetailsField(label, value) {
+        const field = window.AppUi.createField({
+            text: String(value || '').trim() || 'Не указано'
+        });
+        return window.AppUi.createFieldGroup({ label, field });
+    }
+
+    function openOrganizationDetailsModalFromRow(row) {
+        if (!(row instanceof Element)) {
+            return;
+        }
+
+        try {
+            const frame = ensureOrganizationDetailsModal();
+            frame.body.replaceChildren(
+                createOrganizationDetailsField('Название организации', row.dataset.organizationName),
+                createOrganizationDetailsField('Краткое название', row.dataset.organizationShortName),
+                createOrganizationDetailsField('Эл. почта', row.dataset.organizationEmail),
+                createOrganizationDetailsField('Дата начала', row.dataset.organizationDateBeginDisplay),
+                createOrganizationDetailsField('Дата конца', row.dataset.organizationDateEndDisplay)
+            );
+            frame.show();
+        } catch (error) {
+            showOrganizationToast(error.message || 'Не удалось открыть организацию');
+        }
+    }
+
+    function mountOrganizationRowViewer(page) {
+        const viewer = window.AppUi?.mountRowViewer?.({
+            root: page,
+            rowSelector: '.organization-table tbody tr[data-role="organization-row"]',
+            label: 'Смотреть',
+            onOpen: openOrganizationDetailsModalFromRow
+        });
+
+        return () => viewer?.destroy?.();
     }
 
     function refreshOrganizationList() {
@@ -324,4 +390,15 @@
     window.updateOrganization = updateOrganization;
     window.updateOrganizationPage = updateOrganizationPage;
     window.deleteOrganization = deleteOrganization;
+
+    if (window.AppPageLifecycle?.register) {
+        window.AppPageLifecycle.register(
+            'organization-row-viewer',
+            '.app-page[data-page="organization-list"], .app-page[data-page="organization-archive"]',
+            mountOrganizationRowViewer
+        );
+    } else {
+        document.querySelectorAll('.app-page[data-page="organization-list"], .app-page[data-page="organization-archive"]')
+            .forEach(mountOrganizationRowViewer);
+    }
 })();

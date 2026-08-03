@@ -54,7 +54,13 @@
     const criteria = window.createSurveyCriteriaController({ getElementByRole, showError });
     organizations.bindDismissal();
 
+    function setSubmitButtonLabel(label) {
+        const submitButton = getElementByRole('survey-submit');
+        if (submitButton) submitButton.textContent = label;
+    }
+
     function resetSurveyCreateForm() {
+        setSubmitButtonLabel('Сохранить');
         organizations.setSelected([]);
         organizations.resetAvailable();
         ['surveyTitle', 'surveyDescription', 'startDate', 'endDate'].forEach((id) => {
@@ -87,6 +93,7 @@
     function prefillSurveyCreateForm(rawTemplate) {
         const template = normalizeCopyTemplate(rawTemplate);
         resetSurveyCreateForm();
+        setSubmitButtonLabel('Копировать');
         const title = safeGetElement('surveyTitle');
         const description = safeGetElement('surveyDescription');
         if (title) title.value = template.title;

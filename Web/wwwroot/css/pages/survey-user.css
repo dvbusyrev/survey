@@ -46,7 +46,7 @@
 .comment-container,
 .user-survey-question__comment {
     display: grid;
-    gap: var(--app-modal-label-gap, 0.5rem);
+    gap: var(--app-field-label-gap);
 }
 
 .comment-label {

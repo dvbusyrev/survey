@@ -28,6 +28,74 @@ function showAdminToast(message, type = 'error', options = {}) {
     });
 }
 
+var userDetailsFrame = window.__userDetailsFrame || null;
+
+function closeUserDetailsModal() {
+    userDetailsFrame?.hide?.();
+}
+
+function ensureUserDetailsModal() {
+    if (userDetailsFrame?.modal?.isConnected) {
+        return userDetailsFrame;
+    }
+
+    if (typeof window.createSiteModalFrame !== 'function') {
+        throw new Error('Модуль модальных окон не загружен');
+    }
+
+    userDetailsFrame = window.createSiteModalFrame({
+        id: 'userDetailsModal',
+        className: 'user-details-modal',
+        title: 'Просмотр пользователя',
+        bodyClassName: 'app-details-modal__body',
+        footer: false,
+        onClose: closeUserDetailsModal
+    });
+    document.body.appendChild(userDetailsFrame.modal);
+    window.__userDetailsFrame = userDetailsFrame;
+    return userDetailsFrame;
+}
+
+function createUserDetailsField(label, value) {
+    const field = window.AppUi.createField({
+        text: String(value || '').trim() || 'Не указано'
+    });
+    return window.AppUi.createFieldGroup({ label, field });
+}
+
+function openUserDetailsModalFromRow(row) {
+    if (!(row instanceof Element)) {
+        return;
+    }
+
+    try {
+        const frame = ensureUserDetailsModal();
+        frame.body.replaceChildren(
+            createUserDetailsField('ФИО', row.dataset.userFullName),
+            createUserDetailsField('Логин', row.dataset.userName),
+            createUserDetailsField('Эл. почта', row.dataset.userEmail),
+            createUserDetailsField('Организация', row.dataset.userOrganizationName),
+            createUserDetailsField('Роль', row.dataset.userRoleName),
+            createUserDetailsField('Дата начала', row.dataset.userDateBeginDisplay),
+            createUserDetailsField('Дата конца', row.dataset.userDateEndDisplay)
+        );
+        frame.show();
+    } catch (error) {
+        showAdminToast(error.message || 'Не удалось открыть пользователя');
+    }
+}
+
+function mountUserRowViewer(page) {
+    const viewer = window.AppUi?.mountRowViewer?.({
+        root: page,
+        rowSelector: '.users-table tbody tr[data-role="user-row"]',
+        label: 'Смотреть',
+        onOpen: openUserDetailsModalFromRow
+    });
+
+    return () => viewer?.destroy?.();
+}
+
 function ensureValidDateInput(target, label, options = {}) {
     const error = window.AppDate?.getInputError?.(target, { label, required: options.required }) || '';
     if (!error) {
@@ -410,6 +478,17 @@ async function updateUser() {
 // Функция закрытия модального окна
 function closeModal2() {
     window.AppUi?.setModalVisibility('editUserModal', false);
+}
+
+if (window.AppPageLifecycle?.register) {
+    window.AppPageLifecycle.register(
+        'admin-user-row-viewer',
+        '.app-page[data-page="users-list"], .app-page[data-page="users-archive"]',
+        mountUserRowViewer
+    );
+} else {
+    document.querySelectorAll('.app-page[data-page="users-list"], .app-page[data-page="users-archive"]')
+        .forEach(mountUserRowViewer);
 }
 
 document.dispatchEvent(new CustomEvent('admin:user-modal-ready'));

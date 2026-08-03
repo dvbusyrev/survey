@@ -332,6 +332,28 @@
   margin-top: 0;
 }
 
+.surveys-table tbody tr[data-survey-id] {
+  cursor: pointer;
+}
+
+.survey-details-modal__body {
+  display: grid;
+  gap: var(--app-modal-field-gap);
+}
+
+.survey-details-modal__organizations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--app-gap-sm);
+  height: auto;
+  min-height: var(--app-field-min-height);
+}
+
+.survey-details-modal__table-wrap {
+  margin-top: 0;
+}
+
 .survey-editor-page__selected-organizations-list {
   display: flex;
   flex-wrap: wrap;
@@ -441,7 +463,7 @@
 }
 
 .survey-editor-page .app-field-group > .error-message {
-  grid-column: 2;
+  grid-column: 1;
 }
 
 .criteria-btn--info {
@@ -491,10 +513,6 @@
   .survey-period-filter__clear-button,
   .survey-period-filter__save-button {
     width: 100%;
-  }
-
-  .survey-editor-page .app-field-group > .error-message {
-    grid-column: 1;
   }
 
   .survey-editor-page__criteria-control {

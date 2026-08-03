@@ -11,6 +11,12 @@
         'recipient_emails',
         'smtp_password'
     ]);
+    const HIDDEN_IMAGE_COLUMNS = new Set([
+        'background_image_content_type',
+        'background_image_data_url',
+        'background_image_file_name'
+    ]);
+    const IMAGE_COLUMNS = new Set(['background_image', ...HIDDEN_IMAGE_COLUMNS]);
     const HIDDEN_RECORD_COLUMN_MARKERS = ['password', 'signature', 'base64'];
     const BASE_RECORD_COLUMNS = {
         app_user: ['id_user', 'full_name'],
@@ -47,16 +53,30 @@
         return Boolean(value && typeof value === 'object' && !Array.isArray(value));
     }
 
-    function formatRecordValue(columnName, value) {
+    function getFileName(value) {
+        const normalizedValue = String(value || '').trim();
+        if (!normalizedValue) {
+            return '';
+        }
+
+        const pathWithoutQuery = normalizedValue.split(/[?#]/, 1)[0].replace(/\\/g, '/');
+        const fileName = pathWithoutQuery.split('/').filter(Boolean).pop() || pathWithoutQuery;
+
+        try {
+            return decodeURIComponent(fileName);
+        } catch (error) {
+            return fileName;
+        }
+    }
+
+    function formatRecordValue(columnName, value, recordData) {
         const normalizedColumnName = normalizeSourceTable(columnName);
         if (value == null) {
             return 'null';
         }
 
-        if (normalizedColumnName === 'background_image_data_url') {
-            return String(value || '').trim().length > 0
-                ? 'Изображение загружено'
-                : 'Нет изображения';
+        if (normalizedColumnName === 'background_image') {
+            return getFileName(recordData?.background_image_file_name) || 'Изображение';
         }
 
         if (typeof value === 'string') {
@@ -195,11 +215,15 @@
             return true;
         }
 
+        if (HIDDEN_IMAGE_COLUMNS.has(normalizedColumnName)) {
+            return true;
+        }
+
         if (HIDDEN_RECORD_COLUMN_MARKERS.some((marker) => normalizedColumnName.includes(marker))) {
             return true;
         }
 
-        return normalizedColumnName.endsWith('_data_url') && normalizedColumnName !== 'background_image_data_url';
+        return normalizedColumnName.endsWith('_data_url');
     }
 
     function collectAvailableColumns(recordRows) {
@@ -243,6 +267,9 @@
         }
 
         addMany(baseColumns);
+        if (Array.from(changedColumns).some((columnName) => HIDDEN_IMAGE_COLUMNS.has(normalizeSourceTable(columnName)))) {
+            add('background_image');
+        }
         addMany(changedColumns);
 
         if (columns.length === 0) {
@@ -369,12 +396,20 @@
     }
 
     function buildRecordCells(recordRow, columns, changedColumns) {
-        return columns.map((columnName) => ({
-            text: formatRecordValue(columnName, recordRow.data?.[columnName]),
-            className: changedColumns.has(normalizeSourceTable(columnName))
-                ? 'logs-modal__changed-cell'
-                : ''
-        }));
+        return columns.map((columnName) => {
+            const normalizedColumnName = normalizeSourceTable(columnName);
+            const isChangedImage = normalizedColumnName === 'background_image'
+                && Array.from(changedColumns).some((changedColumn) => (
+                    IMAGE_COLUMNS.has(normalizeSourceTable(changedColumn))
+                ));
+
+            return {
+                text: formatRecordValue(columnName, recordRow.data?.[columnName], recordRow.data),
+                className: changedColumns.has(normalizedColumnName) || isChangedImage
+                    ? 'logs-modal__changed-cell'
+                    : ''
+            };
+        });
     }
 
     function appendRecordTable(host, recordRow, columns, changedColumns) {

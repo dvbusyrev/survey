@@ -461,7 +461,7 @@ public partial class SurveyService
             var newSurveyId = await _surveyRepository.CreateSurveyAsync(
                 connection,
                 transaction,
-                $"{originalSurvey.NameSurvey} (Копия)",
+                originalSurvey.NameSurvey,
                 originalSurvey.Description,
                 cancellationToken);
 

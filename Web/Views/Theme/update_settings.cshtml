@@ -29,18 +29,26 @@
             <div class="email-settings-page__form theme-settings-page__form">
                 <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-font-color">Цвет шрифта</label>
-                    <input type="color"
-                           class="theme-settings-page__color-input"
-                           id="theme-font-color"
-                           value="@settings.FontColor" />
+                    <div class="app-field theme-settings-page__color-field"
+                         data-theme-color-field
+                         style="background-color: @settings.FontColor">
+                        <input type="color"
+                               class="theme-settings-page__color-input"
+                               id="theme-font-color"
+                               value="@settings.FontColor" />
+                    </div>
                 </div>
 
                 <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-background-color">Цвет фона</label>
-                    <input type="color"
-                           class="theme-settings-page__color-input"
-                           id="theme-background-color"
-                           value="@settings.BackgroundColor" />
+                    <div class="app-field theme-settings-page__color-field"
+                         data-theme-color-field
+                         style="background-color: @settings.BackgroundColor">
+                        <input type="color"
+                               class="theme-settings-page__color-input"
+                               id="theme-background-color"
+                               value="@settings.BackgroundColor" />
+                    </div>
                 </div>
 
                 <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">

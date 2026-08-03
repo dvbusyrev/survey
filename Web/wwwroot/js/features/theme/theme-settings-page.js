@@ -7,7 +7,12 @@
 
     function setThemeValue(id, value) {
         const field = getThemeField(id);
-        if (field) field.value = value ?? '';
+        if (!field) {
+            return;
+        }
+
+        field.value = value ?? '';
+        syncThemeColorSwatch(field);
     }
 
     function readThemeChecked(id) { return Boolean(getThemeField(id)?.checked); }
@@ -55,6 +60,37 @@
         ...THEME_COLOR_FIELDS.map((field) => field.id),
         ...THEME_PERCENT_FIELDS.map((field) => field.id)
     ];
+
+    function syncThemeColorSwatch(field) {
+        if (field?.type !== 'color') {
+            return;
+        }
+
+        const colorField = field.closest('[data-theme-color-field]');
+        if (colorField) {
+            colorField.style.backgroundColor = field.value;
+            colorField.querySelector('[data-theme-color-swatch]')?.remove();
+        }
+    }
+
+    function ensureThemeColorFields() {
+        THEME_COLOR_FIELDS.forEach((fieldDefinition) => {
+            const field = getThemeField(fieldDefinition.id);
+            if (!field || field.closest('[data-theme-color-field]')) {
+                syncThemeColorSwatch(field);
+                return;
+            }
+
+            const wrapper = window.AppUi.createElement('div', {
+                className: 'app-field theme-settings-page__color-field',
+                dataset: { themeColorField: '' }
+            });
+
+            field.before(wrapper);
+            wrapper.append(field);
+            syncThemeColorSwatch(field);
+        });
+    }
 
     function readThemeNumberValue(field, { withDefault = false, clamp = false } = {}) {
         const rawValue = readThemeValue(field.id) || (withDefault ? String(field.defaultValue) : '');
@@ -156,7 +192,10 @@
         const element = getThemeField(id);
         if (!element) return;
 
-        element.classList.toggle('invalid', Boolean(isInvalid));
+        const invalidTarget = element.type === 'color'
+            ? element.closest('[data-theme-color-field]')
+            : element;
+        invalidTarget?.classList.toggle('invalid', Boolean(isInvalid));
         element.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
     }
 
@@ -512,7 +551,10 @@
             return;
         }
 
-        listen(scope, element, eventName, applyThemeDraftState);
+        listen(scope, element, eventName, () => {
+            syncThemeColorSwatch(element);
+            applyThemeDraftState();
+        });
     }
 
     function bindThemeEffectInput(id, scope) {
@@ -584,6 +626,7 @@
             return;
         }
 
+        ensureThemeColorFields();
         themeSettingsPageState.isMounted = true;
         bindThemeAction('theme-save-button', submitThemeSettings, scope);
         bindThemeAction('theme-reset-button', resetThemeSettings, scope);

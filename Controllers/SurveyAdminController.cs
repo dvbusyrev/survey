@@ -267,6 +267,35 @@ public class SurveyAdminController : Controller
         }
     }
 
+    [HttpGet("survey/{id:int}/details")]
+    [HttpGet("surveys/{id:int}/details")]
+    public async Task<IActionResult> GetSurveyDetails(int id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var pageModel = await _surveyAdminService.GetSurveyEditPageAsync(id, cancellationToken);
+            if (pageModel == null)
+            {
+                return NotFound(new { success = false, message = "Анкета не найдена." });
+            }
+
+            return Json(new
+            {
+                id = pageModel.Survey.IdSurvey,
+                name = pageModel.Survey.NameSurvey,
+                description = pageModel.Survey.Description ?? string.Empty,
+                dateBegin = pageModel.Survey.DateBegin.ToString("dd.MM.yyyy"),
+                dateEnd = pageModel.Survey.DateEnd?.ToString("dd.MM.yyyy") ?? "Не указана",
+                organizations = pageModel.SelectedOrganizationNames,
+                criteria = pageModel.Criteria
+            });
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(ex, "Не удалось загрузить анкету.", $"Ошибка при получении анкеты {id} для просмотра");
+        }
+    }
+
     [HttpGet("survey/{id:int}/copy")]
     [HttpGet("surveys/{id:int}/copy")]
     public async Task<IActionResult> CopySurvey(int id, CancellationToken cancellationToken)
@@ -310,7 +339,7 @@ public class SurveyAdminController : Controller
 
             var response = new SurveyCopyTemplateResponse
             {
-                Title = $"{pageModel.Survey.NameSurvey} (Копия)",
+                Title = pageModel.Survey.NameSurvey,
                 Description = pageModel.Survey.Description ?? string.Empty,
                 StartDate = pageModel.Survey.DateBegin.ToString("yyyy-MM-dd"),
                 EndDate = pageModel.Survey.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty,

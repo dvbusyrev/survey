@@ -51,7 +51,8 @@
   --app-field-padding: 0.75rem 0.9rem;
   --app-field-font-size: 0.95rem;
   --app-field-line-height: 1.4;
-  --app-field-top-offset: 15px;
+  --app-field-label-gap: var(--app-gap-sm);
+  --app-field-top-offset: var(--app-field-label-gap);
   --app-field-radius: 0.5rem;
   --app-field-icon-size: 2.875rem;
   --app-field-toggle-size: 2rem;

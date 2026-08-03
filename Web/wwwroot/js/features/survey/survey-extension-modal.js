@@ -186,7 +186,7 @@
             const cancelButton = externalCancelButton || root.querySelector('[data-role="cancel"]');
 
             if (surveyName) {
-                surveyName.textContent = `Анкета: "${survey?.name_survey || ''}"`;
+                surveyName.textContent = survey?.name_survey || '';
             }
             if (errorNode) {
                 errorNode.textContent = '';
@@ -205,21 +205,31 @@
                 const row = rowTemplate.content.firstElementChild.cloneNode(true);
                 const organizationDropdown = row.querySelector('[data-role="organization-dropdown"]');
                 const organizationTrigger = row.querySelector('[data-role="organization-trigger"]');
-                const organizationLabel = row.querySelector('[data-role="organization-label"]');
+                const organizationSelection = row.querySelector('[data-role="organization-selection"]');
                 const organizationPanel = row.querySelector('[data-role="organization-panel"]');
                 const organizationOptions = row.querySelector('[data-role="organization-options"]');
                 const dateInput = row.querySelector('[data-role="date-input"]');
                 const selectedOrganizationIds = new Set(extension.organizationIds);
 
-                if (organizationLabel) {
+                if (organizationSelection) {
                     const selectedOrganizations = organizations.filter((organization) => (
                         selectedOrganizationIds.has(organization.organizationId)
                     ));
-                    organizationLabel.textContent = selectedOrganizations.length === 0
-                        ? 'Выберите организации'
-                        : selectedOrganizations.length === 1
-                            ? selectedOrganizations[0].organizationName
-                            : `Выбрано: ${selectedOrganizations.length}`;
+                    organizationSelection.replaceChildren();
+
+                    if (selectedOrganizations.length === 0) {
+                        organizationSelection.appendChild(window.AppUi.createElement('p', {
+                            className: 'survey-editor-page__empty-selection',
+                            text: 'Организации не выбраны'
+                        }));
+                    } else {
+                        selectedOrganizations.forEach((organization) => {
+                            organizationSelection.appendChild(window.AppUi.createElement('span', {
+                                className: 'app-chip',
+                                text: organization.organizationName
+                            }));
+                        });
+                    }
                 }
 
                 if (organizationOptions) {

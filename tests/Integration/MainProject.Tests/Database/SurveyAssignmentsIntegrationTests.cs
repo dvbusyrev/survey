@@ -666,8 +666,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             """
             SELECT id_survey AS IdSurvey
             FROM public.survey
-            WHERE name_survey = 'Интеграционная анкета (Копия)';
-            """);
+            WHERE name_survey = 'Интеграционная анкета'
+              AND id_survey <> @OriginalSurveyId;
+            """,
+            new { OriginalSurveyId = survey.SurveyId });
         var copiedQuestionCount = await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM public.survey_question WHERE id_survey = @SurveyId;",
             new { SurveyId = copy.IdSurvey });

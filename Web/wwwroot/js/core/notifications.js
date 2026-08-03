@@ -918,6 +918,80 @@
         };
     }
 
+    function mountUiRowViewer(options = {}) {
+        const root = options.root;
+        const rowSelector = options.rowSelector;
+        if (!(root instanceof Element) || !rowSelector || typeof options.onOpen !== 'function') {
+            return null;
+        }
+
+        const excludedSelector = options.excludedSelector
+            || 'button, a, input, select, textarea, [role="button"], .action-icons';
+        const tooltip = createUiRowTooltip({
+            defaultLabel: options.label || 'Смотреть',
+            className: options.tooltipClassName,
+            offsetX: options.offsetX,
+            offsetY: options.offsetY
+        });
+
+        function findRow(event) {
+            const target = event.target instanceof Element ? event.target : null;
+            const row = target?.closest(rowSelector);
+            return row && root.contains(row) ? { target, row } : null;
+        }
+
+        function handleClick(event) {
+            const match = findRow(event);
+            if (!match || match.target.closest(excludedSelector)) {
+                return;
+            }
+
+            tooltip.hide();
+            options.onOpen(match.row, event);
+        }
+
+        function handleMouseOver(event) {
+            const match = findRow(event);
+            if (!match || match.target.closest(excludedSelector)) {
+                tooltip.hide();
+                return;
+            }
+
+            if (!tooltip.isActiveRow(match.row)) {
+                tooltip.show(match.row, event);
+            }
+        }
+
+        function handleMouseMove(event) {
+            if (tooltip.hasActiveRow()) {
+                tooltip.move(event);
+            }
+        }
+
+        function handleMouseOut(event) {
+            if (!tooltip.hasActiveRow() || tooltip.activeRowContains(event.relatedTarget)) {
+                return;
+            }
+
+            tooltip.hide();
+        }
+
+        root.addEventListener('click', handleClick);
+        root.addEventListener('mouseover', handleMouseOver);
+        root.addEventListener('mousemove', handleMouseMove);
+        root.addEventListener('mouseout', handleMouseOut);
+
+        return {
+            destroy() {
+                root.removeEventListener('click', handleClick);
+                root.removeEventListener('mouseover', handleMouseOver);
+                root.removeEventListener('mousemove', handleMouseMove);
+                root.removeEventListener('mouseout', handleMouseOut);
+                tooltip.destroy();
+            }
+        };
+    }
+
     function mountUiDropdown(options = {}) {
         const root = options.root;
         const trigger = options.trigger;
@@ -1154,6 +1228,7 @@
     appUi.createMultiselect = createUiMultiselect;
     appUi.createTable = createUiTable;
     appUi.createRowTooltip = createUiRowTooltip;
+    appUi.mountRowViewer = mountUiRowViewer;
     appUi.mountDropdown = mountUiDropdown;
 
     appUi.notify = function (message, type, options) {

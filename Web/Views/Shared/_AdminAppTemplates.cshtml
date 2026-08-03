@@ -1,7 +1,10 @@
 <template id="admin-extension-modal-template">
   <div class="extension-modal-root admin-extension-modal-root">
     <h2 class="h2_modal admin-extension-modal-title">Продление анкеты</h2>
-    <p data-role="survey-name" class="admin-extension-survey-name"></p>
+    <div class="app-field-group">
+      <label>Название анкеты</label>
+      <div data-role="survey-name" class="app-field admin-extension-survey-name"></div>
+    </div>
     <div class="error-message admin-extension-error u-hidden" data-role="error"></div>
     <div data-role="rows-container" class="admin-extension-rows"></div>
     <p data-role="empty-state" class="u-hidden">Доступных организаций для продления не найдено.</p>
@@ -14,33 +17,39 @@
 
 <template id="admin-extension-modal-row-template">
   <div class="admin-extension-row">
-    <div class="admin-extension-col">
-      <label>Организации:</label>
-      <div class="app-multiselect app-checkbox-dropdown" data-role="organization-dropdown">
-        <button type="button"
-                class="app-multiselect__trigger app-checkbox-dropdown__trigger admin-extension-input"
-                data-role="organization-trigger"
-                aria-haspopup="listbox"
-                aria-expanded="false">
-          <span data-role="organization-label">Выберите организации</span>
-          <i class="fas fa-chevron-down" aria-hidden="true"></i>
-        </button>
-        <div class="app-multiselect__menu app-checkbox-dropdown__menu is-hidden"
-             data-role="organization-panel"
-             role="listbox"
-             aria-multiselectable="true">
-          <div class="app-checkbox-list" data-role="organization-options"></div>
+    <div class="app-field-group admin-extension-organizations-group">
+      <label>Организации</label>
+      <div class="app-field admin-extension-selected-organizations">
+        <div class="admin-extension-selected-organizations-list"
+             data-role="organization-selection"></div>
+      </div>
+      <div class="admin-extension-organization-action">
+        <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline admin-extension-organization-dropdown"
+             data-role="organization-dropdown">
+          <button type="button"
+                  class="criteria-btn criteria-btn--info app-multiselect__trigger app-checkbox-dropdown__trigger"
+                  data-role="organization-trigger"
+                  aria-haspopup="listbox"
+                  aria-expanded="false">
+            Выбрать организации
+          </button>
+          <div class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline is-hidden"
+               data-role="organization-panel"
+               role="listbox"
+               aria-multiselectable="true">
+            <div class="app-checkbox-list" data-role="organization-options"></div>
+          </div>
         </div>
       </div>
     </div>
-    <div class="admin-extension-col">
-      <label>Дата конца:</label>
+    <div class="app-field-group admin-extension-date-group">
+      <label>Дата конца</label>
       <input type="date"
              data-role="date-input"
              data-date-native="true"
              data-date-label="Дата конца"
              lang="ru-RU"
-             class="admin-extension-input"
+             class="app-field"
              required />
     </div>
   </div>

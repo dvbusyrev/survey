@@ -1,11 +1,12 @@
 .app-field-group {
-  grid-template-columns: minmax(140px, 170px) minmax(0, 1fr);
-  gap: var(--app-field-group-gap, var(--app-gap-md));
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--app-field-label-gap);
+  align-items: start;
   margin-bottom: var(--app-field-group-margin-bottom, var(--app-gap-lg));
 }
 
-.app-field-group label {
+.app-field-group > label {
   margin: 0;
   color: var(--text-main);
   font-weight: 500;
@@ -33,9 +34,8 @@ input[type="checkbox"],
 .app-field-group select,
 .app-field-group textarea,
 .app-field,
-.organization-dropdown,
-.admin-extension-input {
-  margin-top: var(--app-field-top-offset);
+.organization-dropdown {
+  margin-top: 0;
   width: 100%;
   min-width: 0;
   min-height: var(--app-field-min-height);
@@ -52,7 +52,6 @@ input[type="checkbox"],
 
 .app-field-group select,
 select.app-field,
-.admin-extension-input:is(select),
 .organization-dropdown,
 .filter-select,
 .reports-page__quarter-select,
@@ -76,7 +75,6 @@ select.app-field,
 
 .app-field-group select option,
 select.app-field option,
-.admin-extension-input:is(select) option,
 .organization-dropdown option,
 .filter-select option,
 .reports-page__quarter-select option,
@@ -115,8 +113,7 @@ textarea.app-field {
 .app-field-group select:focus,
 .app-field-group textarea:focus,
 .app-field:focus,
-.organization-dropdown:focus,
-.admin-extension-input:focus {
+.organization-dropdown:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent 82%);
@@ -140,7 +137,7 @@ textarea.app-field {
   width: 100%;
   min-width: 0;
   min-height: var(--app-field-min-height);
-  margin-top: var(--app-field-top-offset);
+  margin-top: 0;
   gap: 0;
   overflow: hidden;
   background: #ffffff;
@@ -290,8 +287,7 @@ textarea.app-field {
   --app-date-icon-left: 6rem;
 }
 
-input[type="date"][data-date-native="true"].app-field,
-input[type="date"][data-date-native="true"].admin-extension-input {
+input[type="date"][data-date-native="true"].app-field {
   width: min(14rem, 100%);
 }
 
@@ -911,7 +907,7 @@ a[role="button"]:focus-visible {
 .password-eye-wrap {
   position: relative;
   width: 100%;
-  margin-top: var(--app-field-top-offset);
+  margin-top: 0;
   display: flex;
   align-items: center;
 }
@@ -990,7 +986,7 @@ input[data-password-field="true"].is-password-masked {
     grid-template-columns: 1fr;
   }
 
-  .app-field-group label {
+  .app-field-group > label {
     text-align: left;
   }
 

@@ -40,20 +40,16 @@
         {
             foreach (var organization in organizations)
             {
-                <tr
-                    @if (showActions)
-                    {
-                        <text>
-                        data-dblclick-call="openEditOrganizationModalFromTrigger"
-                        data-dblclick-pass-element="true"
-                        data-organization-id="@organization.OrganizationId"
-                        data-organization-name="@(organization.OrganizationName ?? string.Empty)"
-                        data-organization-short-name="@(organization.OrganizationShortName ?? string.Empty)"
-                        data-organization-email="@(organization.Email ?? string.Empty)"
-                        data-organization-date-begin="@(organization.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
-                        data-organization-date-end="@(organization.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
-                        </text>
-                    }>
+                <tr data-role="organization-row"
+                    data-hover-label="Смотреть"
+                    data-organization-id="@organization.OrganizationId"
+                    data-organization-name="@(organization.OrganizationName ?? string.Empty)"
+                    data-organization-short-name="@(organization.OrganizationShortName ?? string.Empty)"
+                    data-organization-email="@(organization.Email ?? string.Empty)"
+                    data-organization-date-begin="@(organization.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                    data-organization-date-begin-display="@(organization.DateBegin?.ToString("dd.MM.yyyy") ?? string.Empty)"
+                    data-organization-date-end="@(organization.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                    data-organization-date-end-display="@(organization.DateEnd?.ToString("dd.MM.yyyy") ?? string.Empty)">
                     <td>@organization.OrganizationName</td>
                     <td class="table-col--date">@(organization.DateBegin?.ToString("dd.MM.yyyy") ?? "")</td>
                     <td class="table-col--date">@(organization.DateEnd?.ToString("dd.MM.yyyy") ?? "")</td>
@@ -69,9 +65,10 @@
                                      data-organization-date-begin="@(organization.DateBegin?.ToString("yyyy-MM-dd") ?? string.Empty)"
                                      data-organization-date-end="@(organization.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty)"
                                      data-click-call="openEditOrganizationModalFromTrigger"
-                                     data-click-pass-element="true">
+                                     data-click-pass-element="true"
+                                     aria-label="Редактировать">
                                     <span><i class="fas fa-pen-to-square"></i></span>
-                                    <span class="icon-tooltip">Посмотреть / обновить</span>
+                                    <span class="icon-tooltip">Редактировать</span>
                                 </div>
                                 <div class="icon-container"
                                      data-click-call="deleteOrganization"
