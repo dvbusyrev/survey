@@ -18,7 +18,7 @@
 
 .admin-extension-modal-root {
     display: grid;
-    gap: 1rem;
+    gap: var(--app-modal-field-gap);
     width: 100%;
     max-width: none;
     margin: 0;
@@ -62,7 +62,7 @@
 
 .admin-extension-rows {
     display: grid;
-    gap: 1rem;
+    gap: var(--app-modal-field-gap);
     margin: 0;
 }
 

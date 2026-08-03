@@ -67,23 +67,6 @@ option,
     color: var(--text-main);
 }
 
-.auth-modal-body {
-    padding: 1rem var(--app-modal-content-padding);
-}
-
-.auth-modal-body .app-field-group {
-    display: block;
-    margin-bottom: var(--app-modal-field-gap);
-}
-
-.auth-modal-body .app-field-group:last-child {
-    margin-bottom: 0;
-}
-
-.auth-modal-body .app-field-with-icon {
-    margin-top: 0;
-}
-
 .auth-modal-body .app-field.is-password-masked {
     -webkit-text-security: disc;
 }

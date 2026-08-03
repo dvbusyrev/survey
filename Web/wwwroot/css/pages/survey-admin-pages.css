@@ -20,6 +20,10 @@
   line-height: 1;
 }
 
+.survey-period-filter__trigger span {
+  min-width: 0;
+}
+
 .survey-period-filter__trigger:hover,
 .survey-period-filter__trigger[aria-expanded="true"] {
   border-color: var(--border);
@@ -44,6 +48,7 @@
   right: auto;
   left: 0;
   width: min(18rem, calc(100vw - 2rem));
+  max-width: none;
   backdrop-filter: none;
 }
 
@@ -341,7 +346,7 @@
 .survey-editor-page__criteria-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--app-modal-field-gap);
 }
 
 .survey-editor-page__criteria-item {

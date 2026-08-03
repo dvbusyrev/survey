@@ -101,7 +101,7 @@
   gap: var(--app-modal-field-gap);
 }
 
-.modal .modal-body .logs-modal__field {
+.modal-body .logs-modal__field {
   margin-bottom: 0;
 }
 

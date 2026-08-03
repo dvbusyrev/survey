@@ -42,7 +42,7 @@
 
 .survey-signatures-modal__body {
   display: grid;
-  gap: var(--app-gap-lg);
+  gap: var(--app-modal-field-gap);
 }
 
 .survey-signatures-modal__body .table-responsive {

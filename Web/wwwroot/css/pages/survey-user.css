@@ -201,30 +201,7 @@
     border-bottom-right-radius: var(--app-table-radius, 1rem);
 }
 
-/* Client survey modal */
-
-.user-survey-modal .modal-content,
-.user-survey-modal__content {
-    width: min(var(--app-content-max-width), calc(100vw - var(--app-modal-viewport-gap)));
-    max-width: calc(100vw - var(--app-modal-viewport-gap));
-    max-height: calc(100dvh - var(--app-modal-viewport-gap));
-    overflow: hidden;
-}
-
-.user-survey-modal__header {
-    padding-right: 3.5rem;
-}
-
-.user-survey-modal__title {
-    margin: 0 auto;
-}
-
-.user-survey-modal__body {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 0 var(--app-modal-content-padding);
-    overflow-y: auto;
-}
+/* Client survey modal content */
 
 .user-survey-modal__body .app-page {
     width: 100%;
@@ -252,10 +229,6 @@
 
 .user-survey-modal .submit-container {
     justify-content: center;
-}
-
-.user-survey-modal__footer {
-    justify-content: flex-end;
 }
 
 .user-survey-modal__footer .survey-user-modal__footer-left {
@@ -293,7 +266,7 @@
 
 .signature-modal__body {
     display: grid;
-    gap: var(--app-gap-md);
+    gap: var(--app-modal-field-gap);
 }
 
 .cert-list-container {
@@ -355,13 +328,6 @@
     .client-surveys-page__filter-toolbar > * {
         width: 100%;
     }
-
-    .user-survey-modal__content {
-        width: calc(100vw - var(--app-modal-viewport-gap-mobile));
-        max-width: calc(100vw - var(--app-modal-viewport-gap-mobile));
-        max-height: calc(100dvh - var(--app-modal-viewport-gap-mobile));
-    }
-
 }
 
 @media (max-width: 768px) {
@@ -369,9 +335,5 @@
     .check-answers-container,
     .question-container {
         padding: var(--app-section-padding);
-    }
-
-    .user-survey-modal__header {
-        padding-right: 3rem;
     }
 }

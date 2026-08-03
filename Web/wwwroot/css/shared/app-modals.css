@@ -83,7 +83,7 @@
 
 .modal-description,
 .modal-message {
-  margin: 0 0 1.5rem;
+  margin: 0 0 var(--app-modal-field-gap);
   color: var(--text-main);
   line-height: 1.5;
   text-align: justify;
@@ -92,7 +92,6 @@
 }
 
 .modal-description {
-  margin-bottom: 25px;
   color: var(--text-secondary);
 }
 
@@ -189,6 +188,9 @@
 
 .modal-body {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-modal-field-gap);
   min-height: 0;
   max-height: none;
   padding: 1rem var(--app-modal-content-padding);
@@ -196,12 +198,12 @@
   overflow-x: hidden; 
 }
 
-.modal .modal-body .app-field-group {
+.modal-body .app-field-group {
   display: block;
-  margin-bottom: var(--app-modal-field-gap);
+  margin-bottom: 0;
 }
 
-.modal .modal-body .app-field-group > label {
+.modal-body .app-field-group > label {
   display: block;
   margin: 0 0 var(--app-modal-label-gap);
   padding-left: 0;
@@ -212,7 +214,7 @@
   text-align: left;
 }
 
-.modal .modal-body .app-field-group :is(
+.modal-body .app-field-group :is(
   input[type="text"],
   input[type="date"],
   input[data-date-format="dd.mm.yyyy"],
@@ -229,7 +231,7 @@
   margin-top: 0;
 }
 
-.modal .modal-body .app-field-group :is(
+.modal-body .app-field-group :is(
   input[type="text"],
   input[type="date"],
   input[data-date-format="dd.mm.yyyy"],
@@ -245,7 +247,7 @@
   min-height: var(--app-field-min-height);
 }
 
-.modal .modal-body .app-field-group :is(
+.modal-body .app-field-group :is(
   .app-date-field,
   .app-native-date-field,
   input[type="date"][data-date-native="true"].app-field,
@@ -254,19 +256,20 @@
   width: 100%;
 }
 
-.modal .modal-body .app-field-with-icon {
+.modal-body .app-field-with-icon {
   margin-top: 0;
   min-height: var(--app-field-min-height);
 }
 
-.modal .modal-body > :last-child {
+.modal-body > :last-child {
   margin-bottom: 0;
 }
 
-.modal .modal-body .app-section.app-page__stack,
-.modal .modal-body .app-page__section.app-page__stack {
+.modal-body .app-section.app-page__stack,
+.modal-body .app-page__section.app-page__stack {
   margin: 0;
   padding: 0;
+  gap: var(--app-modal-field-gap);
   background: transparent;
   border: 0;
   border-radius: 0;
