@@ -183,10 +183,7 @@
 }
 
 #default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table {
-    box-shadow:
-        inset 1px 0 0 var(--border),
-        inset -1px 0 0 var(--border),
-        inset 0 1px 0 var(--border);
+    box-shadow: inset 0 0 0 1px var(--border);
 }
 
 #default_content[data-page="user-surveys"] .client-surveys-page__content .surveys-table tbody:has(> tr[data-role="survey-filter-empty-row"].is-hidden:last-child) > tr:nth-last-child(2) td,
