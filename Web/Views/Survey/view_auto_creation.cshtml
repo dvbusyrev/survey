@@ -5,6 +5,7 @@
 @{
     ViewData["Title"] = "Автоматическое создание анкет";
     ViewData["SettingsSection"] = "auto-creation";
+    ViewData["RendersAppChrome"] = true;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
     var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
@@ -151,46 +152,4 @@
 
 @section Scripts {
     <script src="~/js/features/admin/survey-auto-creation-page.js" asp-append-version="true"></script>
-    <script>
-        (function () {
-            const contextNode = document.getElementById('chrome-context');
-            const chromeContext = (typeof window.readAppChromeContext === 'function' && window.readAppChromeContext())
-                || (contextNode ? {
-                    userRole: contextNode.dataset.userRole || '',
-                    userId: Number(contextNode.dataset.userId || 0),
-                    displayName: contextNode.dataset.displayName || '',
-                    userName: contextNode.dataset.userName || '',
-                    organizationName: contextNode.dataset.organizationName || ''
-                } : null);
-            if (!chromeContext) {
-                return;
-            }
-
-            if (typeof window.mountHeader === 'function') {
-                window.mountHeader(document.getElementById('chrome-header'), {
-                    userRole: chromeContext.userRole,
-                    userId: chromeContext.userId,
-                    displayName: chromeContext.displayName,
-                    userName: chromeContext.userName,
-                    organizationName: chromeContext.organizationName
-                });
-            }
-
-            if (typeof window.mountNavigation === 'function') {
-                window.mountNavigation(document.getElementById('chrome-navigation'), {
-                    activeTab: 'survey_auto_creation',
-                    userRole: chromeContext.userRole,
-                    userId: chromeContext.userId
-                });
-            }
-
-            if (typeof window.mountFooter === 'function') {
-                window.mountFooter(document.getElementById('chrome-footer'));
-            }
-
-            if (typeof window.initSurveyAutoCreationPage === 'function') {
-                window.initSurveyAutoCreationPage();
-            }
-        })();
-    </script>
 }

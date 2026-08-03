@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using MainProject.Infrastructure.Security
 @{
+    ViewData["RendersAppChrome"] = true;
     var userOrganizationId = Model.UserOrganizationId;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";

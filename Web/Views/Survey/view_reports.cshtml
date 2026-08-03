@@ -3,6 +3,7 @@
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Отчёты";
+    ViewData["RendersAppChrome"] = true;
     var availableYears = Model?.AvailableYears ?? Array.Empty<int>();
     var hasAvailableYears = availableYears.Count > 0;
     var monthOptions = new[]
@@ -142,42 +143,4 @@
 
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminReportScripts.cshtml")
-    <script>
-        (function () {
-            const contextNode = document.getElementById('chrome-context');
-            const chromeContext = (typeof window.readAppChromeContext === 'function' && window.readAppChromeContext())
-                || (contextNode ? {
-                    userRole: contextNode.dataset.userRole || '',
-                    userId: Number(contextNode.dataset.userId || 0),
-                    displayName: contextNode.dataset.displayName || '',
-                    userName: contextNode.dataset.userName || '',
-                    organizationName: contextNode.dataset.organizationName || ''
-                } : null);
-            if (!chromeContext) {
-                return;
-            }
-
-            if (typeof window.mountHeader === 'function') {
-                window.mountHeader(document.getElementById('chrome-header'), {
-                    userRole: chromeContext.userRole,
-                    userId: chromeContext.userId,
-                    displayName: chromeContext.displayName,
-                    userName: chromeContext.userName,
-                    organizationName: chromeContext.organizationName
-                });
-            }
-
-            if (typeof window.mountNavigation === 'function') {
-                window.mountNavigation(document.getElementById('chrome-navigation'), {
-                    activeTab: 'reports',
-                    userRole: chromeContext.userRole,
-                    userId: chromeContext.userId
-                });
-            }
-
-            if (typeof window.mountFooter === 'function') {
-                window.mountFooter(document.getElementById('chrome-footer'));
-            }
-        })();
-    </script>
 }

@@ -65,6 +65,7 @@
         var layoutOrganizationName = chromeContext.OrganizationName;
         var layoutUserName = chromeContext.UserName;
         var layoutDisplayName = chromeContext.DisplayName;
+        var rendersOwnAppChrome = ViewData["RendersAppChrome"] is true;
     }
     <div id="global-antiforgery-token" hidden aria-hidden="true">
         @Html.AntiForgeryToken()
@@ -81,18 +82,36 @@
         @await Html.PartialAsync("~/Web/Views/Shared/_NavigationTemplates.cshtml")
         @await Html.PartialAsync("~/Web/Views/Shared/_AppChromeScripts.cshtml")
     }
-    @RenderBody()
+    @if (isAuthenticated && !rendersOwnAppChrome)
+    {
+        <div class="page-container">
+            <div id="chrome-header"></div>
+            <div class="admin-container @(layoutUserRole == AppRoles.Admin ? string.Empty : "app-client-container")">
+                @if (layoutUserRole == AppRoles.Admin)
+                {
+                    <div id="chrome-navigation"></div>
+                }
+                <div id="content_admin">
+                    @RenderBody()
+                </div>
+            </div>
+            <div id="chrome-footer"></div>
+        </div>
+    }
+    else
+    {
+        @RenderBody()
+    }
     <script src="~/js/core/antiforgery.js" asp-append-version="true"></script>
     @if (isAuthenticated)
     {
         <script>
             (function () {
-                if (document.getElementById('chrome-header')) {
-                    return;
-                }
-
                 const contentNode = document.getElementById('default_content');
-                if (!contentNode || typeof window.mountHeader !== 'function' || typeof window.mountNavigation !== 'function' || typeof window.mountFooter !== 'function') {
+                const headerHost = document.getElementById('chrome-header');
+                const navHost = document.getElementById('chrome-navigation');
+                const footerHost = document.getElementById('chrome-footer');
+                if (!contentNode || !headerHost || !footerHost || typeof window.mountHeader !== 'function' || typeof window.mountFooter !== 'function') {
                     return;
                 }
 
@@ -165,48 +184,8 @@
                 const organizationName = (contextNode && contextNode.dataset.organizationName) || '';
                 const isAdmin = String(userRole || '').trim().toLowerCase() === 'admin';
 
-                const existingContentHost = document.getElementById('content_admin');
-                const insertParent = existingContentHost ? existingContentHost.parentNode : contentNode.parentNode;
-                const insertBeforeNode = existingContentHost || contentNode;
-                if (!insertParent) {
-                    return;
-                }
-
-                const pageContainer = document.createElement('div');
-                pageContainer.className = 'page-container';
-
-                const headerHost = document.createElement('div');
-                headerHost.id = 'chrome-header';
-                pageContainer.appendChild(headerHost);
-
-                const adminContainer = document.createElement('div');
-                adminContainer.className = isAdmin ? 'admin-container' : 'admin-container app-client-container';
-
-                let navHost = null;
-                if (isAdmin) {
-                    navHost = document.createElement('div');
-                    navHost.id = 'chrome-navigation';
-                    adminContainer.appendChild(navHost);
-                }
-
-                insertParent.insertBefore(pageContainer, insertBeforeNode);
-
-                let contentHost = existingContentHost;
-                if (!contentHost) {
-                    contentHost = document.createElement('div');
-                    contentHost.id = 'content_admin';
-                    contentHost.appendChild(contentNode);
-                }
-                adminContainer.appendChild(contentHost);
-
-                pageContainer.appendChild(adminContainer);
-
-                const footerHost = document.createElement('div');
-                footerHost.id = 'chrome-footer';
-                pageContainer.appendChild(footerHost);
-
                 window.mountHeader(headerHost, { userRole, userId, displayName, userName, organizationName });
-                if (isAdmin && navHost) {
+                if (isAdmin && navHost && typeof window.mountNavigation === 'function') {
                     window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole });
                 }
                 window.mountFooter(footerHost);

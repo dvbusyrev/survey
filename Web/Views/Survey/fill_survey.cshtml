@@ -4,6 +4,7 @@
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Прохождение анкеты";
+    ViewData["RendersAppChrome"] = true;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";

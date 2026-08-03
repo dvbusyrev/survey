@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = "Анкеты";
     ViewData["SurveySection"] = "list";
+    ViewData["RendersAppChrome"] = true;
     var pageModel = Model ?? new MainProject.Web.ViewModels.SurveyListPageViewModel();
     var openAddSurveyModal = Model?.OpenAddSurveyModal ?? false;
     var editSurveyPage = Model?.EditSurveyPage;
@@ -106,43 +107,4 @@
     <script src="~/js/features/survey/survey-work-period.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/surveys-page.js" asp-append-version="true"></script>
-    <script>
-        (function () {
-            const contextNode = document.getElementById('chrome-context');
-            const chromeContext = (typeof window.readAppChromeContext === 'function' && window.readAppChromeContext())
-                || (contextNode ? {
-                    userRole: contextNode.dataset.userRole || '',
-                    userId: Number(contextNode.dataset.userId || 0),
-                    displayName: contextNode.dataset.displayName || '',
-                    userName: contextNode.dataset.userName || '',
-                    organizationName: contextNode.dataset.organizationName || ''
-                } : null);
-            if (!chromeContext) {
-                return;
-            }
-
-            if (typeof window.mountHeader === 'function') {
-                window.mountHeader(document.getElementById('chrome-header'), {
-                    userRole: chromeContext.userRole,
-                    userId: chromeContext.userId,
-                    displayName: chromeContext.displayName,
-                    userName: chromeContext.userName,
-                    organizationName: chromeContext.organizationName
-                });
-            }
-
-            if (typeof window.mountNavigation === 'function') {
-                window.mountNavigation(document.getElementById('chrome-navigation'), {
-                    activeTab: 'get_surveys',
-                    userRole: chromeContext.userRole,
-                    userId: chromeContext.userId
-                });
-            }
-
-            if (typeof window.mountFooter === 'function') {
-                window.mountFooter(document.getElementById('chrome-footer'));
-            }
-
-        })();
-    </script>
 }
