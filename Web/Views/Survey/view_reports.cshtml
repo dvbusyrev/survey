@@ -57,7 +57,7 @@
                     })
 
                 <div class="reports-page__grid">
-                    <section class="app-page__section reports-page__card">
+                    <section class="app-section app-page__section reports-page__card">
                         <div class="reports-page__card-header">
                             <h3 class="reports-page__card-title">Отчёт за месяц</h3>
                         </div>
@@ -65,7 +65,7 @@
                         <div class="reports-page__controls">
                             <div class="reports-page__field">
                                 <label for="reportMonth">Месяц</label>
-                                <select id="reportMonth" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
+                                <select id="reportMonth" class="app-field reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
                                     @foreach (var month in monthOptions)
                                     {
                                         <option value="@month.Value">@month.Name</option>
@@ -75,7 +75,7 @@
 
                             <div class="reports-page__field">
                                 <label for="reportMonthYear">Год</label>
-                                <select id="reportMonthYear" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
+                                <select id="reportMonthYear" class="app-field reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
                                     @foreach (var year in availableYears)
                                     {
                                         <option value="@year">@year</option>
@@ -84,7 +84,7 @@
                             </div>
 
                             <button type="button"
-                                    class="btn modal_btn-primary reports-page__submit"
+                                    class="btn reports-page__submit"
                                     data-click-call="submitMonthlyReport"
                                     @(hasAvailableYears ? null : "disabled")>
                                 Сформировать отчёт
@@ -92,7 +92,7 @@
                         </div>
                     </section>
 
-                    <section class="app-page__section reports-page__card">
+                    <section class="app-section app-page__section reports-page__card">
                         <div class="reports-page__card-header">
                             <h3 class="reports-page__card-title">Отчёт за квартал</h3>
                         </div>
@@ -100,7 +100,7 @@
                         <div class="reports-page__controls">
                             <div class="reports-page__field">
                                 <label for="reportQuarter">Квартал</label>
-                                <select id="reportQuarter" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
+                                <select id="reportQuarter" class="app-field reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
                                     @for (var quarter = 1; quarter <= 4; quarter++)
                                     {
                                         <option value="@quarter">@quarter</option>
@@ -110,7 +110,7 @@
 
                             <div class="reports-page__field">
                                 <label for="reportQuarterYear">Год</label>
-                                <select id="reportQuarterYear" class="form-control reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
+                                <select id="reportQuarterYear" class="app-field reports-page__quarter-select" @(hasAvailableYears ? null : "disabled")>
                                     @foreach (var year in availableYears)
                                     {
                                         <option value="@year">@year</option>
@@ -119,7 +119,7 @@
                             </div>
 
                             <button type="button"
-                                    class="btn modal_btn-primary reports-page__submit"
+                                    class="btn reports-page__submit"
                                     data-click-call="submitQuarterlyReport"
                                     @(hasAvailableYears ? null : "disabled")>
                                 Сформировать отчёт
@@ -130,7 +130,7 @@
 
                 @if (!hasAvailableYears)
                 {
-                    <section class="app-page__section reports-page__empty-state">
+                    <section class="app-section app-page__section reports-page__empty-state">
                         <p class="reports-page__empty-text">В системе пока нет анкет с доступными периодами для формирования отчётов.</p>
                     </section>
                 }
@@ -139,8 +139,6 @@
     </div>
     <div id="chrome-footer"></div>
 </div>
-
-@await Html.PartialAsync("~/Web/Views/Shared/_OperationNotification.cshtml")
 
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminReportScripts.cshtml")

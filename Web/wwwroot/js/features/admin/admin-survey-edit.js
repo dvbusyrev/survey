@@ -20,13 +20,15 @@ function surveyEditGetElementByRole(role) {
 }
 
 function surveyEditCreateIconButton(iconClass, label) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.setAttribute('aria-label', label);
+    const button = window.AppUi.createElement('button', {
+        type: 'button',
+        ariaLabel: label
+    });
 
-    const icon = document.createElement('i');
-    icon.className = iconClass;
-    icon.setAttribute('aria-hidden', 'true');
+    const icon = window.AppUi.createElement('i', {
+        className: iconClass,
+        attrs: { 'aria-hidden': 'true' }
+    });
     button.appendChild(icon);
 
     return button;
@@ -189,57 +191,53 @@ function surveyEditSaveSelectedOrganization() {
 
     function surveyEditValidateForm() {
         let isValid = true;
+        const errors = [];
         
         const requiredFields = [
-            { element: document.getElementById('surveyTitle'), errorId: 'titleError' },
-            { element: document.getElementById('startDate'), errorId: 'startDateError' },
-            { element: document.getElementById('endDate'), errorId: 'endDateError' }
+            { element: document.getElementById('surveyTitle'), message: 'Введите название анкеты' },
+            { element: document.getElementById('startDate'), message: 'Введите дату начала' },
+            { element: document.getElementById('endDate'), message: 'Введите дату конца' }
         ];
 
         requiredFields.forEach(field => {
-            const errorElement = document.getElementById(field.errorId);
             if (!field.element.value.trim()) {
                 field.element.classList.add('invalid');
-                if (errorElement) errorElement.style.display = 'block';
+                errors.push(field.message);
                 isValid = false;
             } else {
                 field.element.classList.remove('invalid');
-                if (errorElement) errorElement.style.display = 'none';
             }
         });
 
         const startDate = document.getElementById('startDate');
         const endDate = document.getElementById('endDate');
-        const endDateError = document.getElementById('endDateError');
         
         const startDateIso = window.AppDate?.getInputIso(startDate) || '';
         const endDateIso = window.AppDate?.getInputIso(endDate) || '';
 
         if ((startDate.value && !startDateIso) || (endDate.value && !endDateIso)) {
-            surveyEditNotify('Используйте формат даты ДД.ММ.ГГГГ.');
+            errors.push('Используйте формат даты ДД.ММ.ГГГГ');
             isValid = false;
         } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
             endDate.classList.add('invalid');
-            if (endDateError) {
-                endDateError.textContent = 'Дата конца должна быть позже даты начала';
-                endDateError.style.display = 'block';
-            }
+            errors.push('Дата конца должна быть позже даты начала');
             isValid = false;
         }
 
-        const organizationError = document.getElementById('organizationError');
         const selectedOrganizations = typeof window.getSelectedOrganizations === 'function'
             ? window.getSelectedOrganizations()
             : surveyEditSelectedOrganization;
         if (selectedOrganizations.length === 0) {
-            if (organizationError) organizationError.style.display = 'block';
+            errors.push('Выберите организацию');
             isValid = false;
-        } else {
-            if (organizationError) organizationError.style.display = 'none';
         }
 
         if (typeof window.validateSurveyCriteriaFields === 'function' && !window.validateSurveyCriteriaFields()) {
             isValid = false;
+        }
+
+        if (errors.length > 0) {
+            surveyEditNotify([...new Set(errors)].join(' • '));
         }
 
         return isValid;
@@ -247,23 +245,6 @@ function surveyEditSaveSelectedOrganization() {
     // Общие helper-функции вынесены в ~/js/pages/admin-common-helpers.js
 
         // СКРИПТЫ ДЛЯ ВКЛАДКИ КОПИРОВАНИЯ АНКЕТЫ
-
-            function hideNotification2() {
-                document.getElementById('notification').style.display = 'none';
-                
-                const messageElement = document.getElementById('notificationMessage');
-                if (messageElement.className.includes('notification-success')) {
-                    if (typeof window.handleAdminMutationSuccess === 'function') {
-                        window.handleAdminMutationSuccess({
-                            tabName: 'get_surveys',
-                            fallbackUrl: '/survey'
-                        });
-                        return;
-                    }
-
-                    window.location.reload();
-                }
-            }
 
             function copySurvey(id) {
                 const startDate = window.AppDate?.getInputIso('startDate') || '';

@@ -21,13 +21,13 @@
         })
 
     <div class="reports-page__grid theme-settings-page__layout">
-        <section class="app-page__section reports-page__card theme-settings-page__card">
+        <section class="app-section app-page__section reports-page__card theme-settings-page__card">
             <div class="reports-page__card-header">
                 <h3 class="reports-page__card-title">Настройка</h3>
             </div>
 
             <div class="email-settings-page__form theme-settings-page__form">
-                <div class="form-group theme-settings-page__form-group theme-settings-page__main-row">
+                <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-font-color">Цвет шрифта</label>
                     <input type="color"
                            class="theme-settings-page__color-input"
@@ -35,7 +35,7 @@
                            value="@settings.FontColor" />
                 </div>
 
-                <div class="form-group theme-settings-page__form-group theme-settings-page__main-row">
+                <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-background-color">Цвет фона</label>
                     <input type="color"
                            class="theme-settings-page__color-input"
@@ -43,7 +43,7 @@
                            value="@settings.BackgroundColor" />
                 </div>
 
-                <div class="form-group theme-settings-page__form-group theme-settings-page__main-row">
+                <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-header-darken-percent">Шапка</label>
                     <div class="theme-settings-page__range-field">
                         <input type="range"
@@ -55,7 +55,7 @@
                     </div>
                 </div>
 
-                <div class="form-group theme-settings-page__form-group theme-settings-page__main-row">
+                <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-button-darken-percent">Кнопки</label>
                     <div class="theme-settings-page__range-field">
                         <input type="range"
@@ -67,7 +67,7 @@
                     </div>
                 </div>
 
-                <div class="form-group theme-settings-page__form-group theme-settings-page__main-row">
+                <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-surface-tint-opacity-percent">Таблица</label>
                     <div class="theme-settings-page__range-field">
                         <input type="range"
@@ -79,7 +79,7 @@
                     </div>
                 </div>
 
-                <div class="form-group theme-settings-page__form-group theme-settings-page__main-row">
+                <div class="app-field-group theme-settings-page__form-group theme-settings-page__main-row">
                     <label for="theme-footer-darken-percent">Подвал</label>
                     <div class="theme-settings-page__range-field">
                         <input type="range"
@@ -92,32 +92,32 @@
                 </div>
 
                 <div class="theme-settings-page__additional-settings">
-                    <div class="form-group theme-settings-page__form-group theme-settings-page__form-group--file">
+                    <div class="app-field-group theme-settings-page__form-group theme-settings-page__form-group--file">
                         <label for="theme-background-image-upload">Фоновое изображение</label>
-                        <div class="theme-settings-page__image-upload">
-                            <input type="text"
-                                   class="form-control theme-settings-page__file-field"
-                                   id="theme-background-image-name"
-                                   value="@(string.IsNullOrWhiteSpace(settings.BackgroundImageFileName) ? "Изображение не выбрано" : settings.BackgroundImageFileName)"
-                                   readonly />
-                            <input type="file"
-                                   class="theme-settings-page__file-input"
-                                   id="theme-background-image-file"
-                                   accept="image/png,image/jpeg,image/jpg,image/webp"
-                                   hidden />
-                            <input type="hidden"
-                                   id="theme-background-image-data-url"
-                                   value="@settings.BackgroundImageDataUrl" />
-                            <input type="hidden"
-                                   id="theme-background-image-file-name"
-                                   value="@settings.BackgroundImageFileName" />
-                            <div class="theme-settings-page__file-actions">
-                                <button type="button" id="theme-background-image-upload" class="modal_btn modal_btn-primary">Загрузить изображение</button>
-                            </div>
-                        </div>
+                        <input type="text"
+                               class="app-field theme-settings-page__file-field"
+                               id="theme-background-image-name"
+                               value="@(string.IsNullOrWhiteSpace(settings.BackgroundImageFileName) ? "Изображение не выбрано" : settings.BackgroundImageFileName)"
+                               readonly />
+                        <input type="file"
+                               class="theme-settings-page__file-input"
+                               id="theme-background-image-file"
+                               accept="image/png,image/jpeg,image/jpg,image/webp"
+                               hidden />
+                        <input type="hidden"
+                               id="theme-background-image-data-url"
+                               value="@settings.BackgroundImageDataUrl" />
+                        <input type="hidden"
+                               id="theme-background-image-file-name"
+                               value="@settings.BackgroundImageFileName" />
+                        <button type="button"
+                                id="theme-background-image-upload"
+                                class="app-button app-button--primary theme-settings-page__field-button">
+                            Загрузить изображение
+                        </button>
                     </div>
 
-                    <div class="form-group theme-settings-page__form-group">
+                    <div class="app-field-group theme-settings-page__form-group">
                         <label for="theme-background-image-opacity">Прозрачность изображения</label>
                         <div class="theme-settings-page__range-field">
                             <input type="range"
@@ -129,22 +129,20 @@
                         </div>
                     </div>
 
-                    <div class="form-group theme-settings-page__form-group theme-settings-page__form-group--effects">
+                    <div class="app-field-group theme-settings-page__form-group theme-settings-page__form-group--effects">
                         <label>Эффекты</label>
-                        <div class="theme-settings-page__effects-picker">
-                            <div class="theme-settings-page__selected-effects" id="theme-effects-summary" aria-live="polite">
-                                <p class="theme-settings-page__empty-selection">Эффекты не выбраны</p>
+                        <div class="app-multiselect app-checkbox-dropdown app-multiselect--inline app-checkbox-dropdown--inline theme-settings-page__effects-picker">
+                            <div class="app-field theme-settings-page__selected-effects" id="theme-effects-summary" aria-live="polite">
+                                <span class="theme-settings-page__empty-selection">Эффекты не выбраны</span>
                             </div>
-                            <div class="theme-settings-page__effects-action">
-                                <button type="button"
-                                        class="criteria-btn criteria-btn--info app-checkbox-dropdown__trigger theme-settings-page__effects-trigger"
-                                        id="theme-effects-toggle"
-                                        aria-expanded="false"
-                                        aria-controls="theme-effects-dropdown">
-                                    Выбрать эффекты
-                                </button>
-                            </div>
-                            <div class="app-checkbox-dropdown__menu app-checkbox-dropdown__menu--inline theme-settings-page__effects-dropdown is-hidden"
+                            <button type="button"
+                                    class="app-button app-button--primary theme-settings-page__field-button theme-settings-page__effects-trigger"
+                                    id="theme-effects-toggle"
+                                    aria-expanded="false"
+                                    aria-controls="theme-effects-dropdown">
+                                Выбрать эффекты
+                            </button>
+                            <div class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline theme-settings-page__effects-dropdown is-hidden"
                                  id="theme-effects-dropdown">
                                 <div class="app-checkbox-list">
                                     <label class="app-checkbox-option" for="theme-effect-snow">
@@ -171,7 +169,7 @@
             </div>
         </section>
 
-        <section class="app-page__section reports-page__card theme-settings-page__card theme-settings-page__preview-card">
+        <section class="app-section app-page__section reports-page__card theme-settings-page__card theme-settings-page__preview-card">
             <div class="reports-page__card-header">
                 <h3 class="reports-page__card-title">Как выглядит</h3>
             </div>
@@ -179,29 +177,29 @@
             <div class="theme-settings-page__preview-list">
                 <div class="theme-settings-page__preview-row theme-settings-page__main-row">
                     <span class="theme-settings-page__preview-label">Цвет шрифта</span>
-                    <div class="theme-settings-page__preview-field theme-settings-page__preview-field--font">Пример</div>
+                    <div class="app-field theme-settings-page__preview-field theme-settings-page__preview-field--font">Пример</div>
                 </div>
 
                 <div class="theme-settings-page__preview-row theme-settings-page__main-row">
                     <span class="theme-settings-page__preview-label">Цвет фона</span>
-                    <div class="theme-settings-page__preview-field theme-settings-page__preview-field--background">Пример</div>
+                    <div class="app-field theme-settings-page__preview-field theme-settings-page__preview-field--background">Пример</div>
                 </div>
 
                 <div class="theme-settings-page__preview-row theme-settings-page__main-row">
                     <span class="theme-settings-page__preview-label">Шапка</span>
-                    <div class="theme-settings-page__preview-field theme-settings-page__preview-field--header">Пример</div>
+                    <div class="app-field theme-settings-page__preview-field theme-settings-page__preview-field--header">Пример</div>
                 </div>
 
                 <div class="theme-settings-page__preview-row theme-settings-page__main-row">
                     <span class="theme-settings-page__preview-label">Кнопки</span>
-                    <div class="theme-settings-page__preview-field theme-settings-page__preview-button-field">
-                        <button type="button" class="criteria-btn criteria-btn--info theme-settings-page__preview-button">Пример</button>
+                    <div class="app-field theme-settings-page__preview-field theme-settings-page__preview-button-field">
+                        <button type="button" class="app-button app-button--primary theme-settings-page__preview-button">Пример</button>
                     </div>
                 </div>
 
                 <div class="theme-settings-page__preview-row theme-settings-page__main-row">
                     <span class="theme-settings-page__preview-label">Таблица</span>
-                    <table class="theme-settings-page__preview-table" aria-label="Пример таблицы">
+                    <table class="app-table theme-settings-page__preview-table" aria-label="Пример таблицы">
                         <thead>
                         <tr>
                             <th>ПРИМЕР</th>
@@ -212,15 +210,15 @@
 
                 <div class="theme-settings-page__preview-row theme-settings-page__main-row">
                     <span class="theme-settings-page__preview-label">Подвал</span>
-                    <div class="theme-settings-page__preview-field theme-settings-page__preview-field--footer">Пример</div>
+                    <div class="app-field theme-settings-page__preview-field theme-settings-page__preview-field--footer">Пример</div>
                 </div>
             </div>
         </section>
     </div>
 
     <div class="email-settings-page__actions theme-settings-page__actions">
-        <button type="button" id="theme-reset-button" class="modal_btn modal_btn-secondary">Сброс</button>
-        <button type="button" id="theme-save-button" class="modal_btn modal_btn-primary">Сохранить</button>
+        <button type="button" id="theme-reset-button" class="app-button app-button--secondary">Сброс</button>
+        <button type="button" id="theme-save-button" class="app-button app-button--primary">Сохранить</button>
     </div>
 </div>
 

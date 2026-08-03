@@ -273,18 +273,8 @@ text-align: center;
 }
 
 .survey-auto-creation-page__status-control {
-  width: 100%;
-  min-width: 0;
-  min-height: var(--app-field-min-height);
   margin-top: 0;
-  padding: var(--app-field-padding);
-  color: var(--text-main);
-  font-size: 0.95rem;
   font-weight: 400;
-  line-height: 1.4;
-  background: #ffffff;
-  border: 1px solid var(--border-dark);
-  border-radius: var(--app-field-radius);
 }
 
 .survey-auto-creation-page__controls {
@@ -308,15 +298,7 @@ text-align: center;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--app-gap-md);
-  width: 100%;
-  min-width: 0;
-  min-height: var(--app-field-min-height);
   margin-top: var(--survey-auto-creation-label-gap);
-  padding: var(--app-field-padding);
-  color: var(--text-main);
-  background: #ffffff;
-  border: 1px solid var(--border-dark);
-  border-radius: var(--app-field-radius);
 }
 
 .survey-auto-creation-page__selected-item {

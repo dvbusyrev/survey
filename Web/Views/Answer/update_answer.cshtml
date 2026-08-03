@@ -24,7 +24,7 @@
             Description = "На этой странице вы можете обновить оценки и комментарии по сохранённой анкете."
         })
 
-    <section class="app-page__section">
+    <section class="app-section app-page__section">
         <div class="answers-page__update-card">
             @if (Model.Answers.Count > 0)
             {
@@ -57,7 +57,7 @@
                     </div>
                 }
                 <div class="submit-container">
-                    <button type="button" id="saveUpdatedAnswers" class="answers-page__action-button">Сохранить изменения</button>
+                    <button type="button" id="saveUpdatedAnswers" class="app-button app-button--primary answers-page__action-button">Сохранить изменения</button>
                 </div>
             }
             else
@@ -66,12 +66,6 @@
             }
         </div>
     </section>
-</div>
-
-<div id="error-message" class="answers-page__update-error">
-    <span class="answers-page__update-error-icon">!</span>
-    <span id="error-text" class="answers-page__update-error-text">@ViewBag.ErrorMessage</span>
-    <button type="button" id="close-error" class="answers-page__update-error-close">×</button>
 </div>
 
 @section Scripts {

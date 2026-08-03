@@ -24,7 +24,26 @@
     const instances = new Map();
     const mountedPageControllers = new Set();
     const mountedPageControllerByPage = new WeakMap();
-    let documentListenerMountCount = 0;
+
+    function createLifecycleScope() {
+        const scope = window.AppPageLifecycle?.createScope?.();
+        if (scope) {
+            return scope;
+        }
+
+        const disposers = [];
+        return {
+            listen(target, type, handler, options) {
+                target?.addEventListener?.(type, handler, options);
+                disposers.push(() => target?.removeEventListener?.(type, handler, options));
+            },
+            dispose() {
+                while (disposers.length > 0) {
+                    disposers.pop()?.();
+                }
+            }
+        };
+    }
 
     function pad(value) {
         return String(value).padStart(2, '0');
@@ -89,6 +108,13 @@
     }
 
     function createElement(tagName, className, textContent) {
+        if (typeof window.AppUi?.createElement === 'function') {
+            return window.AppUi.createElement(tagName, {
+                className,
+                text: textContent
+            });
+        }
+
         const element = document.createElement(tagName);
         if (className) {
             element.className = className;
@@ -142,9 +168,15 @@
             return;
         }
 
+        if (instance.dropdownController?.setOpen && !instance.isSyncingDropdownOpenState) {
+            instance.isSyncingDropdownOpenState = true;
+            instance.dropdownController.setOpen(Boolean(isOpen));
+            instance.isSyncingDropdownOpenState = false;
+            return;
+        }
+
         instance.state.isOpen = Boolean(isOpen);
         instance.refs.trigger.setAttribute('aria-expanded', instance.state.isOpen ? 'true' : 'false');
-        instance.refs.popover.classList.toggle('is-hidden', !instance.state.isOpen);
 
         if (instance.state.isOpen) {
             render(instance);
@@ -269,8 +301,7 @@
         const monthDate = new Date(state.viewDate.getFullYear(), state.viewDate.getMonth(), 1);
 
         refs.label.textContent = getMonthDescription(monthDate.getFullYear(), monthDate.getMonth());
-        refs.calendar.textContent = '';
-        refs.calendar.appendChild(buildCalendarCard(instance, monthDate, getDisplayState(state)));
+        refs.calendar.replaceChildren(buildCalendarCard(instance, monthDate, getDisplayState(state)));
         refs.saveButton.disabled = state.isSaving || !isValidSelection(state);
         refs.saveButton.textContent = state.isSaving ? 'Сохранение...' : 'Сохранить';
     }
@@ -308,15 +339,6 @@
                     historyMode: 'replace',
                     scrollMode: 'restore'
                 }
-            });
-            return;
-        }
-
-        if (typeof window.refreshAdminTab === 'function') {
-            await window.refreshAdminTab('get_surveys', null, {
-                force: true,
-                historyMode: 'replace',
-                scrollMode: 'restore'
             });
             return;
         }
@@ -403,23 +425,38 @@
                 calendar: root.querySelector('[data-role="survey-work-period-calendar"]'),
                 saveButton: root.querySelector('[data-role="survey-work-period-save"]')
             },
-            handlers: {}
+            handlers: {},
+            dropdownController: null,
+            isSyncingDropdownOpenState: false
         };
 
         if (!instance.refs.trigger || !instance.refs.popover || !instance.refs.label || !instance.refs.calendar || !instance.refs.saveButton) {
             return;
         }
 
-        instance.handlers.click = function (event) {
-            const trigger = event.target.closest('[data-role="survey-work-period-trigger"]');
-            if (trigger && root.contains(trigger)) {
-                event.preventDefault();
-                const shouldOpen = !instance.state.isOpen;
-                closeAllPopovers(shouldOpen ? root : null);
-                setPopoverOpen(instance, shouldOpen);
-                return;
-            }
+        if (typeof window.AppUi?.createDropdown === 'function') {
+            const dropdown = window.AppUi.createDropdown({
+                root,
+                trigger: instance.refs.trigger,
+                menu: instance.refs.popover,
+                openClass: 'is-open',
+                hiddenClass: 'is-hidden',
+                onOpen: () => {
+                    closeAllPopovers(root);
+                    instance.state.isOpen = true;
+                    render(instance);
+                    window.requestAnimationFrame(() => {
+                        fitPopoverToViewport(instance);
+                    });
+                },
+                onClose: () => {
+                    instance.state.isOpen = false;
+                }
+            });
+            instance.dropdownController = dropdown.controller;
+        }
 
+        instance.handlers.click = function (event) {
             if (event.target.closest('[data-role="survey-work-period-close"]')) {
                 event.preventDefault();
                 setPopoverOpen(instance, false);
@@ -460,62 +497,6 @@
         render(instance);
     }
 
-    function handleDocumentClick(event) {
-        cleanupDetachedInstances();
-
-        let clickedInsideControl = false;
-        instances.forEach((instance, root) => {
-            if (root.contains(event.target)) {
-                clickedInsideControl = true;
-            }
-        });
-
-        if (!clickedInsideControl) {
-            closeAllPopovers();
-        }
-    }
-
-    function handleDocumentKeydown(event) {
-        if (event.key === 'Escape') {
-            closeAllPopovers();
-        }
-    }
-
-    function handleWindowResize() {
-        instances.forEach((instance) => {
-            if (instance.state.isOpen) {
-                fitPopoverToViewport(instance);
-            }
-        });
-    }
-
-    function installDocumentListeners() {
-        documentListenerMountCount += 1;
-        if (documentListenerMountCount !== 1) {
-            return;
-        }
-
-        document.addEventListener('click', handleDocumentClick, true);
-        document.addEventListener('keydown', handleDocumentKeydown);
-        window.addEventListener('resize', handleWindowResize);
-    }
-
-    function removeDocumentListeners() {
-        if (documentListenerMountCount <= 0) {
-            documentListenerMountCount = 0;
-            return;
-        }
-
-        documentListenerMountCount -= 1;
-        if (documentListenerMountCount !== 0) {
-            return;
-        }
-
-        document.removeEventListener('click', handleDocumentClick, true);
-        document.removeEventListener('keydown', handleDocumentKeydown);
-        window.removeEventListener('resize', handleWindowResize);
-    }
-
     function getInstanceForPage(page) {
         return Array.from(instances.values()).find((instance) => instance.page === page) || null;
     }
@@ -529,6 +510,7 @@
             if (instance.handlers?.click) {
                 root.removeEventListener('click', instance.handlers.click);
             }
+            instance.dropdownController?.destroy?.();
             instances.delete(root);
         });
     }
@@ -557,6 +539,7 @@
         }
 
         let isDestroyed = false;
+        const lifecycleScope = createLifecycleScope();
         const controller = {
             page,
             destroy() {
@@ -565,8 +548,7 @@
                 }
 
                 isDestroyed = true;
-                removeDocumentListeners();
-                page.removeEventListener('page:unmount', controller.destroy);
+                lifecycleScope.dispose();
                 unbindPageInstances(page);
                 mountedPageControllerByPage.delete(page);
                 mountedPageControllers.delete(controller);
@@ -574,8 +556,12 @@
             }
         };
 
-        installDocumentListeners();
-        page.addEventListener('page:unmount', controller.destroy);
+        lifecycleScope.listen(window, 'resize', () => {
+            if (instance.state.isOpen) {
+                fitPopoverToViewport(instance);
+            }
+        });
+        lifecycleScope.listen(page, 'page:unmount', controller.destroy);
         mountedPageControllerByPage.set(page, controller);
         mountedPageControllers.add(controller);
         return controller;

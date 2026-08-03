@@ -1,6 +1,6 @@
 <div class="survey-period-filter" data-role="survey-date-filter">
     <button type="button"
-            class="survey-period-filter__trigger"
+            class="app-button app-button--secondary survey-period-filter__trigger"
             data-role="survey-date-filter-trigger"
             aria-expanded="false"
             aria-haspopup="dialog">
@@ -8,26 +8,26 @@
         <span data-role="survey-date-filter-label">Фильтр по периоду</span>
     </button>
 
-    <div class="survey-period-filter__popover is-hidden"
+    <div class="app-dropdown survey-period-filter__popover is-hidden"
          data-role="survey-date-filter-popover"
          role="dialog"
          aria-label="Фильтр анкет по периоду">
         <div class="survey-period-filter__header">
             <div class="survey-period-filter__mode-switch" data-role="survey-date-filter-mode-switch">
                 <button type="button"
-                        class="survey-period-filter__mode-button"
+                        class="app-button app-button--secondary survey-period-filter__mode-button"
                         data-role="survey-date-filter-mode"
                         data-mode="year">
                     По году
                 </button>
                 <button type="button"
-                        class="survey-period-filter__mode-button is-active"
+                        class="app-button app-button--secondary survey-period-filter__mode-button is-active"
                         data-role="survey-date-filter-mode"
                         data-mode="month">
                     По месяцу
                 </button>
                 <button type="button"
-                        class="survey-period-filter__mode-button"
+                        class="app-button app-button--secondary survey-period-filter__mode-button"
                         data-role="survey-date-filter-mode"
                         data-mode="range">
                     По диапазону
@@ -104,7 +104,7 @@
 
         <div class="survey-period-filter__footer">
             <button type="button"
-                    class="survey-period-filter__clear-button"
+                    class="app-button app-button--primary survey-period-filter__clear-button"
                     data-role="survey-date-filter-clear">
                 Сбросить
             </button>

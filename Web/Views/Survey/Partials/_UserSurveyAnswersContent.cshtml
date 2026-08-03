@@ -26,27 +26,27 @@
      data-is-signed="@(isSigned ? "true" : "false")">
     <div class="answers-modal__info-block">
         <div class="answers-modal__field-label">Название</div>
-        <div class="answers-modal__info-text">@nameText</div>
+        <div class="app-field answers-modal__info-text">@nameText</div>
     </div>
 
     <div class="answers-modal__info-block">
         <div class="answers-modal__field-label">Описание</div>
-        <div class="answers-modal__info-text">@descriptionText</div>
+        <div class="app-field answers-modal__info-text">@descriptionText</div>
     </div>
 
     <div class="answers-modal__info-block">
         <div class="answers-modal__field-label">Статус</div>
-        <div class="answers-modal__info-text">@statusText</div>
+        <div class="app-field answers-modal__info-text">@statusText</div>
     </div>
 
     <div class="answers-modal__info-block answers-modal__date-block">
         <div class="answers-modal__field-label">Дата</div>
-        <div class="answers-modal__date-text">@dateText</div>
+        <div class="app-field answers-modal__date-text">@dateText</div>
     </div>
 
     <div class="answers-modal__info-block answers-modal__signature-block" data-role="signature-info">
         <div class="answers-modal__field-label">Подпись</div>
-        <div class="answers-modal__signature-text @(isSigned ? "signed" : "not-signed")" data-role="signature-status">
+        <div class="app-field answers-modal__signature-text @(isSigned ? "signed" : "not-signed")" data-role="signature-status">
             @if (isSigned)
             {
                 <div class="answers-modal__signature-line">
@@ -78,7 +78,7 @@
 
     @if (answerGroups.Count == 0)
     {
-        <section class="app-page__section" data-role="empty-message">
+        <section class="app-section app-page__section" data-role="empty-message">
             Нет данных для отображения
         </section>
     }
@@ -87,7 +87,7 @@
         <div class="answers-table-container table-responsive answers-modal__table-wrap" data-role="answers-content">
             <table class="answers-table answers-modal__table" data-role="main-table" data-disable-column-sort="true">
                 <thead>
-                    <tr class="table_tr">
+                    <tr class="app-table__header-row">
                         <th class="table-th--start">Вопрос</th>
                         <th class="answers-modal__rating-column">Оценка</th>
                         <th class="table-th--end">Комментарий</th>
@@ -113,12 +113,12 @@
     <div class="button-container survey-user-answer-actions" data-role="body-actions">
         <div data-role="sign-actions">
             <button type="button"
-                    class="modal_btn modal_btn-primary"
+                    class="app-button app-button--primary"
                     data-role="sign-button"
                     disabled="@(isSigned ? "disabled" : null)">
                 @(isSigned ? "Подписано" : "Подписать")
             </button>
         </div>
-        <button type="button" class="modal_btn modal_btn-secondary" data-role="download-btn">Скачать ответы</button>
+        <button type="button" class="app-button app-button--secondary" data-role="download-btn">Скачать ответы</button>
     </div>
 </div>

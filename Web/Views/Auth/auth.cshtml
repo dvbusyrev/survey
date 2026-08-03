@@ -72,21 +72,21 @@
                     </header>
 
                     <div class="modal-body auth-modal-body">
-                        <div class="form-group">
-                            <label class="form-label" for="username">Логин</label>
-                            <div class="input-container">
+                        <div class="app-field-group">
+                            <label for="username">Логин</label>
+                            <div class="app-field-with-icon">
                                 <div class="icon-container field-icon-container"><i class="fas fa-user"></i></div>
-                                <input type="text" class="form-control form-input" id="username" name="username" required placeholder="Введите логин" />
+                                <input type="text" class="app-field" id="username" name="username" required placeholder="Введите логин" />
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="password">Пароль</label>
-                            <div class="input-container has-toggle">
+                        <div class="app-field-group">
+                            <label for="password">Пароль</label>
+                            <div class="app-field-with-icon has-toggle">
                                 <div class="icon-container field-icon-container"><i class="fas fa-lock"></i></div>
                                 <input
                                     type="text"
-                                    class="form-control form-input is-password-masked"
+                                    class="app-field is-password-masked"
                                     id="password"
                                     name="password"
                                     required
@@ -104,8 +104,8 @@
                     </div>
 
                     <footer class="modal-footer auth-modal-footer">
-                        <button type="reset" class="modal_btn modal_btn-secondary reset-button">Сброс</button>
-                        <button type="submit" class="modal_btn modal_btn-primary submit-button">Войти</button>
+                        <button type="reset" class="app-button app-button--secondary">Сброс</button>
+                        <button type="submit" class="app-button app-button--primary">Войти</button>
                     </footer>
                 </form>
             </div>

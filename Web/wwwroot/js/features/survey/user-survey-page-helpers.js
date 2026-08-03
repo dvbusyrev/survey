@@ -40,6 +40,38 @@ export function getSurveyUserHistoryEntryFromLocation(pathname) {
     return null;
 }
 
+export function normalizeSurveyUserCount(value) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : null;
+}
+
+export function readSurveyUserActiveCountFromSnapshot(snapshot) {
+    return normalizeSurveyUserCount(snapshot?.activeCount);
+}
+
+export function readSurveyUserActiveCountFromDom(root) {
+    const badge = root?.querySelector?.('[data-role="active-count"]');
+    return normalizeSurveyUserCount(badge?.textContent?.trim());
+}
+
+export function syncSurveyUserActiveCountBadge(root, activeCount) {
+    const activeTabButton = root?.querySelector('[data-role="tab-active"]');
+    if (!activeTabButton) {
+        return;
+    }
+
+    const nextCount = normalizeSurveyUserCount(activeCount) ?? 0;
+    let badge = activeTabButton.querySelector('[data-role="active-count"]');
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'count-badge';
+        badge.dataset.role = 'active-count';
+        activeTabButton.appendChild(badge);
+    }
+
+    badge.textContent = String(nextCount);
+}
+
 export function getSurveyId(survey) {
     const rawValue = survey?.id_survey ?? survey?.IdSurvey ?? survey?.idSurvey;
     const numericValue = Number(rawValue);
@@ -188,8 +220,6 @@ export function mountSurveyUserModal(host, { title = '', subtitle = '', mountBod
 
     host.replaceChildren();
     const modalNode = template.content.firstElementChild.cloneNode(true);
-    const modalContent = modalNode.querySelector('.modal-content');
-    const closeButton = modalNode.querySelector('[data-role="close-btn"]');
     const titleNode = modalNode.querySelector('[data-role="title"]');
     const bodyHost = modalNode.querySelector('[data-role="body"]');
     const footerHost = modalNode.querySelector('[data-role="footer"]');
@@ -213,43 +243,39 @@ export function mountSurveyUserModal(host, { title = '', subtitle = '', mountBod
         }
     }
 
-    const handleEscape = (event) => {
-        if (event.key === 'Escape') {
+    let isDisposed = false;
+    const handleHidden = () => {
+        if (!isDisposed) {
             onClose?.();
         }
     };
 
-    modalNode.addEventListener('click', () => onClose?.());
-    modalContent?.addEventListener('click', (event) => event.stopPropagation());
-    closeButton?.addEventListener('click', () => onClose?.());
+    modalNode.addEventListener('site-modal:hidden', handleHidden);
     const bodyCleanup = typeof mountBody === 'function' && bodyHost
         ? mountBody(bodyHost, footerHost)
         : null;
 
     host.appendChild(modalNode);
-    modalNode.classList.add('modal--visible');
-    modalNode.setAttribute('aria-hidden', 'false');
-
-    if (typeof window.syncSiteModalBodyState === 'function') {
-        window.syncSiteModalBodyState();
-    } else {
-        document.body.classList.add('modal-open');
+    if (window.AppUi?.setModalVisibility) {
+        window.AppUi.setModalVisibility(modalNode, true);
+    } else if (typeof window.showSiteModal === 'function') {
+        window.showSiteModal(modalNode);
     }
 
-    document.addEventListener('keydown', handleEscape);
-
     return () => {
+        isDisposed = true;
+
         if (typeof bodyCleanup === 'function') {
             bodyCleanup();
         }
 
-        document.removeEventListener('keydown', handleEscape);
-        host.replaceChildren();
-
-        if (typeof window.syncSiteModalBodyState === 'function') {
-            window.syncSiteModalBodyState();
-        } else {
-            document.body.classList.remove('modal-open');
+        modalNode.removeEventListener('site-modal:hidden', handleHidden);
+        if (window.AppUi?.setModalVisibility) {
+            window.AppUi.setModalVisibility(modalNode, false);
+        } else if (typeof window.hideSiteModal === 'function') {
+            window.hideSiteModal(modalNode);
         }
+
+        host.replaceChildren();
     };
 }

@@ -3,18 +3,28 @@
         return;
     }
 
-    function setOpen(instance, isOpen) {
+    function applyOpenState(instance, isOpen) {
         if (!instance?.state || !instance?.refs?.trigger || !instance?.refs?.popover) {
             return;
         }
 
         instance.state.isOpen = Boolean(isOpen);
         instance.refs.trigger.setAttribute('aria-expanded', instance.state.isOpen ? 'true' : 'false');
-        instance.refs.popover.classList.toggle('is-hidden', !instance.state.isOpen);
 
         if (instance.state.isOpen) {
             window.AppCheckboxDropdown?.scheduleListHeightUpdate(instance.refs.popover);
         }
+    }
+
+    function setOpen(instance, isOpen) {
+        if (instance?.dropdownController?.setOpen && !instance.isSyncingDropdownOpenState) {
+            instance.isSyncingDropdownOpenState = true;
+            instance.dropdownController.setOpen(Boolean(isOpen));
+            instance.isSyncingDropdownOpenState = false;
+            return;
+        }
+
+        applyOpenState(instance, isOpen);
     }
 
     function cleanupDetachedInstances(collections) {
@@ -52,12 +62,15 @@
             if (instance.handlers?.change) {
                 root.removeEventListener('change', instance.handlers.change);
             }
+
+            instance.dropdownController?.destroy?.();
         });
         collection.clear();
     }
 
     window.SurveyFilterPopover = {
         setOpen,
+        applyOpenState,
         cleanupDetachedInstances,
         closeAll,
         containsTarget,

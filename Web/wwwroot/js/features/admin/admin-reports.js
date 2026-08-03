@@ -57,10 +57,6 @@ async function extractReportErrorMessage(response, fallbackMessage) {
     }
 }
 
-function hideNotification() {
-    return;
-}
-
 function normalizeReportFailureReason(message) {
     const normalized = String(message || '').trim();
     if (!normalized) {
@@ -201,4 +197,3 @@ window.submitMonthlyReport = submitMonthlyReport;
 window.submitQuarterlyReport = submitQuarterlyReport;
 window.populateYears = populateYears;
 window.onYearChange = onYearChange;
-window.hideNotification = hideNotification;

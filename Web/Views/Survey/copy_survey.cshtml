@@ -20,28 +20,28 @@
             Description = "Создайте копию существующей анкеты с новыми датами активности."
         })
 
-    <section class="app-page__section app-page__stack">
+    <section class="app-section app-page__section app-page__stack">
         <h3 class="survey-editor-page__section-title">Параметры копирования</h3>
 
-        <div class="form-group">
+        <div class="app-field-group">
             <label for="surveyTitle">Название анкеты</label>
-            <input type="text" class="form-control" id="surveyTitle" value="@Model.NameSurvey (Копия)" readonly />
+            <input type="text" class="app-field" id="surveyTitle" value="@Model.NameSurvey (Копия)" readonly />
         </div>
 
-        <div class="form-group">
+        <div class="app-field-group">
             <label for="startDate">Дата начала</label>
-            <input type="date" class="form-control" id="startDate" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" value="@currentDate" required />
+            <input type="date" class="app-field" id="startDate" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" value="@currentDate" required />
         </div>
 
-        <div class="form-group">
+        <div class="app-field-group">
             <label for="endDate">Дата конца</label>
-            <input type="date" class="form-control" id="endDate" data-date-native="true" data-date-label="Дата конца" lang="ru-RU" value="@nextWeekDate" required />
+            <input type="date" class="app-field" id="endDate" data-date-native="true" data-date-label="Дата конца" lang="ru-RU" value="@nextWeekDate" required />
         </div>
 
         <p class="survey-editor-page__note">Примечание: организации и критерии будут скопированы из оригинальной анкеты.</p>
     </section>
 
-    <section class="app-page__section">
+    <section class="app-section app-page__section">
         <div class="button-container survey-editor-page__actions">
             <button type="button"
                     class="btn"
@@ -51,7 +51,6 @@
     </section>
 </div>
 
-@await Html.PartialAsync("~/Web/Views/Shared/_OperationNotification.cshtml")
 @await Html.PartialAsync("~/Web/Views/Shared/_OperationLoadingOverlay.cshtml", "Идет копирование анкеты...")
 
 @section Scripts {

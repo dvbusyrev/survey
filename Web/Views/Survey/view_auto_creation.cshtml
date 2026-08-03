@@ -44,11 +44,11 @@
                         Description = "Настройте день создания новых копий анкет, день их открытия и срок закрытия в рабочих днях. После запуска система будет автоматически создавать копии выбранных анкет по расписанию."
                     })
 
-                <section class="app-page__section reports-page__card survey-auto-creation-page__card">
+                <section class="app-section app-page__section reports-page__card survey-auto-creation-page__card">
                     <div class="reports-page__card-header survey-auto-creation-page__header">
                         <div class="reports-page__field survey-auto-creation-page__status-field">
                             <label>Статус</label>
-                            <div class="survey-auto-creation-page__status-control"
+                            <div class="app-field survey-auto-creation-page__status-control"
                                  data-role="survey-auto-creation-status">
                                 @(Model?.IsEnabled == true ? "В работе" : "Не запущен")
                             </div>
@@ -58,7 +58,7 @@
                     <div class="survey-auto-creation-page__controls">
                         <div class="reports-page__field">
                             <label for="surveyAutoCreationPattern">Создание анкеты</label>
-                            <select id="surveyAutoCreationPattern" class="form-control reports-page__quarter-select">
+                            <select id="surveyAutoCreationPattern" class="app-field reports-page__quarter-select">
                                 @foreach (var option in monthWeekdayOptions)
                                 {
                                     <option value="@option.Value" selected="@(Model?.CreationPattern == option.Value)">@option.Label</option>
@@ -68,7 +68,7 @@
 
                         <div class="reports-page__field">
                             <label for="surveyAutoCreationStartPattern">Дата начала</label>
-                            <select id="surveyAutoCreationStartPattern" class="form-control reports-page__quarter-select">
+                            <select id="surveyAutoCreationStartPattern" class="app-field reports-page__quarter-select">
                                 @foreach (var option in monthWeekdayOptions)
                                 {
                                     <option value="@option.Value" selected="@(Model?.StartPattern == option.Value)">@option.Label</option>
@@ -78,7 +78,7 @@
 
                         <div class="reports-page__field">
                             <label for="surveyAutoCreationEndOffset">Период действия</label>
-                            <select id="surveyAutoCreationEndOffset" class="form-control reports-page__quarter-select">
+                            <select id="surveyAutoCreationEndOffset" class="app-field reports-page__quarter-select">
                                 <option value="" selected="@(Model?.EndOffsetBusinessDays == null)"></option>
                                 @foreach (var option in endOffsetOptions)
                                 {
@@ -90,19 +90,19 @@
 
                     <div class="survey-auto-creation-page__selection">
                         <div class="survey-auto-creation-page__selection-title">Анкеты</div>
-                        <div class="survey-auto-creation-page__selected-list"
+                        <div class="app-field survey-auto-creation-page__selected-list"
                              data-role="survey-auto-creation-selected-list"
                              aria-live="polite"></div>
                         <div class="survey-auto-creation-page__selection-action">
-                            <div class="app-checkbox-dropdown app-checkbox-dropdown--inline survey-auto-creation-page__survey-dropdown"
+                            <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-auto-creation-page__survey-dropdown"
                                  data-role="survey-auto-creation-dropdown">
                                 <button type="button"
-                                        class="btn modal_btn modal_btn-primary app-checkbox-dropdown__trigger"
-                                        data-click-call="toggleSurveyAutoCreationSurveyDropdown">
+                                        class="app-button app-button--primary app-multiselect__trigger app-checkbox-dropdown__trigger"
+                                        data-role="survey-auto-creation-dropdown-trigger">
                                     Выбрать анкеты
                                 </button>
                                 <div id="surveyAutoCreationDropdownMenu"
-                                     class="app-checkbox-dropdown__menu app-checkbox-dropdown__menu--inline is-hidden"
+                                     class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline is-hidden"
                                      data-role="survey-auto-creation-dropdown-menu">
                                     <div id="surveyAutoCreationModalLoading" class="app-checkbox-empty u-hidden" aria-hidden="true"></div>
                                     <div id="surveyAutoCreationModalList" class="app-checkbox-list"></div>
@@ -113,14 +113,14 @@
 
                     <div class="survey-auto-creation-page__actions">
                         <button type="button"
-                                class="modal_btn modal_btn-secondary survey-auto-creation-page__action-btn"
+                                class="app-button app-button--secondary survey-auto-creation-page__action-btn"
                                 data-click-call="saveSurveyAutoCreationSettings">
                             Сохранить
                         </button>
                         @if (Model?.IsEnabled == true)
                         {
                             <button type="button"
-                                    class="btn modal_btn modal_btn-primary survey-auto-creation-page__action-btn"
+                                    class="btn app-button app-button--primary survey-auto-creation-page__action-btn"
                                     data-click-call="stopSurveyAutoCreation">
                                 Остановить
                             </button>
@@ -128,7 +128,7 @@
                         else
                         {
                             <button type="button"
-                                    class="btn modal_btn modal_btn-primary survey-auto-creation-page__action-btn"
+                                    class="btn app-button app-button--primary survey-auto-creation-page__action-btn"
                                     data-click-call="startSurveyAutoCreation">
                                 Запустить
                             </button>

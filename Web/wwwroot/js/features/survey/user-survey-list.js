@@ -7,14 +7,481 @@ import {
     getSurveyUserHistoryEntryFromLocation,
     mountSurveyUserModal,
     normalizeSurveyUserPathname,
-    setSelectOptions
+    readSurveyUserActiveCountFromDom,
+    readSurveyUserActiveCountFromSnapshot,
+    setSelectOptions,
+    syncSurveyUserActiveCountBadge
 } from './user-survey-page-helpers.js';
+import { createSurveyUserLocalFilters } from './user-survey-local-filters.js';
+import { createSurveyUserRowTooltip } from './user-survey-row-tooltip.js';
 import { fetchSurveyUserSnapshot } from './user-survey-snapshot-loader.js';
 
-const mountSurveyFillPage = window.mountSurveyFillPage;
-const mountCheckAnswersPage = window.mountCheckAnswersPage;
-const fetchSurveyFillContentHtml = window.fetchSurveyFillContentHtml;
-const fetchSurveyAnswersContentHtml = window.fetchSurveyAnswersContentHtml;
+function readSurveyUserBootstrapData(root = document) {
+    const bootstrapElement = root.querySelector('#survey-user-list-bootstrap')
+        || root.querySelector('#user-archive-bootstrap')
+        || document.getElementById('survey-user-list-bootstrap')
+        || document.getElementById('user-archive-bootstrap');
+    if (!bootstrapElement?.textContent) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(bootstrapElement.textContent.trim());
+    } catch (error) {
+        console.error('Не удалось прочитать bootstrap-данные user survey:', error);
+        return null;
+    }
+}
+
+function mountSurveyUserListPage(page, bindSurveyUserListPage) {
+    const bootstrapData = readSurveyUserBootstrapData(page);
+    return bootstrapData
+        ? bindSurveyUserListPage(bootstrapData, page)
+        : null;
+}
+
+function renderSurveyUserChrome(initialData) {
+    const chromeContext = typeof window.readAppChromeContext === 'function'
+        ? window.readAppChromeContext()
+        : null;
+    const headerHost = document.getElementById('chrome-header');
+    const footerHost = document.getElementById('chrome-footer');
+    const props = {
+        userRole: chromeContext?.userRole || initialData?.userRole,
+        displayName: chromeContext?.displayName || initialData?.displayName,
+        userName: chromeContext?.userName || initialData?.userName,
+        organizationName: chromeContext?.organizationName || initialData?.organizationName
+    };
+
+    if (headerHost && typeof window.mountHeader === 'function') {
+        window.mountHeader(headerHost, props);
+    }
+
+    if (footerHost && typeof window.mountFooter === 'function') {
+        window.mountFooter(footerHost);
+    }
+}
+
+function createSurveyUserListInteractionController({
+    contentHost,
+    state,
+    rowTooltip,
+    localFilters,
+    openSurveyById,
+    handleTabChange,
+    loadTabSnapshot
+} = {}) {
+    if (!contentHost) {
+        return { destroy: () => {} };
+    }
+
+    const tabActions = [
+        ['tab-active', 'active'],
+        ['tab-help', 'help'],
+        ['tab-archived', 'archived']
+    ];
+
+    function getEventTarget(event) {
+        return event.target instanceof Element ? event.target : null;
+    }
+
+    function belongsToPage(element) {
+        return Boolean(element && contentHost.contains(element));
+    }
+
+    function readPositiveNumber(element, name) {
+        const value = Number(element?.dataset?.[name] || 0);
+        return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function getClickedTab(target) {
+        for (const [role, tab] of tabActions) {
+            const button = target.closest(`[data-role="${role}"]`);
+            if (belongsToPage(button)) {
+                return tab;
+            }
+        }
+
+        return null;
+    }
+
+    function handleClick(event) {
+        const target = getEventTarget(event);
+        if (!target) {
+            return;
+        }
+
+        const tab = getClickedTab(target);
+        if (tab) {
+            event.preventDefault();
+            handleTabChange?.(tab);
+            return;
+        }
+
+        const actionButton = target.closest('[data-role="action"]');
+        if (belongsToPage(actionButton)) {
+            const surveyId = readPositiveNumber(actionButton, 'surveyId');
+            if (surveyId) {
+                openSurveyById?.(surveyId);
+            }
+            return;
+        }
+
+        const actionableRow = target.closest('[data-role="user-survey-row"][data-row-action]');
+        if (belongsToPage(actionableRow) && !target.closest('button, a, input, select, textarea')) {
+            const surveyId = readPositiveNumber(actionableRow, 'surveyId');
+            if (surveyId) {
+                rowTooltip?.hide?.();
+                openSurveyById?.(surveyId);
+            }
+            return;
+        }
+
+        const paginationButton = target.closest('[data-role="pagination-page"]');
+        if (belongsToPage(paginationButton)) {
+            const targetPage = readPositiveNumber(paginationButton, 'page');
+            if (!targetPage || targetPage === state?.currentSnapshot?.currentPage) {
+                return;
+            }
+
+            event.preventDefault();
+            loadTabSnapshot?.(state.activeTab, {
+                page: targetPage,
+                searchTerm: state.currentSnapshot.searchTerm,
+                signedOnly: state.currentSnapshot.signedOnly,
+                scrollToTableStart: true
+            });
+        }
+    }
+
+    function handleDoubleClick(event) {
+        const target = getEventTarget(event);
+        const row = target?.closest('[data-role="user-survey-row"]');
+        if (!belongsToPage(row) || target.closest('button') || row.dataset.rowAction) {
+            return;
+        }
+
+        const surveyId = readPositiveNumber(row, 'surveyId');
+        if (surveyId) {
+            openSurveyById?.(surveyId);
+        }
+    }
+
+    function handleMouseOver(event) {
+        const target = getEventTarget(event);
+        const row = target?.closest('[data-role="user-survey-row"][data-hover-label]');
+        if (!belongsToPage(row) || rowTooltip?.isActiveRow?.(row)) {
+            return;
+        }
+
+        rowTooltip?.show?.(row, event);
+    }
+
+    function handleMouseMove(event) {
+        if (!rowTooltip?.hasActiveRow?.()) {
+            return;
+        }
+
+        rowTooltip.move(event);
+    }
+
+    function handleMouseOut(event) {
+        if (!rowTooltip?.hasActiveRow?.() || rowTooltip.activeRowContains?.(event.relatedTarget)) {
+            return;
+        }
+
+        rowTooltip.hide();
+    }
+
+    function handleSubmit(event) {
+        const target = getEventTarget(event);
+        const searchForm = target?.closest('[data-role="search-form"]');
+        if (!belongsToPage(searchForm)) {
+            return;
+        }
+
+        event.preventDefault();
+        const searchInput = searchForm.querySelector('[data-role="search-input"]');
+        const signedInput = searchForm.querySelector('[data-role="signed-filter-input"]');
+
+        loadTabSnapshot?.(state.activeTab, {
+            page: 1,
+            searchTerm: searchInput?.value?.trim() || '',
+            signedOnly: Boolean(signedInput?.checked)
+        });
+    }
+
+    function handleChange(event) {
+        const target = getEventTarget(event);
+        if (!target) {
+            return;
+        }
+
+        const monthFilter = target.closest('[data-role="month-filter"]');
+        if (belongsToPage(monthFilter)) {
+            state.monthFilter = monthFilter.value;
+            localFilters?.applyLocalFilters?.();
+            return;
+        }
+
+        const yearFilter = target.closest('[data-role="year-filter"]');
+        if (belongsToPage(yearFilter)) {
+            state.yearFilter = yearFilter.value;
+            localFilters?.applyLocalFilters?.();
+            return;
+        }
+
+        const signedInput = target.closest('[data-role="signed-filter-input"]');
+        if (belongsToPage(signedInput)) {
+            loadTabSnapshot?.('archived', {
+                page: 1,
+                searchTerm: state.currentSnapshot.searchTerm,
+                signedOnly: signedInput.checked
+            });
+        }
+    }
+
+    const listeners = [
+        ['click', handleClick],
+        ['dblclick', handleDoubleClick],
+        ['mouseover', handleMouseOver],
+        ['mousemove', handleMouseMove],
+        ['mouseout', handleMouseOut],
+        ['submit', handleSubmit],
+        ['change', handleChange]
+    ];
+    listeners.forEach(([type, handler]) => contentHost.addEventListener(type, handler));
+
+    return {
+        destroy() {
+            listeners.forEach(([type, handler]) => {
+                contentHost.removeEventListener(type, handler);
+            });
+        }
+    };
+}
+
+function createSurveyUserHistoryController({ onTabChange } = {}) {
+    function sync(tab, mode) {
+        const entry = buildSurveyUserHistoryEntry(tab);
+        if (!entry) {
+            return;
+        }
+
+        const currentPath = normalizeSurveyUserPathname(window.location.pathname);
+        const shouldKeepCurrentQuery = tab === 'archived'
+            && currentPath === entry.url
+            && window.location.search;
+        const entryUrl = shouldKeepCurrentQuery
+            ? `${entry.url}${window.location.search}`
+            : entry.url;
+        const nextState = { tab: entry.tab };
+
+        if (mode === 'replace') {
+            window.history.replaceState(nextState, '', entryUrl);
+            return;
+        }
+
+        if (currentPath === entry.url
+            && window.location.search === (shouldKeepCurrentQuery ? window.location.search : '')
+            && window.history.state?.tab === nextState.tab) {
+            return;
+        }
+
+        window.history.pushState(nextState, '', entryUrl);
+    }
+
+    function pushArchiveFilterQuery(queryString) {
+        const normalizedQuery = String(queryString || '').replace(/^\?/, '').trim();
+        const nextHistoryUrl = normalizedQuery ? `/archive?${normalizedQuery}` : '/archive';
+        const currentUrl = `${normalizeSurveyUserPathname(window.location.pathname)}${window.location.search}`;
+
+        if (currentUrl === nextHistoryUrl && window.history.state?.tab === 'archived') {
+            window.history.replaceState({ tab: 'archived' }, '', nextHistoryUrl);
+        } else {
+            window.history.pushState({ tab: 'archived' }, '', nextHistoryUrl);
+        }
+
+        return normalizedQuery;
+    }
+
+    function handlePopState() {
+        const entry = window.history.state?.tab
+            ? buildSurveyUserHistoryEntry(window.history.state.tab)
+            : getSurveyUserHistoryEntryFromLocation(window.location.pathname);
+
+        if (!entry) {
+            return;
+        }
+
+        onTabChange?.(entry.tab, { historyMode: 'none' });
+    }
+
+    function mount() {
+        window.addEventListener('popstate', handlePopState);
+    }
+
+    function destroy() {
+        window.removeEventListener('popstate', handlePopState);
+    }
+
+    return {
+        sync,
+        pushArchiveFilterQuery,
+        mount,
+        destroy
+    };
+}
+
+function createSurveyUserListModalController({
+    state,
+    initialData,
+    setError,
+    isDisposed,
+    onBackToList,
+    onSurveySubmitted
+}) {
+    const modalState = {
+        fillCleanup: null,
+        answersCleanup: null,
+        prefetchedHtml: null,
+        openRequestId: 0
+    };
+
+    function cleanup(kind) {
+        if (kind === 'fill' && typeof modalState.fillCleanup === 'function') {
+            modalState.fillCleanup();
+            modalState.fillCleanup = null;
+        }
+
+        if (kind === 'answers' && typeof modalState.answersCleanup === 'function') {
+            modalState.answersCleanup();
+            modalState.answersCleanup = null;
+        }
+    }
+
+    function getModalConfig() {
+        if (state.currentView === 'survey-fill') {
+            return {
+                kind: 'fill',
+                hostSelector: '[data-role="fill-modal-host"]',
+                title: 'Заполнение анкеты',
+                mountPage: window.mountSurveyFillPage,
+                extraOptions: {
+                    onBack: onBackToList,
+                    onSubmitted: () => onSurveySubmitted?.(state.currentSurvey)
+                }
+            };
+        }
+
+        if (state.currentView === 'check-answers') {
+            return {
+                kind: 'answers',
+                hostSelector: '[data-role="answers-modal-host"]',
+                title: 'Просмотр анкеты',
+                mountPage: window.mountCheckAnswersPage,
+                extraOptions: {}
+            };
+        }
+
+        return null;
+    }
+
+    function render() {
+        cleanup('fill');
+        cleanup('answers');
+
+        const config = getModalConfig();
+        const modalHost = config ? document.querySelector(config.hostSelector) : null;
+        if (!config || !state.currentSurvey || !modalHost || typeof config.mountPage !== 'function') {
+            return;
+        }
+
+        const initialHtml = modalState.prefetchedHtml;
+        modalState.prefetchedHtml = null;
+        modalState[`${config.kind}Cleanup`] = mountSurveyUserModal(modalHost, {
+            title: config.title,
+            onClose: onBackToList,
+            mountBody: (modalBodyHost, modalFooterHost) => config.mountPage(modalBodyHost, {
+                survey: state.currentSurvey,
+                organizationId: initialData.userOrganizationId,
+                initialHtml,
+                footerHost: modalFooterHost,
+                ...config.extraOptions
+            })
+        });
+    }
+
+    async function open(survey, activeTab) {
+        if (!survey) {
+            return;
+        }
+
+        const surveyId = getSurveyId(survey);
+        const targetView = activeTab === 'active' ? 'survey-fill' : 'check-answers';
+        const requestId = modalState.openRequestId + 1;
+        modalState.openRequestId = requestId;
+
+        try {
+            const prefetchedHtml = targetView === 'survey-fill'
+                ? await window.fetchSurveyFillContentHtml?.(surveyId, initialData.userOrganizationId)
+                : await window.fetchSurveyAnswersContentHtml?.(surveyId, initialData.userOrganizationId);
+
+            if (isDisposed() || modalState.openRequestId !== requestId) {
+                return;
+            }
+
+            modalState.prefetchedHtml = typeof prefetchedHtml === 'string' ? prefetchedHtml : null;
+            state.currentSurvey = survey;
+            state.currentView = targetView;
+            render();
+        } catch (error) {
+            if (isDisposed() || modalState.openRequestId !== requestId) {
+                return;
+            }
+
+            modalState.prefetchedHtml = null;
+            setError(error?.message || 'Не удалось открыть анкету');
+        }
+    }
+
+    function closeToList() {
+        modalState.openRequestId += 1;
+        modalState.prefetchedHtml = null;
+        state.currentView = 'survey-list';
+        state.currentSurvey = null;
+        render();
+    }
+
+    function destroy() {
+        modalState.openRequestId += 1;
+        cleanup('fill');
+        cleanup('answers');
+    }
+
+    return {
+        render,
+        open,
+        closeToList,
+        destroy
+    };
+}
+
+function registerSurveyUserListPage(bindSurveyUserListPage) {
+    if (window.AppPageLifecycle?.register) {
+        window.AppPageLifecycle.register(
+            'survey-user-list',
+            '[data-page="user-surveys"]',
+            (page) => mountSurveyUserListPage(page, bindSurveyUserListPage)
+        );
+        return;
+    }
+
+    const page = document.querySelector('[data-page="user-surveys"]');
+    if (page) {
+        mountSurveyUserListPage(page, bindSurveyUserListPage);
+    }
+}
 
 window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pageRoot = null) {
     window.__surveyUserListController?.destroy?.();
@@ -26,46 +493,6 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
     }
 
     let disposed = false;
-
-    let chromeRendered = false;
-
-    function getChromeProps() {
-        const chromeContext = typeof window.readAppChromeContext === 'function'
-            ? window.readAppChromeContext()
-            : null;
-
-        return {
-            chromeContext,
-            props: {
-                userRole: chromeContext?.userRole || initialData.userRole,
-                displayName: chromeContext?.displayName || initialData.displayName,
-                userName: chromeContext?.userName || initialData.userName,
-                organizationName: chromeContext?.organizationName || initialData.organizationName
-            }
-        };
-    }
-
-    function renderChromeShell() {
-        if (chromeRendered) {
-            return;
-        }
-
-        const headerHost = document.getElementById('chrome-header');
-        const footerHost = document.getElementById('chrome-footer');
-        const { props } = getChromeProps();
-
-        if (headerHost && typeof window.mountHeader === 'function') {
-            window.mountHeader(headerHost, props);
-        }
-
-        if (footerHost && typeof window.mountFooter === 'function') {
-            window.mountFooter(footerHost);
-        }
-
-        chromeRendered = true;
-    }
-
-    renderChromeShell();
 
     function remountPageEnhancements() {
         if (!(contentHost instanceof Element)) {
@@ -91,28 +518,14 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
             || document.getElementById('survey-user-help-content-template')
     };
 
-    function normalizeCount(value) {
-        const numericValue = Number(value);
-        return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : null;
-    }
-
-    function readActiveCountFromSnapshot(snapshot) {
-        return normalizeCount(snapshot?.activeCount);
-    }
-
-    function readActiveCountFromDom(root = contentHost) {
-        const badge = root?.querySelector?.('[data-role="active-count"]');
-        return normalizeCount(badge?.textContent?.trim());
-    }
-
     const state = {
         activeTab: initialSnapshot.activeTab,
         currentView: 'survey-list',
         currentSurvey: null,
         currentSnapshot: initialSnapshot,
         loading: false,
-        activeCount: readActiveCountFromDom()
-            ?? readActiveCountFromSnapshot(initialSnapshot)
+        activeCount: readSurveyUserActiveCountFromDom(contentHost)
+            ?? readSurveyUserActiveCountFromSnapshot(initialSnapshot)
             ?? 0,
         monthFilter: '',
         yearFilter: '',
@@ -123,75 +536,10 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         }
     };
 
-    const modalState = {
-        fillCleanup: null,
-        answersCleanup: null,
-        prefetchedHtml: null,
-        openRequestId: 0
-    };
+    renderSurveyUserChrome(initialData);
 
-    const TOOLTIP_OFFSET_X = 12;
-    const TOOLTIP_OFFSET_Y = 14;
-    let rowTooltip = null;
-    let activeTooltipRow = null;
-    let latestTooltipX = 0;
-    let latestTooltipY = 0;
-    let tooltipFrameId = 0;
     let refreshPromise = null;
-
-    function ensureRowTooltip(label) {
-        if (!rowTooltip) {
-            rowTooltip = document.createElement('div');
-            rowTooltip.className = 'client-surveys-page__cursor-tooltip';
-            rowTooltip.setAttribute('aria-hidden', 'true');
-            document.body.appendChild(rowTooltip);
-        }
-
-        rowTooltip.textContent = label || 'Смотреть';
-        return rowTooltip;
-    }
-
-    function applyRowTooltipPosition() {
-        tooltipFrameId = 0;
-        if (!activeTooltipRow || !rowTooltip) {
-            return;
-        }
-
-        rowTooltip.style.transform = `translate3d(${latestTooltipX + TOOLTIP_OFFSET_X}px, ${latestTooltipY + TOOLTIP_OFFSET_Y}px, 0)`;
-    }
-
-    function queueRowTooltipPosition(event) {
-        if (activeTooltipRow && !activeTooltipRow.isConnected) {
-            hideRowTooltip();
-            return;
-        }
-
-        latestTooltipX = event.clientX;
-        latestTooltipY = event.clientY;
-
-        if (!tooltipFrameId) {
-            tooltipFrameId = window.requestAnimationFrame(applyRowTooltipPosition);
-        }
-    }
-
-    function showRowTooltip(row, event) {
-        activeTooltipRow = row;
-        ensureRowTooltip(row.dataset.hoverLabel || 'Смотреть').classList.add('is-visible');
-        queueRowTooltipPosition(event);
-    }
-
-    function hideRowTooltip() {
-        activeTooltipRow = null;
-        if (tooltipFrameId) {
-            window.cancelAnimationFrame(tooltipFrameId);
-            tooltipFrameId = 0;
-        }
-
-        if (rowTooltip) {
-            rowTooltip.classList.remove('is-visible');
-            rowTooltip.style.transform = 'translate3d(-9999px, -9999px, 0)';
-        }
-    }
+    const rowTooltip = createSurveyUserRowTooltip();
 
     function getContentRoot() {
         return contentHost.querySelector('[data-role="survey-user-content"]');
@@ -211,40 +559,14 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
     }
 
     function updateActiveCountFromSnapshot(snapshot) {
-        const nextCount = readActiveCountFromSnapshot(snapshot);
+        const nextCount = readSurveyUserActiveCountFromSnapshot(snapshot);
         if (nextCount !== null) {
             state.activeCount = nextCount;
         }
     }
 
     function syncActiveCountBadge() {
-        const root = getContentRoot();
-        const activeTabButton = root?.querySelector('[data-role="tab-active"]');
-        if (!activeTabButton) {
-            return;
-        }
-
-        const nextCount = normalizeCount(state.activeCount) ?? 0;
-        let badge = activeTabButton.querySelector('[data-role="active-count"]');
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.className = 'count-badge';
-            badge.dataset.role = 'active-count';
-            activeTabButton.appendChild(badge);
-        }
-
-        badge.textContent = String(nextCount);
-    }
-
-    function getSurveyName(survey) {
-        return String(
-            survey?.name_survey
-            ?? survey?.NameSurvey
-            ?? survey?.nameSurvey
-            ?? survey?.name
-            ?? survey?.Name
-            ?? ''
-        ).trim() || 'Без названия';
+        syncSurveyUserActiveCountBadge(getContentRoot(), state.activeCount);
     }
 
     function getContentRefs() {
@@ -278,133 +600,13 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         });
     }
 
-    function renderChrome() {
-        const headerHost = document.getElementById('chrome-header');
-        const navHost = document.getElementById('chrome-navigation');
-        const footerHost = document.getElementById('chrome-footer');
-        const { chromeContext, props: chromeProps } = getChromeProps();
-
-        if (headerHost && typeof window.mountHeader === 'function') {
-            window.mountHeader(headerHost, chromeProps);
-        }
-
-        if (navHost && typeof window.mountNavigation === 'function') {
-            window.mountNavigation(navHost, {
-                openTab: handleTabChange,
-                activeTab: state.activeTab === 'archived' ? 'archived_surveys_for_user' : state.activeTab,
-                userRole: chromeProps.userRole,
-                userId: chromeContext?.userId || initialData.userId
-            });
-        }
-
-        if (footerHost && typeof window.mountFooter === 'function') {
-            window.mountFooter(footerHost);
-        }
-    }
-
-    function ensureChromeRendered() {
-        if (chromeRendered) {
-            return;
-        }
-
-        renderChrome();
-        chromeRendered = true;
-    }
-
-    function cleanupModal(kind) {
-        if (kind === 'fill' && typeof modalState.fillCleanup === 'function') {
-            modalState.fillCleanup();
-            modalState.fillCleanup = null;
-        }
-
-        if (kind === 'answers' && typeof modalState.answersCleanup === 'function') {
-            modalState.answersCleanup();
-            modalState.answersCleanup = null;
-        }
-    }
-
-    function renderModals() {
-        cleanupModal('fill');
-        cleanupModal('answers');
-
-        const fillModalHost = document.querySelector('[data-role="fill-modal-host"]');
-        const answersModalHost = document.querySelector('[data-role="answers-modal-host"]');
-
-        if (state.currentView === 'survey-fill' && state.currentSurvey && fillModalHost) {
-            const initialHtml = modalState.prefetchedHtml;
-            modalState.prefetchedHtml = null;
-            modalState.fillCleanup = mountSurveyUserModal(fillModalHost, {
-                title: 'Заполнение анкеты',
-                onClose: handleBackToList,
-                mountBody: (modalBodyHost, modalFooterHost) => (typeof mountSurveyFillPage === 'function'
-                    ? mountSurveyFillPage(modalBodyHost, {
-                        survey: state.currentSurvey,
-                        organizationId: initialData.userOrganizationId,
-                        userRole: initialData.userRole,
-                        initialHtml,
-                        footerHost: modalFooterHost,
-                        onBack: handleBackToList,
-                        onSubmitted: () => handleSurveySubmitted(state.currentSurvey)
-                    })
-                    : null)
-            });
-        }
-
-        if (state.currentView === 'check-answers' && state.currentSurvey && answersModalHost) {
-            const initialHtml = modalState.prefetchedHtml;
-            modalState.prefetchedHtml = null;
-            modalState.answersCleanup = mountSurveyUserModal(answersModalHost, {
-                title: 'Просмотр анкеты',
-                onClose: handleBackToList,
-                mountBody: (modalBodyHost, modalFooterHost) => (typeof mountCheckAnswersPage === 'function'
-                    ? mountCheckAnswersPage(modalBodyHost, {
-                        survey: state.currentSurvey,
-                        organizationId: initialData.userOrganizationId,
-                        userRole: initialData.userRole,
-                        initialHtml,
-                        footerHost: modalFooterHost,
-                        onBack: handleBackToList
-                    })
-                    : null)
-            });
-        }
-    }
-
-    function syncHistory(tab, mode) {
-        const entry = buildSurveyUserHistoryEntry(tab);
-        if (!entry) {
-            return;
-        }
-
-        const currentPath = normalizeSurveyUserPathname(window.location.pathname);
-        const shouldKeepCurrentQuery = tab === 'archived'
-            && currentPath === entry.url
-            && window.location.search;
-        const entryUrl = shouldKeepCurrentQuery
-            ? `${entry.url}${window.location.search}`
-            : entry.url;
-        const nextState = { tab: entry.tab };
-        if (mode === 'replace') {
-            window.history.replaceState(nextState, '', entryUrl);
-            return;
-        }
-
-        if (currentPath === entry.url
-            && window.location.search === (shouldKeepCurrentQuery ? window.location.search : '')
-            && window.history.state?.tab === nextState.tab) {
-            return;
-        }
-
-        window.history.pushState(nextState, '', entryUrl);
-    }
-
     function setLoading(isLoading) {
         state.loading = isLoading;
         const refs = getContentRefs();
         refs.loading?.classList.toggle('u-hidden', !isLoading);
 
         if (refs.tableSection) {
-            refs.tableSection.style.display = isLoading ? 'none' : '';
+            refs.tableSection.classList.toggle('u-hidden', isLoading);
         }
     }
 
@@ -424,126 +626,70 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         window.AppUi.notify(safeMessage, 'error', { title: 'Ошибка' });
     }
 
-    function populateDateFilters() {
-        const refs = getContentRefs();
-        const rows = Array.from(contentHost.querySelectorAll('[data-role="user-survey-row"]'));
+    const localFilters = createSurveyUserLocalFilters({
+        contentHost,
+        emptyTemplate,
+        state,
+        getContentRefs,
+        getMonthLabel,
+        setSelectOptions
+    });
 
-        const monthOptions = Array.from(new Set(rows.map((row) => row.dataset.filterMonth || '').filter(Boolean)))
-            .sort()
-            .map((value) => ({ value, label: getMonthLabel(value) }));
+    const modals = createSurveyUserListModalController({
+        state,
+        initialData,
+        setError,
+        isDisposed: () => disposed,
+        onBackToList: handleBackToList,
+        onSurveySubmitted: handleSurveySubmitted
+    });
 
-        const yearOptions = Array.from(new Set(rows.map((row) => row.dataset.filterYear || '').filter(Boolean)))
-            .sort((left, right) => Number(right) - Number(left))
-            .map((value) => ({ value, label: value }));
+    const historyController = createSurveyUserHistoryController({
+        onTabChange: (tab, options) => handleTabChange(tab, null, options)
+    });
+    let interactionController = null;
 
-        state.monthFilter = setSelectOptions(refs.monthFilter, monthOptions, 'Все месяцы', state.monthFilter);
-        state.yearFilter = setSelectOptions(refs.yearFilter, yearOptions, 'Все годы', state.yearFilter);
-    }
-
-    function ensureFilteredEmptyRow(tableBody, hasVisibleRows) {
-        if (!tableBody || !emptyTemplate?.content?.firstElementChild) {
+    function applySnapshot(snapshot, options = {}, { replaceContent = false } = {}) {
+        if (!snapshot || (replaceContent && !snapshot.template)) {
             return;
         }
 
-        const existingEmptyRow = tableBody.querySelector('[data-role="user-survey-filter-empty-row"]');
-        if (hasVisibleRows) {
-            existingEmptyRow?.remove();
-            return;
+        if (replaceContent) {
+            rowTooltip.hide();
+            contentHost.replaceChildren(snapshot.template.content.cloneNode(true));
+            state.currentSnapshot = createSnapshotFromHost(contentHost) || snapshot;
+        } else {
+            state.currentSnapshot = snapshot;
         }
 
-        if (existingEmptyRow) {
-            return;
+        const currentSnapshot = state.currentSnapshot;
+        state.activeTab = currentSnapshot.activeTab;
+        state.tabSnapshots[state.activeTab] = currentSnapshot;
+
+        if (state.activeTab === 'active') {
+            updateActiveCountFromSnapshot(currentSnapshot);
         }
 
-        const emptyRow = emptyTemplate.content.firstElementChild.cloneNode(true);
-        emptyRow.dataset.role = 'user-survey-filter-empty-row';
-        tableBody.appendChild(emptyRow);
-    }
-
-    function applyLocalFilters() {
-        const refs = getContentRefs();
-        const rows = Array.from(contentHost.querySelectorAll('[data-role="user-survey-row"]'));
-
-        if (!refs.tableBody || rows.length === 0) {
-            return;
+        if (!options.preserveFilters) {
+            state.monthFilter = '';
+            state.yearFilter = '';
         }
 
-        let visibleCount = 0;
-        rows.forEach((row) => {
-            const rowMonth = row.dataset.filterMonth || '';
-            const rowYear = row.dataset.filterYear || '';
-            const matchesMonth = !state.monthFilter || rowMonth === state.monthFilter;
-            const matchesYear = !state.yearFilter || rowYear === state.yearFilter;
-            const visible = matchesMonth && matchesYear;
-
-            row.hidden = !visible;
-            if (visible) {
-                visibleCount += 1;
-            }
-        });
-
-        const serverEmptyRow = refs.tableBody.querySelector('[data-role="user-survey-empty-row"]');
-        if (serverEmptyRow && rows.length > 0) {
-            serverEmptyRow.hidden = visibleCount > 0;
-        }
-
-        ensureFilteredEmptyRow(refs.tableBody, visibleCount > 0);
+        setLoading(false);
+        setError('');
+        localFilters.populateDateFilters();
+        localFilters.applyLocalFilters();
+        remountPageEnhancements();
+        syncActiveCountBadge();
+        modals.render();
     }
 
     function mountSnapshot(snapshot, options = {}) {
-        if (!snapshot?.template) {
-            return;
-        }
-
-        hideRowTooltip();
-        contentHost.replaceChildren(snapshot.template.content.cloneNode(true));
-        state.currentSnapshot = createSnapshotFromHost(contentHost) || snapshot;
-        state.activeTab = state.currentSnapshot.activeTab;
-        state.tabSnapshots[state.activeTab] = state.currentSnapshot;
-
-        if (state.activeTab === 'active') {
-            updateActiveCountFromSnapshot(state.currentSnapshot);
-        }
-
-        if (!options.preserveFilters) {
-            state.monthFilter = '';
-            state.yearFilter = '';
-        }
-
-        setLoading(false);
-        setError('');
-        populateDateFilters();
-        applyLocalFilters();
-        remountPageEnhancements();
-        syncActiveCountBadge();
-        renderModals();
+        applySnapshot(snapshot, options, { replaceContent: true });
     }
 
     function hydrateCurrentSnapshot(snapshot, options = {}) {
-        if (!snapshot) {
-            return;
-        }
-
-        state.currentSnapshot = snapshot;
-        state.activeTab = snapshot.activeTab;
-        state.tabSnapshots[state.activeTab] = snapshot;
-
-        if (state.activeTab === 'active') {
-            updateActiveCountFromSnapshot(snapshot);
-        }
-
-        if (!options.preserveFilters) {
-            state.monthFilter = '';
-            state.yearFilter = '';
-        }
-
-        setLoading(false);
-        setError('');
-        populateDateFilters();
-        applyLocalFilters();
-        remountPageEnhancements();
-        syncActiveCountBadge();
-        renderModals();
+        applySnapshot(snapshot, options);
     }
 
     async function fetchSnapshot(tab, page, searchTerm, signedOnly, filterQuery = null) {
@@ -603,45 +749,17 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         }
     }
 
-    async function openSurveyById(surveyId) {
+    function openSurveyById(surveyId) {
         const survey = state.currentSnapshot.surveys.find((item) => getSurveyId(item) === surveyId);
         if (!survey) {
             return;
         }
 
-        const targetView = state.activeTab === 'active' ? 'survey-fill' : 'check-answers';
-        const requestId = modalState.openRequestId + 1;
-        modalState.openRequestId = requestId;
-
-        try {
-            const prefetchedHtml = targetView === 'survey-fill'
-                ? await fetchSurveyFillContentHtml?.(surveyId, initialData.userOrganizationId)
-                : await fetchSurveyAnswersContentHtml?.(surveyId, initialData.userOrganizationId);
-
-            if (disposed || modalState.openRequestId !== requestId) {
-                return;
-            }
-
-            modalState.prefetchedHtml = typeof prefetchedHtml === 'string' ? prefetchedHtml : null;
-            state.currentSurvey = survey;
-            state.currentView = targetView;
-            renderModals();
-        } catch (error) {
-            if (disposed || modalState.openRequestId !== requestId) {
-                return;
-            }
-
-            modalState.prefetchedHtml = null;
-            setError(error?.message || 'Не удалось открыть анкету');
-        }
+        modals.open(survey, state.activeTab);
     }
 
     function handleBackToList() {
-        modalState.openRequestId += 1;
-        modalState.prefetchedHtml = null;
-        state.currentView = 'survey-list';
-        state.currentSurvey = null;
-        renderModals();
+        modals.closeToList();
     }
 
     async function handleSurveySubmitted() {
@@ -708,7 +826,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         state.yearFilter = '';
 
         if (options.historyMode !== 'none') {
-            syncHistory(normalizedTab, options.historyMode || 'push');
+            historyController.sync(normalizedTab, options.historyMode || 'push');
         }
 
         const cachedSnapshot = getCachedTabSnapshot(normalizedTab);
@@ -725,170 +843,17 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         });
     }
 
-    function handleClick(event) {
-        const tabActiveButton = event.target.closest('[data-role="tab-active"]');
-        if (tabActiveButton && contentHost.contains(tabActiveButton)) {
-            event.preventDefault();
-            handleTabChange('active');
-            return;
-        }
+    interactionController = createSurveyUserListInteractionController({
+        contentHost,
+        state,
+        rowTooltip,
+        localFilters,
+        openSurveyById,
+        handleTabChange,
+        loadTabSnapshot
+    });
 
-        const tabHelpButton = event.target.closest('[data-role="tab-help"]');
-        if (tabHelpButton && contentHost.contains(tabHelpButton)) {
-            event.preventDefault();
-            handleTabChange('help');
-            return;
-        }
-
-        const tabArchivedButton = event.target.closest('[data-role="tab-archived"]');
-        if (tabArchivedButton && contentHost.contains(tabArchivedButton)) {
-            event.preventDefault();
-            handleTabChange('archived');
-            return;
-        }
-
-        const actionButton = event.target.closest('[data-role="action"]');
-        if (actionButton && contentHost.contains(actionButton)) {
-            const surveyId = Number(actionButton.dataset.surveyId || 0);
-            if (Number.isFinite(surveyId) && surveyId > 0) {
-                openSurveyById(surveyId);
-            }
-            return;
-        }
-
-        const actionableRow = event.target.closest('[data-role="user-survey-row"][data-row-action]');
-        if (actionableRow && contentHost.contains(actionableRow) && !event.target.closest('button, a, input, select, textarea')) {
-            const surveyId = Number(actionableRow.dataset.surveyId || 0);
-            if (Number.isFinite(surveyId) && surveyId > 0) {
-                hideRowTooltip();
-                openSurveyById(surveyId);
-            }
-            return;
-        }
-
-        const paginationButton = event.target.closest('[data-role="pagination-page"]');
-        if (paginationButton && contentHost.contains(paginationButton)) {
-            const targetPage = Number(paginationButton.dataset.page || 0);
-            if (!Number.isFinite(targetPage) || targetPage <= 0 || targetPage === state.currentSnapshot.currentPage) {
-                return;
-            }
-
-            event.preventDefault();
-            loadTabSnapshot(state.activeTab, {
-                page: targetPage,
-                searchTerm: state.currentSnapshot.searchTerm,
-                signedOnly: state.currentSnapshot.signedOnly,
-                scrollToTableStart: true
-            });
-            return;
-        }
-    }
-
-    function handleDoubleClick(event) {
-        const row = event.target.closest('[data-role="user-survey-row"]');
-        if (!row || !contentHost.contains(row) || event.target.closest('button')) {
-            return;
-        }
-
-        if (row.dataset.rowAction) {
-            return;
-        }
-
-        const surveyId = Number(row.dataset.surveyId || 0);
-        if (Number.isFinite(surveyId) && surveyId > 0) {
-            openSurveyById(surveyId);
-        }
-    }
-
-    function handleMouseOver(event) {
-        const row = event.target.closest('[data-role="user-survey-row"][data-hover-label]');
-        if (!row || !contentHost.contains(row) || activeTooltipRow === row) {
-            return;
-        }
-
-        showRowTooltip(row, event);
-    }
-
-    function handleMouseMove(event) {
-        if (!activeTooltipRow) {
-            return;
-        }
-
-        queueRowTooltipPosition(event);
-    }
-
-    function handleMouseOut(event) {
-        if (!activeTooltipRow || activeTooltipRow.contains(event.relatedTarget)) {
-            return;
-        }
-
-        hideRowTooltip();
-    }
-
-    function handleSubmit(event) {
-        const searchForm = event.target.closest('[data-role="search-form"]');
-        if (!searchForm || !contentHost.contains(searchForm)) {
-            return;
-        }
-
-        event.preventDefault();
-        const searchInput = searchForm.querySelector('[data-role="search-input"]');
-        const signedInput = searchForm.querySelector('[data-role="signed-filter-input"]');
-
-        loadTabSnapshot(state.activeTab, {
-            page: 1,
-            searchTerm: searchInput?.value?.trim() || '',
-            signedOnly: Boolean(signedInput?.checked)
-        });
-    }
-
-    function handleChange(event) {
-        const monthFilter = event.target.closest('[data-role="month-filter"]');
-        if (monthFilter && contentHost.contains(monthFilter)) {
-            state.monthFilter = monthFilter.value;
-            applyLocalFilters();
-            return;
-        }
-
-        const yearFilter = event.target.closest('[data-role="year-filter"]');
-        if (yearFilter && contentHost.contains(yearFilter)) {
-            state.yearFilter = yearFilter.value;
-            applyLocalFilters();
-            return;
-        }
-
-        const signedInput = event.target.closest('[data-role="signed-filter-input"]');
-        if (signedInput && contentHost.contains(signedInput)) {
-            loadTabSnapshot('archived', {
-                page: 1,
-                searchTerm: state.currentSnapshot.searchTerm,
-                signedOnly: signedInput.checked
-            });
-        }
-    }
-
-    contentHost.addEventListener('click', handleClick);
-    contentHost.addEventListener('dblclick', handleDoubleClick);
-    contentHost.addEventListener('mouseover', handleMouseOver);
-    contentHost.addEventListener('mousemove', handleMouseMove);
-    contentHost.addEventListener('mouseout', handleMouseOut);
-    contentHost.addEventListener('submit', handleSubmit);
-    contentHost.addEventListener('change', handleChange);
-
-    function handlePopState() {
-        const entry = window.history.state?.tab
-            ? buildSurveyUserHistoryEntry(window.history.state.tab)
-            : getSurveyUserHistoryEntryFromLocation(window.location.pathname);
-
-        if (!entry) {
-            return;
-        }
-
-        handleTabChange(entry.tab, null, { historyMode: 'none' });
-    }
-
-    syncHistory(state.activeTab, 'replace');
-    ensureChromeRendered();
+    historyController.sync(state.activeTab, 'replace');
     hydrateCurrentSnapshot(initialSnapshot);
 
     const refreshSurveyUserPageData = function refreshSurveyUserPageData(options = {}) {
@@ -903,14 +868,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
             return;
         }
 
-        const normalizedQuery = String(queryString || '').replace(/^\?/, '').trim();
-        const nextHistoryUrl = normalizedQuery ? `/archive?${normalizedQuery}` : '/archive';
-        const currentUrl = `${normalizeSurveyUserPathname(window.location.pathname)}${window.location.search}`;
-        if (currentUrl === nextHistoryUrl && window.history.state?.tab === 'archived') {
-            window.history.replaceState({ tab: 'archived' }, '', nextHistoryUrl);
-        } else {
-            window.history.pushState({ tab: 'archived' }, '', nextHistoryUrl);
-        }
+        const normalizedQuery = historyController.pushArchiveFilterQuery(queryString);
         loadTabSnapshot('archived', {
             page: 1,
             searchTerm: state.currentSnapshot.searchTerm,
@@ -922,7 +880,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
     };
     window.refreshSurveyUserArchiveFilters = refreshSurveyUserArchiveFilters;
 
-    window.addEventListener('popstate', handlePopState);
+    historyController.mount();
 
     const destroy = () => {
         if (disposed) {
@@ -930,20 +888,10 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         }
 
         disposed = true;
-        modalState.openRequestId += 1;
-        cleanupModal('fill');
-        cleanupModal('answers');
-        hideRowTooltip();
-        rowTooltip?.remove();
-        rowTooltip = null;
-        contentHost.removeEventListener('click', handleClick);
-        contentHost.removeEventListener('dblclick', handleDoubleClick);
-        contentHost.removeEventListener('mouseover', handleMouseOver);
-        contentHost.removeEventListener('mousemove', handleMouseMove);
-        contentHost.removeEventListener('mouseout', handleMouseOut);
-        contentHost.removeEventListener('submit', handleSubmit);
-        contentHost.removeEventListener('change', handleChange);
-        window.removeEventListener('popstate', handlePopState);
+        modals.destroy();
+        rowTooltip.destroy();
+        interactionController?.destroy?.();
+        historyController.destroy();
         window.SurveysPage?.destroy?.(contentHost);
         window.SurveyFilters?.destroy?.(contentHost);
 
@@ -962,39 +910,4 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
     return destroy;
 };
 
-function getSurveyUserBootstrapData(root = document) {
-    const bootstrapElement = root.querySelector('#survey-user-list-bootstrap')
-        || root.querySelector('#user-archive-bootstrap')
-        || document.getElementById('survey-user-list-bootstrap')
-        || document.getElementById('user-archive-bootstrap');
-    if (!bootstrapElement?.textContent) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(bootstrapElement.textContent.trim());
-    } catch (error) {
-        console.error('Не удалось прочитать bootstrap-данные user survey:', error);
-        return null;
-    }
-}
-
-function mountSurveyUserListPage(page) {
-    const bootstrapData = getSurveyUserBootstrapData(page);
-    return bootstrapData
-        ? window.bindSurveyUserListPage(bootstrapData, page)
-        : null;
-}
-
-if (window.AppPageLifecycle?.register) {
-    window.AppPageLifecycle.register(
-        'survey-user-list',
-        '[data-page="user-surveys"]',
-        mountSurveyUserListPage
-    );
-} else {
-    const page = document.querySelector('[data-page="user-surveys"]');
-    if (page) {
-        mountSurveyUserListPage(page);
-    }
-}
+registerSurveyUserListPage(window.bindSurveyUserListPage);

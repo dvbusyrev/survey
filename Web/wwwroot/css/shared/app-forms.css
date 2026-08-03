@@ -1,11 +1,11 @@
-.form-group {
+.app-field-group {
   grid-template-columns: minmax(140px, 170px) minmax(0, 1fr);
-  gap: var(--app-form-group-gap, var(--app-gap-md));
+  gap: var(--app-field-group-gap, var(--app-gap-md));
   align-items: center;
-  margin-bottom: var(--app-form-group-margin-bottom, var(--app-gap-lg));
+  margin-bottom: var(--app-field-group-margin-bottom, var(--app-gap-lg));
 }
 
-.form-group label {
+.app-field-group label {
   margin: 0;
   color: var(--text-main);
   font-weight: 500;
@@ -23,16 +23,16 @@ input[type="checkbox"],
   cursor: pointer;
 }
 
-.form-group input[type="text"],
-.form-group input[type="date"],
-.form-group input[data-date-format="dd.mm.yyyy"],
-.form-group input[data-date-format="dd/mm/yyyy"],
-.form-group input[type="email"],
-.form-group input[type="password"],
-.form-group input[type="number"],
-.form-group select,
-.form-group textarea,
-.form-control,
+.app-field-group input[type="text"],
+.app-field-group input[type="date"],
+.app-field-group input[data-date-format="dd.mm.yyyy"],
+.app-field-group input[data-date-format="dd/mm/yyyy"],
+.app-field-group input[type="email"],
+.app-field-group input[type="password"],
+.app-field-group input[type="number"],
+.app-field-group select,
+.app-field-group textarea,
+.app-field,
 .organization-dropdown,
 .admin-extension-input {
   margin-top: var(--app-field-top-offset);
@@ -50,8 +50,8 @@ input[type="checkbox"],
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.form-group select,
-select.form-control,
+.app-field-group select,
+select.app-field,
 .admin-extension-input:is(select),
 .organization-dropdown,
 .filter-select,
@@ -74,8 +74,8 @@ select.form-control,
   background-repeat: no-repeat;
 }
 
-.form-group select option,
-select.form-control option,
+.app-field-group select option,
+select.app-field option,
 .admin-extension-input:is(select) option,
 .organization-dropdown option,
 .filter-select option,
@@ -86,35 +86,35 @@ select.form-control option,
   background: white;
 }
 
-.form-group input[type="text"]::placeholder,
-.form-group input[type="date"]::placeholder,
-.form-group input[data-date-format="dd.mm.yyyy"]::placeholder,
-.form-group input[data-date-format="dd/mm/yyyy"]::placeholder,
-.form-group input[type="email"]::placeholder,
-.form-group input[type="password"]::placeholder,
-.form-group input[type="number"]::placeholder,
-.form-group textarea::placeholder,
-.form-control::placeholder {
+.app-field-group input[type="text"]::placeholder,
+.app-field-group input[type="date"]::placeholder,
+.app-field-group input[data-date-format="dd.mm.yyyy"]::placeholder,
+.app-field-group input[data-date-format="dd/mm/yyyy"]::placeholder,
+.app-field-group input[type="email"]::placeholder,
+.app-field-group input[type="password"]::placeholder,
+.app-field-group input[type="number"]::placeholder,
+.app-field-group textarea::placeholder,
+.app-field::placeholder {
   color: var(--text-light);
   font-size: 0.88rem;
 }
 
-.form-group textarea,
-textarea.form-control {
+.app-field-group textarea,
+textarea.app-field {
   min-height: 120px;
   resize: vertical;
 }
 
-.form-group input[type="text"]:focus,
-.form-group input[type="date"]:focus,
-.form-group input[data-date-format="dd.mm.yyyy"]:focus,
-.form-group input[data-date-format="dd/mm/yyyy"]:focus,
-.form-group input[type="email"]:focus,
-.form-group input[type="password"]:focus,
-.form-group input[type="number"]:focus,
-.form-group select:focus,
-.form-group textarea:focus,
-.form-control:focus,
+.app-field-group input[type="text"]:focus,
+.app-field-group input[type="date"]:focus,
+.app-field-group input[data-date-format="dd.mm.yyyy"]:focus,
+.app-field-group input[data-date-format="dd/mm/yyyy"]:focus,
+.app-field-group input[type="email"]:focus,
+.app-field-group input[type="password"]:focus,
+.app-field-group input[type="number"]:focus,
+.app-field-group select:focus,
+.app-field-group textarea:focus,
+.app-field:focus,
 .organization-dropdown:focus,
 .admin-extension-input:focus {
   outline: none;
@@ -122,17 +122,18 @@ textarea.form-control {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent 82%);
 }
 
-.form-control.invalid {
+.app-field.invalid {
   border-color: #dc3545;
   box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.18);
 }
 
-.form-control[readonly] {
+.app-field[readonly] {
   background-color: #e9ecef;
   cursor: not-allowed;
 }
 
-.form-group .input-container {
+.app-field-with-icon,
+.app-field-group .app-field-with-icon {
   position: relative;
   display: flex;
   align-items: center;
@@ -147,7 +148,8 @@ textarea.form-control {
   border-radius: var(--app-field-radius);
 }
 
-.form-group .icon-container {
+.app-field-with-icon .icon-container,
+.app-field-group .icon-container {
   flex: 0 0 var(--app-field-icon-size);
   width: var(--app-field-icon-size);
   min-height: 42px;
@@ -161,51 +163,64 @@ textarea.form-control {
   pointer-events: none;
 }
 
-.form-group .icon-container i {
+.app-field-with-icon .icon-container i,
+.app-field-group .icon-container i {
   color: inherit;
   font-size: 1rem;
   line-height: 1;
   opacity: 0.9;
 }
 
-.form-group .input-container > .form-control,
-.form-group .input-container > .password-eye-wrap,
-.form-group .input-container > .password-eye-wrap > .form-control {
+.app-field-with-icon > .app-field,
+.app-field-with-icon > .password-eye-wrap,
+.app-field-with-icon > .password-eye-wrap > .app-field,
+.app-field-group .app-field-with-icon > .app-field,
+.app-field-group .app-field-with-icon > .password-eye-wrap,
+.app-field-group .app-field-with-icon > .password-eye-wrap > .app-field {
   margin-top: 0;
 }
 
-.form-group .input-container > .form-control,
-.form-group .input-container > .password-eye-wrap {
+.app-field-with-icon > .app-field,
+.app-field-with-icon > .password-eye-wrap,
+.app-field-group .app-field-with-icon > .app-field,
+.app-field-group .app-field-with-icon > .password-eye-wrap {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.form-group .input-container > .form-control,
-.form-group .input-container > .password-eye-wrap > .form-control {
+.app-field-with-icon > .app-field,
+.app-field-with-icon > .password-eye-wrap > .app-field,
+.app-field-group .app-field-with-icon > .app-field,
+.app-field-group .app-field-with-icon > .password-eye-wrap > .app-field {
   border: 0;
   border-radius: 0;
   background-color: transparent;
 }
 
-.form-group .input-container:focus-within {
+.app-field-with-icon:focus-within,
+.app-field-group .app-field-with-icon:focus-within {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent 82%);
 }
 
-.form-group .input-container:focus-within .form-control {
+.app-field-with-icon:focus-within .app-field,
+.app-field-group .app-field-with-icon:focus-within .app-field {
   border-color: transparent;
 }
 
-.form-group .input-container .form-control:focus {
+.app-field-with-icon .app-field:focus,
+.app-field-group .app-field-with-icon .app-field:focus {
   border-color: transparent;
   box-shadow: none;
 }
 
-.form-group .input-container.has-toggle > .form-control {
+.app-field-with-icon.has-toggle > .app-field,
+.app-field-group .app-field-with-icon.has-toggle > .app-field {
   padding-right: 3.25rem;
 }
 
-.form-group .input-container.has-toggle .password-toggle-btn {
+.app-field-with-icon.has-toggle .password-toggle-btn,
+.app-field-group .app-field-with-icon.has-toggle .password-toggle-btn {
   position: absolute;
   top: 50%;
   right: 0.75rem;
@@ -226,16 +241,20 @@ textarea.form-control {
   transition: none;
 }
 
-.form-group .input-container.has-toggle .password-toggle-btn:hover {
+.app-field-with-icon.has-toggle .password-toggle-btn:hover,
+.app-field-group .app-field-with-icon.has-toggle .password-toggle-btn:hover {
   color: var(--app-theme-font-color, var(--text-main));
   background: #ffffff;
   border-color: color-mix(in srgb, var(--app-theme-font-color, var(--text-main)) 18%, transparent 82%);
   opacity: 1;
 }
 
-.form-group .input-container.has-toggle .password-toggle-btn:active,
-.form-group .input-container.has-toggle .password-toggle-btn:focus,
-.form-group .input-container.has-toggle .password-toggle-btn:focus-visible {
+.app-field-with-icon.has-toggle .password-toggle-btn:active,
+.app-field-with-icon.has-toggle .password-toggle-btn:focus,
+.app-field-with-icon.has-toggle .password-toggle-btn:focus-visible,
+.app-field-group .app-field-with-icon.has-toggle .password-toggle-btn:active,
+.app-field-group .app-field-with-icon.has-toggle .password-toggle-btn:focus,
+.app-field-group .app-field-with-icon.has-toggle .password-toggle-btn:focus-visible {
   color: var(--app-theme-font-color, var(--text-main));
   background: #ffffff;
   border-color: color-mix(in srgb, var(--app-theme-font-color, var(--text-main)) 18%, transparent 82%);
@@ -244,7 +263,8 @@ textarea.form-control {
   transform: translateY(-50%);
 }
 
-.form-group .input-container.has-toggle .password-toggle-btn svg {
+.app-field-with-icon.has-toggle .password-toggle-btn svg,
+.app-field-group .app-field-with-icon.has-toggle .password-toggle-btn svg {
   width: 1.25rem;
   height: 1.25rem;
   fill: none;
@@ -270,7 +290,7 @@ textarea.form-control {
   --app-date-icon-left: 6rem;
 }
 
-input[type="date"][data-date-native="true"].form-control,
+input[type="date"][data-date-native="true"].app-field,
 input[type="date"][data-date-native="true"].admin-extension-input {
   width: min(14rem, 100%);
 }
@@ -541,11 +561,9 @@ input[type="date"][data-date-native="true"].admin-extension-input {
 }
 
 .btn,
-.modal_btn,
+.app-button,
 .modal-button,
 .notification-close,
-.submit-button,
-.reset-button,
 .criteria-btn,
 .reset-filter-btn,
 .pagination-button,
@@ -571,11 +589,9 @@ input[type="date"][data-date-native="true"].admin-extension-input {
 
 button i,
 .btn i,
-.modal_btn i,
+.app-button i,
 .modal-button i,
 .notification-close i,
-.submit-button i,
-.reset-button i,
 .criteria-btn i,
 .reset-filter-btn i,
 .pagination-button i,
@@ -588,11 +604,9 @@ button i,
 
 button:disabled,
 .btn:disabled,
-.modal_btn:disabled,
+.app-button:disabled,
 .modal-button:disabled,
 .notification-close:disabled,
-.submit-button:disabled,
-.reset-button:disabled,
 .criteria-btn:disabled,
 .reset-filter-btn:disabled,
 .pagination-button:disabled,
@@ -613,11 +627,10 @@ a.btn:focus,
 }
 
 .btn,
-.submit-button,
+.app-button--primary,
 .criteria-btn,
 .filter-sort button,
-.addsurvey_btn button,
-.modal_btn-primary {
+.addsurvey_btn button {
   position: relative;
   color: var(--app-theme-button-text-color);
   font-weight: var(--app-button-font-weight);
@@ -629,32 +642,15 @@ a.btn:focus,
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
-.reset-button {
-  position: relative;
-  color: var(--app-theme-font-color);
-  font-weight: var(--app-button-font-weight);
-  background: #ffffff;
-  border: 1px solid color-mix(in srgb, var(--app-theme-font-color) 18%, transparent 82%);
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
-}
-
 .btn:hover,
-.submit-button:hover,
+.app-button--primary:hover,
 .criteria-btn:hover,
 .filter-sort button:hover,
-.addsurvey_btn button:hover,
-.modal_btn-primary:hover {
+.addsurvey_btn button:hover {
   color: var(--app-theme-button-text-color);
   background: var(--app-theme-button-color);
   background-image: none;
   border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
-}
-
-.reset-button:hover {
-  color: var(--app-theme-font-color);
-  background: #ffffff;
-  border-color: color-mix(in srgb, var(--app-theme-font-color) 18%, transparent 82%);
 }
 
 .criteria-buttons-container > * {
@@ -666,6 +662,7 @@ a.btn:focus,
   font-weight: var(--app-button-font-weight);
 }
 
+.app-multiselect,
 .app-checkbox-dropdown {
   position: relative;
   display: inline-block;
@@ -673,11 +670,13 @@ a.btn:focus,
   max-width: 100%;
 }
 
+.app-multiselect--inline,
 .app-checkbox-dropdown--inline {
   display: block;
   width: min(22rem, 100%);
 }
 
+.app-multiselect__trigger,
 .app-checkbox-dropdown__trigger {
   display: inline-flex;
   align-items: center;
@@ -691,26 +690,26 @@ a.btn:focus,
 
 .btn:focus,
 .btn:focus-visible,
-.modal_btn:focus,
-.modal_btn:focus-visible,
+.app-button:focus,
+.app-button:focus-visible,
 .modal-button:focus,
 .modal-button:focus-visible,
 .criteria-btn:focus,
 .criteria-btn:focus-visible,
-.submit-button:focus,
-.submit-button:focus-visible,
-.reset-button:focus,
-.reset-button:focus-visible,
 .reset-filter-btn:focus,
 .reset-filter-btn:focus-visible,
+.app-multiselect__trigger:focus,
+.app-multiselect__trigger:focus-visible,
 .app-checkbox-dropdown__trigger:focus,
 .app-checkbox-dropdown__trigger:focus-visible,
 .logout-button:focus,
 .logout-button:focus-visible,
 .header-menu-toggle:focus,
 .header-menu-toggle:focus-visible,
-.menu-tab:focus,
-.menu-tab:focus-visible,
+.app-tab:focus,
+.app-tab:focus-visible,
+.app-tabs__item:focus,
+.app-tabs__item:focus-visible,
 .nav-link:focus,
 .nav-link:focus-visible,
 .submenu-link:focus,
@@ -729,6 +728,7 @@ a[role="button"]:focus-visible {
   box-shadow: none;
 }
 
+.app-multiselect__trigger span,
 .app-checkbox-dropdown__trigger span {
   min-width: 0;
   font-weight: 400;
@@ -737,6 +737,24 @@ a[role="button"]:focus-visible {
   white-space: nowrap;
 }
 
+.app-dropdown {
+  position: absolute;
+  top: calc(100% + var(--app-popover-offset));
+  left: 0;
+  z-index: 2320;
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-dropdown-gap);
+  width: min(22rem, calc(100vw - 2rem));
+  max-width: 100%;
+  padding: var(--app-dropdown-padding);
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(203, 213, 225, 0.92);
+  border-radius: var(--app-dropdown-radius);
+  box-shadow: var(--shadow-md);
+}
+
+.app-multiselect__menu,
 .app-checkbox-dropdown__menu {
   position: absolute;
   top: calc(100% + 0.5rem);
@@ -751,6 +769,7 @@ a[role="button"]:focus-visible {
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
 }
 
+.app-multiselect__menu--inline,
 .app-checkbox-dropdown__menu--inline {
   position: static;
   width: 100%;
@@ -967,11 +986,11 @@ input[data-password-field="true"].is-password-masked {
 }
 
 @media (max-width: 900px) {
-  .form-group {
+  .app-field-group {
     grid-template-columns: 1fr;
   }
 
-  .form-group label {
+  .app-field-group label {
     text-align: left;
   }
 

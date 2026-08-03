@@ -5,10 +5,10 @@
     var autoCreationActive = activeSection is "auto" or "auto-creation";
 }
 
-<div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы настроек">
+<div class="app-tabs app-page__subnav" role="tablist" aria-label="Разделы настроек">
     <a
         href="/settings/email"
-        class="menu-tab @(senderActive ? "active-tab" : "")"
+        class="app-tab @(senderActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(senderActive ? "true" : "false")"
         data-tab-target="email_settings">
@@ -16,7 +16,7 @@
     </a>
     <a
         href="/settings/theme"
-        class="menu-tab @(themeActive ? "active-tab" : "")"
+        class="app-tab @(themeActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(themeActive ? "true" : "false")"
         data-tab-target="theme_settings">
@@ -24,7 +24,7 @@
     </a>
     <a
         href="/settings/survey-creation"
-        class="menu-tab @(autoCreationActive ? "active-tab" : "")"
+        class="app-tab @(autoCreationActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(autoCreationActive ? "true" : "false")"
         data-tab-target="survey_auto_creation">

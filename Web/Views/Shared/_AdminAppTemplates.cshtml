@@ -6,8 +6,8 @@
     <div data-role="rows-container" class="admin-extension-rows"></div>
     <p data-role="empty-state" class="u-hidden">Доступных организаций для продления не найдено.</p>
     <div class="admin-extension-actions">
-      <button type="button" data-role="cancel" class="modal_btn modal_btn-secondary">Отмена</button>
-      <button type="button" data-role="submit" class="modal_btn modal_btn-primary">Продлить доступ</button>
+      <button type="button" data-role="cancel" class="app-button app-button--secondary">Отмена</button>
+      <button type="button" data-role="submit" class="app-button app-button--primary">Продлить доступ</button>
     </div>
   </div>
 </template>
@@ -16,16 +16,16 @@
   <div class="admin-extension-row">
     <div class="admin-extension-col">
       <label>Организации:</label>
-      <div class="app-checkbox-dropdown" data-role="organization-dropdown">
+      <div class="app-multiselect app-checkbox-dropdown" data-role="organization-dropdown">
         <button type="button"
-                class="app-checkbox-dropdown__trigger admin-extension-input"
+                class="app-multiselect__trigger app-checkbox-dropdown__trigger admin-extension-input"
                 data-role="organization-trigger"
                 aria-haspopup="listbox"
                 aria-expanded="false">
           <span data-role="organization-label">Выберите организации</span>
           <i class="fas fa-chevron-down" aria-hidden="true"></i>
         </button>
-        <div class="app-checkbox-dropdown__menu is-hidden"
+        <div class="app-multiselect__menu app-checkbox-dropdown__menu is-hidden"
              data-role="organization-panel"
              role="listbox"
              aria-multiselectable="true">

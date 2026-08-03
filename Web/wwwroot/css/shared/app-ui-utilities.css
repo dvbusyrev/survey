@@ -39,7 +39,7 @@ body {
   border-spacing: 0;
 }
 
-.table_tr {
+.app-table__header-row {
   background-color: var(--app-theme-table-header-background);
   border-radius: var(--app-table-radius) var(--app-table-radius) 0 0;
 }
@@ -200,10 +200,6 @@ body {
   min-height: 1.65rem;
   padding: 0 0.45rem;
   border-radius: var(--radius-md);
-}
-
-[data-table-pagination-hidden="true"] {
-  display: none !important;
 }
 
 @media (max-width: 600px) {

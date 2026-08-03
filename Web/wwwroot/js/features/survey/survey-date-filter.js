@@ -34,7 +34,7 @@
         }
 
         if (!modeSwitch.querySelector('[data-role="survey-date-filter-mode"][data-mode="year"]')) {
-            const yearModeButton = createElement('button', 'survey-period-filter__mode-button', 'По году');
+            const yearModeButton = createElement('button', 'app-button app-button--secondary survey-period-filter__mode-button', 'По году');
             yearModeButton.type = 'button';
             yearModeButton.dataset.role = 'survey-date-filter-mode';
             yearModeButton.dataset.mode = 'year';
@@ -437,10 +437,176 @@
         callbacks?.applyFilter?.(instance);
     }
 
+    function createInstance(root, {
+        pageSelector,
+        serverFilters = window.SurveyServerFilterState,
+        filterPopover = window.SurveyFilterPopover,
+        closeAllPopovers,
+        setPopoverOpen,
+        applyFilter
+    } = {}) {
+        ensurePopoverHeader(root);
+
+        const page = root.closest(pageSelector);
+        const tableBody = page?.querySelector('[data-role="main-table"] tbody');
+        if (!page || !tableBody) {
+            return null;
+        }
+
+        const instance = {
+            root,
+            page,
+            state: getInitialState(page, new Date(), serverFilters),
+            refs: {
+                trigger: root.querySelector('[data-role="survey-date-filter-trigger"]'),
+                label: root.querySelector('[data-role="survey-date-filter-label"]'),
+                popover: root.querySelector('[data-role="survey-date-filter-popover"]'),
+                yearModeButton: root.querySelector('[data-role="survey-date-filter-mode"][data-mode="year"]'),
+                monthModeButton: root.querySelector('[data-role="survey-date-filter-mode"][data-mode="month"]'),
+                rangeModeButton: root.querySelector('[data-role="survey-date-filter-mode"][data-mode="range"]'),
+                yearPanel: root.querySelector('[data-role="survey-date-filter-year-panel"]'),
+                monthPanel: root.querySelector('[data-role="survey-date-filter-month-panel"]'),
+                rangePanel: root.querySelector('[data-role="survey-date-filter-range-panel"]'),
+                yearRangeLabel: root.querySelector('[data-role="survey-date-filter-year-range-label"]'),
+                yearsContainer: root.querySelector('[data-role="survey-date-filter-years"]'),
+                yearLabel: root.querySelector('[data-role="survey-date-filter-year-label"]'),
+                monthsContainer: root.querySelector('[data-role="survey-date-filter-months"]'),
+                rangeLabel: root.querySelector('[data-role="survey-date-filter-range-label"]'),
+                hint: root.querySelector('[data-role="survey-date-filter-hint"]'),
+                calendars: root.querySelector('[data-role="survey-date-filter-calendars"]'),
+                summary: root.querySelector('[data-role="survey-date-filter-summary"]'),
+                clearButton: root.querySelector('[data-role="survey-date-filter-clear"]')
+            },
+            handlers: {},
+            dropdownController: null
+        };
+
+        const callbacks = { serverFilters, applyFilter };
+        const setOpen = (isOpen) => setPopoverOpen?.(instance, isOpen) ?? filterPopover.setOpen(instance, isOpen);
+
+        if (typeof window.AppUi?.createDropdown === 'function'
+            && instance.refs.trigger
+            && instance.refs.popover) {
+            const dropdown = window.AppUi.createDropdown({
+                root,
+                trigger: instance.refs.trigger,
+                menu: instance.refs.popover,
+                openClass: 'is-open',
+                hiddenClass: 'is-hidden',
+                onOpen: () => {
+                    closeAllPopovers?.(root);
+                    filterPopover.applyOpenState(instance, true);
+                },
+                onClose: () => {
+                    filterPopover.applyOpenState(instance, false);
+                }
+            });
+            instance.dropdownController = dropdown.controller;
+        }
+
+        instance.handlers.click = function (event) {
+            event.stopPropagation();
+
+            const target = event.target instanceof Element ? event.target : null;
+            if (!target) {
+                return;
+            }
+
+            const trigger = target.closest('[data-role="survey-date-filter-trigger"]');
+            if (!instance.dropdownController && trigger && root.contains(trigger)) {
+                event.preventDefault();
+                const shouldOpen = !instance.state.isOpen;
+                closeAllPopovers?.(shouldOpen ? root : null);
+                setOpen(shouldOpen);
+                return;
+            }
+
+            const modeButton = target.closest('[data-role="survey-date-filter-mode"]');
+            if (modeButton && root.contains(modeButton)) {
+                event.preventDefault();
+                instance.state.mode = ['year', 'range'].includes(modeButton.dataset.mode)
+                    ? modeButton.dataset.mode
+                    : 'month';
+                render(instance);
+                return;
+            }
+
+            const simpleActions = [
+                ['survey-date-filter-year-range-prev', () => { instance.state.yearViewStart -= 10; }],
+                ['survey-date-filter-year-range-next', () => { instance.state.yearViewStart += 10; }],
+                ['survey-date-filter-year-prev', () => { instance.state.monthViewYear -= 1; }],
+                ['survey-date-filter-year-next', () => { instance.state.monthViewYear += 1; }],
+                ['survey-date-filter-range-prev', () => { instance.state.rangeViewDate = shiftMonth(instance.state.rangeViewDate, -1); }],
+                ['survey-date-filter-range-next', () => { instance.state.rangeViewDate = shiftMonth(instance.state.rangeViewDate, 1); }]
+            ];
+
+            for (const [role, action] of simpleActions) {
+                if (target.closest(`[data-role="${role}"]`)) {
+                    event.preventDefault();
+                    action();
+                    render(instance);
+                    return;
+                }
+            }
+
+            if (target.closest('[data-role="survey-date-filter-close"]')) {
+                event.preventDefault();
+                setOpen(false);
+                return;
+            }
+
+            const yearButton = target.closest('[data-role="survey-date-filter-year"]');
+            if (yearButton && root.contains(yearButton)) {
+                event.preventDefault();
+                const selectedYear = Number.parseInt(yearButton.dataset.year || '', 10);
+                if (Number.isInteger(selectedYear)) {
+                    applyYear(instance, selectedYear, callbacks);
+                }
+                return;
+            }
+
+            const monthButton = target.closest('[data-role="survey-date-filter-month"]');
+            if (monthButton && root.contains(monthButton)) {
+                event.preventDefault();
+                const monthIndex = Number.parseInt(monthButton.dataset.monthIndex || '', 10);
+                if (Number.isInteger(monthIndex) && monthIndex >= 0 && monthIndex < 12) {
+                    applyMonth(instance, monthIndex, callbacks);
+                }
+                return;
+            }
+
+            const dayButton = target.closest('[data-role="survey-date-filter-day"]');
+            if (dayButton && root.contains(dayButton)) {
+                event.preventDefault();
+                const isoValue = dayButton.dataset.dateIso || '';
+                if (parseIso(isoValue)) {
+                    handleRangeSelection(instance, isoValue, callbacks);
+                }
+                return;
+            }
+
+            if (target.closest('[data-role="survey-date-filter-clear"]')) {
+                event.preventDefault();
+                clear(instance, callbacks);
+            }
+        };
+
+        root.addEventListener('click', instance.handlers.click);
+        instance.destroy = function destroyDateFilterInstance() {
+            root.removeEventListener('click', instance.handlers.click);
+            instance.dropdownController?.destroy?.();
+        };
+
+        render(instance);
+        applyFilter?.(instance);
+        return instance;
+    }
+
     window.SurveyDateFilter = {
         ensurePopoverHeader,
         getInitialState,
         getActiveFilterBounds,
+        createInstance,
         render,
         clear,
         applyYear,

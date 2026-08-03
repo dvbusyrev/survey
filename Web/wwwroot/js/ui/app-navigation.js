@@ -203,7 +203,7 @@ window.toggleMobileNavigation = toggleMobileNavigation;
 window.queueNavigationLayoutEvaluation = queueNavigationLayoutEvaluation;
 window.isAppMobileNavigationViewport = isMobileNavigationViewport;
 
-function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
+function renderNavigation(host, { activeTab, userRole }) {
     const isAdmin = userRole === 'admin';
     const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
 
@@ -214,133 +214,14 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
     const isEmailSectionActive = ['email', 'email_new'].includes(activeTab);
     const isSettingsSectionActive = ['email_settings', 'theme_settings', 'survey_auto_creation'].includes(activeTab);
 
-    const navigate = (tab) => {
-        if (tab === 'add_user') {
-            const tryOpenAddUserModal = () => {
-                if (typeof window.openAddUserModal === 'function' && document.getElementById('addUserModal')) {
-                    window.openAddUserModal();
-                    return true;
-                }
-                return false;
-            };
-
-            if (tryOpenAddUserModal()) {
-                return;
-            }
-
-            if (typeof openTab === 'function') {
-                openTab('get_users', null, { scrollMode: 'carry' });
-
-                let attempts = 0;
-                const timer = window.setInterval(() => {
-                    attempts += 1;
-                    if (tryOpenAddUserModal() || attempts >= 30) {
-                        window.clearInterval(timer);
-                    }
-                }, 200);
-                return;
-            }
-
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = '/users';
+    const navigate = (link) => {
+        const href = link?.getAttribute?.('href') || '';
+        if (!href || href === '#') {
             return;
         }
 
-        if (tab === 'add_organization') {
-            const tryOpenAddOrganizationModal = () => {
-                if (typeof window.openAddOrganizationModal === 'function' && document.getElementById('addOrganizationModal')) {
-                    window.openAddOrganizationModal();
-                    return true;
-                }
-                return false;
-            };
-
-            if (tryOpenAddOrganizationModal()) {
-                return;
-            }
-
-            if (typeof openTab === 'function') {
-                openTab('get_organization', null, { scrollMode: 'carry' });
-
-                let attempts = 0;
-                const timer = window.setInterval(() => {
-                    attempts += 1;
-                    if (tryOpenAddOrganizationModal() || attempts >= 30) {
-                        window.clearInterval(timer);
-                    }
-                }, 200);
-                return;
-            }
-
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = '/organizations';
-            return;
-        }
-
-        if (typeof openTab === 'function') {
-            openTab(tab, null, { scrollMode: 'carry' });
-            return;
-        }
-
-        if (tab === 'help') {
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = '/help';
-            return;
-        }
-
-        if (tab === 'download_logs') {
-            window.location.href = '/logs/export';
-            return;
-        }
-
-        if ((tab === 'active' || tab === 'answers_tab') && userId) {
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = '/survey';
-            return;
-        }
-
-        if ((tab === 'archived' || tab === 'archived_surveys_for_user') && userId) {
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = '/archive';
-            return;
-        }
-
-        const routes = {
-            get_surveys: '/survey',
-            add_survey: '/survey/create',
-            list_answers_users: '/survey/answer',
-            archived_surveys: '/survey/archive',
-            open_statistics: '/statistics',
-            get_users: '/users',
-            archived_users: '/users/archive',
-            get_organization: '/organizations',
-            organization_surveys: '/organizations/survey',
-            archive_list_organizations: '/organizations/archive',
-            reports: '/reports',
-            survey_auto_creation: '/settings/survey-creation',
-            theme_settings: '/settings/theme',
-            email: '/email',
-            email_new: '/email',
-            email_settings: '/settings/email',
-            get_logs: '/logs'
-        };
-
-        if (routes[tab]) {
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = routes[tab];
-            return;
-        }
-
-        if (tab === 'monthly_summary_report') {
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = '/reports';
-            return;
-        }
-
-        if (tab.startsWith('quarterly_report_q')) {
-            window.AppScrollState?.prepareNavigation({ carry: true });
-            window.location.href = '/reports';
-        }
+        window.AppScrollState?.prepareNavigation({ carry: true });
+        window.location.href = href;
     };
 
     const templateId = isAdmin ? 'nav-template-admin' : 'nav-template-user';
@@ -451,7 +332,7 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
 
             suppressNavigationSubmenus(nav, item.classList.contains('has-submenu') ? item.dataset.tab || '' : '');
             closeMobileNavIfNeeded();
-            navigate(item.dataset.tab || '');
+            navigate(event.currentTarget);
         });
     });
 
@@ -465,9 +346,8 @@ function renderNavigation(host, { openTab, activeTab, userRole, userId }) {
             event.preventDefault();
             const ownerItem = event.currentTarget.closest('.nav-item.has-submenu');
             suppressNavigationSubmenus(nav, ownerItem?.dataset?.tab || '');
-            const item = event.currentTarget.closest('.submenu-item');
             closeMobileNavIfNeeded();
-            navigate(item?.dataset?.tab || '');
+            navigate(event.currentTarget);
         });
     });
 

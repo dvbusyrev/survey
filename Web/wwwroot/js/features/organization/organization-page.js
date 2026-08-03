@@ -7,16 +7,11 @@
         return window.AppHttp?.getAntiforgeryToken() || '';
     }
 
-    function showMessage(element, text, isSuccess) {
+    function showOrganizationToast(text, isSuccess = false) {
         const message = text || '';
         if (message) {
             window.AppUi?.notify?.(message, isSuccess ? 'success' : 'error');
         }
-
-        if (!element) return;
-        element.style.display = 'none';
-        element.textContent = '';
-        element.className = isSuccess ? 'success-message' : 'error-message';
     }
 
     function ensureValidDateInput(target, label, options = {}) {
@@ -25,7 +20,7 @@
             return true;
         }
 
-        showMessage(null, error, false);
+        showOrganizationToast(error);
         window.AppDate?.focusInput?.(target);
         return false;
     }
@@ -51,34 +46,14 @@
             return;
         }
 
-        if (typeof window.refreshAdminTab === 'function') {
-            window.refreshAdminTab('get_organization');
-            return;
-        }
-
-        if (typeof window.handleTabClick === 'function') {
-            window.handleTabClick('get_organization', {
-                force: true,
-                scrollMode: 'restore'
-            });
-            return;
-        }
-
         window.AppScrollState?.saveCurrentPosition?.();
         window.location.assign('/organizations');
     }
 
     function resetAddOrganizationForm() {
         const form = byId('organizationForm');
-        const message = byId('message');
         if (form) {
             form.reset();
-        }
-
-        if (message) {
-            message.textContent = '';
-            message.className = 'organization-form__message';
-            message.style.display = 'none';
         }
     }
 
@@ -112,8 +87,6 @@
         const form = byId('organizationForm');
         if (!form) return;
 
-        const message = byId('message');
-
         if (!ensureValidDateInput('DateBegin', 'Дата начала')) {
             return;
         }
@@ -131,12 +104,12 @@
         };
 
         if (!payload.Name) {
-            showMessage(message, 'Введите название организации!', false);
+            showOrganizationToast('Введите название организации!');
             return;
         }
 
         if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
-            showMessage(message, 'Дата конца не может быть раньше даты начала.', false);
+            showOrganizationToast('Дата конца не может быть раньше даты начала.');
             window.AppDate?.focusInput?.('DateEnd');
             return;
         }
@@ -166,10 +139,10 @@
                 return;
             }
 
-            showMessage(message, result.message || 'Организация добавлена.', true);
+            showOrganizationToast(result.message || 'Организация добавлена.', true);
             refreshOrganizationList();
         } catch (error) {
-            showMessage(message, error.message || 'Ошибка добавления организации', false);
+            showOrganizationToast(error.message || 'Ошибка добавления организации');
         }
     }
 

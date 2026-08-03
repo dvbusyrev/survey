@@ -96,6 +96,97 @@
   color: var(--text-secondary);
 }
 
+.archive-answers-modal .h2_modal {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 100%;
+  text-align: center;
+}
+
+.answers-modal__title-main,
+.answers-modal__title-name {
+  display: block;
+  color: var(--text-main);
+  font-weight: 400;
+}
+
+.answers-modal__title-name {
+  margin-top: 0.6rem;
+}
+
+.answers-modal__signature-text,
+.answers-modal__date-text,
+.answers-modal__info-text {
+  display: grid;
+  align-content: center;
+  font-weight: 400;
+}
+
+.answers-modal__date-text {
+  white-space: nowrap;
+}
+
+.answers-modal__signature-text {
+  gap: 0.35rem;
+}
+
+.archive-answers-modal #answersContainer {
+  display: grid;
+  gap: var(--app-modal-field-gap, 1.5rem);
+}
+
+.answers-modal__signature-line {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.answers-modal__signature-line-label {
+  color: var(--text-main);
+  font-weight: 400;
+  opacity: 0.78;
+}
+
+.answers-modal__signature-line-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.answers-modal__info-block {
+  display: grid;
+  gap: var(--app-modal-label-gap, 0.5rem);
+  color: var(--text-main);
+}
+
+.answers-modal__date-block,
+.answers-modal__signature-block {
+  margin-bottom: 0;
+}
+
+.answers-modal__field-label {
+  color: var(--text-main);
+  font-weight: 400;
+}
+
+.answers-modal__table-wrap {
+  padding-top: 0;
+}
+
+.answers-modal__table :is(.answers-modal__rating-column, .rating-cell) {
+  width: 9ch;
+  min-width: 9ch;
+  max-width: 9ch;
+  padding-right: 0.75em;
+  padding-left: 0.75em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.answers-modal__table :is(th.table-th--end, .comment-cell) {
+  padding-left: 1.2rem;
+}
+
 .modal-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -105,12 +196,12 @@
   overflow-x: hidden; 
 }
 
-.modal .modal-body .form-group {
+.modal .modal-body .app-field-group {
   display: block;
   margin-bottom: var(--app-modal-field-gap);
 }
 
-.modal .modal-body .form-group > label {
+.modal .modal-body .app-field-group > label {
   display: block;
   margin: 0 0 var(--app-modal-label-gap);
   padding-left: 0;
@@ -121,7 +212,7 @@
   text-align: left;
 }
 
-.modal .modal-body .form-group :is(
+.modal .modal-body .app-field-group :is(
   input[type="text"],
   input[type="date"],
   input[data-date-format="dd.mm.yyyy"],
@@ -131,14 +222,14 @@
   input[type="number"],
   select,
   textarea,
-  .form-control,
+  .app-field,
   .organization-dropdown,
   .admin-extension-input
 ) {
   margin-top: 0;
 }
 
-.modal .modal-body .form-group :is(
+.modal .modal-body .app-field-group :is(
   input[type="text"],
   input[type="date"],
   input[data-date-format="dd.mm.yyyy"],
@@ -147,23 +238,23 @@
   input[type="password"],
   input[type="number"],
   select,
-  .form-control,
+  .app-field,
   .organization-dropdown,
   .admin-extension-input
 ) {
   min-height: var(--app-field-min-height);
 }
 
-.modal .modal-body .form-group :is(
+.modal .modal-body .app-field-group :is(
   .app-date-field,
   .app-native-date-field,
-  input[type="date"][data-date-native="true"].form-control,
+  input[type="date"][data-date-native="true"].app-field,
   input[type="date"][data-date-native="true"].admin-extension-input
 ) {
   width: 100%;
 }
 
-.modal .modal-body .input-container {
+.modal .modal-body .app-field-with-icon {
   margin-top: 0;
   min-height: var(--app-field-min-height);
 }
@@ -172,6 +263,7 @@
   margin-bottom: 0;
 }
 
+.modal .modal-body .app-section.app-page__stack,
 .modal .modal-body .app-page__section.app-page__stack {
   margin: 0;
   padding: 0;
@@ -192,7 +284,7 @@
   flex-wrap: wrap;
 }
 
-.modal_btn {
+.app-button {
   position: relative;
   text-decoration: none;
   -webkit-appearance: none;
@@ -207,7 +299,7 @@
   transition: background 0.12s ease, background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
 }
 
-.modal_btn-primary {
+.app-button--primary {
   color: var(--app-theme-button-text-color);
   font-weight: 400;
   background: var(--app-theme-button-color);
@@ -215,29 +307,29 @@
   border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
-.modal_btn-secondary {
+.app-button--secondary {
   color: var(--text-main);
   font-weight: 500;
   background: #ffffff;
   border: 1px solid var(--border);
 }
 
-.modal_btn-danger {
+.app-button--danger {
   color: var(--app-theme-button-text-color);
   background: var(--app-theme-button-color);
   background-image: none;
   border: 1px solid color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
 }
 
-.modal_btn-primary:hover {
+.app-button--primary:hover {
   background: var(--app-theme-button-color);
 }
 
-.modal_btn-secondary:hover {
+.app-button--secondary:hover {
   background: #ffffff;
 }
 
-.modal_btn-danger:hover {
+.app-button--danger:hover {
   background: var(--app-theme-button-color);
 }
 

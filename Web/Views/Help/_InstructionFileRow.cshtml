@@ -8,7 +8,7 @@
     <label class="help-page__instruction-label" for="@inputId">@Model.Title</label>
     <div class="help-page__instruction-row">
         <input type="text"
-               class="form-control help-page__file-field"
+               class="app-field help-page__file-field"
                id="@inputId"
                data-help-display="@Model.Type"
                value="@Model.DisplayText"
@@ -22,12 +22,12 @@
                hidden />
         <div class="help-page__instruction-actions">
             <button type="button"
-                    class="modal_btn modal_btn-secondary"
+                    class="app-button app-button--secondary"
                     data-help-upload-trigger
                     data-help-type="@Model.Type">
                 Загрузить новую
             </button>
-            <a class="modal_btn modal_btn-primary help-page__download"
+            <a class="app-button app-button--primary help-page__download"
                href="@Model.DownloadUrl"
                download>
                 Скачать инструкцию

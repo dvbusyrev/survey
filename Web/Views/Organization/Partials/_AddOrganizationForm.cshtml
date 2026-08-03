@@ -1,25 +1,25 @@
 <form id="organizationForm" class="organization-form">
     @Html.AntiForgeryToken()
 
-    <div class="form-group">
+    <div class="app-field-group">
         <label for="Name">Организация</label>
-        <input type="text" class="form-control" id="Name" required>
+        <input type="text" class="app-field" id="Name" required>
     </div>
 
-    <div class="form-group">
+    <div class="app-field-group">
         <label for="organization_email">Эл. почта организации</label>
-        <input type="text" class="form-control" id="organization_email" placeholder="Введите эл. почту">
+        <input type="text" class="app-field" id="organization_email" placeholder="Введите эл. почту">
     </div>
 
     <div class="organization-form__row">
-        <div class="form-group">
+        <div class="app-field-group">
             <label for="DateBegin">Дата начала</label>
-            <input type="date" class="form-control" id="DateBegin" data-date-native="true" data-date-label="Дата начала" lang="ru-RU">
+            <input type="date" class="app-field" id="DateBegin" data-date-native="true" data-date-label="Дата начала" lang="ru-RU">
         </div>
 
-        <div class="form-group">
+        <div class="app-field-group">
             <label for="DateEnd">Дата конца</label>
-            <input type="date" class="form-control" id="DateEnd" data-date-native="true" data-date-label="Дата конца" lang="ru-RU">
+            <input type="date" class="app-field" id="DateEnd" data-date-native="true" data-date-label="Дата конца" lang="ru-RU">
         </div>
     </div>
 
@@ -27,5 +27,4 @@
         <button type="button" class="btn btn-primary" data-click-call="createOrganization">Добавить</button>
     </div>
 
-    <div id="message" class="organization-form__message"></div>
 </form>

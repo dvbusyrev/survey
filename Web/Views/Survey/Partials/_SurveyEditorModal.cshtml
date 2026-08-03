@@ -19,76 +19,64 @@
             </button>
         </div>
         <div class="modal-body">
-            <section class="app-page__section app-page__stack">
-               <div class="form-group">
+            <section class="app-section app-page__section app-page__stack">
+               <div class="app-field-group">
                     <label for="surveyTitle">Название анкеты</label>
                     <input type="text"
-                           class="form-control"
+                           class="app-field"
                            id="surveyTitle"
                            value="@(isEditMode ? editPage!.Survey.NameSurvey : string.Empty)"
                            placeholder="Введите название анкеты"
                            required />
-                    @if (isEditMode)
-                    {
-                        <div class="error-message" id="titleError"></div>
-                    }
                 </div>
 
-                <div class="form-group">
+                <div class="app-field-group">
                     <label for="surveyDescription">Описание</label>
                     @if (isEditMode)
                     {
-                        <textarea class="form-control" id="surveyDescription">@editPage!.Survey.Description</textarea>
+                        <textarea class="app-field" id="surveyDescription">@editPage!.Survey.Description</textarea>
                     }
                     else
                     {
                         <input type="text"
-                               class="form-control"
+                               class="app-field"
                                id="surveyDescription"
                                value=""
                                placeholder="Введите описание анкеты" />
                     }
                 </div>
 
-                <div class="form-group">
+                <div class="app-field-group">
                     <label for="startDate">Дата начала</label>
                     <input type="date"
-                           class="form-control"
+                           class="app-field"
                            id="startDate"
                            data-date-native="true"
                            data-date-label="Дата начала"
                            lang="ru-RU"
                            value="@(isEditMode ? editPage!.Survey.DateBegin.ToString("yyyy-MM-dd") : string.Empty)"
                            required />
-                    @if (isEditMode)
-                    {
-                        <div class="error-message" id="startDateError"></div>
-                    }
                 </div>
 
-                <div class="form-group">
+                <div class="app-field-group">
                     <label for="endDate">Дата конца</label>
                     <input type="date"
-                           class="form-control"
+                           class="app-field"
                            id="endDate"
                            data-date-native="true"
                            data-date-label="Дата конца"
                            lang="ru-RU"
                            value="@(isEditMode ? editPage!.Survey.DateEnd?.ToString("yyyy-MM-dd") : string.Empty)"
                            required />
-                    @if (isEditMode)
-                    {
-                        <div class="error-message" id="endDateError"></div>
-                    }
                 </div>
 
-                <div class="form-group survey-editor-page__organization-field">
+                <div class="app-field-group survey-editor-page__organization-field">
                     <label>Организации</label>
                     @if (isEditMode)
                     {
                         <input type="hidden" id="selectedOrganizationIds" value="@string.Join(",", editPage!.SelectedOrganizationIds)" />
                     }
-                    <div class="survey-editor-page__selected-organizations"
+                    <div class="app-field survey-editor-page__selected-organizations"
                          data-role="selected-organizations-container">
                         <div class="survey-editor-page__selected-organizations-list"
                              data-role="selected-organizations-list">
@@ -97,16 +85,15 @@
                     </div>
 
                     <div class="survey-editor-page__organization-action">
-                        <div class="app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__organization-dropdown"
+                        <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__organization-dropdown"
                              data-role="organization-dropdown">
                             <button type="button"
-                                    class="criteria-btn criteria-btn--info app-checkbox-dropdown__trigger"
-                                    data-role="organization-dropdown-trigger"
-                                    data-click-call="toggleOrganizationDropdown">
+                                    class="criteria-btn criteria-btn--info app-multiselect__trigger app-checkbox-dropdown__trigger"
+                                    data-role="organization-dropdown-trigger">
                                 Выбрать организацию
                             </button>
                             <div id="organizationDropdownMenu"
-                                 class="app-checkbox-dropdown__menu app-checkbox-dropdown__menu--inline is-hidden"
+                                 class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline is-hidden"
                                  data-role="organization-dropdown-menu">
                                 @if (isEditMode)
                                 {
@@ -143,7 +130,7 @@
                 </div>
             </section>
 
-            <section class="app-page__section app-page__stack survey-editor-page__criteria-step"
+            <section class="app-section app-page__section app-page__stack survey-editor-page__criteria-step"
                      data-role="criteria-step">
                 <div class="survey-editor-page__criteria-list" data-role="criteria-list">
                     @if (isEditMode && editPage!.Criteria.Count > 0)
@@ -152,12 +139,12 @@
                         {
                             var criterion = editPage.Criteria[index];
                             var criterionNumber = index + 1;
-                            <div class="form-group survey-editor-page__criteria-item">
+                            <div class="app-field-group survey-editor-page__criteria-item">
                                 <label for="criterion@criterionNumber">Критерий №@criterionNumber:</label>
                                 <div class="survey-editor-page__criteria-control">
                                     <div class="survey-editor-page__criteria-input-wrap">
                                         <input type="text"
-                                               class="form-control criteriy"
+                                               class="app-field criteriy"
                                                id="criterion@criterionNumber"
                                                value="@criterion"
                                                placeholder="Введите критерий оценки"
@@ -179,18 +166,17 @@
                                         Добавить критерий
                                     </button>
                                 </div>
-                                <div class="error-message"></div>
                             </div>
                         }
                     }
                     else
                     {
-                        <div class="form-group survey-editor-page__criteria-item">
+                        <div class="app-field-group survey-editor-page__criteria-item">
                             <label for="criterion1">Критерий №1:</label>
                             <div class="survey-editor-page__criteria-control">
                                 <div class="survey-editor-page__criteria-input-wrap">
                                     <input type="text"
-                                           class="form-control criteriy"
+                                           class="app-field criteriy"
                                            id="criterion1"
                                            placeholder="Введите критерий оценки"
                                            required />
@@ -211,7 +197,6 @@
                                     Добавить критерий
                                 </button>
                             </div>
-                            <div class="error-message"></div>
                         </div>
                     }
                 </div>
@@ -219,12 +204,12 @@
         </div>
         <div class="modal-footer">
             <button type="button"
-                    class="modal_btn modal_btn-secondary"
+                    class="app-button app-button--secondary"
                     data-click-call="closeSurveyEditorModal">
                 Отмена
             </button>
             <button type="button"
-                    class="modal_btn modal_btn-primary"
+                    class="app-button app-button--primary"
                     data-role="survey-submit"
                     data-click-call="@(isEditMode ? "surveyEditUpdate" : "addSurvey")">
                 Сохранить
@@ -240,5 +225,4 @@
 }
 
 @Html.AntiForgeryToken()
-@await Html.PartialAsync("~/Web/Views/Shared/_OperationNotification.cshtml")
 @await Html.PartialAsync("~/Web/Views/Shared/_OperationLoadingOverlay.cshtml", "Идет обработка данных...")

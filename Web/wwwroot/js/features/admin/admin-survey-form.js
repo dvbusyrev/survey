@@ -204,7 +204,6 @@
 
     Object.assign(window, {
         openOrganizationModal: organizations.open,
-        toggleOrganizationDropdown: organizations.toggleDropdown,
         closeOrganizationDropdown: organizations.close,
         closeModal,
         loadOrganizations: organizations.load,
@@ -221,7 +220,6 @@
         addRowCriteriy: () => criteria.append(''),
         showSuccess,
         showError,
-        hideNotification: () => {},
         addSurvey,
         validateForm,
         resetSurveyCreateForm,

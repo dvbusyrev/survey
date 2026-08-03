@@ -28,7 +28,8 @@
         pageRoot: null,
         cleanup: null,
         selectedSurveys: [],
-        availableSurveys: null
+        availableSurveys: null,
+        surveyDropdown: null
     };
 
     function getQueryRoot() {
@@ -70,20 +71,22 @@
             return;
         }
 
-        host.innerHTML = '';
+        host.replaceChildren();
 
         if (state.selectedSurveys.length === 0) {
-            const empty = document.createElement('p');
-            empty.className = 'survey-auto-creation-page__empty-selection';
-            empty.textContent = 'Анкеты не выбраны';
+            const empty = window.AppUi.createElement('p', {
+                className: 'survey-auto-creation-page__empty-selection',
+                text: 'Анкеты не выбраны'
+            });
             host.appendChild(empty);
             return;
         }
 
         state.selectedSurveys.forEach((survey) => {
-            const item = document.createElement('div');
-            item.className = 'survey-auto-creation-page__selected-item';
-            item.textContent = survey.name;
+            const item = window.AppUi.createElement('div', {
+                className: 'survey-auto-creation-page__selected-item',
+                text: survey.name
+            });
             host.appendChild(item);
         });
     }
@@ -94,19 +97,20 @@
             return;
         }
 
-        list.innerHTML = '';
+        list.replaceChildren();
 
         const selectedIds = new Set(state.selectedSurveys.map((survey) => survey.id));
         (state.availableSurveys || []).forEach((survey) => {
-            const item = document.createElement('label');
             const isSelected = selectedIds.has(survey.id);
-            item.className = 'app-checkbox-option';
-            item.classList.toggle('is-selected', isSelected);
+            const checkboxOption = window.AppUi.createCheckboxOption({
+                text: survey.name,
+                checked: isSelected,
+                selected: isSelected
+            });
+            const item = checkboxOption.option;
+            const checkbox = checkboxOption.checkbox;
 
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.className = 'app-checkbox-input';
-            checkbox.checked = isSelected;
+            item.classList.toggle('is-selected', isSelected);
             checkbox.dataset.surveyId = String(survey.id);
             checkbox.addEventListener('change', () => {
                 toggleSurveySelection(survey);
@@ -114,14 +118,10 @@
                 renderSurveyModalList();
             });
 
-            const text = document.createElement('span');
-            text.className = 'app-checkbox-text';
-            text.textContent = survey.name;
-
-            item.appendChild(checkbox);
-            item.appendChild(text);
             list.appendChild(item);
         });
+
+        window.AppCheckboxDropdown?.scheduleListHeightUpdate(getSurveyDropdownMenu());
     }
 
     function setLoading(isLoading) {
@@ -159,31 +159,15 @@
     }
 
     function getSurveyDropdownTrigger() {
-        return getSurveyDropdown()?.querySelector('[data-click-call="toggleSurveyAutoCreationSurveyDropdown"]');
-    }
-
-    function setSurveyDropdownVisible(isVisible) {
-        const menu = getSurveyDropdownMenu();
-        if (!menu) {
-            return false;
-        }
-
-        getSurveyDropdown()?.classList.toggle('is-open', isVisible);
-        menu.classList.toggle('is-hidden', !isVisible);
-        return true;
+        return getSurveyDropdown()?.querySelector('[data-role="survey-auto-creation-dropdown-trigger"]')
+            || getSurveyDropdown()?.querySelector('button');
     }
 
     function closeSurveyDropdown() {
-        setSurveyDropdownVisible(false);
+        state.surveyDropdown?.controller?.close();
     }
 
-    async function openSurveyDropdown() {
-        const menu = getSurveyDropdownMenu();
-        if (!menu) {
-            return;
-        }
-
-        setSurveyDropdownVisible(true);
+    async function handleSurveyDropdownOpen() {
         if (state.availableSurveys) {
             renderSurveyModalList();
             return;
@@ -199,20 +183,6 @@
         } finally {
             setLoading(false);
         }
-    }
-
-    function toggleSurveyDropdown() {
-        const menu = getSurveyDropdownMenu();
-        if (!menu) {
-            return;
-        }
-
-        if (menu.classList.contains('is-hidden')) {
-            openSurveyDropdown();
-            return;
-        }
-
-        closeSurveyDropdown();
     }
 
     async function loadSurveyOptions() {
@@ -281,10 +251,14 @@
     }
 
     function refreshPage() {
-        if (typeof window.refreshAdminTab === 'function') {
-            window.refreshAdminTab('survey_auto_creation', null, {
-                force: true,
-                scrollMode: 'restore'
+        if (typeof window.refreshAdminUi === 'function') {
+            window.refreshAdminUi({
+                tabName: 'survey_auto_creation',
+                fallbackUrl: '/settings/survey-creation',
+                options: {
+                    force: true,
+                    scrollMode: 'restore'
+                }
             });
             return;
         }
@@ -302,53 +276,33 @@
         }
     }
 
-    function closeSurveyDropdownOnOutsidePointer(event) {
+    function mountSurveyDropdownController() {
+        state.surveyDropdown?.destroy?.();
+        state.surveyDropdown = null;
+
         const dropdown = getSurveyDropdown();
-        const menu = getSurveyDropdownMenu();
-        if (!dropdown || !menu || menu.classList.contains('is-hidden')) {
-            return;
-        }
-
         const trigger = getSurveyDropdownTrigger();
-        if (menu.contains(event.target) || trigger?.contains(event.target)) {
+        const menu = getSurveyDropdownMenu();
+        if (!dropdown || !trigger || !menu || typeof window.AppUi?.createMultiselect !== 'function') {
             return;
         }
 
-        closeSurveyDropdown();
+        trigger.removeAttribute('data-click-call');
+        state.surveyDropdown = window.AppUi.createMultiselect({
+            root: dropdown,
+            trigger,
+            menu,
+            openClass: 'is-open',
+            hiddenClass: 'is-hidden',
+            onOpen: () => {
+                void handleSurveyDropdownOpen();
+                window.AppCheckboxDropdown?.scheduleListHeightUpdate(menu);
+            },
+            onClose: () => {
+                window.AppCheckboxDropdown?.scheduleListHeightUpdate(menu);
+            }
+        });
     }
-
-    function handleEscape(event) {
-        if (event.key !== 'Escape') {
-            return;
-        }
-
-        closeSurveyDropdown();
-    }
-
-    function listen(scope, target, type, handler, options) {
-        if (!target) {
-            return;
-        }
-
-        if (scope && typeof scope.listen === 'function') {
-            scope.listen(target, type, handler, options);
-            return;
-        }
-
-        target.addEventListener(type, handler, options);
-    }
-
-    window.openSurveyAutoCreationSurveyModal = openSurveyDropdown;
-    window.toggleSurveyAutoCreationSurveyDropdown = toggleSurveyDropdown;
-
-    window.closeSurveyAutoCreationSurveyModal = function closeSurveyAutoCreationSurveyModal() {
-        closeSurveyDropdown();
-    };
-
-    window.saveSurveyAutoCreationSurveySelection = function saveSurveyAutoCreationSurveySelection() {
-        renderSelectedSurveys();
-        closeSurveyDropdown();
-    };
 
     window.saveSurveyAutoCreationSettings = function saveSurveyAutoCreationSettings() {
         return submitAction('/settings/survey-creation/save', collectRequest(), 'Настройки сохранены');
@@ -377,14 +331,12 @@
         const bootstrap = parseBootstrap(pageRoot);
         state.selectedSurveys = cloneSurveys(bootstrap.selectedSurveys).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
         renderSelectedSurveys();
-
-        // Capture phase keeps this reliable when another interactive component stops click propagation.
-        listen(scope, document, 'pointerdown', closeSurveyDropdownOnOutsidePointer, true);
-        listen(scope, document, 'click', closeSurveyDropdownOnOutsidePointer, true);
-        listen(scope, document, 'keydown', handleEscape);
+        mountSurveyDropdownController();
 
         const cleanup = () => {
             closeSurveyDropdown();
+            state.surveyDropdown?.destroy?.();
+            state.surveyDropdown = null;
             if (state.pageRoot === pageRoot) {
                 state.pageRoot = null;
                 state.availableSurveys = null;

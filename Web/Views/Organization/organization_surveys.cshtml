@@ -20,7 +20,7 @@
             Description = "Выберите организации и нужные анкеты, задайте новую дату конца и сохраните изменения. Чекбокс организации выделяет все анкеты внутри секции."
         })
 
-    <section class="app-page__section organization-surveys-page__content-section">
+    <section class="app-section app-page__section organization-surveys-page__content-section">
         <div class="organization-surveys-page__field-title">Анкеты организаций</div>
 
         <label class="organization-surveys-page__select-all-toggle">
@@ -99,11 +99,11 @@
         }
 
         <div class="organization-surveys-page__bottom-controls">
-            <div class="form-group organization-surveys-page__date-field">
+            <div class="app-field-group organization-surveys-page__date-field">
                 <label for="organizationSurveyDateEnd">Дата конца</label>
                 <input
                     id="organizationSurveyDateEnd"
-                    class="form-control"
+                    class="app-field"
                     type="date"
                     data-date-native="true"
                     data-date-label="Дата конца"
@@ -115,14 +115,14 @@
                 <button
                     id="organizationSurveyResetButton"
                     type="button"
-                    class="modal_btn modal_btn-secondary"
+                    class="app-button app-button--secondary"
                     data-click-call="resetOrganizationSurveyAssignments">
                     Сброс
                 </button>
                 <button
                     id="organizationSurveySaveButton"
                     type="button"
-                    class="modal_btn modal_btn-primary"
+                    class="app-button app-button--primary"
                     data-click-call="saveOrganizationSurveyEndDates">
                     Сохранить
                 </button>

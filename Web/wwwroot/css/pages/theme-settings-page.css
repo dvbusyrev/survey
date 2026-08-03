@@ -1,5 +1,4 @@
 .theme-settings-page__layout {
-  --theme-settings-control-height: var(--app-field-min-height);
   align-items: start;
 }
 
@@ -49,8 +48,8 @@
 .theme-settings-page__color-input {
   width: 100%;
   min-width: 0;
-  height: var(--theme-settings-control-height);
-  min-height: var(--theme-settings-control-height);
+  height: var(--app-field-min-height);
+  min-height: var(--app-field-min-height);
   margin-top: 0;
   padding: 0;
   background: transparent;
@@ -95,16 +94,18 @@
   margin-top: 0.9rem;
 }
 
-.theme-settings-page__image-upload {
+.theme-settings-page__form-group--file,
+.theme-settings-page__form-group--effects {
   display: grid;
-  gap: 0.75rem;
-  min-width: 0;
+  gap: var(--app-gap-sm);
+}
+
+.theme-settings-page__form-group--file > label,
+.theme-settings-page__form-group--effects > label {
+  margin-bottom: 0;
 }
 
 .theme-settings-page__file-field[readonly] {
-  width: 100%;
-  height: var(--theme-settings-control-height);
-  min-height: var(--theme-settings-control-height);
   margin-top: 0;
   background: #ffffff;
   cursor: default;
@@ -119,25 +120,6 @@
   border-top: 1px solid var(--border);
 }
 
-.theme-settings-page__file-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: flex-start;
-}
-
-.theme-settings-page__file-actions .modal_btn,
-.theme-settings-page__effects-trigger,
-.theme-settings-page__preview-button,
-.theme-settings-page__actions .modal_btn {
-  box-sizing: border-box;
-  min-height: var(--app-button-min-height);
-  padding: var(--app-button-padding);
-  font-size: var(--app-button-font-size);
-  line-height: 1;
-  border-radius: var(--app-button-radius);
-}
-
 .theme-settings-page__field-note {
   margin: 0;
   color: var(--text-secondary);
@@ -150,7 +132,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
-  min-height: var(--theme-settings-control-height);
+  min-height: var(--app-field-min-height);
   margin-top: 0;
 }
 
@@ -181,26 +163,16 @@
 
 .theme-settings-page__effects-picker {
   display: grid;
-  gap: 0;
+  gap: var(--app-gap-sm);
   min-width: 0;
-}
-
-.theme-settings-page__form-group--effects > label {
-  margin-bottom: 0;
+  width: 100%;
 }
 
 .theme-settings-page__selected-effects {
   display: flex;
   align-items: center;
-  width: 100%;
-  min-width: 0;
-  min-height: var(--theme-settings-control-height);
-  margin-top: var(--app-field-top-offset);
-  padding: 0.25rem 0.9rem;
-  color: var(--text-main);
-  background: #ffffff;
-  border: 1px solid var(--border-dark);
-  border-radius: var(--app-field-radius);
+  height: auto;
+  margin-top: 0;
 }
 
 .theme-settings-page__selected-effects-list {
@@ -209,7 +181,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--app-gap-md);
-  min-height: calc(var(--theme-settings-control-height) - 0.5rem);
+  min-height: calc(var(--app-field-min-height) - 0.5rem);
   min-width: 0;
 }
 
@@ -219,20 +191,6 @@
   font-size: 0.95rem;
   font-weight: 400;
   line-height: 1.35;
-}
-
-.theme-settings-page__selected-effect-item {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  min-height: var(--app-chip-min-height);
-  max-width: 100%;
-  padding: var(--app-chip-padding);
-  color: var(--text-main);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  background: color-mix(in srgb, var(--primary-extra-light) 84%, white 16%);
-  border-radius: var(--app-chip-radius);
 }
 
 .theme-settings-page__selected-effects-text {
@@ -247,14 +205,9 @@
   white-space: nowrap;
 }
 
-.theme-settings-page__effects-action {
-  display: flex;
-  justify-content: flex-start;
-  min-width: 0;
-  margin-top: 0.55rem;
-}
-
+.theme-settings-page__field-button,
 .theme-settings-page__effects-trigger {
+  justify-self: start;
   width: auto;
 }
 
@@ -281,16 +234,6 @@
 .theme-settings-page__preview-field {
   display: flex;
   align-items: center;
-  min-width: 0;
-  min-height: var(--theme-settings-control-height);
-  padding: var(--app-field-padding);
-  color: var(--text-main);
-  font-family: inherit;
-  font-size: var(--app-field-font-size);
-  line-height: var(--app-field-line-height);
-  background: #ffffff;
-  border: 1px solid var(--border-dark);
-  border-radius: var(--app-field-radius);
 }
 
 .theme-settings-page__preview-field--font {
@@ -326,26 +269,11 @@
 }
 
 .theme-settings-page__preview-table {
-  width: 100%;
-  min-height: var(--theme-settings-control-height);
-  min-width: 0;
   color: var(--text-main);
-  background: #ffffff;
-  border-collapse: separate;
-  border-spacing: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--app-field-radius);
-  overflow: hidden;
 }
 
 .theme-settings-page__preview-table th {
-  min-height: var(--theme-settings-control-height);
-  padding: 0 0.9rem;
   color: var(--app-theme-detail-text-color);
-  font-size: 0.95rem;
-  font-weight: 400;
-  line-height: 1.35;
-  text-align: left;
   background: var(--app-theme-table-header-background);
 }
 

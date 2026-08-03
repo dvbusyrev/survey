@@ -7,9 +7,9 @@
     var archiveActive = activeSection == "archived";
 }
 
-<div class="menu-bar app-page__subnav client-surveys-page__subnav" role="tablist" aria-label="Разделы клиента">
+<div class="app-tabs app-page__subnav client-surveys-page__subnav" role="tablist" aria-label="Разделы клиента">
     <a href="/survey"
-       class="menu-tab @(activeSurveysActive ? "active-tab" : string.Empty)"
+       class="app-tab @(activeSurveysActive ? "active-tab" : string.Empty)"
        role="tab"
        aria-selected="@(activeSurveysActive ? "true" : "false")"
        data-role="tab-active">
@@ -21,7 +21,7 @@
         }
     </a>
     <a href="/archive"
-       class="menu-tab @(archiveActive ? "active-tab" : string.Empty)"
+       class="app-tab @(archiveActive ? "active-tab" : string.Empty)"
        role="tab"
        aria-selected="@(archiveActive ? "true" : "false")"
        data-role="tab-archived">
@@ -29,7 +29,7 @@
         <span>Архив анкет</span>
     </a>
     <a href="/help"
-       class="menu-tab client-surveys-page__subnav-help @(helpActive ? "active-tab" : string.Empty)"
+       class="app-tab client-surveys-page__subnav-help @(helpActive ? "active-tab" : string.Empty)"
        role="tab"
        aria-selected="@(helpActive ? "true" : "false")"
        data-role="tab-help">

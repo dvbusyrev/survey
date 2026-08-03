@@ -22,7 +22,7 @@
         })
     @if (string.IsNullOrWhiteSpace(survey?.NameSurvey))
     {
-        <section class="app-page__section">
+        <section class="app-section app-page__section">
             <div class="answers-page__error">
                 <h2>Ошибка</h2>
                 <p>Информация об анкете не найдена</p>
@@ -31,7 +31,7 @@
     }
     else
     {
-        <section class="app-page__section app-page__stack">
+        <section class="app-section app-page__section app-page__stack">
             <h3>@survey.NameSurvey</h3>
 
             @if (!string.IsNullOrEmpty(survey.Description))
@@ -69,9 +69,9 @@
             }
         </div>
 
-        <section class="app-page__section">
+        <section class="app-section app-page__section">
             <div class="answers-page__actions">
-                <button type="button" class="answers-page__action-button"
+                <button type="button" class="app-button app-button--primary answers-page__action-button"
                         data-role="sign-actions"
                         data-role-sign-button="true"
                         data-click-call="CSP"
@@ -79,7 +79,7 @@
                         disabled="@(isSigned ? "disabled" : null)">
                     @(isSigned ? "Подписано" : "Подписать")
                 </button>
-                <button type="button" class="answers-page__action-button"
+                <button type="button" class="app-button app-button--primary answers-page__action-button"
                         data-role="download-btn"
                         data-click-call="downloadAnswerDocument"
                         data-click-args='[@survey.IdSurvey, @idOrganization]'

@@ -18,30 +18,30 @@
             Description = "Здесь можно подготовить письмо и отправить его по сохранённому SMTP-профилю."
         })
 
-    <section class="app-page__section">
+    <section class="app-section app-page__section">
         <div class="email-settings-page__grid email-settings-page__grid--single">
             <div class="email-settings-page__panel">
                 <div class="email-settings-page__form">
-                    <div class="form-group email-settings-page__form-group">
+                    <div class="app-field-group email-settings-page__form-group">
                         <label for="email-to">Кому</label>
                         <input type="text"
-                               class="form-control"
+                               class="app-field"
                                id="email-to"
                                value="@settings.To"
                                placeholder="example@domain.ru; second@domain.ru" />
                     </div>
-                    <div class="form-group email-settings-page__form-group">
+                    <div class="app-field-group email-settings-page__form-group">
                         <label for="email-subject">Тема</label>
                         <input type="text"
-                               class="form-control"
+                               class="app-field"
                                id="email-subject"
                                value="@settings.Subject"
                                placeholder="Введите тему письма" />
                     </div>
-                    <div class="form-group email-settings-page__form-group email-settings-page__form-group--textarea">
+                    <div class="app-field-group email-settings-page__form-group email-settings-page__form-group--textarea">
                         <label for="email-content">Содержание</label>
                         <textarea id="email-content"
-                                  class="form-control"
+                                  class="app-field"
                                   placeholder="Введите текст письма">@settings.Content</textarea>
                     </div>
                 </div>
@@ -57,8 +57,8 @@
         <input type="hidden" id="email-from-display-name" value="@settings.FromDisplayName" />
 
         <div class="email-settings-page__actions">
-            <button type="button" id="email-save-button" class="modal_btn modal_btn-secondary">Сохранить</button>
-            <button type="button" id="email-send-button" class="modal_btn modal_btn-primary">Отправить</button>
+            <button type="button" id="email-save-button" class="app-button app-button--secondary">Сохранить</button>
+            <button type="button" id="email-send-button" class="app-button app-button--primary">Отправить</button>
         </div>
     </section>
 </div>

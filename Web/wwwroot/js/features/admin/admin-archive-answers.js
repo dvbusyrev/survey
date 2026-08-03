@@ -8,18 +8,20 @@ window.AdminArchives = (function () {
     }
   }
 
+  function createElement(tagName, options = {}) {
+    return window.AppUi.createElement(tagName, options);
+  }
+
+  function createField(className, text) {
+    return window.AppUi.createField({ className, text });
+  }
+
   function createTextCell(text, className) {
-    const cell = document.createElement('td');
-    if (className) {
-      cell.className = className;
-    }
-    cell.textContent = text;
-    return cell;
+    return createElement('td', { className, text });
   }
 
   function createDateContent(value) {
-    const content = document.createElement('span');
-    content.className = 'answers-modal__date-text';
+    const content = createField('answers-modal__date-text');
     const normalizedValue = String(value || '').trim();
 
     if (!normalizedValue) {
@@ -34,28 +36,26 @@ window.AdminArchives = (function () {
   function renderModalTitle(title) {
     clearNode(title);
 
-    const mainLine = document.createElement('span');
-    mainLine.className = 'answers-modal__title-main';
-    mainLine.textContent = 'Просмотр анкеты';
+    const mainLine = createElement('span', {
+      className: 'answers-modal__title-main',
+      text: 'Просмотр анкеты'
+    });
 
     title.appendChild(mainLine);
   }
 
   function createInfoContent(value, emptyText) {
-    const content = document.createElement('div');
-    content.className = 'answers-modal__info-text';
     const normalizedValue = String(value || '').trim();
-    content.textContent = normalizedValue || emptyText;
-    return content;
+    return createField('answers-modal__info-text', normalizedValue || emptyText);
   }
 
   function renderInfoBlock(labelText, contentNode, container) {
-    const block = document.createElement('div');
-    block.className = 'answers-modal__info-block';
+    const block = createElement('div', { className: 'answers-modal__info-block' });
 
-    const label = document.createElement('div');
-    label.className = 'answers-modal__field-label';
-    label.textContent = labelText;
+    const label = createElement('div', {
+      className: 'answers-modal__field-label',
+      text: labelText
+    });
 
     block.appendChild(label);
     block.appendChild(contentNode);
@@ -82,16 +82,17 @@ window.AdminArchives = (function () {
       return;
     }
 
-    const line = document.createElement('div');
-    line.className = 'answers-modal__signature-line';
+    const line = createElement('div', { className: 'answers-modal__signature-line' });
 
-    const label = document.createElement('span');
-    label.className = 'answers-modal__signature-line-label';
-    label.textContent = labelText;
+    const label = createElement('span', {
+      className: 'answers-modal__signature-line-label',
+      text: labelText
+    });
 
-    const value = document.createElement('span');
-    value.className = 'answers-modal__signature-line-value';
-    value.textContent = normalizedValue;
+    const value = createElement('span', {
+      className: 'answers-modal__signature-line-value',
+      text: normalizedValue
+    });
 
     line.appendChild(label);
     line.appendChild(value);
@@ -99,8 +100,7 @@ window.AdminArchives = (function () {
   }
 
   function createSignatureContent(answer) {
-    const signatureCellContent = document.createElement('div');
-    signatureCellContent.className = 'answers-modal__signature-text';
+    const signatureCellContent = createField('answers-modal__signature-text');
 
     const signatureInfo = answer?.signature_info || null;
     const isSigned = Boolean(answer?.is_signed || signatureInfo?.is_signed);
@@ -129,12 +129,12 @@ window.AdminArchives = (function () {
 
   function renderSignatureBlock(answers, container) {
     const firstAnswer = Array.isArray(answers) && answers.length > 0 ? answers[0] : null;
-    const block = document.createElement('div');
-    block.className = 'answers-modal__info-block answers-modal__signature-block';
+    const block = createElement('div', { className: 'answers-modal__info-block answers-modal__signature-block' });
 
-    const label = document.createElement('div');
-    label.className = 'answers-modal__field-label';
-    label.textContent = 'Подпись';
+    const label = createElement('div', {
+      className: 'answers-modal__field-label',
+      text: 'Подпись'
+    });
 
     block.appendChild(label);
     block.appendChild(createSignatureContent(firstAnswer));
@@ -143,12 +143,12 @@ window.AdminArchives = (function () {
 
   function renderDateBlock(answers, container) {
     const firstAnswer = Array.isArray(answers) && answers.length > 0 ? answers[0] : null;
-    const block = document.createElement('div');
-    block.className = 'answers-modal__info-block answers-modal__date-block';
+    const block = createElement('div', { className: 'answers-modal__info-block answers-modal__date-block' });
 
-    const label = document.createElement('div');
-    label.className = 'answers-modal__field-label';
-    label.textContent = 'Дата';
+    const label = createElement('div', {
+      className: 'answers-modal__field-label',
+      text: 'Дата'
+    });
 
     block.appendChild(label);
     block.appendChild(createDateContent(firstAnswer?.date));
@@ -164,45 +164,41 @@ window.AdminArchives = (function () {
     renderDateBlock(data.answers, container);
     renderSignatureBlock(data.answers, container);
 
-    const tableContainer = document.createElement('div');
-    tableContainer.className = 'answers-table-container table-responsive answers-modal__table-wrap';
-    const table = document.createElement('table');
-    table.className = 'answers-table answers-modal__table';
-    table.dataset.role = 'main-table';
-    table.dataset.disableColumnSort = 'true';
-    const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    headRow.className = 'table_tr';
+    const tableContainer = createElement('div', {
+      className: 'answers-table-container table-responsive answers-modal__table-wrap'
+    });
+    const tableParts = window.AppUi.createTable({
+      className: 'answers-table answers-modal__table',
+      dataset: {
+        role: 'main-table',
+        disableColumnSort: 'true'
+      }
+    });
+    const table = tableParts.table;
     if (isArchive) {
-      const orgHeader = document.createElement('th');
-      orgHeader.className = 'table-th--start';
-      orgHeader.textContent = 'Организация';
-      headRow.appendChild(orgHeader);
+      tableParts.appendHeaderCell({ className: 'table-th--start', text: 'Организация' });
     }
     ['Вопрос', 'Оценка', 'Комментарий'].forEach((headerText, index, headers) => {
-      const th = document.createElement('th');
+      const classNames = [];
       if (!isArchive && index === 0) {
-        th.classList.add('table-th--start');
+        classNames.push('table-th--start');
       }
       if (index === headers.length - 1) {
-        th.classList.add('table-th--end');
+        classNames.push('table-th--end');
       }
       if (headerText === 'Оценка') {
-        th.classList.add('answers-modal__rating-column');
+        classNames.push('answers-modal__rating-column');
       }
-      th.textContent = headerText;
-      headRow.appendChild(th);
+      tableParts.appendHeaderCell({ className: classNames.join(' '), text: headerText });
     });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-    const tbody = document.createElement('tbody');
+    const tbody = tableParts.tbody;
     data.answers.forEach(answer => {
       const answerItems = Array.isArray(answer.answers) ? answer.answers : [];
       const rowSpan = answerItems.length > 0 ? answerItems.length : 1;
 
       if (answerItems.length > 0) {
         answerItems.forEach((item, index) => {
-          const row = document.createElement('tr');
+          const row = createElement('tr');
           if (isArchive && index === 0) {
             const organizationCell = createTextCell(answer.organization_name || 'Не указано', 'organization-cell');
             organizationCell.rowSpan = rowSpan;
@@ -214,7 +210,7 @@ window.AdminArchives = (function () {
           tbody.appendChild(row);
         });
       } else {
-        const row = document.createElement('tr');
+        const row = createElement('tr');
         if (isArchive) {
           const organizationCell = createTextCell(answer.organization_name || 'Не указано', 'organization-cell');
           organizationCell.rowSpan = 1;
@@ -227,22 +223,29 @@ window.AdminArchives = (function () {
       }
     });
 
-    table.appendChild(tbody);
     tableContainer.appendChild(table);
     container.appendChild(tableContainer);
   }
 
-  function closeModalById(id) {
-    var modal = document.getElementById(id);
+  function setModalVisibility(target, isVisible) {
+    const modal = typeof target === 'string'
+      ? document.getElementById(target)
+      : target;
+
     if (!modal) {
-      return;
+      return false;
     }
 
-    if (window.hideSiteModal) {
-      window.hideSiteModal(modal);
-    } else {
-      modal.style.display = 'none';
+    if (window.AppUi?.setModalVisibility) {
+      return window.AppUi.setModalVisibility(modal, isVisible);
     }
+
+    const toggleModal = isVisible ? window.showSiteModal : window.hideSiteModal;
+    return typeof toggleModal === 'function' ? toggleModal(modal) : false;
+  }
+
+  function closeModalById(id) {
+    setModalVisibility(id, false);
   }
 
   function closeAnswersModal() {
@@ -250,11 +253,7 @@ window.AdminArchives = (function () {
   }
 
   function openPreparedAnswersModal(modal) {
-    if (window.showSiteModal) {
-      window.showSiteModal(modal);
-    } else {
-      modal.style.display = 'flex';
-    }
+    setModalVisibility(modal, true);
   }
 
   async function showAnswersModal(surveyId, organizationId) {
@@ -311,36 +310,6 @@ window.AdminArchives = (function () {
 
       window.AppUi.notify(message, 'error', { title: 'Ошибка загрузки ответов' });
     }
-  }
-
-  function wireEscClose() {
-    document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape') {
-        closeAnswersModal();
-      }
-    });
-  }
-
-  function wireBackdropClose() {
-    window.addEventListener('click', function (event) {
-      const modal = document.getElementById('answersModal');
-      if (!modal || event.target !== modal) {
-        return;
-      }
-
-      closeAnswersModal();
-    });
-  }
-
-  function init() {
-    wireEscClose();
-    wireBackdropClose();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
   }
 
   return {

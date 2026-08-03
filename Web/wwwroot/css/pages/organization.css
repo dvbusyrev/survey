@@ -49,7 +49,7 @@
   text-align: left;
 }
 
-.organization-date-field .form-control {
+.organization-date-field .app-field {
   width: 100%;
 }
 
@@ -74,12 +74,6 @@
   text-align: left;
 }
 
-.organization-surveys-page .app-checkbox-input {
-  width: 0.72rem;
-  height: 0.72rem;
-  font-size: 0.72rem;
-}
-
 .organization-surveys-page__bottom-controls {
   display: grid;
   gap: var(--app-gap-md);
@@ -93,15 +87,7 @@
   max-width: 100%;
 }
 
-.organization-surveys-page__actions .modal_btn-primary {
-  font-weight: 400;
-}
-
-.organization-surveys-page__actions .modal_btn-secondary {
-  font-weight: 500;
-}
-
-.organization-surveys-page__actions .form-group {
+.organization-surveys-page__actions .app-field-group {
   margin-bottom: 0;
 }
 
@@ -134,9 +120,8 @@
   margin-top: 0;
 }
 
-.organization-surveys-page__date-field .form-control {
+.organization-surveys-page__date-field .app-field {
   margin-top: 0;
-  min-height: var(--app-field-min-height);
 }
 
 .organization-surveys-page__message {

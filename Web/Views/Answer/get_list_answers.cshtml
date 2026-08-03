@@ -39,7 +39,7 @@
            data-role="main-table"
            data-disable-column-sort="true">
         <thead>
-            <tr class="table_tr">
+            <tr class="app-table__header-row">
                 <th class="table-th--start table-sortable @(string.IsNullOrWhiteSpace(pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Organization)) ? string.Empty : "is-sorted")"
                     data-sort-direction="@pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.AnswerListSortFields.Organization)"
                     aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Organization)">
@@ -124,12 +124,11 @@
 
 @section Scripts {
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminArchiveScripts.cshtml")
-    <script src="~/js/features/survey/survey-filter-core.js" asp-append-version="true"></script>
-    <script src="~/js/features/survey/survey-server-filter-state.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-filter-popover.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-filter-summary.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-date-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-checkbox-filter.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-row-filtering.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/surveys-page.js" asp-append-version="true"></script>
     <script src="~/js/features/admin/admin-answers-list-page.js" asp-append-version="true"></script>

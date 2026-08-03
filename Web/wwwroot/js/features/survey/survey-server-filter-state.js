@@ -232,15 +232,7 @@
 
         const queryIndex = url.indexOf('?');
         const queryString = queryIndex >= 0 ? url.slice(queryIndex + 1) : '';
-        const tabName = getTabName(page);
         const scrollTargetSelector = page?.dataset?.tableScrollTarget || '';
-
-        if (typeof window.refreshAdminTab === 'function' && tabName) {
-            window.refreshAdminTab(tabName, queryString || null, {
-                scrollTargetSelector
-            });
-            return;
-        }
 
         if (page?.dataset?.page === 'user-surveys') {
             if (typeof window.refreshSurveyUserArchiveFilters === 'function') {
@@ -252,6 +244,7 @@
             return;
         }
 
+        window.AppScrollState?.prepareNavigation?.({ carry: true });
         window.location.assign(url);
     }
 

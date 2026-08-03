@@ -126,6 +126,13 @@
     }
 
     function createElement(tagName, className, textContent) {
+        if (typeof window.AppUi?.createElement === 'function') {
+            return window.AppUi.createElement(tagName, {
+                className,
+                text: textContent
+            });
+        }
+
         const element = document.createElement(tagName);
         if (className) {
             element.className = className;

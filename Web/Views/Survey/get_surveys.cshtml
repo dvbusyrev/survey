@@ -55,7 +55,7 @@
                 @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
 
                 <button type="button"
-                        class="btn modal_btn modal_btn-primary"
+                        class="btn app-button app-button--primary"
                         data-click-call="openAddSurveyModal">
                     Добавить анкету
                 </button>
@@ -94,16 +94,14 @@
 @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyEditorModal.cshtml", Model)
 
 @section Scripts {
-    @await Html.PartialAsync("~/Web/Views/Shared/_AdminInlineTemplates.cshtml")
     @await Html.PartialAsync("~/Web/Views/Shared/_AdminReportScripts.cshtml")
     @await Html.PartialAsync("~/Web/Views/Survey/Partials/_SurveyEditorScripts.cshtml")
-    <script src="~/js/features/admin/admin-inline-pages.js" asp-append-version="true"></script>
-    <script src="~/js/features/survey/survey-filter-core.js" asp-append-version="true"></script>
-    <script src="~/js/features/survey/survey-server-filter-state.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-extension-modal.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-filter-popover.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-filter-summary.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-date-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-checkbox-filter.js" asp-append-version="true"></script>
+    <script src="~/js/features/survey/survey-row-filtering.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-work-period.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>

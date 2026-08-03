@@ -59,19 +59,19 @@
         })
 
     <div class="app-page__toolbar survey-list-toolbar">
-        <a class="modal_btn modal_btn-secondary" href="/logs/export">Выгрузить журнал</a>
+        <a class="app-button app-button--secondary" href="/logs/export">Выгрузить журнал</a>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(loadErrorMessage))
     {
-        <div class="app-page__section">
+        <div class="app-section app-page__section">
             <p>@loadErrorMessage</p>
         </div>
     }
 
     <table id="logs-table-top" class="surveys-table logs-table" data-role="main-table" data-disable-column-sort="true" data-disable-table-pagination="true">
         <thead>
-            <tr class="table_tr">
+            <tr class="app-table__header-row">
                 <th class="table-th--start table-col--date table-sortable @(pageModel.IsSortedBy(AuditLogSortFields.Date) ? "is-sorted" : string.Empty)"
                     data-sort-direction="@pageModel.GetHeaderSortDirection(AuditLogSortFields.Date)"
                     aria-sort="@pageModel.GetAriaSort(AuditLogSortFields.Date)">
@@ -130,5 +130,8 @@
 </div>
 
 @section Scripts {
+    <script src="~/js/features/admin/admin-logs-entry-store.js" asp-append-version="true"></script>
+    <script src="~/js/features/admin/admin-logs-records.js" asp-append-version="true"></script>
+    <script src="~/js/features/admin/admin-logs-description-sort.js" asp-append-version="true"></script>
     <script src="~/js/features/admin/admin-logs-page.js" asp-append-version="true"></script>
 }

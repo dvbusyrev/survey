@@ -6,11 +6,8 @@ body,
 .content,
 .inner-container,
 .auth-modal-title,
-.form-label,
 .icon-container,
-.password-toggle-btn,
-.reset-button,
-.submit-button {
+.password-toggle-btn {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
@@ -74,31 +71,20 @@ option,
     padding: 1rem var(--app-modal-content-padding);
 }
 
-.auth-modal-body .form-group {
+.auth-modal-body .app-field-group {
     display: block;
     margin-bottom: var(--app-modal-field-gap);
 }
 
-.auth-modal-body .form-group:last-child {
+.auth-modal-body .app-field-group:last-child {
     margin-bottom: 0;
 }
 
-.auth-modal-body .form-label {
-    display: block;
-    margin: 0 0 var(--app-modal-label-gap);
-    padding-left: 0;
-    color: var(--text-main);
-    font-size: 0.875rem;
-    font-weight: 400;
-    line-height: 1.25;
-    text-align: left;
-}
-
-.auth-modal-body .input-container {
+.auth-modal-body .app-field-with-icon {
     margin-top: 0;
 }
 
-.form-input.is-password-masked {
+.auth-modal-body .app-field.is-password-masked {
     -webkit-text-security: disc;
 }
 

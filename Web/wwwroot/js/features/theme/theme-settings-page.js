@@ -1,57 +1,123 @@
 (function () {
-    function getThemeField(id) {
-        return document.getElementById(id);
+    function getThemeField(id) { return document.getElementById(id); }
+
+    function readThemeValue(id) { return getThemeField(id)?.value || ''; }
+
+    function readThemeTrimmedValue(id) { return readThemeValue(id).trim(); }
+
+    function setThemeValue(id, value) {
+        const field = getThemeField(id);
+        if (field) field.value = value ?? '';
     }
 
-    function getThemeTrimmedValue(id) {
-        return (getThemeField(id)?.value || '').trim();
+    function readThemeChecked(id) { return Boolean(getThemeField(id)?.checked); }
+
+    function setThemeChecked(id, isChecked) {
+        const field = getThemeField(id);
+        if (field) field.checked = Boolean(isChecked);
     }
+
+    function setThemeText(id, value) {
+        const field = getThemeField(id);
+        if (field) field.textContent = value ?? '';
+    }
+
+    const THEME_COLOR_FIELDS = [
+        { id: 'theme-font-color', property: 'fontColor', defaultValue: '#343D4B', label: 'Цвет шрифта' },
+        { id: 'theme-background-color', property: 'backgroundColor', defaultValue: '#B2A8FF', label: 'Цвет фона' }
+    ];
 
     const THEME_PERCENT_FIELDS = [
-        ['theme-header-darken-percent', 'headerDarkenPercent', 42],
-        ['theme-footer-darken-percent', 'footerDarkenPercent', 42],
-        ['theme-button-darken-percent', 'buttonDarkenPercent', 42],
-        ['theme-surface-tint-opacity-percent', 'surfaceTintOpacityPercent', 59]
+        { id: 'theme-header-darken-percent', property: 'headerDarkenPercent', defaultValue: 42 },
+        { id: 'theme-footer-darken-percent', property: 'footerDarkenPercent', defaultValue: 42 },
+        { id: 'theme-button-darken-percent', property: 'buttonDarkenPercent', defaultValue: 42 },
+        { id: 'theme-surface-tint-opacity-percent', property: 'surfaceTintOpacityPercent', defaultValue: 59 }
     ];
 
     const THEME_EFFECT_FIELDS = [
-        ['theme-effect-snow', 'Снег'],
-        ['theme-effect-fireworks', 'Салюты при нажатии'],
-        ['theme-effect-grass', 'Трава'],
-        ['theme-effect-rain', 'Дождь']
+        { id: 'theme-effect-snow', property: 'effectSnow', label: 'Снег' },
+        { id: 'theme-effect-fireworks', property: 'effectFireworks', label: 'Салюты при нажатии' },
+        { id: 'theme-effect-grass', property: 'effectGrass', label: 'Трава' },
+        { id: 'theme-effect-rain', property: 'effectRain', label: 'Дождь' }
     ];
 
-    function getThemePercentValue(id, fallback) {
-        const value = Number.parseInt(getThemeField(id)?.value || '', 10);
-        if (!Number.isFinite(value)) {
-            return fallback;
-        }
+    const THEME_IMAGE_FIELDS = {
+        dataUrl: { id: 'theme-background-image-data-url', property: 'backgroundImageDataUrl' },
+        fileName: { id: 'theme-background-image-file-name', property: 'backgroundImageFileName' },
+        opacity: { id: 'theme-background-image-opacity', property: 'backgroundImageOpacity', defaultValue: 35, label: 'Прозрачность изображения' }
+    };
 
-        return Math.max(0, Math.min(100, value));
+    const THEME_ALLOWED_IMAGE_PREFIXES = ['data:image/png;base64,', 'data:image/jpeg;base64,', 'data:image/jpg;base64,', 'data:image/webp;base64,'];
+
+    const THEME_INVALID_FIELD_IDS = [
+        'theme-background-image-file',
+        THEME_IMAGE_FIELDS.opacity.id,
+        ...THEME_COLOR_FIELDS.map((field) => field.id),
+        ...THEME_PERCENT_FIELDS.map((field) => field.id)
+    ];
+
+    function readThemeNumberValue(field, { withDefault = false, clamp = false } = {}) {
+        const rawValue = readThemeValue(field.id) || (withDefault ? String(field.defaultValue) : '');
+        const value = Number.parseInt(rawValue, 10);
+        if (!Number.isFinite(value)) return withDefault ? field.defaultValue : 0;
+        return clamp ? Math.max(0, Math.min(100, value)) : value;
     }
 
-    function getThemeImagePayloadValue() {
-        const imageField = getThemeField('theme-background-image-data-url');
-        if (imageField) {
-            return imageField.value || '';
+    function readThemeTextFields(fields, { withDefaults = false } = {}) {
+        return Object.fromEntries(fields.map((field) => [
+            field.property,
+            withDefaults
+                ? readThemeTrimmedValue(field.id) || field.defaultValue
+                : readThemeTrimmedValue(field.id)
+        ]));
+    }
+
+    function readThemeCheckboxFields(fields) {
+        return Object.fromEntries(fields.map((field) => [field.property, readThemeChecked(field.id)]));
+    }
+
+    function readThemePercentFields(fields) {
+        return Object.fromEntries(fields.map((field) => [
+            field.property,
+            readThemeNumberValue(field, { withDefault: true, clamp: true })
+        ]));
+    }
+
+    function setThemeTextFields(fields, settings, mapValue = (value) => value) {
+        fields.forEach((field) => setThemeValue(field.id, mapValue(settings[field.property], field)));
+    }
+
+    function setThemeCheckboxFields(fields, settings) {
+        fields.forEach((field) => setThemeChecked(field.id, settings[field.property]));
+    }
+
+    function getThemeFieldOrCachedValue(id, property) {
+        const field = getThemeField(id);
+        if (field) {
+            return field.value || '';
         }
 
-        return window.__appThemeDraftSettings?.backgroundImageDataUrl
-            || window.__appThemeSavedSettings?.backgroundImageDataUrl
-            || window.__appThemeSettings?.backgroundImageDataUrl
+        return window.__appThemeDraftSettings?.[property]
+            || window.__appThemeSavedSettings?.[property]
+            || window.__appThemeSettings?.[property]
             || '';
     }
 
-    function getThemeImageFileNamePayloadValue() {
-        const fileNameField = getThemeField('theme-background-image-file-name');
-        if (fileNameField) {
-            return fileNameField.value || '';
-        }
-
-        return window.__appThemeDraftSettings?.backgroundImageFileName
-            || window.__appThemeSavedSettings?.backgroundImageFileName
-            || window.__appThemeSettings?.backgroundImageFileName
-            || '';
+    function readThemeFormSettings({ withDefaults = false } = {}) {
+        return {
+            backgroundImageDataUrl: getThemeFieldOrCachedValue(
+                THEME_IMAGE_FIELDS.dataUrl.id,
+                THEME_IMAGE_FIELDS.dataUrl.property
+            ),
+            backgroundImageFileName: getThemeFieldOrCachedValue(
+                THEME_IMAGE_FIELDS.fileName.id,
+                THEME_IMAGE_FIELDS.fileName.property
+            ),
+            backgroundImageOpacity: readThemeNumberValue(THEME_IMAGE_FIELDS.opacity, { withDefault: withDefaults }),
+            ...readThemeTextFields(THEME_COLOR_FIELDS, { withDefaults }),
+            ...readThemeCheckboxFields(THEME_EFFECT_FIELDS),
+            ...readThemePercentFields(THEME_PERCENT_FIELDS)
+        };
     }
 
     function hasThemePayloadValue(rawSettings, camelName, pascalName) {
@@ -62,13 +128,17 @@
             );
     }
 
+    function getThemeImageCachedValue(field) {
+        return getThemeFieldOrCachedValue(field.id, field.property);
+    }
+
     function normalizeThemeSettingsPayload(rawSettings) {
         const normalizedSource = hasThemePayloadValue(rawSettings, 'backgroundImageDataUrl', 'BackgroundImageDataUrl')
             ? rawSettings
             : {
                 ...(rawSettings || {}),
-                backgroundImageDataUrl: getThemeImagePayloadValue(),
-                backgroundImageFileName: getThemeImageFileNamePayloadValue()
+                backgroundImageDataUrl: getThemeImageCachedValue(THEME_IMAGE_FIELDS.dataUrl),
+                backgroundImageFileName: getThemeImageCachedValue(THEME_IMAGE_FIELDS.fileName)
             };
 
         if (typeof window.toCamelThemeSettings === 'function') {
@@ -76,128 +146,86 @@
         }
 
         return {
-            fontColor: getThemeTrimmedValue('theme-font-color') || '#343D4B',
-            backgroundColor: getThemeTrimmedValue('theme-background-color') || '#B2A8FF',
-            effectSnow: Boolean(getThemeField('theme-effect-snow')?.checked),
-            effectFireworks: Boolean(getThemeField('theme-effect-fireworks')?.checked),
-            effectGrass: Boolean(getThemeField('theme-effect-grass')?.checked),
-            effectRain: Boolean(getThemeField('theme-effect-rain')?.checked),
+            ...readThemeFormSettings({ withDefaults: true }),
             backgroundImageDataUrl: normalizedSource.backgroundImageDataUrl || normalizedSource.BackgroundImageDataUrl || '',
-            backgroundImageFileName: normalizedSource.backgroundImageFileName || normalizedSource.BackgroundImageFileName || '',
-            backgroundImageOpacity: Number.parseInt(getThemeField('theme-background-image-opacity')?.value || '35', 10) || 35,
-            headerDarkenPercent: getThemePercentValue('theme-header-darken-percent', 42),
-            footerDarkenPercent: getThemePercentValue('theme-footer-darken-percent', 42),
-            buttonDarkenPercent: getThemePercentValue('theme-button-darken-percent', 42),
-            surfaceTintOpacityPercent: getThemePercentValue('theme-surface-tint-opacity-percent', 59)
+            backgroundImageFileName: normalizedSource.backgroundImageFileName || normalizedSource.BackgroundImageFileName || ''
         };
     }
 
     function setThemeInvalidState(id, isInvalid) {
         const element = getThemeField(id);
-        if (!element) {
-            return;
-        }
+        if (!element) return;
 
         element.classList.toggle('invalid', Boolean(isInvalid));
         element.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
     }
 
     function clearThemeInvalidStates() {
-        [
-            'theme-font-color',
-            'theme-background-color',
-            'theme-background-image-file',
-            'theme-background-image-opacity',
-            ...THEME_PERCENT_FIELDS.map(([id]) => id)
-        ].forEach((id) => setThemeInvalidState(id, false));
+        THEME_INVALID_FIELD_IDS.forEach((id) => setThemeInvalidState(id, false));
     }
 
     const themeSettingsPageState = {
         savedSettings: null,
         isMounted: false,
+        effectsDropdownController: null,
         cleanup: null
     };
 
-    function hasThemeSettingsForm() {
-        return Boolean(
-            getThemeField('theme-font-color')
-            && getThemeField('theme-background-color')
-        );
-    }
+    function hasThemeSettingsForm() { return THEME_COLOR_FIELDS.every((field) => getThemeField(field.id)); }
 
     function syncThemeOpacityLabel(settings) {
-        const opacityValue = document.getElementById('theme-background-image-opacity-value');
-        if (opacityValue) {
-            opacityValue.textContent = `${settings.backgroundImageOpacity}%`;
-        }
+        setThemeText(`${THEME_IMAGE_FIELDS.opacity.id}-value`, `${settings.backgroundImageOpacity}%`);
 
-        THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
-            const valueNode = document.getElementById(`${fieldId}-value`);
-            if (valueNode) {
-                valueNode.textContent = `${settings[propertyName]}%`;
-            }
+        THEME_PERCENT_FIELDS.forEach((field) => {
+            setThemeText(`${field.id}-value`, `${settings[field.property]}%`);
         });
     }
 
     function syncThemeEffectsSummary() {
-        const summary = document.getElementById('theme-effects-summary');
+        const summary = getThemeField('theme-effects-summary');
         if (!summary) {
             return;
         }
 
-        summary.replaceChildren();
         const selectedEffects = [];
 
-        THEME_EFFECT_FIELDS.forEach(([fieldId, label]) => {
-            const checkbox = getThemeField(fieldId);
+        THEME_EFFECT_FIELDS.forEach((field) => {
+            const checkbox = getThemeField(field.id);
             const isSelected = Boolean(checkbox?.checked);
             checkbox?.closest('.app-checkbox-option')?.classList.toggle('selected', isSelected);
 
             if (isSelected) {
-                selectedEffects.push(label);
+                selectedEffects.push(field.label);
             }
         });
 
         if (selectedEffects.length === 0) {
-            const empty = document.createElement('p');
-            empty.className = 'theme-settings-page__empty-selection';
-            empty.textContent = 'Эффекты не выбраны';
-            summary.appendChild(empty);
+            summary.replaceChildren(window.AppUi.createElement('span', {
+                className: 'theme-settings-page__empty-selection',
+                text: 'Эффекты не выбраны'
+            }));
             return;
         }
 
-        const list = document.createElement('div');
-        list.className = 'theme-settings-page__selected-effects-list';
-        selectedEffects.forEach((label) => {
-            const item = document.createElement('div');
-            item.className = 'theme-settings-page__selected-effect-item';
-            item.appendChild(document.createTextNode(label));
-            list.appendChild(item);
-        });
-        summary.appendChild(list);
-    }
-
-    function setThemeEffectsDropdownOpen(isOpen) {
-        const trigger = getThemeField('theme-effects-toggle');
-        const dropdown = document.getElementById('theme-effects-dropdown');
-        if (!trigger || !dropdown) {
-            return;
-        }
-
-        dropdown.classList.toggle('is-hidden', !isOpen);
-        trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        summary.replaceChildren(window.AppUi.createElement('div', {
+            className: 'theme-settings-page__selected-effects-list',
+            children: selectedEffects.map((label) => window.AppUi.createElement('span', {
+                className: 'app-chip theme-settings-page__selected-effect-item',
+                text: label
+            }))
+        }));
     }
 
     function syncThemeImageName() {
         const nameField = getThemeField('theme-background-image-name');
-        const dataField = getThemeField('theme-background-image-data-url');
-        const fileNameField = getThemeField('theme-background-image-file-name');
         if (!nameField) {
             return;
         }
 
-        const fileName = fileNameField?.value || '';
-        nameField.value = fileName || getDefaultThemeImageFileName(dataField?.value) || 'Изображение не выбрано';
+        const fileName = readThemeValue(THEME_IMAGE_FIELDS.fileName.id);
+        nameField.value = fileName
+            || getDefaultThemeImageFileName(readThemeValue(THEME_IMAGE_FIELDS.dataUrl.id))
+            || 'Изображение не выбрано';
     }
 
     function getDefaultThemeImageFileName(dataUrl) {
@@ -213,24 +241,30 @@
         return normalizedDataUrl.startsWith('data:image/png;base64,') ? 'background-image.png' : '';
     }
 
-    function collectThemeSettingsPayload() {
-        const opacityValue = Number.parseInt(getThemeField('theme-background-image-opacity')?.value || '', 10);
+    function cloneThemeSettings(settings) { return { ...(settings || {}) }; }
 
-        return {
-            fontColor: getThemeTrimmedValue('theme-font-color'),
-            backgroundColor: getThemeTrimmedValue('theme-background-color'),
-            effectSnow: Boolean(getThemeField('theme-effect-snow')?.checked),
-            effectFireworks: Boolean(getThemeField('theme-effect-fireworks')?.checked),
-            effectGrass: Boolean(getThemeField('theme-effect-grass')?.checked),
-            effectRain: Boolean(getThemeField('theme-effect-rain')?.checked),
-            backgroundImageDataUrl: getThemeImagePayloadValue(),
-            backgroundImageFileName: getThemeImageFileNamePayloadValue(),
-            backgroundImageOpacity: Number.isFinite(opacityValue) ? opacityValue : 0,
-            headerDarkenPercent: getThemePercentValue('theme-header-darken-percent', 42),
-            footerDarkenPercent: getThemePercentValue('theme-footer-darken-percent', 42),
-            buttonDarkenPercent: getThemePercentValue('theme-button-darken-percent', 42),
-            surfaceTintOpacityPercent: getThemePercentValue('theme-surface-tint-opacity-percent', 59)
-        };
+    function getSavedThemeSettingsSource() {
+        return themeSettingsPageState.savedSettings
+            || window.__appThemeSavedSettings
+            || window.__appThemeSettings;
+    }
+
+    function saveThemeSettingsSnapshot(settings) {
+        const snapshot = cloneThemeSettings(settings);
+        themeSettingsPageState.savedSettings = snapshot;
+        window.__appThemeSavedSettings = cloneThemeSettings(snapshot);
+    }
+
+    function applyThemeSettings(settings) {
+        if (typeof window.applyThemeSettings === 'function') {
+            window.applyThemeSettings(settings);
+        }
+    }
+
+    function persistThemeSettings(settings) {
+        if (typeof window.persistThemeSettings === 'function') {
+            window.persistThemeSettings(settings);
+        }
     }
 
     function validateThemeSettingsPayload(settings) {
@@ -238,44 +272,33 @@
 
         const errors = [];
         const colorRegex = /^#[0-9a-f]{6}$/i;
-        const colorFields = [
-            ['theme-font-color', settings.fontColor, 'Цвет шрифта'],
-            ['theme-background-color', settings.backgroundColor, 'Цвет фона']
-        ];
-
-        colorFields.forEach(([fieldId, value, label]) => {
+        THEME_COLOR_FIELDS.forEach((field) => {
+            const value = settings[field.property];
             if (!colorRegex.test(String(value || ''))) {
-                errors.push(`Поле «${label}» заполнено некорректно`);
-                setThemeInvalidState(fieldId, true);
+                errors.push(`Поле «${field.label}» заполнено некорректно`);
+                setThemeInvalidState(field.id, true);
             }
         });
 
         if (!Number.isInteger(settings.backgroundImageOpacity)
             || settings.backgroundImageOpacity < 0
             || settings.backgroundImageOpacity > 100) {
-            errors.push('Поле «Прозрачность изображения» должно быть числом от 0 до 100.');
-            setThemeInvalidState('theme-background-image-opacity', true);
+            errors.push(`Поле «${THEME_IMAGE_FIELDS.opacity.label}» должно быть числом от 0 до 100`);
+            setThemeInvalidState(THEME_IMAGE_FIELDS.opacity.id, true);
         }
 
-        THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
-            const value = settings[propertyName];
+        THEME_PERCENT_FIELDS.forEach((field) => {
+            const value = settings[field.property];
             if (!Number.isInteger(value) || value < 0 || value > 100) {
-                errors.push('Значения яркости должны быть от 0 до 100.');
-                setThemeInvalidState(fieldId, true);
+                errors.push('Значения яркости должны быть от 0 до 100');
+                setThemeInvalidState(field.id, true);
             }
         });
 
         const imageValue = String(settings.backgroundImageDataUrl || '');
         if (imageValue) {
-            const allowedPrefixes = [
-                'data:image/png;base64,',
-                'data:image/jpeg;base64,',
-                'data:image/jpg;base64,',
-                'data:image/webp;base64,'
-            ];
-
-            if (!allowedPrefixes.some((prefix) => imageValue.startsWith(prefix))) {
-                errors.push('Фоновое изображение должно быть PNG, JPEG или WebP.');
+            if (!THEME_ALLOWED_IMAGE_PREFIXES.some((prefix) => imageValue.startsWith(prefix))) {
+                errors.push('Фоновое изображение должно быть PNG, JPEG или WebP');
                 setThemeInvalidState('theme-background-image-file', true);
             }
         }
@@ -287,7 +310,7 @@
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result || ''));
-            reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
+            reader.onerror = () => reject(new Error('Не удалось прочитать изображение'));
             reader.readAsDataURL(file);
         });
     }
@@ -301,18 +324,12 @@
 
         try {
             const dataUrl = await readThemeImageFile(file);
-            const hiddenField = getThemeField('theme-background-image-data-url');
-            if (hiddenField) {
-                hiddenField.value = dataUrl;
-            }
-            const fileNameField = getThemeField('theme-background-image-file-name');
-            if (fileNameField) {
-                fileNameField.value = file.name;
-            }
+            setThemeValue(THEME_IMAGE_FIELDS.dataUrl.id, dataUrl);
+            setThemeValue(THEME_IMAGE_FIELDS.fileName.id, file.name);
             syncThemeImageName();
             applyThemeDraftState();
         } catch (error) {
-            showEmailToast(error.message || 'Не удалось загрузить изображение', 'error', 'Изображение не загружено', { duration: 0 });
+            showThemeToast(error.message || 'Не удалось загрузить изображение', 'error', 'Изображение не загружено', { duration: 0 });
         } finally {
             input.value = '';
         }
@@ -321,57 +338,15 @@
     function populateThemeForm(settings) {
         const normalizedSettings = normalizeThemeSettingsPayload(settings);
 
-        const fontColor = getThemeField('theme-font-color');
-        if (fontColor) {
-            fontColor.value = normalizedSettings.fontColor;
-        }
-
-        const backgroundColor = getThemeField('theme-background-color');
-        if (backgroundColor) {
-            backgroundColor.value = normalizedSettings.backgroundColor;
-        }
-
-        const effectSnow = getThemeField('theme-effect-snow');
-        if (effectSnow) {
-            effectSnow.checked = normalizedSettings.effectSnow;
-        }
-
-        const effectFireworks = getThemeField('theme-effect-fireworks');
-        if (effectFireworks) {
-            effectFireworks.checked = normalizedSettings.effectFireworks;
-        }
-
-        const effectGrass = getThemeField('theme-effect-grass');
-        if (effectGrass) {
-            effectGrass.checked = normalizedSettings.effectGrass;
-        }
-
-        const effectRain = getThemeField('theme-effect-rain');
-        if (effectRain) {
-            effectRain.checked = normalizedSettings.effectRain;
-        }
-
-        const imageDataField = getThemeField('theme-background-image-data-url');
-        if (imageDataField) {
-            imageDataField.value = normalizedSettings.backgroundImageDataUrl;
-        }
-
-        const imageFileNameField = getThemeField('theme-background-image-file-name');
-        if (imageFileNameField) {
-            imageFileNameField.value = normalizedSettings.backgroundImageFileName || getDefaultThemeImageFileName(normalizedSettings.backgroundImageDataUrl);
-        }
-
-        const opacityField = getThemeField('theme-background-image-opacity');
-        if (opacityField) {
-            opacityField.value = String(normalizedSettings.backgroundImageOpacity);
-        }
-
-        THEME_PERCENT_FIELDS.forEach(([fieldId, propertyName]) => {
-            const field = getThemeField(fieldId);
-            if (field) {
-                field.value = String(normalizedSettings[propertyName]);
-            }
-        });
+        setThemeTextFields(THEME_COLOR_FIELDS, normalizedSettings);
+        setThemeCheckboxFields(THEME_EFFECT_FIELDS, normalizedSettings);
+        setThemeValue(THEME_IMAGE_FIELDS.dataUrl.id, normalizedSettings.backgroundImageDataUrl);
+        setThemeValue(
+            THEME_IMAGE_FIELDS.fileName.id,
+            normalizedSettings.backgroundImageFileName || getDefaultThemeImageFileName(normalizedSettings.backgroundImageDataUrl)
+        );
+        setThemeValue(THEME_IMAGE_FIELDS.opacity.id, String(normalizedSettings.backgroundImageOpacity));
+        setThemeTextFields(THEME_PERCENT_FIELDS, normalizedSettings, (value) => String(value));
 
         syncThemeOpacityLabel(normalizedSettings);
         syncThemeEffectsSummary();
@@ -387,44 +362,33 @@
             );
         }
 
-        const settings = normalizeThemeSettingsPayload(collectThemeSettingsPayload());
+        const settings = normalizeThemeSettingsPayload(readThemeFormSettings());
         syncThemeOpacityLabel(settings);
-        window.__appThemeDraftSettings = { ...settings };
-
-        if (typeof window.applyThemeSettings === 'function') {
-            window.applyThemeSettings(settings);
-        }
+        window.__appThemeDraftSettings = cloneThemeSettings(settings);
+        applyThemeSettings(settings);
 
         return settings;
     }
 
     function resetThemeSettings() {
-        const savedSettings = normalizeThemeSettingsPayload(
-            themeSettingsPageState.savedSettings
-            || window.__appThemeSavedSettings
-            || window.__appThemeSettings
-        );
+        const savedSettings = normalizeThemeSettingsPayload(getSavedThemeSettingsSource());
 
         clearThemeInvalidStates();
         window.__appThemeDraftSettings = null;
         populateThemeForm(savedSettings);
-        themeSettingsPageState.savedSettings = { ...savedSettings };
-        if (typeof window.applyThemeSettings === 'function') {
-            window.applyThemeSettings(savedSettings);
-        }
+        saveThemeSettingsSnapshot(savedSettings);
+        applyThemeSettings(savedSettings);
     }
 
     async function submitThemeSettings() {
-        const settings = normalizeThemeSettingsPayload(collectThemeSettingsPayload());
+        const settings = normalizeThemeSettingsPayload(readThemeFormSettings());
         const validationErrors = validateThemeSettingsPayload(settings);
         if (validationErrors.length > 0) {
-            showEmailValidationErrors(validationErrors);
+            showThemeValidationErrors(validationErrors);
             return false;
         }
 
-        setEmailButtonsBusy(true, {
-            activeButtonId: 'theme-save-button'
-        });
+        setThemeButtonsBusy(true);
 
         try {
             const response = await fetch('/theme/settings', {
@@ -437,37 +401,83 @@
             });
 
             if (!response.ok) {
-                throw new Error((await extractEmailApiErrors(response)).join(' '));
+                throw new Error((await extractThemeApiErrors(response)).join(' '));
             }
 
             const payload = await response.json();
             clearThemeInvalidStates();
-            themeSettingsPageState.savedSettings = { ...settings };
-            window.__appThemeSavedSettings = { ...settings };
+            saveThemeSettingsSnapshot(settings);
             window.__appThemeDraftSettings = null;
-            if (typeof window.persistThemeSettings === 'function') {
-                window.persistThemeSettings(settings);
-            }
-            if (typeof window.applyThemeSettings === 'function') {
-                window.applyThemeSettings(settings);
-            }
-            showEmailToast(
-                payload?.message || 'Настройки темы сохранены.',
+            persistThemeSettings(settings);
+            applyThemeSettings(settings);
+            showThemeToast(
+                payload?.message || 'Настройки темы сохранены',
                 'success',
                 'Настройки сохранены'
             );
             return true;
         } catch (error) {
-            showEmailToast(
-                error.message || 'Не удалось сохранить настройки темы.',
+            showThemeToast(
+                error.message || 'Не удалось сохранить настройки темы',
                 'error',
                 'Сохранение не выполнено',
                 { duration: 0 }
             );
             return false;
         } finally {
-            setEmailButtonsBusy(false);
+            setThemeButtonsBusy(false);
         }
+    }
+
+    async function extractThemeApiErrors(response) {
+        const fallbackMessage = typeof window.getResponseErrorMessage === 'function'
+            ? window.getResponseErrorMessage(response, 'Ошибка')
+            : 'Не удалось выполнить запрос';
+        const responseText = await response.text();
+        if (!responseText) {
+            return [fallbackMessage];
+        }
+
+        try {
+            const payload = JSON.parse(responseText);
+            if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+                return payload.errors.filter(Boolean);
+            }
+
+            return [payload?.error || payload?.message || fallbackMessage];
+        } catch (error) {
+            return [responseText];
+        }
+    }
+
+    function showThemeToast(message, type, title, options = {}) {
+        const normalizedMessage = String(message || '').trim();
+        if (!normalizedMessage) {
+            return;
+        }
+
+        window.AppUi.notify(normalizedMessage, type, {
+            title,
+            duration: options.duration ?? (type === 'error' ? 0 : 4500)
+        });
+    }
+
+    function showThemeValidationErrors(errors) {
+        const normalizedErrors = (Array.isArray(errors) ? errors : [errors])
+            .map((item) => String(item || '').trim())
+            .filter(Boolean);
+
+        if (normalizedErrors.length > 0) {
+            showThemeToast(normalizedErrors.join(' • '), 'error', 'Проверьте поля', { duration: 0 });
+        }
+    }
+
+    function setThemeButtonsBusy(isBusy) {
+        document
+            .querySelectorAll('.theme-settings-page__actions button')
+            .forEach((button) => {
+                button.disabled = isBusy;
+            });
     }
 
     function listen(scope, target, type, handler, options) {
@@ -484,7 +494,7 @@
     }
 
     function bindThemeAction(buttonId, action, scope) {
-        const button = document.getElementById(buttonId);
+        const button = getThemeField(buttonId);
         if (!button) {
             return;
         }
@@ -506,44 +516,42 @@
     }
 
     function bindThemeEffectInput(id, scope) {
-        bindThemeInput(id, 'change', scope);
         const element = getThemeField(id);
         if (!element) {
             return;
         }
 
-        listen(scope, element, 'change', syncThemeEffectsSummary);
+        listen(scope, element, 'change', () => {
+            syncThemeEffectsSummary();
+            applyThemeDraftState();
+        });
+    }
+
+    function bindThemeInputs(fields, scope, { eventName = 'input', colorPicker = false } = {}) {
+        fields.forEach((field) => {
+            bindThemeInput(field.id, eventName, scope);
+            if (colorPicker) {
+                bindThemeColorPickerCursor(field.id, scope);
+            }
+        });
     }
 
     function bindThemeEffectsPicker(scope) {
         const trigger = getThemeField('theme-effects-toggle');
-        if (trigger) {
-            listen(scope, trigger, 'click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                const dropdown = document.getElementById('theme-effects-dropdown');
-                setThemeEffectsDropdownOpen(dropdown?.classList.contains('is-hidden'));
-            });
+        const dropdown = getThemeField('theme-effects-dropdown');
+        const root = trigger?.closest('.theme-settings-page__effects-picker');
+        if (!root || !trigger || !dropdown || typeof window.AppUi?.createMultiselect !== 'function') {
+            return;
         }
 
-        listen(scope, document, 'click', (event) => {
-            const page = document.querySelector('[data-page="theme-settings-page"]');
-            if (!page) {
-                return;
-            }
-
-            const target = event.target;
-            if (target instanceof Element && target.closest('#theme-effects-toggle, #theme-effects-dropdown')) {
-                return;
-            }
-
-            setThemeEffectsDropdownOpen(false);
+        const multiselect = window.AppUi.createMultiselect({
+            root,
+            trigger,
+            menu: dropdown,
+            openClass: 'is-open',
+            hiddenClass: 'is-hidden'
         });
-        listen(scope, document, 'keydown', (event) => {
-            if (event.key === 'Escape') {
-                setThemeEffectsDropdownOpen(false);
-            }
-        });
+        themeSettingsPageState.effectsDropdownController = multiselect.controller;
     }
 
     function bindThemeColorPickerCursor(id, scope) {
@@ -565,9 +573,6 @@
         });
     }
 
-    window.saveThemeSettings = submitThemeSettings;
-    window.resetThemeSettings = resetThemeSettings;
-
     function mountThemeSettingsPage(pageRoot, scope) {
         if (themeSettingsPageState.cleanup) {
             themeSettingsPageState.cleanup();
@@ -580,16 +585,13 @@
         }
 
         themeSettingsPageState.isMounted = true;
-        bindThemeAction('theme-save-button', window.saveThemeSettings, scope);
-        bindThemeAction('theme-reset-button', window.resetThemeSettings, scope);
+        bindThemeAction('theme-save-button', submitThemeSettings, scope);
+        bindThemeAction('theme-reset-button', resetThemeSettings, scope);
         bindThemeAction('theme-background-image-upload', () => getThemeField('theme-background-image-file')?.click(), scope);
-        bindThemeInput('theme-font-color', 'input', scope);
-        bindThemeInput('theme-background-color', 'input', scope);
-        bindThemeColorPickerCursor('theme-font-color', scope);
-        bindThemeColorPickerCursor('theme-background-color', scope);
-        bindThemeInput('theme-background-image-opacity', 'input', scope);
-        THEME_PERCENT_FIELDS.forEach(([fieldId]) => bindThemeInput(fieldId, 'input', scope));
-        THEME_EFFECT_FIELDS.forEach(([fieldId]) => bindThemeEffectInput(fieldId, scope));
+        bindThemeInputs(THEME_COLOR_FIELDS, scope, { colorPicker: true });
+        bindThemeInput(THEME_IMAGE_FIELDS.opacity.id, 'input', scope);
+        bindThemeInputs(THEME_PERCENT_FIELDS, scope);
+        THEME_EFFECT_FIELDS.forEach((field) => bindThemeEffectInput(field.id, scope));
         bindThemeEffectsPicker(scope);
 
         const fileInput = getThemeField('theme-background-image-file');
@@ -600,17 +602,16 @@
         const savedSettings = normalizeThemeSettingsPayload(
             window.__appThemeSavedSettings
             || window.__appThemeSettings
-            || collectThemeSettingsPayload()
+            || readThemeFormSettings()
         );
         const initialSettings = normalizeThemeSettingsPayload(
             window.__appThemeDraftSettings
             || savedSettings
         );
         populateThemeForm(initialSettings);
-        themeSettingsPageState.savedSettings = { ...savedSettings };
-        window.__appThemeSavedSettings = { ...savedSettings };
-        if (window.__appThemeDraftSettings && typeof window.applyThemeSettings === 'function') {
-            window.applyThemeSettings(initialSettings);
+        saveThemeSettingsSnapshot(savedSettings);
+        if (window.__appThemeDraftSettings) {
+            applyThemeSettings(initialSettings);
         }
 
         const cleanup = () => {
@@ -619,16 +620,11 @@
             }
 
             themeSettingsPageState.isMounted = false;
-            const nextSettings = normalizeThemeSettingsPayload(
-                themeSettingsPageState.savedSettings
-                || window.__appThemeSavedSettings
-                || window.__appThemeSettings
-            );
+            themeSettingsPageState.effectsDropdownController?.destroy?.();
+            themeSettingsPageState.effectsDropdownController = null;
+            const nextSettings = normalizeThemeSettingsPayload(getSavedThemeSettingsSource());
             window.__appThemeDraftSettings = null;
-
-            if (typeof window.applyThemeSettings === 'function') {
-                window.applyThemeSettings(nextSettings);
-            }
+            applyThemeSettings(nextSettings);
         };
 
         themeSettingsPageState.cleanup = cleanup;
@@ -637,7 +633,7 @@
         }
     }
 
-    window.initThemeSettingsPage = function initThemeSettingsPage(root = document, scope = null) {
+    function initThemeSettingsPage(root = document, scope = null) {
         const pageRoot = root?.matches?.('[data-page="theme-settings-page"]')
             ? root
             : root?.querySelector?.('[data-page="theme-settings-page"]');
@@ -646,14 +642,7 @@
         }
 
         mountThemeSettingsPage(pageRoot, scope);
-    };
-
-    window.teardownThemeSettingsPage = function teardownThemeSettingsPage() {
-        if (themeSettingsPageState.cleanup) {
-            themeSettingsPageState.cleanup();
-            themeSettingsPageState.cleanup = null;
-        }
-    };
+    }
 
     if (window.AppPageLifecycle && typeof window.AppPageLifecycle.register === 'function') {
         window.AppPageLifecycle.register(
@@ -662,8 +651,8 @@
             mountThemeSettingsPage
         );
     } else if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => window.initThemeSettingsPage(document), { once: true });
+        document.addEventListener('DOMContentLoaded', () => initThemeSettingsPage(document), { once: true });
     } else {
-        window.initThemeSettingsPage(document);
+        initThemeSettingsPage(document);
     }
 })();

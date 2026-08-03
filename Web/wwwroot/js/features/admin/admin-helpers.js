@@ -9,6 +9,116 @@
             : pathname;
     }
 
+    const adminListTabs = new Set([
+        'get_surveys',
+        'list_answers_users',
+        'archived_surveys',
+        'get_users',
+        'archived_users',
+        'get_organization',
+        'archive_list_organizations',
+        'get_logs'
+    ]);
+
+    const adminRoutes = {
+        get_surveys: '/survey',
+        list_answers_users: '/survey/answer',
+        archived_surveys: '/survey/archive',
+        add_survey: '/survey/create',
+        open_statistics: '/statistics',
+        get_users: '/users',
+        add_user: '/users/create',
+        archived_users: '/users/archive',
+        get_organization: '/organizations',
+        organization_surveys: '/organizations/survey',
+        add_organization: '/organizations/create',
+        archive_list_organizations: '/organizations/archive',
+        reports: '/reports',
+        survey_auto_creation: '/settings/survey-creation',
+        theme_settings: '/settings/theme',
+        get_logs: '/logs',
+        email: '/email',
+        email_new: '/email',
+        email_settings: '/settings/email',
+        help: '/help',
+        monthly_summary_report: '/reports',
+        quarterly_report_q1: '/reports',
+        quarterly_report_q2: '/reports',
+        quarterly_report_q3: '/reports',
+        quarterly_report_q4: '/reports'
+    };
+
+    function normalizeQuery(value) {
+        const rawValue = String(value || '').trim();
+        if (!rawValue) {
+            return '';
+        }
+
+        return rawValue.startsWith('?') ? rawValue : `?${rawValue}`;
+    }
+
+    function resolveAdminRoute(tabName, id = null) {
+        const tab = String(tabName || '').trim();
+        if (!tab) {
+            return '';
+        }
+
+        const hasId = id !== null && id !== undefined && id !== '';
+        if (tab === 'update_survey') {
+            return hasId ? `/survey/${id}/edit` : '';
+        }
+
+        if (tab === 'update_archived_survey') {
+            return hasId ? `/survey/archive/${id}/edit` : '';
+        }
+
+        if (tab === 'copy_survey') {
+            return hasId ? `/survey/${id}/copy` : '';
+        }
+
+        if (tab === 'update_user') {
+            return hasId ? `/users/${id}/edit` : '';
+        }
+
+        if (tab === 'update_organization') {
+            return hasId ? `/organizations/${id}/edit` : '';
+        }
+
+        if (tab === 'get_survey_signatures') {
+            return hasId ? `/survey/${id}/signatures` : '';
+        }
+
+        const route = adminRoutes[tab] || '';
+        if (!route) {
+            return '';
+        }
+
+        return adminListTabs.has(tab) && hasId
+            ? `${route}${normalizeQuery(id)}`
+            : route;
+    }
+
+    function navigateAdminUrl(url, options = {}) {
+        const resolvedUrl = String(url || '').trim();
+        if (!resolvedUrl) {
+            return Promise.resolve(false);
+        }
+
+        if (options.scrollMode === 'carry') {
+            window.AppScrollState?.prepareNavigation?.({ carry: true });
+        } else {
+            window.AppScrollState?.saveCurrentPosition?.();
+        }
+
+        if (options.historyMode === 'replace') {
+            window.location.replace(resolvedUrl);
+        } else {
+            window.location.assign(resolvedUrl);
+        }
+
+        return new Promise(() => {});
+    }
+
     function resolveCurrentAdminTab(pathname = window.location.pathname) {
         const normalizedPath = normalizePathname(pathname).toLowerCase();
 
@@ -211,32 +321,12 @@
         const resolvedOptions = options && typeof options === 'object'
             ? options
             : {};
-
-        if (resolvedTabName && typeof window.refreshAdminTab === 'function') {
-            return window.refreshAdminTab(resolvedTabName, id, {
-                force: true,
-                historyMode: 'replace',
-                scrollMode: 'carry',
-                ...resolvedOptions
-            });
-        }
-
-        if (resolvedTabName && typeof window.handleTabClick === 'function') {
-            return window.handleTabClick(resolvedTabName, {
-                force: true,
-                historyMode: 'replace',
-                scrollMode: 'carry',
-                ...resolvedOptions
-            });
-        }
-
-        const resolvedUrl = fallbackUrl || window.location.pathname;
-        if (resolvedUrl) {
-            window.AppScrollState?.saveCurrentPosition?.();
-            window.location.assign(resolvedUrl);
-        }
-
-        return null;
+        const resolvedUrl = fallbackUrl || resolveAdminRoute(resolvedTabName, id) || window.location.pathname;
+        return navigateAdminUrl(resolvedUrl, {
+            historyMode: 'replace',
+            scrollMode: 'carry',
+            ...resolvedOptions
+        });
     }
 
     function handleAdminMutationSuccess({ message, notificationType = 'success', ...refreshOptions } = {}) {
@@ -261,6 +351,8 @@
     window.getHttpStatusMessage = getHttpStatusMessage;
     window.getResponseErrorMessage = getResponseErrorMessage;
     window.resolveCurrentAdminTab = resolveCurrentAdminTab;
+    window.resolveAdminRoute = resolveAdminRoute;
+    window.navigateAdminUrl = navigateAdminUrl;
     window.syncAdminChromeContextFromDocument = syncAdminChromeContextFromDocument;
     window.refreshAdminUi = refreshAdminUi;
     window.handleAdminMutationSuccess = handleAdminMutationSuccess;

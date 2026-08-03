@@ -4,10 +4,10 @@
     var settingsActive = activeSection == "settings";
 }
 
-<div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы электронной почты">
+<div class="app-tabs app-page__subnav" role="tablist" aria-label="Разделы электронной почты">
     <a
         href="/email"
-        class="menu-tab @(newActive ? "active-tab" : "")"
+        class="app-tab @(newActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(newActive ? "true" : "false")"
         data-tab-target="email_new">
@@ -15,7 +15,7 @@
     </a>
     <a
         href="/settings/email"
-        class="menu-tab @(settingsActive ? "active-tab" : "")"
+        class="app-tab @(settingsActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(settingsActive ? "true" : "false")"
         data-tab-target="email_settings">

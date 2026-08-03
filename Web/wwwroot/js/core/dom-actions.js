@@ -38,17 +38,20 @@
             return;
         }
 
+        if (window.AppUi?.setModalVisibility) {
+            window.AppUi.setModalVisibility(modal, false);
+            return;
+        }
+
         if (typeof window.hideSiteModal === 'function') {
             window.hideSiteModal(modal);
             return;
         }
-
-        modal.style.display = 'none';
     }
 
     function navigateByTab(tabName, fallbackUrl) {
-        if (tabName && typeof window.handleTabClick === 'function') {
-            window.handleTabClick(tabName);
+        if (tabName && typeof window.refreshAdminUi === 'function') {
+            window.refreshAdminUi({ tabName, fallbackUrl });
             return;
         }
 

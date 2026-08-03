@@ -25,12 +25,6 @@
         <p class="app-page__description" data-role="subtitle">@pageModel.Description</p>
     </header>
 
-    @* <section class="app-page__section u-hidden" data-role="error"> *@
-    @*     <div class="error-message"> *@
-    @*         <span data-role="error-text"></span> *@
-    @*     </div> *@
-    @* </section> *@
-
     @if (pageModel.IsArchive)
     {
         <div class="app-page__toolbar survey-list-toolbar client-surveys-page__filter-toolbar">
@@ -43,7 +37,7 @@
         </script>
     }
 
-    <section class="app-page__section u-hidden" data-role="loading">
+    <section class="app-section app-page__section u-hidden" data-role="loading">
         <div class="loading" aria-hidden="true"></div>
     </section>
 

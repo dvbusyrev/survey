@@ -10,29 +10,6 @@ function navigateAdminTab(tabName, fallbackUrl, options = {}) {
         return;
     }
 
-    if (typeof window.refreshAdminTab === 'function') {
-        window.refreshAdminTab(tabName, null, resolvedOptions);
-        return;
-    }
-
-    if (typeof window.handleTabClick === 'function') {
-        window.handleTabClick(tabName, {
-            force: true,
-            scrollMode: 'restore',
-            ...resolvedOptions
-        });
-        return;
-    }
-
-    if (typeof handleTabClick === 'function') {
-        handleTabClick(tabName, {
-            force: true,
-            scrollMode: 'restore',
-            ...resolvedOptions
-        });
-        return;
-    }
-
     if (fallbackUrl) {
         window.AppScrollState?.saveCurrentPosition?.();
         window.location.assign(fallbackUrl);
@@ -346,14 +323,6 @@ async function updateUser() {
     try {
         // Получаем элементы
         const modal = getSafeElement('editUserModal');
-        let messageContainer = modal.querySelector('.message');
-        if (!messageContainer) {
-            messageContainer = document.createElement('div');
-            messageContainer.className = 'message';
-            modal.querySelector('.modal-body').appendChild(messageContainer);
-        }
-        messageContainer.textContent = '';
-        messageContainer.style.color = '';
 
         // Получаем значения
         const elements = {

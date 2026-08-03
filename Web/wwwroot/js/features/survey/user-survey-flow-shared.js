@@ -81,27 +81,8 @@ export function showSurveyError(message) {
     const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
         ? window.normalizeClientErrorMessage(message)
         : message;
-    if (typeof window.AppUi?.notify === 'function') {
-        window.AppUi.notify(safeMessage, 'error', { title: 'Ошибка' });
-        return;
-    }
 
-    const notification = document.createElement('div');
-    notification.className = 'csp-notification error';
-    const icon = document.createElement('span');
-    icon.className = 'csp-notification-icon';
-    icon.textContent = '!';
-    const text = document.createElement('span');
-    text.className = 'csp-notification-text';
-    text.textContent = safeMessage;
-    notification.appendChild(icon);
-    notification.appendChild(text);
-    document.body.appendChild(notification);
-
-    window.setTimeout(() => {
-        notification.classList.add('fade-out');
-        window.setTimeout(() => notification.remove(), 300);
-    }, 5000);
+    window.AppUi?.notify?.(safeMessage, 'error', { title: 'Ошибка' });
 }
 
 export function createSurveyHtmlFragment(html) {
@@ -116,16 +97,17 @@ export function renderSurveyHostError(host, message) {
 }
 
 export function createSurveyModalFooterButton({ role, text, variant = 'secondary', disabled = false, labelRole = '' }) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `modal_btn modal_btn-${variant}`;
-    button.dataset.role = role;
-    button.disabled = disabled;
+    const button = window.AppUi.createButton({
+        variant,
+        disabled,
+        dataset: { role }
+    });
 
     if (labelRole) {
-        const label = document.createElement('span');
-        label.dataset.role = labelRole;
-        label.textContent = text;
+        const label = window.AppUi.createElement('span', {
+            dataset: { role: labelRole },
+            text
+        });
         button.appendChild(label);
     } else {
         button.textContent = text;

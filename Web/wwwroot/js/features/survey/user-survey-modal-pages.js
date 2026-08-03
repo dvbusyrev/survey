@@ -40,7 +40,76 @@ window.fetchSurveyAnswersContentHtml = function fetchSurveyAnswersContentHtml(su
     );
 };
 
-window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organizationId, userRole, onBack, onSubmitted, initialHtml, footerHost }) {
+function downloadBlob(blob, fileName) {
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+}
+
+function getSurveyIdentifier(survey) {
+    const value = survey?.id_survey
+        || survey?.IdSurvey
+        || survey?.idSurvey
+        || survey?.Id
+        || survey?.id
+        || 0;
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+async function postSurveyJson(url, payload, fallbackMessage) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || fallbackMessage);
+    }
+
+    return response.json().catch(() => null);
+}
+
+async function mountSurveyModalHtml({
+    host,
+    footerHost,
+    initialHtml,
+    loadHtml,
+    bindPage,
+    isDestroyed,
+    errorMessage
+}) {
+    try {
+        const html = typeof initialHtml === 'string'
+            ? initialHtml
+            : await loadHtml();
+        if (isDestroyed()) {
+            return;
+        }
+
+        host.replaceChildren(createSurveyHtmlFragment(html));
+        bindPage();
+    } catch (error) {
+        if (isDestroyed()) {
+            return;
+        }
+
+        renderSurveyHostError(host, error?.message || errorMessage);
+        clearSurveyModalFooter(footerHost);
+    }
+}
+
+window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organizationId, onBack, onSubmitted, initialHtml, footerHost }) {
     if (!host) {
         return null;
     }
@@ -52,8 +121,6 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
     let draftSaveTimer = 0;
     let refs = {
         page: null,
-        errorBlock: null,
-        errorText: null,
         draftSignButton: null,
         submitButton: null,
         submitLabel: null,
@@ -67,11 +134,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
     function getCurrentSurveyId() {
         const rawValue = refs.page?.dataset.surveyId
             || host.querySelector('[data-role="survey-fill-page"]')?.dataset.surveyId
-            || survey?.id_survey
-            || survey?.IdSurvey
-            || survey?.idSurvey
-            || survey?.Id
-            || survey?.id
+            || getSurveyIdentifier(survey)
             || 0;
         const numericValue = Number(rawValue);
         return Number.isFinite(numericValue) ? numericValue : 0;
@@ -79,10 +142,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
 
     function renderError(options = {}) {
         const shouldNotify = options.notify === true;
-        if (refs.errorBlock && refs.errorText) {
-            refs.errorText.textContent = '';
-            refs.errorBlock.classList.add('u-hidden');
-        }
+        host.querySelector('[data-role="error"]')?.classList.add('u-hidden');
 
         if (shouldNotify && error) {
             showSurveyError(error);
@@ -171,27 +231,18 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
             return false;
         }
 
-        const response = await fetch('/answers/draft', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({
+        try {
+            await postSurveyJson('/answers/draft', {
                 id_survey: surveyId,
                 id_organization: organizationId,
                 answers: payloadAnswers
-            })
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => null);
-            const message = errorData?.error || 'Ошибка при сохранении черновика';
+            }, 'Ошибка при сохранении черновика');
+        } catch (error) {
             if (showErrorOnFailure) {
-                throw new Error(message);
+                throw error;
             }
 
-            console.error(message);
+            console.error(error?.message || 'Ошибка при сохранении черновика');
             return false;
         }
 
@@ -325,25 +376,11 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
                 throw new Error('Не удалось определить анкету для отправки ответов.');
             }
 
-            const response = await fetch('/answers/create', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({
-                    id_survey: surveyId,
-                    id_organization: organizationId,
-                    answers: payloadAnswers
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => null);
-                throw new Error(errorData?.error || 'Ошибка при отправке ответов');
-            }
-
-            await response.json().catch(() => null);
+            await postSurveyJson('/answers/create', {
+                id_survey: surveyId,
+                id_organization: organizationId,
+                answers: payloadAnswers
+            }, 'Ошибка при отправке ответов');
             onSubmitted?.({
                 survey,
                 answers: payloadAnswers,
@@ -384,8 +421,6 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
 
         refs = {
             page: host.querySelector('[data-role="survey-fill-page"]'),
-            errorBlock: host.querySelector('[data-role="error"]'),
-            errorText: host.querySelector('[data-role="error-text"]'),
             draftSignButton: null,
             submitButton: null,
             submitLabel: null,
@@ -406,28 +441,15 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
         renderSubmitState();
     }
 
-    const loadFillContent = async () => {
-        try {
-            const html = typeof initialHtml === 'string'
-                ? initialHtml
-                : await window.fetchSurveyFillContentHtml(getCurrentSurveyId(), organizationId);
-            if (destroyed) {
-                return;
-            }
-
-            host.replaceChildren(createSurveyHtmlFragment(html));
-            bindPage();
-        } catch (err) {
-            if (destroyed) {
-                return;
-            }
-
-            renderSurveyHostError(host, err?.message || 'Не удалось загрузить анкету');
-            clearSurveyModalFooter(footerHost);
-        }
-    };
-
-    loadFillContent();
+    mountSurveyModalHtml({
+        host,
+        footerHost,
+        initialHtml,
+        loadHtml: () => window.fetchSurveyFillContentHtml(getCurrentSurveyId(), organizationId),
+        bindPage,
+        isDestroyed: () => destroyed,
+        errorMessage: 'Не удалось загрузить анкету'
+    });
 
     return () => {
         destroyed = true;
@@ -443,93 +465,13 @@ window.createPdfReport = async function(surveyId, organizationId) {
     try {
         const response = await fetch(`/answers/${surveyId}/${organizationId}/pdf`);
         if (!response.ok) throw new Error('Ошибка создания PDF');
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Анкета_${surveyId}_${new Date().toISOString().slice(0,10)}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+
+        downloadBlob(await response.blob(), `Анкета_${surveyId}_${new Date().toISOString().slice(0,10)}.pdf`);
     } catch (error) {
         console.error('Ошибка при создании PDF:', error);
         showSurveyError('Не удалось создать PDF файл');
     }
 }
-
-
-// Функция для генерации PDF на клиенте
-const generatePdf = (surveyData) => {
-    // Используем jsPDF для генерации PDF прямо в браузере
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Заголовок
-    doc.setFontSize(18);
-    doc.text(`Анкета: ${surveyData.Survey.name_survey}`, 10, 10);
-    doc.setFontSize(12);
-    doc.text(`Дата заполнения: ${new Date().toLocaleDateString()}`, 10, 20);
-    
-    // Ответы
-    let yPosition = 30;
-    surveyData.Answers.forEach((answer, index) => {
-        if (yPosition > 280) {
-            doc.addPage();
-            yPosition = 10;
-        }
-        
-        doc.setFontSize(14);
-        doc.text(`${index + 1}. ${answer.question_text}`, 10, yPosition);
-        yPosition += 10;
-        
-        doc.setFontSize(12);
-        doc.text(`Оценка: ${answer.rating}/5`, 15, yPosition);
-        yPosition += 7;
-        
-        if (answer.comment) {
-            const splitComments = doc.splitTextToSize(answer.comment, 180);
-            doc.text(splitComments, 15, yPosition);
-            yPosition += splitComments.length * 7;
-        }
-        
-        yPosition += 10;
-    });
-    
-    doc.save(`Анкета_${surveyData.Survey.id_survey}.pdf`);
-};
-
-// Функция для создания архива с подписью
-const downloadSigned = async (surveyData) => {
-    try {
-        // Сначала генерируем PDF
-        const pdfBlob = await generatePdfBlob(surveyData);
-        
-        // Создаем архив
-        const zip = new JSZip();
-        zip.file(`Анкета_${surveyData.Survey.id_survey}.pdf`, pdfBlob);
-        zip.file(`Подпись_${surveyData.Survey.id_survey}.sig`, surveyData.signature);
-        
-        // Генерируем архив
-        const content = await zip.generateAsync({ type: 'blob' });
-        
-        // Скачиваем
-        const url = URL.createObjectURL(content);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Анкета_с_подписью_${surveyData.Survey.id_survey}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error('Ошибка при создании архива:', error);
-        window.AppUi.notify('Не удалось создать архив', 'error', { title: 'Ошибка' });
-    }
-};
-
-
 
 window.downloadSignedArchive = async function(surveyId, organizationId) {
     try {
@@ -540,17 +482,8 @@ window.downloadSignedArchive = async function(surveyId, organizationId) {
             const errorMessage = errorData?.error || 'Ошибка загрузки архива';
             throw new Error(errorMessage);
         }
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Анкета_с_подписью_${surveyId}.zip`;
-        document.body.appendChild(a);
-        a.click();
-        
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+
+        downloadBlob(await response.blob(), `Анкета_с_подписью_${surveyId}.zip`);
     } catch (error) {
         console.error('Ошибка при загрузке архива:', error);
         
@@ -564,7 +497,7 @@ window.downloadSignedArchive = async function(surveyId, organizationId) {
 }
 
 
-window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, organizationId, userRole, onBack, initialHtml, footerHost }) {
+window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, organizationId, initialHtml, footerHost }) {
     if (!host) {
         return null;
     }
@@ -604,7 +537,7 @@ window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, or
 
     function bindPage() {
         const page = host.querySelector('[data-role="survey-answers-page"]');
-        const surveyId = Number(page?.dataset.surveyId || survey?.id_survey || survey?.idSurvey || survey?.Id || 0);
+        const surveyId = Number(page?.dataset.surveyId || getSurveyIdentifier(survey));
         const currentOrganizationId = Number(page?.dataset.organizationId || organizationId || 0);
         const footerRefs = renderFooter(page, surveyId, currentOrganizationId);
         host.querySelector('[data-role="body-actions"]')?.classList.add('u-hidden');
@@ -631,30 +564,15 @@ window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, or
         });
 
     }
-
-    const loadAnswersContent = async () => {
-        try {
-            const html = typeof initialHtml === 'string'
-                ? initialHtml
-                : await window.fetchSurveyAnswersContentHtml(survey.id_survey, organizationId);
-            if (destroyed) {
-                return;
-            }
-
-            host.replaceChildren(createSurveyHtmlFragment(html));
-            bindPage();
-        } catch (error) {
-            console.error('Ошибка:', error);
-            if (destroyed) {
-                return;
-            }
-
-            renderSurveyHostError(host, error?.message || 'Не удалось загрузить ответы по анкете');
-            clearSurveyModalFooter(footerHost);
-        }
-    };
-
-    loadAnswersContent();
+    mountSurveyModalHtml({
+        host,
+        footerHost,
+        initialHtml,
+        loadHtml: () => window.fetchSurveyAnswersContentHtml(getSurveyIdentifier(survey), organizationId),
+        bindPage,
+        isDestroyed: () => destroyed,
+        errorMessage: 'Не удалось загрузить ответы по анкете'
+    });
 
     return () => {
         destroyed = true;

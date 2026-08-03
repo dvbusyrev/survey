@@ -1,13 +1,9 @@
-import '../ui/app-header.js';
-import '../ui/app-navigation.js';
-import '../ui/app-footer.js';
 import '../features/survey/user-survey-flow.js';
-import '../features/survey/survey-filter-core.js';
-import '../features/survey/survey-server-filter-state.js';
 import '../features/survey/survey-filter-popover.js';
 import '../features/survey/survey-filter-summary.js';
 import '../features/survey/survey-date-filter.js';
 import '../features/survey/survey-checkbox-filter.js';
+import '../features/survey/survey-row-filtering.js';
 import '../features/survey/survey-admin-date-filter.js';
 import '../features/survey/surveys-page.js';
 import '../features/survey/user-survey-list.js';

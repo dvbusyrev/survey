@@ -74,7 +74,7 @@
                             var questionId = GetQuestionValue(question, "id", "Id", (index + 1).ToString());
                             var questionText = GetQuestionValue(question, "text", "Text", $"Вопрос {index + 1}");
 
-                            <section class="app-page__section survey-user-question-card user-survey-question"
+                            <section class="app-section app-page__section survey-user-question-card user-survey-question"
                                      data-role="survey-question"
                                      data-question-id="@questionId">
                                 <h3 class="survey-editor-page__section-title" data-role="question-title">@questionText</h3>
@@ -91,7 +91,7 @@
                                 </div>
                                 <div class="comment-container u-hidden" data-role="comment-block">
                                     <label class="comment-label">Ваш комментарий</label>
-                                    <textarea class="form-control"
+                                    <textarea class="app-field"
                                               data-role="comment-input"
                                               placeholder="Напишите комментарий"></textarea>
                                 </div>
@@ -99,7 +99,7 @@
                         }
                     </div>
                     <div class="button-container">
-                        <button type="button" class="modal_btn modal_btn-primary" data-role="submit">
+                        <button type="button" class="app-button app-button--primary" data-role="submit">
                             <span data-role="submit-label">Отправить ответы</span>
                         </button>
                     </div>

@@ -1,11 +1,13 @@
 (function () {
     const PAGE_SELECTOR = '.app-page[data-page="surveys-list"], .app-page[data-page="surveys-archive"]';
     let extensionModal = null;
+    let extensionFrame = null;
     let extensionHost = null;
     let extensionCleanup = null;
     let extensionSubmitButton = null;
     let extensionCancelButton = null;
     let signaturesModal = null;
+    let signaturesFrame = null;
     let signaturesHost = null;
     let signaturesTitle = null;
     const loadedStylesheetUrls = new Set();
@@ -14,54 +16,25 @@
     const mountedPageControllerByPage = new WeakMap();
     let pendingRouteTimer = null;
 
-    function createStandardModalFrame(options) {
-        if (typeof window.createSiteModalFrame === 'function') {
-            const frame = window.createSiteModalFrame(options);
-            if (frame.modal && !frame.modal.parentNode) {
-                document.body.appendChild(frame.modal);
-            }
-            return frame;
+    function createSurveyModalFrame(options) {
+        if (typeof window.createSiteModalFrame !== 'function') {
+            throw new Error('Модуль модальных окон не загружен.');
         }
 
-        const modal = document.createElement('div');
-        modal.id = options.id || '';
-        modal.className = ['modal', options.className || ''].filter(Boolean).join(' ');
-        modal.setAttribute('aria-hidden', 'true');
+        const frame = window.createSiteModalFrame(options);
+        if (frame.modal && !frame.modal.parentNode) {
+            document.body.appendChild(frame.modal);
+        }
+        return frame;
+    }
 
-        const modalContent = document.createElement('div');
-        modalContent.className = ['modal-content', options.contentClassName || ''].filter(Boolean).join(' ');
-        const modalHeader = document.createElement('div');
-        modalHeader.className = 'modal-header';
-        const title = document.createElement('h2');
-        title.className = options.titleClassName || 'h2_modal';
-        title.textContent = options.title || '';
-        const closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'modal-close';
-        closeButton.setAttribute('aria-label', 'Закрыть');
-        const closeIcon = document.createElement('i');
-        closeIcon.className = 'fas fa-xmark';
-        closeIcon.setAttribute('aria-hidden', 'true');
-        closeButton.appendChild(closeIcon);
-        const body = document.createElement('div');
-        body.className = ['modal-body', options.bodyClassName || ''].filter(Boolean).join(' ');
-        const footer = document.createElement('div');
-        footer.className = 'modal-footer';
+    function setModalVisible(modal, isVisible) {
+        if (!modal) {
+            return false;
+        }
 
-        closeButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            options.onClose?.();
-        });
-        modalHeader.appendChild(title);
-        modalHeader.appendChild(closeButton);
-        modalContent.appendChild(modalHeader);
-        modalContent.appendChild(body);
-        modalContent.appendChild(footer);
-        modal.appendChild(modalContent);
-        document.body.appendChild(modal);
-
-        return { modal, content: modalContent, header: modalHeader, title, closeButton, body, footer };
+        const action = isVisible ? window.showSiteModal : window.hideSiteModal;
+        return typeof action === 'function' ? action(modal) : false;
     }
 
     function isArchiveSurveyListRoute(path) {
@@ -117,24 +90,6 @@
             return true;
         }
 
-        if (typeof window.refreshAdminTab === 'function') {
-            window.refreshAdminTab(target.tabName, null, {
-                force: true,
-                historyMode: 'replace',
-                scrollMode: 'carry'
-            });
-            return true;
-        }
-
-        if (typeof window.handleTabClick === 'function') {
-            window.handleTabClick(target.tabName, {
-                force: true,
-                historyMode: 'replace',
-                scrollMode: 'carry'
-            });
-            return true;
-        }
-
         return false;
     }
 
@@ -144,21 +99,7 @@
             return false;
         }
 
-        if (isVisible) {
-            if (typeof window.showSiteModal === 'function') {
-                window.showSiteModal(modal);
-            } else {
-                modal.style.display = 'flex';
-            }
-            return true;
-        }
-
-        if (typeof window.hideSiteModal === 'function') {
-            window.hideSiteModal(modal);
-        } else {
-            modal.style.display = 'none';
-        }
-        return true;
+        return setModalVisible(modal, isVisible);
     }
 
     function closeSurveyEditorModal() {
@@ -168,16 +109,17 @@
 
     function openAddSurveyModal() {
         if (document.getElementById('surveyId')) {
-            if (typeof window.refreshAdminTab === 'function') {
-                window.refreshAdminTab('get_surveys', null, {
-                    force: true,
-                    historyMode: 'replace',
-                    scrollMode: 'carry'
-                }).then(() => {
-                    if (typeof window.openAddSurveyModal === 'function') {
-                        window.openAddSurveyModal();
+            if (typeof window.refreshAdminUi === 'function') {
+                window.refreshAdminUi({
+                    tabName: 'add_survey',
+                    fallbackUrl: '/survey/create',
+                    options: {
+                        historyMode: 'replace',
+                        scrollMode: 'carry'
                     }
                 });
+            } else {
+                window.location.assign('/survey/create');
             }
             return;
         }
@@ -220,24 +162,20 @@
 
         const target = resolveSurveyListTarget();
 
-        if (typeof window.refreshAdminTab === 'function') {
-            await window.refreshAdminTab(target.tabName, null, {
-                force: true,
-                historyMode: 'replace',
-                scrollMode: 'carry'
-            });
-        } else if (typeof window.handleTabClick === 'function') {
-            await window.handleTabClick(target.tabName, {
-                force: true,
-                historyMode: 'replace',
-                scrollMode: 'carry'
+        if (typeof window.refreshAdminUi === 'function') {
+            await window.refreshAdminUi({
+                tabName: target.tabName,
+                fallbackUrl: target.fallbackUrl,
+                options: {
+                    historyMode: 'replace',
+                    scrollMode: 'carry'
+                }
             });
         } else {
             window.location.assign(target.fallbackUrl);
-            return false;
         }
 
-        return Boolean(document.getElementById('surveyEditorModal') && !document.getElementById('surveyId'));
+        return false;
     }
 
     async function openCopySurveyModalById(surveyId, options = {}) {
@@ -287,17 +225,22 @@
         try {
             const survey = buildSurveyData(trigger);
 
-            if (typeof window.refreshAdminTab === 'function') {
-                window.refreshAdminTab('update_survey', survey.id_survey, {
-                    force: true,
-                    scrollMode: 'restore'
+            const editUrl = isArchiveSurveyListRoute()
+                ? `/survey/archive/${survey.id_survey}/edit`
+                : `/survey/${survey.id_survey}/edit`;
+
+            if (typeof window.refreshAdminUi === 'function') {
+                window.refreshAdminUi({
+                    tabName: isArchiveSurveyListRoute() ? 'update_archived_survey' : 'update_survey',
+                    id: survey.id_survey,
+                    fallbackUrl: editUrl,
+                    options: {
+                        scrollMode: 'restore'
+                    }
                 });
                 return;
             }
 
-            const editUrl = isArchiveSurveyListRoute()
-                ? `/survey/archive/${survey.id_survey}/edit`
-                : `/survey/${survey.id_survey}/edit`;
             window.location.assign(editUrl);
         } catch (error) {
             window.AppUi?.notify?.(error.message || 'Не удалось открыть редактирование анкеты.', 'error');
@@ -370,13 +313,13 @@
 
             loadedStylesheetUrls.add(href);
 
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = href;
-
-            if (sourceLink.media) {
-                link.media = sourceLink.media;
-            }
+            const link = window.AppUi.createElement('link', {
+                attrs: {
+                    rel: 'stylesheet',
+                    href,
+                    media: sourceLink.media || null
+                }
+            });
 
             document.head.appendChild(link);
         });
@@ -388,12 +331,12 @@
     }
 
     function createStatusMessage(message, type = 'loading') {
-        const node = document.createElement('div');
-        node.className = type === 'error'
-            ? 'error survey-signatures-modal__error'
-            : 'loading survey-signatures-modal__loading';
-        node.textContent = message;
-        return node;
+        return window.AppUi.createElement('div', {
+            className: type === 'error'
+                ? 'error survey-signatures-modal__error'
+                : 'loading survey-signatures-modal__loading',
+            text: message
+        });
     }
 
     function extractSignaturesContent(parsedDocument) {
@@ -421,7 +364,7 @@
             return;
         }
 
-        const frame = createStandardModalFrame({
+        const frame = createSurveyModalFrame({
             id: 'surveySignaturesModal',
             className: 'survey-signatures-modal',
             title: 'Проверка прохождения',
@@ -429,13 +372,14 @@
             onClose: closeSurveySignaturesModal
         });
 
-        const footerCloseButton = document.createElement('button');
-        footerCloseButton.type = 'button';
-        footerCloseButton.className = 'modal_btn modal_btn-secondary';
-        footerCloseButton.textContent = 'Закрыть';
+        const footerCloseButton = window.AppUi.createButton({
+            variant: 'secondary',
+            text: 'Закрыть'
+        });
         footerCloseButton.addEventListener('click', closeSurveySignaturesModal);
 
         signaturesModal = frame.modal;
+        signaturesFrame = frame;
         signaturesHost = frame.body;
         signaturesTitle = frame.title;
         frame.footer.appendChild(footerCloseButton);
@@ -446,11 +390,7 @@
             signaturesHost.replaceChildren();
         }
 
-        if (signaturesModal && typeof window.hideSiteModal === 'function') {
-            window.hideSiteModal(signaturesModal);
-        } else if (signaturesModal) {
-            signaturesModal.style.display = 'none';
-        }
+        signaturesFrame?.hide?.();
     }
 
     async function loadSurveySignaturesContent(survey) {
@@ -488,11 +428,7 @@
             signaturesHost.replaceChildren(content);
             window.mountSortableTables?.(signaturesHost);
 
-            if (typeof window.showSiteModal === 'function') {
-                window.showSiteModal(signaturesModal);
-            } else {
-                signaturesModal.style.display = 'flex';
-            }
+            signaturesFrame?.show?.();
         } catch (error) {
             if (signaturesHost) {
                 signaturesHost.replaceChildren();
@@ -509,7 +445,7 @@
             return;
         }
 
-        const frame = createStandardModalFrame({
+        const frame = createSurveyModalFrame({
             id: 'surveyExtensionModal',
             className: 'admin-extension-modal',
             title: 'Продлить доступ',
@@ -517,17 +453,18 @@
             onClose: closeSurveyExtensionModal
         });
 
-        extensionSubmitButton = document.createElement('button');
-        extensionSubmitButton.type = 'button';
-        extensionSubmitButton.className = 'modal_btn modal_btn-primary';
-        extensionSubmitButton.textContent = 'Продлить доступ';
+        extensionSubmitButton = window.AppUi.createButton({
+            variant: 'primary',
+            text: 'Продлить доступ'
+        });
 
-        extensionCancelButton = document.createElement('button');
-        extensionCancelButton.type = 'button';
-        extensionCancelButton.className = 'modal_btn modal_btn-secondary';
-        extensionCancelButton.textContent = 'Отмена';
+        extensionCancelButton = window.AppUi.createButton({
+            variant: 'secondary',
+            text: 'Отмена'
+        });
 
         extensionModal = frame.modal;
+        extensionFrame = frame;
         extensionHost = frame.body;
         frame.footer.appendChild(extensionCancelButton);
         frame.footer.appendChild(extensionSubmitButton);
@@ -543,17 +480,13 @@
             extensionHost.replaceChildren();
         }
 
-        if (extensionModal && typeof window.hideSiteModal === 'function') {
-            window.hideSiteModal(extensionModal);
-        } else if (extensionModal) {
-            extensionModal.style.display = 'none';
-        }
+        extensionFrame?.hide?.();
     }
 
     function openSurveyExtensionModalFromTrigger(trigger) {
         try {
             const survey = buildSurveyData(trigger);
-            const mountExtensionModal = window.AdminInlineAppPages?.mountExtensionModal;
+            const mountExtensionModal = window.AdminSurveyExtensionModal?.mount;
             if (typeof mountExtensionModal !== 'function') {
                 throw new Error('Модуль продления анкеты не загружен.');
             }
@@ -568,11 +501,7 @@
                 cancelButton: extensionCancelButton
             }) || null;
 
-            if (typeof window.showSiteModal === 'function') {
-                window.showSiteModal(extensionModal);
-            } else {
-                extensionModal.style.display = 'flex';
-            }
+            extensionFrame?.show?.();
         } catch (error) {
             window.AppUi?.notify?.(error.message || 'Не удалось открыть форму продления.', 'error');
         }

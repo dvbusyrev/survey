@@ -24,17 +24,17 @@
 
     <div class="answers-modal__info-block">
         <div class="answers-modal__field-label">Название</div>
-        <div class="answers-modal__info-text">@nameText</div>
+        <div class="app-field answers-modal__info-text">@nameText</div>
     </div>
 
     <div class="answers-modal__info-block">
         <div class="answers-modal__field-label">Описание</div>
-        <div class="answers-modal__info-text">@descriptionText</div>
+        <div class="app-field answers-modal__info-text">@descriptionText</div>
     </div>
 
     <div class="answers-modal__info-block answers-modal__signature-block" data-role="signature-info">
         <div class="answers-modal__field-label">Подпись</div>
-        <div class="answers-modal__signature-text @(isDraftSigned ? "signed" : "not-signed")" data-role="signature-status">
+        <div class="app-field answers-modal__signature-text @(isDraftSigned ? "signed" : "not-signed")" data-role="signature-status">
             @(isDraftSigned ? "Подписана" : "Нет подписи")
         </div>
     </div>
@@ -52,7 +52,7 @@
                      data-role="survey-question"
                      data-question-id="@question.Id">
                 <div class="answers-modal__field-label">Вопрос</div>
-                <div class="answers-modal__info-text" data-role="question-title">@question.Text</div>
+                <div class="app-field answers-modal__info-text" data-role="question-title">@question.Text</div>
                 <div class="rating-buttons" data-role="ratings">
                     @for (var rating = 1; rating <= 5; rating += 1)
                     {
@@ -66,7 +66,7 @@
                 </div>
                 <div class="comment-container @(showComment ? null : "u-hidden")" data-role="comment-block">
                     <label class="comment-label">Ваш комментарий</label>
-                    <textarea class="form-control"
+                    <textarea class="app-field"
                               data-role="comment-input"
                               placeholder="Напишите комментарий">@savedComment</textarea>
                 </div>
@@ -76,13 +76,13 @@
 
     <div class="button-container" data-role="body-actions">
         <button type="button"
-                class="modal_btn modal_btn-primary"
+                class="app-button app-button--primary"
                 data-role="draft-sign-button"
                 disabled="@(isDraftSigned ? "disabled" : null)">
             @(isDraftSigned ? "Подписано" : "Подписать")
         </button>
-        <button type="button" class="modal_btn modal_btn-secondary" data-role="cancel-btn">Отмена</button>
-        <button type="button" class="modal_btn modal_btn-primary" data-role="submit">
+        <button type="button" class="app-button app-button--secondary" data-role="cancel-btn">Отмена</button>
+        <button type="button" class="app-button app-button--primary" data-role="submit">
             <span data-role="submit-label">Отправить ответы</span>
         </button>
     </div>

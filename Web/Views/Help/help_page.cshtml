@@ -25,7 +25,7 @@
             Description = "Здесь можно скачать текущую инструкцию и загрузить новую версию для администраторов или клиентов."
         })
 
-    <section class="app-page__section help-page__instructions">
+    <section class="app-section app-page__section help-page__instructions">
         @await Html.PartialAsync("~/Web/Views/Help/_InstructionFileRow.cshtml", Model.AdminInstruction)
         @await Html.PartialAsync("~/Web/Views/Help/_InstructionFileRow.cshtml", Model.ClientInstruction)
     </section>

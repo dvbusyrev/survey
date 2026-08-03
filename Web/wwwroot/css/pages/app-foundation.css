@@ -55,10 +55,11 @@ svg,
 button,
 a,
 .btn,
-.modal_btn,
+.app-button,
 .nav-link,
 .submenu-link,
-.menu-tab,
+.app-tab,
+.app-tabs__item,
 .icon-container {
   -webkit-user-select: none;
   user-select: none;
@@ -212,16 +213,6 @@ option,
   margin-bottom: 1rem;
 }
 
-.filter-select {
-  min-width: 13.75rem;
-  max-width: 100%;
-  padding: 0.625rem 0.75rem;
-  color: var(--text-main);
-  background: white;
-  border: 1px solid var(--border);
-  border-radius: var(--app-field-radius);
-}
-
 .table-responsive {
   width: 100%;
   overflow: visible;
@@ -331,11 +322,6 @@ option,
 
   .note {
     padding: 1.25rem;
-  }
-
-  .filter-select {
-    width: 100%;
-    min-width: 0;
   }
 
   .table-responsive {

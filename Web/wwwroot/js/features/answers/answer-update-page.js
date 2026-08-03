@@ -6,20 +6,12 @@
 
     const surveyId = Number.parseInt(page.dataset.surveyId || '', 10);
     const organizationId = Number.parseInt(page.dataset.organizationId || '', 10);
-    const errorBox = document.getElementById('error-message');
     const saveButton = document.getElementById('saveUpdatedAnswers');
-
-    function hideError() {
-        if (errorBox) {
-            errorBox.style.visibility = 'hidden';
-        }
-    }
 
     function showError(message) {
         const safeMessage = typeof window.normalizeClientErrorMessage === 'function'
             ? window.normalizeClientErrorMessage(message)
             : message;
-        hideError();
         window.AppUi.notify(safeMessage, 'error', { title: 'Ошибка' });
     }
 
@@ -51,7 +43,6 @@
         });
 
         updateCommentVisibility(questionContainer, ratingValue);
-        hideError();
     }
 
     function getPlainTextFromHtml(html) {
@@ -103,8 +94,6 @@
     }
 
     async function submitUpdatedAnswers() {
-        hideError();
-
         if (!Number.isFinite(surveyId) || surveyId <= 0 || !Number.isFinite(organizationId) || organizationId <= 0) {
             showError('Не удалось определить анкету или организацию для сохранения.');
             return;
@@ -143,7 +132,7 @@
 
             if (!response.ok) {
                 const errorMessage = getPlainTextFromHtml(responseBody)
-                    || `Ошибка при сохранении ответа (${response.status}).`;
+                    || `Ошибка при сохранении ответа (${response.status})`;
                 throw new Error(errorMessage);
             }
 
@@ -152,7 +141,7 @@
             document.close();
         } catch (error) {
             console.error('Ошибка при обновлении ответа:', error);
-            showError(error instanceof Error ? error.message : 'Не удалось сохранить изменения.');
+            showError(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
         } finally {
             if (saveButton) {
                 saveButton.disabled = false;
@@ -175,10 +164,6 @@
         }
 
         setRating(questionContainer, ratingValue);
-    });
-
-    page.addEventListener('input', function () {
-        hideError();
     });
 
     if (saveButton) {

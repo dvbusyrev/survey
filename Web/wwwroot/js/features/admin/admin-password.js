@@ -90,7 +90,9 @@
 
     function addPasswordEye(input) {
         if (!input || input.dataset.eyeApplied === 'true') return;
-        const inlineToggle = input.closest('.input-container.has-toggle')?.querySelector('.password-toggle-btn');
+        const inlineToggle = input
+            .closest('.app-field-with-icon.has-toggle')
+            ?.querySelector('.password-toggle-btn');
         if (attachInlinePasswordToggle(input, inlineToggle)) {
             return;
         }
@@ -106,10 +108,11 @@
         input.parentNode.insertBefore(wrapper, input);
         wrapper.appendChild(input);
 
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'password-eye-btn';
-        btn.setAttribute('aria-label', 'Показать пароль');
+        const btn = window.AppUi.createElement('button', {
+            type: 'button',
+            className: 'password-eye-btn',
+            ariaLabel: 'Показать пароль'
+        });
         btn.appendChild(createSvgEye('eye-open', ['M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z'], { cx: 12, cy: 12, r: 3 }));
         btn.appendChild(createSvgEye('eye-closed', [
             'M3 3l18 18',
@@ -143,8 +146,12 @@
                 const modal = document.getElementById('addUserModal');
                 if (!modal) {
                     console.error('addUserModal not found in DOM');
-                    if (typeof window.refreshAdminTab === 'function') {
-                        window.refreshAdminTab('add_user', null, { historyMode: 'replace' });
+                    if (typeof window.refreshAdminUi === 'function') {
+                        window.refreshAdminUi({
+                            tabName: 'add_user',
+                            fallbackUrl: '/users/create',
+                            options: { historyMode: 'replace' }
+                        });
                     }
                     return;
                 }
@@ -166,10 +173,10 @@
                 const orgEl = document.getElementById('userOrganization');
                 if (orgEl) orgEl.selectedIndex = 0;
 
-                if (typeof window.showSiteModal === 'function') {
+                if (window.AppUi?.setModalVisibility) {
+                    window.AppUi.setModalVisibility(modal, true);
+                } else if (typeof window.showSiteModal === 'function') {
                     window.showSiteModal(modal);
-                } else {
-                    modal.style.display = 'flex';
                 }
                 setTimeout(initUserModalPasswordEyes, 0);
             };

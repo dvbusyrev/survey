@@ -21,7 +21,7 @@
        data-role="main-table"
        data-disable-column-sort="true">
     <thead>
-        <tr class="table_tr">
+        <tr class="app-table__header-row">
             <th class="table-th--start table-sortable @(string.IsNullOrWhiteSpace(Model?.NameSortDirection) ? string.Empty : "is-sorted")"
                 data-sort-direction="@Model?.NameSortDirection"
                 aria-sort="@Model?.NameAriaSort">

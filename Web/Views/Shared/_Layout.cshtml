@@ -207,7 +207,7 @@
 
                 window.mountHeader(headerHost, { userRole, userId, displayName, userName, organizationName });
                 if (isAdmin && navHost) {
-                    window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole, userId });
+                    window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole });
                 }
                 window.mountFooter(footerHost);
                 if (typeof window.reapplyCurrentThemeSettings === 'function') {
@@ -218,8 +218,7 @@
     }
     @if (isAuthenticated && layoutUserRole == AppRoles.Admin)
     {
-        @await Html.PartialAsync("~/Web/Views/Shared/_AdminInlineTemplates.cshtml")
-        <script type="module" src="~/js/entries/admin-inline-app.js" asp-append-version="true"></script>
+        @await Html.PartialAsync("~/Web/Views/Shared/_AdminAppTemplates.cshtml")
     }
     @RenderSection("Scripts", required: false)
 </body>

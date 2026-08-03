@@ -64,24 +64,24 @@
         options.forEach((option) => {
             const optionId = state.serverMode ? option.id : null;
             const optionName = state.serverMode ? option.name : option;
-            const optionLabel = createElement('label', 'app-checkbox-option');
-            const checkbox = createElement('input', 'app-checkbox-input');
-            const labelText = createElement('span', 'app-checkbox-text', optionName);
             const isSelected = state.serverMode
                 ? state[config.selectedIdsKey].includes(optionId)
                 : state[config.selectedValuesKey].includes(optionName);
+            const checkboxOption = window.AppUi.createCheckboxOption({
+                text: optionName,
+                checked: isSelected,
+                selected: isSelected
+            });
+            const optionLabel = checkboxOption.option;
+            const checkbox = checkboxOption.checkbox;
 
             optionLabel.classList.toggle('is-selected', isSelected);
-            checkbox.type = 'checkbox';
             checkbox.dataset.role = config.optionRole;
             checkbox.dataset[config.valueDatasetKey] = optionName;
             if (state.serverMode) {
                 checkbox.dataset[config.idDatasetKey] = String(optionId);
             }
-            checkbox.checked = isSelected;
 
-            optionLabel.appendChild(checkbox);
-            optionLabel.appendChild(labelText);
             refs.options.appendChild(optionLabel);
         });
     }
@@ -146,9 +146,125 @@
         callbacks?.applyPageFilters?.(instance.page);
     }
 
+    function createInstance(root, definition, {
+        pageSelector,
+        serverFilters = window.SurveyServerFilterState,
+        filterPopover = window.SurveyFilterPopover,
+        closeAllPopovers,
+        setPopoverOpen,
+        applyPageFilters
+    } = {}) {
+        const config = getConfig(definition?.pendingFilterName);
+        if (!definition || !config || !(root instanceof Element)) {
+            return null;
+        }
+
+        const page = root.closest(pageSelector);
+        const tableBody = page?.querySelector('[data-role="main-table"] tbody');
+        if (!page || !tableBody) {
+            return null;
+        }
+
+        const instance = {
+            root,
+            page,
+            state: definition.createState(page),
+            refs: {
+                trigger: root.querySelector(`[data-role="${definition.triggerRole}"]`),
+                label: root.querySelector(`[data-role="${definition.labelRole}"]`),
+                popover: root.querySelector(`[data-role="${definition.popoverRole}"]`),
+                options: root.querySelector(`[data-role="${definition.optionsRole}"]`),
+                summary: root.querySelector(`[data-role="${definition.summaryRole}"]`),
+                clearButton: root.querySelector(`[data-role="${definition.clearRole}"]`)
+            },
+            handlers: {},
+            dropdownController: null
+        };
+
+        const callbacks = { serverFilters, applyPageFilters };
+        const setOpen = (isOpen) => setPopoverOpen?.(instance, isOpen) ?? filterPopover.setOpen(instance, isOpen);
+
+        if (typeof window.AppUi?.createMultiselect === 'function'
+            && instance.refs.trigger
+            && instance.refs.popover) {
+            const dropdown = window.AppUi.createMultiselect({
+                root,
+                trigger: instance.refs.trigger,
+                menu: instance.refs.popover,
+                openClass: 'is-open',
+                hiddenClass: 'is-hidden',
+                onOpen: () => {
+                    closeAllPopovers?.(root);
+                    filterPopover.applyOpenState(instance, true);
+                },
+                onClose: () => {
+                    filterPopover.applyOpenState(instance, false);
+                }
+            });
+            instance.dropdownController = dropdown.controller;
+        }
+
+        instance.handlers.click = function (event) {
+            event.stopPropagation();
+
+            const target = event.target instanceof Element ? event.target : null;
+            if (!target) {
+                return;
+            }
+
+            const trigger = target.closest(`[data-role="${definition.triggerRole}"]`);
+            if (!instance.dropdownController && trigger && root.contains(trigger)) {
+                event.preventDefault();
+                const shouldOpen = !instance.state.isOpen;
+                closeAllPopovers?.(shouldOpen ? root : null);
+                setOpen(shouldOpen);
+                return;
+            }
+
+            if (target.closest(`[data-role="${definition.closeRole}"]`)) {
+                event.preventDefault();
+                setOpen(false);
+                return;
+            }
+
+            if (target.closest(`[data-role="${definition.clearRole}"]`)) {
+                event.preventDefault();
+                clear(instance, config, callbacks);
+            }
+        };
+
+        instance.handlers.change = function (event) {
+            const target = event.target instanceof Element ? event.target : null;
+            const option = target?.closest(`[data-role="${config.optionRole}"]`);
+            if (!option || !root.contains(option)) {
+                return;
+            }
+
+            if (instance.state.serverMode) {
+                toggleId(instance, config, option.dataset[config.idDatasetKey], Boolean(option.checked), callbacks);
+                return;
+            }
+
+            toggleValue(instance, config, option.dataset[config.valueDatasetKey], Boolean(option.checked), callbacks);
+        };
+
+        root.addEventListener('click', instance.handlers.click);
+        root.addEventListener('change', instance.handlers.change);
+        instance.destroy = function destroyCheckboxFilterInstance() {
+            root.removeEventListener('click', instance.handlers.click);
+            root.removeEventListener('change', instance.handlers.change);
+            instance.dropdownController?.destroy?.();
+        };
+
+        render(instance, config);
+        applyPageFilters?.(instance.page);
+        return instance;
+    }
+
     window.SurveyCheckboxFilter = {
         getConfig,
         getSelectedNames,
+        createInstance,
         render,
         toggleValue,
         toggleId,

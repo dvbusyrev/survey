@@ -55,8 +55,12 @@
   --app-field-radius: 0.5rem;
   --app-field-icon-size: 2.875rem;
   --app-field-toggle-size: 2rem;
+  --app-icon-button-size: 2.35rem;
+  --app-icon-button-radius: 0.55rem;
+  --app-icon-button-font-size: 1.35rem;
   --app-section-padding: 1rem;
   --app-section-radius: 0.75rem;
+  --app-content-max-width: 1200px;
   --app-page-padding: 0.5vw;
   --app-page-content-gap: 1vw;
   --app-toolbar-gap: var(--app-gap-md);
@@ -73,6 +77,8 @@
   --app-modal-footer-gap: 10px;
   --app-modal-header-padding: 20px 56px 16px 24px;
   --app-modal-alert-padding: 1.875rem;
+  --app-modal-viewport-gap: 48px;
+  --app-modal-viewport-gap-mobile: 24px;
   --app-tab-gap: 0.55rem;
   --app-tab-padding: var(--app-button-padding);
   --app-tab-font-size: var(--app-button-font-size);
@@ -95,6 +101,9 @@
   --app-calendar-grid-gap: var(--app-gap-xs);
   --app-calendar-day-size: 1.75rem;
   --app-calendar-day-radius: var(--app-field-radius);
+  --app-filter-popover-viewport-gap: 32px;
+  --app-filter-nav-button-size: 30px;
+  --app-filter-nav-button-radius: 9px;
   --app-chip-min-height: 2rem;
   --app-chip-padding: 0 0.75rem;
   --app-chip-radius: 999px;
@@ -102,6 +111,10 @@
   --app-chip-remove-size: 1.375rem;
   --app-tooltip-padding: 0.625rem 0.875rem;
   --app-tooltip-radius: var(--app-section-radius);
+  --app-status-icon-size: 1.25rem;
+  --app-loading-spinner-size: 1.4rem;
+  --app-chart-height: 320px;
+  --app-chart-height-mobile: 280px;
   --app-toast-padding: 1rem 1.125rem;
   --app-toast-radius: var(--app-popover-radius);
   --app-confirm-padding: 1.5rem;
@@ -310,27 +323,27 @@ body {
   color: var(--app-theme-header-text-muted-color) !important;
 }
 
-.modal_btn-primary,
+.app-button--primary,
 .answers-page__action-button,
 .app-date-field__calendar-nav:hover,
 .app-date-field__calendar-nav:focus-visible {
   color: var(--app-theme-button-text-color) !important;
 }
 
-.modal_btn-primary,
+.app-button--primary,
 .answers-page__action-button {
   background: var(--app-theme-button-color) !important;
   border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%) !important;
   font-weight: 400;
 }
 
-.modal_btn-primary:hover,
+.app-button--primary:hover,
 .answers-page__action-button:hover {
   background: var(--app-theme-button-color) !important;
   border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%) !important;
 }
 
-.modal_btn-primary:disabled,
+.app-button--primary:disabled,
 .answers-page__action-button:disabled {
   color: var(--app-theme-accent-text-muted-color) !important;
   opacity: 0.72;
@@ -343,17 +356,15 @@ body {
   border-color: var(--border) !important;
 }
 
-.modal_btn-secondary {
+.app-button--secondary {
   font-weight: var(--app-button-font-weight);
 }
 
 :is(
   .btn,
-  .modal_btn,
+  .app-button,
   .modal-button,
   .notification-close,
-  .submit-button,
-  .reset-button,
   .criteria-btn,
   .reset-filter-btn,
   .pagination-button,
@@ -365,7 +376,6 @@ body {
   .survey-period-filter__clear-button,
   .survey-period-filter__save-button,
   .app-checkbox-dropdown__trigger,
-  .csp-btn,
   .answers-page__action-button,
   .filter-date,
   .filter-button,
@@ -377,8 +387,7 @@ body {
   line-height: 1;
 }
 
-.csp-btn-secondary,
-.app-checkbox-dropdown__trigger:not(.modal_btn-primary),
+.app-checkbox-dropdown__trigger:not(.app-button--primary),
 .reset-filter-btn,
 .pagination-button {
   font-weight: var(--app-button-font-weight);
@@ -387,7 +396,6 @@ body {
 .survey-period-filter__clear-button,
 .survey-period-filter__save-button,
 .survey-period-filter__mode-button.is-active,
-.csp-btn-primary,
 .filter-date,
 .filter-button,
 .search-button,
@@ -495,16 +503,18 @@ a[role="button"]:focus,
 a[role="button"]:focus-visible,
 .btn:focus,
 .btn:focus-visible,
-.modal_btn:focus,
-.modal_btn:focus-visible,
+.app-button:focus,
+.app-button:focus-visible,
 .modal-button:focus,
 .modal-button:focus-visible,
 .logout-button:focus,
 .logout-button:focus-visible,
 .header-menu-toggle:focus,
 .header-menu-toggle:focus-visible,
-.menu-tab:focus,
-.menu-tab:focus-visible,
+.app-tab:focus,
+.app-tab:focus-visible,
+.app-tabs__item:focus,
+.app-tabs__item:focus-visible,
 .nav-link:focus,
 .nav-link:focus-visible,
 .submenu-link:focus,
@@ -518,9 +528,8 @@ a[role="button"]:focus-visible,
 button,
 a[role="button"],
 .btn,
-.modal_btn,
+.app-button,
 .modal-button,
-.submit-button,
 .criteria-btn,
 .reset-filter-btn,
 .pagination-button,
@@ -535,7 +544,6 @@ a[role="button"],
 .survey-period-filter__day-button,
 .survey-period-filter__clear-button,
 .survey-period-filter__save-button,
-.csp-btn,
 .filter-date,
 .filter-button,
 .search-button,
@@ -551,9 +559,8 @@ a[role="button"],
 button:not(.password-toggle-btn):not(.app-native-date-field__button):not(.app-date-field__button):active,
 a[role="button"]:active,
 .btn:active,
-.modal_btn:active,
+.app-button:active,
 .modal-button:active,
-.submit-button:active,
 .criteria-btn:active,
 .reset-filter-btn:active,
 .pagination-button:active,
@@ -568,7 +575,6 @@ a[role="button"]:active,
 .survey-period-filter__day-button:active,
 .survey-period-filter__clear-button:active,
 .survey-period-filter__save-button:active,
-.csp-btn:active,
 .filter-date:active,
 .filter-button:active,
 .search-button:active,
@@ -586,11 +592,10 @@ a[role="button"]:active,
 
 :where(
   .btn,
-  .submit-button,
+  .app-button--primary,
   .criteria-btn,
   .filter-sort button,
   .addsurvey_btn button,
-  .modal_btn-primary,
   .answers-page__action-button,
   .survey-period-filter__clear-button,
   .survey-period-filter__save-button,
@@ -601,7 +606,6 @@ a[role="button"]:active,
   .survey-period-filter__day-button.is-range-start,
   .survey-period-filter__day-button.is-range-end,
   .survey-period-filter__day-button.is-range-single,
-  .csp-btn-primary,
   .filter-date,
   .filter-button,
   .search-button,
@@ -620,7 +624,7 @@ a[role="button"]:active,
 }
 
 :where(
-  .modal_btn-secondary,
+  .app-button--secondary,
   .logout-button,
   .header-menu-toggle,
   .modal-button,
@@ -632,12 +636,11 @@ a[role="button"]:active,
   .survey-period-filter__year-button:not(.is-selected),
   .survey-period-filter__month-button:not(.is-selected),
   .survey-period-filter__day-button:not(.is-in-range):not(.is-range-start):not(.is-range-end):not(.is-range-single),
-  .csp-btn-secondary,
   .btn_crit:not(.active),
   .icon-container:not(.field-icon-container),
   .app-pagination__page-link--current,
   .pagination button,
-  .app-checkbox-dropdown__trigger:not(.modal_btn-primary)
+  .app-checkbox-dropdown__trigger:not(.app-button--primary)
 ):active {
   color: var(--text-main) !important;
   background: #ffffff !important;
@@ -649,16 +652,18 @@ a[role="button"]:active,
   transform: none !important;
 }
 
-.menu-tab .count-badge,
+.app-tab .count-badge,
+.app-tabs__item .count-badge,
 .rating-badge {
   color: var(--app-theme-accent-text-color) !important;
   background-color: var(--primary) !important;
 }
 
-.table_tr,
+.app-table__header-row,
 :where(
   [data-role="main-table"],
   [data-column-sort="true"],
+  .app-table,
   .surveys-table,
   .users-table,
   .organization-table,
@@ -667,13 +672,14 @@ a[role="button"]:active,
   .logs-table,
   .help-document-page__content table,
   .modal-content table
-) thead tr.table_tr th {
+) thead tr.app-table__header-row th {
   background-color: var(--app-theme-table-header-background) !important;
 }
 
 :where(
   [data-role="main-table"],
   [data-column-sort="true"],
+  .app-table,
   .surveys-table,
   .users-table,
   .organization-table,
@@ -691,6 +697,7 @@ a[role="button"]:active,
 :where(
   [data-role="main-table"],
   [data-column-sort="true"],
+  .app-table,
   .surveys-table,
   .users-table,
   .organization-table,
@@ -701,6 +708,7 @@ a[role="button"]:active,
 :where(
   [data-role="main-table"],
   [data-column-sort="true"],
+  .app-table,
   .surveys-table,
   .users-table,
   .organization-table,
@@ -719,8 +727,8 @@ a[role="button"]:active,
 
 .field-icon-container,
 .field-icon-container:hover,
-.input-container:focus-within .field-icon-container,
-.input-container:focus-within .field-icon-container i {
+.app-field-with-icon:focus-within .field-icon-container,
+.app-field-with-icon:focus-within .field-icon-container i {
   color: var(--app-theme-font-color);
 }
 

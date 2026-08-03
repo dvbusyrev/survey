@@ -5,10 +5,10 @@
     var archiveActive = activeSection == "archive";
 }
 
-<div class="menu-bar app-page__subnav" role="tablist" aria-label="Разделы организаций">
+<div class="app-tabs app-page__subnav" role="tablist" aria-label="Разделы организаций">
     <a
         href="/organizations"
-        class="menu-tab @(listActive ? "active-tab" : "")"
+        class="app-tab @(listActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(listActive ? "true" : "false")"
         data-tab-target="get_organization">
@@ -16,7 +16,7 @@
     </a>
     <a
         href="/organizations/survey"
-        class="menu-tab @(surveysActive ? "active-tab" : "")"
+        class="app-tab @(surveysActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(surveysActive ? "true" : "false")"
         data-tab-target="organization_surveys">
@@ -24,7 +24,7 @@
     </a>
     <a
         href="/organizations/archive"
-        class="menu-tab @(archiveActive ? "active-tab" : "")"
+        class="app-tab @(archiveActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(archiveActive ? "true" : "false")"
         data-tab-target="archive_list_organizations">

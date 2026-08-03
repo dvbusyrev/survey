@@ -25,42 +25,46 @@
         }
 
         function createField(value) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'form-group survey-editor-page__criteria-item';
-            const label = document.createElement('label');
-            const control = document.createElement('div');
-            control.className = 'survey-editor-page__criteria-control';
-            const inputWrap = document.createElement('div');
-            inputWrap.className = 'survey-editor-page__criteria-input-wrap';
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'form-control criteriy';
-            input.placeholder = 'Введите критерий оценки';
-            input.required = true;
-            input.value = value || '';
-            const removeButton = document.createElement('button');
-            removeButton.type = 'button';
-            removeButton.className = 'survey-editor-page__criteria-remove';
-            removeButton.dataset.clickCall = 'removeSurveyCriterion';
-            removeButton.dataset.clickPassElement = 'true';
-            const icon = document.createElement('i');
-            icon.className = 'fas fa-trash';
-            icon.setAttribute('aria-hidden', 'true');
+            const createElement = window.AppUi.createElement;
+            const wrapper = createElement('div', { className: 'app-field-group survey-editor-page__criteria-item' });
+            const label = createElement('label');
+            const control = createElement('div', { className: 'survey-editor-page__criteria-control' });
+            const inputWrap = createElement('div', { className: 'survey-editor-page__criteria-input-wrap' });
+            const input = window.AppUi.createField({
+                tagName: 'input',
+                type: 'text',
+                className: 'criteriy',
+                placeholder: 'Введите критерий оценки',
+                value: value || '',
+                attrs: { required: true }
+            });
+            const removeButton = window.AppUi.createElement('button', {
+                type: 'button',
+                className: 'survey-editor-page__criteria-remove',
+                dataset: {
+                    clickCall: 'removeSurveyCriterion',
+                    clickPassElement: 'true'
+                }
+            });
+            const icon = createElement('i', {
+                className: 'fas fa-trash',
+                attrs: { 'aria-hidden': 'true' }
+            });
             removeButton.appendChild(icon);
-            const action = document.createElement('div');
-            action.className = 'survey-editor-page__criteria-action';
-            const addButton = document.createElement('button');
-            addButton.type = 'button';
-            addButton.className = 'criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline';
-            addButton.dataset.role = 'criteria-add';
-            addButton.dataset.clickCall = document.getElementById('surveyId') ? 'surveyEditAddCriteria' : 'addRowCriteriy';
-            addButton.textContent = 'Добавить критерий';
-            const error = document.createElement('div');
-            error.className = 'error-message';
+            const action = createElement('div', { className: 'survey-editor-page__criteria-action' });
+            const addButton = window.AppUi.createButton({
+                variant: 'primary',
+                className: 'criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline',
+                text: 'Добавить критерий',
+                dataset: {
+                    role: 'criteria-add',
+                    clickCall: document.getElementById('surveyId') ? 'surveyEditAddCriteria' : 'addRowCriteriy'
+                }
+            });
             inputWrap.append(input, removeButton);
             control.appendChild(inputWrap);
             action.appendChild(addButton);
-            wrapper.append(label, control, action, error);
+            wrapper.append(label, control, action);
             return wrapper;
         }
 
@@ -78,15 +82,10 @@
             if (!item) return;
             const list = item.parentElement;
             const input = item.querySelector('.criteriy');
-            const error = item.querySelector('.error-message');
             if (list && getItems(list).length <= 1) {
                 if (input) {
                     input.value = '';
                     input.classList.remove('invalid');
-                }
-                if (error) {
-                    error.textContent = '';
-                    error.style.display = '';
                 }
                 refresh(list);
                 return;
@@ -105,22 +104,13 @@
             let hasValue = false;
             items.forEach((item) => {
                 const input = item.querySelector('.criteriy');
-                const error = item.querySelector('.error-message');
                 if (input?.value.trim()) {
                     hasValue = true;
                     input.classList.remove('invalid');
-                    if (error) {
-                        error.textContent = '';
-                        error.style.display = 'none';
-                    }
                     return;
                 }
                 hasErrors = true;
                 input?.classList.add('invalid');
-                if (error) {
-                    error.textContent = 'Заполните критерий или удалите это поле.';
-                    error.style.display = 'block';
-                }
             });
             if (!hasValue) showError('Ошибка', 'Добавьте хотя бы один критерий оценки.');
             else if (hasErrors) showError('Ошибка', 'Заполните все критерии оценки или удалите пустые поля.');

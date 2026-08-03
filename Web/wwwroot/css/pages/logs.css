@@ -86,36 +86,6 @@
   overflow-wrap: anywhere;
 }
 
-.logs-page__cursor-tooltip {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 500;
-  min-width: 148px;
-  max-width: min(260px, 80vw);
-  display: block;
-  padding: var(--app-tooltip-padding);
-  color: var(--text-main);
-  font-size: 0.85rem;
-  font-weight: 500;
-  line-height: 1.35;
-  text-align: center;
-  white-space: normal;
-  pointer-events: none;
-  background: rgba(255, 255, 255, 0.98);
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: var(--app-section-radius);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
-  opacity: 0;
-  visibility: hidden;
-  transform: translate3d(-9999px, -9999px, 0);
-}
-
-.logs-page__cursor-tooltip.is-visible {
-  opacity: 1;
-  visibility: visible;
-}
-
 .logs-modal__body {
   display: grid;
   gap: var(--app-modal-field-gap);
@@ -136,15 +106,6 @@
 }
 
 .logs-modal__value-field {
-  min-height: var(--app-field-min-height);
-  padding: var(--app-field-padding);
-  color: var(--text-main);
-  font-family: inherit;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  background: #ffffff;
-  border: 1px solid var(--border-dark);
-  border-radius: var(--app-field-radius);
   word-break: break-word;
 }
 

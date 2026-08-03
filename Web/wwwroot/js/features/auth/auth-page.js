@@ -44,7 +44,7 @@
     const form = loginContent.querySelector('#loginForm');
     const usernameInput = loginContent.querySelector('#username');
     const passwordInput = loginContent.querySelector('#password');
-    const submitButton = loginContent.querySelector('.submit-button');
+    const submitButton = loginContent.querySelector('button[type="submit"]');
     const toggleButton = loginContent.querySelector('.password-toggle-btn');
 
     let isSubmitting = false;
