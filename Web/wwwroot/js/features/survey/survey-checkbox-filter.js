@@ -101,7 +101,6 @@
 
         instance.state[config.selectedValuesKey] = Array.from(nextSelectedValues)
             .sort((left, right) => left.localeCompare(right, 'ru'));
-        render(instance, config);
         callbacks?.applyPageFilters?.(instance.page);
     }
 
@@ -124,8 +123,8 @@
         if (serverConfig) {
             serverConfig[config.selectedConfigKey] = [...instance.state[config.selectedIdsKey]];
         }
-        render(instance, config);
-        serverFilters.navigate(instance.page, config.filterName);
+        instance.state.hasPendingServerNavigation = true;
+        callbacks?.applyPageFilters?.(instance.page);
     }
 
     function clear(instance, config, callbacks) {
@@ -137,7 +136,8 @@
                 serverConfig[config.selectedConfigKey] = [];
             }
             render(instance, config);
-            serverFilters.navigate(instance.page, config.filterName);
+            instance.state.hasPendingServerNavigation = true;
+            callbacks?.applyPageFilters?.(instance.page);
             return;
         }
 
@@ -183,6 +183,14 @@
 
         const callbacks = { serverFilters, applyPageFilters };
         const setOpen = (isOpen) => setPopoverOpen?.(instance, isOpen) ?? filterPopover.setOpen(instance, isOpen);
+        const commitServerFilter = () => {
+            if (!instance.state.serverMode || !instance.state.hasPendingServerNavigation) {
+                return;
+            }
+
+            instance.state.hasPendingServerNavigation = false;
+            serverFilters.navigate(instance.page);
+        };
 
         if (typeof window.AppUi?.createMultiselect === 'function'
             && instance.refs.trigger
@@ -199,6 +207,7 @@
                 },
                 onClose: () => {
                     filterPopover.applyOpenState(instance, false);
+                    commitServerFilter();
                 }
             });
             instance.dropdownController = dropdown.controller;

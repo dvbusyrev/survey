@@ -198,6 +198,10 @@
   overflow-x: hidden; 
 }
 
+.modal-body.app-modal-body--compact {
+  gap: var(--app-gap-md);
+}
+
 .modal-body .app-field-group {
   display: block;
   margin-bottom: 0;

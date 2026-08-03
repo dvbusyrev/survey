@@ -1209,6 +1209,7 @@
         return state;
       }
       if (Number.isInteger(config.year)) {
+        state.mode = "year";
         state.activeFilterType = "year";
         state.activeYear = config.year;
         state.monthViewYear = config.year;
@@ -1228,6 +1229,7 @@
         }
       }
       if (config.dateFrom && config.dateTo) {
+        state.mode = "range";
         state.activeFilterType = "range";
         state.rangeStart = config.dateFrom;
         state.rangeEnd = config.dateTo;
@@ -1274,7 +1276,7 @@
     function renderYearPanel(instance) {
       const { state, refs } = instance;
       refs.yearRangeLabel.textContent = `${state.yearViewStart} - ${state.yearViewStart + 9}`;
-      refs.yearsContainer.textContent = "";
+      const years = document.createDocumentFragment();
       for (let year = state.yearViewStart; year < state.yearViewStart + 10; year += 1) {
         const yearButton = createElement2("button", "survey-period-filter__year-button", String(year));
         yearButton.type = "button";
@@ -1283,13 +1285,14 @@
         if (state.activeFilterType === "year" && state.activeYear === year) {
           yearButton.classList.add("is-selected");
         }
-        refs.yearsContainer.appendChild(yearButton);
+        years.appendChild(yearButton);
       }
+      refs.yearsContainer.replaceChildren(years);
     }
     function renderMonthPanel(instance) {
       const { state, refs } = instance;
       refs.yearLabel.textContent = String(state.monthViewYear);
-      refs.monthsContainer.textContent = "";
+      const months = document.createDocumentFragment();
       MONTH_NAMES.forEach((monthName, monthIndex) => {
         const monthButton = createElement2("button", "survey-period-filter__month-button", monthName);
         monthButton.type = "button";
@@ -1297,8 +1300,9 @@
         monthButton.dataset.monthIndex = String(monthIndex);
         const isSelected = state.activeFilterType === "month" && state.activeMonth && state.activeMonth.year === state.monthViewYear && state.activeMonth.monthIndex === monthIndex;
         monthButton.classList.toggle("is-selected", isSelected);
-        refs.monthsContainer.appendChild(monthButton);
+        months.appendChild(monthButton);
       });
+      refs.monthsContainer.replaceChildren(months);
     }
     function buildWeekdayRow() {
       const weekdaysRow = createElement2("div", "survey-period-filter__weekday-row");
@@ -1360,9 +1364,10 @@
       const firstMonth = new Date(state.rangeViewDate.getFullYear(), state.rangeViewDate.getMonth(), 1);
       const secondMonth = shiftMonth(firstMonth, 1);
       refs.rangeLabel.textContent = `${getMonthDescription(firstMonth.getFullYear(), firstMonth.getMonth())} - ${getMonthDescription(secondMonth.getFullYear(), secondMonth.getMonth())}`;
-      refs.calendars.textContent = "";
-      refs.calendars.appendChild(buildCalendarCard(firstMonth, displayState));
-      refs.calendars.appendChild(buildCalendarCard(secondMonth, displayState));
+      const calendars = document.createDocumentFragment();
+      calendars.appendChild(buildCalendarCard(firstMonth, displayState));
+      calendars.appendChild(buildCalendarCard(secondMonth, displayState));
+      refs.calendars.replaceChildren(calendars);
       if (state.rangeStart && !state.rangeEnd) {
         if (refs.hint) {
           refs.hint.textContent = `Начало диапазона: ${getDisplayDate(state.rangeStart)}. Выберите конечную дату.`;
@@ -1381,9 +1386,15 @@
     }
     function render(instance) {
       renderModeSwitch(instance);
-      renderYearPanel(instance);
+      if (instance.state.mode === "year") {
+        renderYearPanel(instance);
+        return;
+      }
+      if (instance.state.mode === "range") {
+        renderRangePanel(instance);
+        return;
+      }
       renderMonthPanel(instance);
-      renderRangePanel(instance);
     }
     function clear(instance, callbacks) {
       const serverFilters = callbacks?.serverFilters || window.SurveyServerFilterState;
@@ -1395,7 +1406,8 @@
       render(instance);
       if (serverFilters.isServerPage(instance.page)) {
         serverFilters.syncDateState(instance.page, instance.state);
-        serverFilters.navigate(instance.page, "date");
+        instance.state.hasPendingServerNavigation = true;
+        callbacks?.applyFilter?.(instance);
         return;
       }
       callbacks?.applyFilter?.(instance);
@@ -1415,7 +1427,8 @@
       render(instance);
       if (serverFilters.isServerPage(instance.page)) {
         serverFilters.syncDateState(instance.page, instance.state);
-        serverFilters.navigate(instance.page, "date");
+        instance.state.hasPendingServerNavigation = true;
+        callbacks?.applyFilter?.(instance);
         return;
       }
       callbacks?.applyFilter?.(instance);
@@ -1437,7 +1450,8 @@
       render(instance);
       if (serverFilters.isServerPage(instance.page)) {
         serverFilters.syncDateState(instance.page, instance.state);
-        serverFilters.navigate(instance.page, "date");
+        instance.state.hasPendingServerNavigation = true;
+        callbacks?.applyFilter?.(instance);
         return;
       }
       callbacks?.applyFilter?.(instance);
@@ -1467,7 +1481,8 @@
       render(instance);
       if (serverFilters.isServerPage(instance.page)) {
         serverFilters.syncDateState(instance.page, instance.state);
-        serverFilters.navigate(instance.page, "date");
+        instance.state.hasPendingServerNavigation = true;
+        callbacks?.applyFilter?.(instance);
         return;
       }
       callbacks?.applyFilter?.(instance);
@@ -1515,6 +1530,13 @@
       };
       const callbacks = { serverFilters, applyFilter };
       const setOpen = (isOpen) => setPopoverOpen?.(instance, isOpen) ?? filterPopover.setOpen(instance, isOpen);
+      const commitServerFilter = () => {
+        if (!serverFilters.isServerPage(instance.page) || !instance.state.hasPendingServerNavigation) {
+          return;
+        }
+        instance.state.hasPendingServerNavigation = false;
+        serverFilters.navigate(instance.page);
+      };
       if (typeof window.AppUi?.createDropdown === "function" && instance.refs.trigger && instance.refs.popover) {
         const dropdown = window.AppUi.createDropdown({
           root,
@@ -1528,6 +1550,7 @@
           },
           onClose: () => {
             filterPopover.applyOpenState(instance, false);
+            commitServerFilter();
           }
         });
         instance.dropdownController = dropdown.controller;
@@ -1721,7 +1744,6 @@
         nextSelectedValues.delete(normalizedValue);
       }
       instance.state[config.selectedValuesKey] = Array.from(nextSelectedValues).sort((left, right) => left.localeCompare(right, "ru"));
-      render(instance, config);
       callbacks?.applyPageFilters?.(instance.page);
     }
     function toggleId(instance, config, rawId, isSelected, callbacks) {
@@ -1741,8 +1763,8 @@
       if (serverConfig) {
         serverConfig[config.selectedConfigKey] = [...instance.state[config.selectedIdsKey]];
       }
-      render(instance, config);
-      serverFilters.navigate(instance.page, config.filterName);
+      instance.state.hasPendingServerNavigation = true;
+      callbacks?.applyPageFilters?.(instance.page);
     }
     function clear(instance, config, callbacks) {
       if (instance.state.serverMode) {
@@ -1753,7 +1775,8 @@
           serverConfig[config.selectedConfigKey] = [];
         }
         render(instance, config);
-        serverFilters.navigate(instance.page, config.filterName);
+        instance.state.hasPendingServerNavigation = true;
+        callbacks?.applyPageFilters?.(instance.page);
         return;
       }
       instance.state[config.selectedValuesKey] = [];
@@ -1794,6 +1817,13 @@
       };
       const callbacks = { serverFilters, applyPageFilters };
       const setOpen = (isOpen) => setPopoverOpen?.(instance, isOpen) ?? filterPopover.setOpen(instance, isOpen);
+      const commitServerFilter = () => {
+        if (!instance.state.serverMode || !instance.state.hasPendingServerNavigation) {
+          return;
+        }
+        instance.state.hasPendingServerNavigation = false;
+        serverFilters.navigate(instance.page);
+      };
       if (typeof window.AppUi?.createMultiselect === "function" && instance.refs.trigger && instance.refs.popover) {
         const dropdown = window.AppUi.createMultiselect({
           root,
@@ -1807,6 +1837,7 @@
           },
           onClose: () => {
             filterPopover.applyOpenState(instance, false);
+            commitServerFilter();
           }
         });
         instance.dropdownController = dropdown.controller;

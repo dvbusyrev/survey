@@ -383,7 +383,7 @@
         }
 
         const tableParts = window.AppUi.createTable({
-            className: 'logs-modal__record-table'
+            className: 'app-modal-table logs-modal__record-table'
         });
         columns.forEach((columnName) => tableParts.appendHeaderCell(columnName));
 

@@ -127,17 +127,6 @@
   font-weight: 800;
 }
 
-.logs-modal__record-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-}
-
-.logs-modal__record-table {
-  width: max-content;
-  margin: 0;
-  min-width: 100%;
-}
-
 .logs-modal__record-table + .logs-modal__record-table {
   margin-top: var(--app-modal-field-gap);
 }

@@ -115,6 +115,7 @@
         }
 
         if (Number.isInteger(config.year)) {
+            state.mode = 'year';
             state.activeFilterType = 'year';
             state.activeYear = config.year;
             state.monthViewYear = config.year;
@@ -136,6 +137,7 @@
         }
 
         if (config.dateFrom && config.dateTo) {
+            state.mode = 'range';
             state.activeFilterType = 'range';
             state.rangeStart = config.dateFrom;
             state.rangeEnd = config.dateTo;
@@ -193,7 +195,7 @@
     function renderYearPanel(instance) {
         const { state, refs } = instance;
         refs.yearRangeLabel.textContent = `${state.yearViewStart} - ${state.yearViewStart + 9}`;
-        refs.yearsContainer.textContent = '';
+        const years = document.createDocumentFragment();
 
         for (let year = state.yearViewStart; year < state.yearViewStart + 10; year += 1) {
             const yearButton = createElement('button', 'survey-period-filter__year-button', String(year));
@@ -205,14 +207,16 @@
                 yearButton.classList.add('is-selected');
             }
 
-            refs.yearsContainer.appendChild(yearButton);
+            years.appendChild(yearButton);
         }
+
+        refs.yearsContainer.replaceChildren(years);
     }
 
     function renderMonthPanel(instance) {
         const { state, refs } = instance;
         refs.yearLabel.textContent = String(state.monthViewYear);
-        refs.monthsContainer.textContent = '';
+        const months = document.createDocumentFragment();
 
         MONTH_NAMES.forEach((monthName, monthIndex) => {
             const monthButton = createElement('button', 'survey-period-filter__month-button', monthName);
@@ -226,8 +230,10 @@
                 && state.activeMonth.monthIndex === monthIndex;
             monthButton.classList.toggle('is-selected', isSelected);
 
-            refs.monthsContainer.appendChild(monthButton);
+            months.appendChild(monthButton);
         });
+
+        refs.monthsContainer.replaceChildren(months);
     }
 
     function buildWeekdayRow() {
@@ -303,9 +309,10 @@
         const secondMonth = shiftMonth(firstMonth, 1);
 
         refs.rangeLabel.textContent = `${getMonthDescription(firstMonth.getFullYear(), firstMonth.getMonth())} - ${getMonthDescription(secondMonth.getFullYear(), secondMonth.getMonth())}`;
-        refs.calendars.textContent = '';
-        refs.calendars.appendChild(buildCalendarCard(firstMonth, displayState));
-        refs.calendars.appendChild(buildCalendarCard(secondMonth, displayState));
+        const calendars = document.createDocumentFragment();
+        calendars.appendChild(buildCalendarCard(firstMonth, displayState));
+        calendars.appendChild(buildCalendarCard(secondMonth, displayState));
+        refs.calendars.replaceChildren(calendars);
 
         if (state.rangeStart && !state.rangeEnd) {
             if (refs.hint) {
@@ -330,9 +337,17 @@
 
     function render(instance) {
         renderModeSwitch(instance);
-        renderYearPanel(instance);
+        if (instance.state.mode === 'year') {
+            renderYearPanel(instance);
+            return;
+        }
+
+        if (instance.state.mode === 'range') {
+            renderRangePanel(instance);
+            return;
+        }
+
         renderMonthPanel(instance);
-        renderRangePanel(instance);
     }
 
     function clear(instance, callbacks) {
@@ -345,7 +360,8 @@
         render(instance);
         if (serverFilters.isServerPage(instance.page)) {
             serverFilters.syncDateState(instance.page, instance.state);
-            serverFilters.navigate(instance.page, 'date');
+            instance.state.hasPendingServerNavigation = true;
+            callbacks?.applyFilter?.(instance);
             return;
         }
 
@@ -369,7 +385,8 @@
         render(instance);
         if (serverFilters.isServerPage(instance.page)) {
             serverFilters.syncDateState(instance.page, instance.state);
-            serverFilters.navigate(instance.page, 'date');
+            instance.state.hasPendingServerNavigation = true;
+            callbacks?.applyFilter?.(instance);
             return;
         }
         callbacks?.applyFilter?.(instance);
@@ -397,7 +414,8 @@
         render(instance);
         if (serverFilters.isServerPage(instance.page)) {
             serverFilters.syncDateState(instance.page, instance.state);
-            serverFilters.navigate(instance.page, 'date');
+            instance.state.hasPendingServerNavigation = true;
+            callbacks?.applyFilter?.(instance);
             return;
         }
         callbacks?.applyFilter?.(instance);
@@ -431,7 +449,8 @@
         render(instance);
         if (serverFilters.isServerPage(instance.page)) {
             serverFilters.syncDateState(instance.page, instance.state);
-            serverFilters.navigate(instance.page, 'date');
+            instance.state.hasPendingServerNavigation = true;
+            callbacks?.applyFilter?.(instance);
             return;
         }
         callbacks?.applyFilter?.(instance);
@@ -483,6 +502,14 @@
 
         const callbacks = { serverFilters, applyFilter };
         const setOpen = (isOpen) => setPopoverOpen?.(instance, isOpen) ?? filterPopover.setOpen(instance, isOpen);
+        const commitServerFilter = () => {
+            if (!serverFilters.isServerPage(instance.page) || !instance.state.hasPendingServerNavigation) {
+                return;
+            }
+
+            instance.state.hasPendingServerNavigation = false;
+            serverFilters.navigate(instance.page);
+        };
 
         if (typeof window.AppUi?.createDropdown === 'function'
             && instance.refs.trigger
@@ -499,6 +526,7 @@
                 },
                 onClose: () => {
                     filterPopover.applyOpenState(instance, false);
+                    commitServerFilter();
                 }
             });
             instance.dropdownController = dropdown.controller;

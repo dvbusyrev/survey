@@ -40,22 +40,6 @@
   box-sizing: border-box;
 }
 
-.survey-signatures-modal__body {
-  display: grid;
-  gap: var(--app-modal-field-gap);
-}
-
-.survey-signatures-modal__body .table-responsive {
-  margin: 0;
-}
-
-.survey-signatures-modal__body .answers-page__signatures {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 0;
-}
-
 .survey-signatures-modal__loading,
 .survey-signatures-modal__error {
   padding: var(--app-section-padding);

@@ -339,21 +339,27 @@
         });
     }
 
+    function createSurveyNameField(surveyName) {
+        const field = window.AppUi.createField({
+            className: 'survey-signatures-modal__survey-name',
+            text: String(surveyName || '').trim() || 'Без названия'
+        });
+
+        return window.AppUi.createFieldGroup({
+            className: 'survey-signatures-modal__survey-name-group',
+            label: 'Название анкеты',
+            field
+        });
+    }
+
     function extractSignaturesContent(parsedDocument) {
-        const pageContent = parsedDocument.getElementById('default_content')
-            || parsedDocument.querySelector('.answers-page__signatures');
-        const tableContainer = pageContent?.querySelector('.table-responsive')
-            || parsedDocument.querySelector('.answers-page__signatures-table')?.closest('.table-responsive');
-
-        if (tableContainer) {
-            return tableContainer.cloneNode(true);
-        }
-
-        if (pageContent) {
-            const clone = pageContent.cloneNode(true);
-            clone.removeAttribute('id');
-            clone.classList.add('answers-page__signatures--modal');
-            return clone;
+        const sourceTable = parsedDocument.querySelector('.answers-page__signatures-table');
+        if (sourceTable) {
+            const tableWrap = window.AppUi.createElement('div', {
+                className: 'app-modal-table-wrap survey-signatures-modal__table-wrap'
+            });
+            tableWrap.appendChild(sourceTable.cloneNode(true));
+            return tableWrap;
         }
 
         return createStatusMessage('Не удалось прочитать данные о прохождении.', 'error');
@@ -367,8 +373,8 @@
         const frame = createSurveyModalFrame({
             id: 'surveySignaturesModal',
             className: 'survey-signatures-modal',
-            title: 'Проверка прохождения',
-            bodyClassName: 'survey-signatures-modal__body',
+            title: 'Проверить прохождение',
+            bodyClassName: 'app-modal-body--compact survey-signatures-modal__body',
             onClose: closeSurveySignaturesModal
         });
 
@@ -420,12 +426,13 @@
             const survey = buildSurveyData(trigger);
             ensureSignaturesModal();
 
-            signaturesTitle.textContent = survey.name_survey
-                ? `Проверка прохождения: ${survey.name_survey}`
-                : 'Проверка прохождения';
+            signaturesTitle.textContent = 'Проверить прохождение';
 
             const content = await loadSurveySignaturesContent(survey);
-            signaturesHost.replaceChildren(content);
+            signaturesHost.replaceChildren(
+                createSurveyNameField(survey.name_survey),
+                content
+            );
             window.mountSortableTables?.(signaturesHost);
 
             signaturesFrame?.show?.();

@@ -221,6 +221,17 @@
   scroll-margin-top: var(--app-table-scroll-margin-top);
 }
 
+.app-modal-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.app-modal-table {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+}
+
 :where(
   [data-role="main-table"],
   [data-column-sort="true"],
