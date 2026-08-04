@@ -37,6 +37,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 028_remove_legacy_theme_columns.sql", script);
         Assert.Contains(@"\ir 029_redesign_auto_creation_reporting_period.sql", script);
         Assert.Contains(@"\ir 030_reconcile_schema_consistency.sql", script);
+        Assert.Contains(@"\ir 031_require_user_organization.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -55,6 +56,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("('021', 'allow_empty_auto_creation_period')", migration);
         Assert.Contains("INSERT INTO public.week_day", migration);
         Assert.Contains("CREATE TABLE public.app_user", schema);
+        Assert.Contains("id_organization integer NOT NULL", schema);
         Assert.Contains("login text NOT NULL", schema);
         Assert.Contains("role text NOT NULL", schema);
         Assert.Contains("password text NOT NULL", schema);
@@ -340,6 +342,21 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("ALTER COLUMN background_color SET DEFAULT '#B2A8FF'", script);
         Assert.Contains("idx_survey_auto_creation_config_id_survey", script);
         Assert.Contains("VALUES ('030', 'reconcile_schema_consistency')", script);
+    }
+
+    [Fact]
+    public void RequiredUserOrganizationMigration_RejectsMissingOrganizationsAndAddsConstraint()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "031_require_user_organization.sql"));
+
+        Assert.Contains("WHERE id_organization IS NULL", script);
+        Assert.Contains("ALTER COLUMN id_organization SET NOT NULL", script);
+        Assert.Contains("ON DELETE RESTRICT", script);
+        Assert.Contains("VALUES ('031', 'require_user_organization')", script);
     }
 
     private static string GetRepositoryRoot()

@@ -55,6 +55,9 @@ What this does:
 - applies `026_rebuild_audit_tables_as_structured_snapshots`
 - applies `027_store_theme_background_image_blob`
 - applies `028_remove_legacy_theme_columns`
+- applies `029_redesign_auto_creation_reporting_period`
+- applies `030_reconcile_schema_consistency`
+- applies `031_require_user_organization`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -88,5 +91,8 @@ Migration sources:
 - `026_rebuild_audit_tables_as_structured_snapshots` rebuilds audit tables as structured snapshots
 - `027_store_theme_background_image_blob` stores the theme background image as `bytea` with the original file name
 - `028_remove_legacy_theme_columns` removes replaced theme gradient and image URL columns
+- `029_redesign_auto_creation_reporting_period` replaces weekday scheduling with reporting-period settings
+- `030_reconcile_schema_consistency` aligns names, defaults, constraints, indexes, and audit structures
+- `031_require_user_organization` makes the user organization mandatory at the database level
 
 `db/bootstrap/001_base_schema.sql` is not an independently executable migration. It is the canonical base schema imported only by `001_unified_schema.sql` when a database has no migration history. Keep schema snapshots and bootstrap files outside `db/migrations` so the migration runner cannot treat them as standalone steps.

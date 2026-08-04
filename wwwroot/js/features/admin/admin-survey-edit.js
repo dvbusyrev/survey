@@ -228,8 +228,15 @@ function surveyEditSaveSelectedOrganization() {
             ? window.getSelectedOrganizations()
             : surveyEditSelectedOrganization;
         if (selectedOrganizations.length === 0) {
+            const organizationField = document.querySelector('[data-role="selected-organizations-container"]');
+            organizationField?.setAttribute('aria-invalid', 'true');
+            organizationField?.classList.add('invalid');
             errors.push('Выберите организацию');
             isValid = false;
+        } else {
+            const organizationField = document.querySelector('[data-role="selected-organizations-container"]');
+            organizationField?.setAttribute('aria-invalid', 'false');
+            organizationField?.classList.remove('invalid');
         }
 
         if (typeof window.validateSurveyCriteriaFields === 'function' && !window.validateSurveyCriteriaFields()) {

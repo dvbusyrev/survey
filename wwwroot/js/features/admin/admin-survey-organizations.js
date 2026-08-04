@@ -179,6 +179,8 @@
                 if (idsInput) idsInput.value = '';
                 return;
             }
+            container.setAttribute('aria-invalid', 'false');
+            container.classList.remove('invalid');
             selected.forEach((organization) => {
                 const item = window.AppUi.createElement('div', {
                     className: 'app-chip survey-editor-page__selected-organization-item',

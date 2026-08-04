@@ -1,6 +1,7 @@
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.UseCases.Admin;
+using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.Persistence;
 using Npgsql;
 
@@ -34,6 +35,84 @@ public sealed class RequiredCreationFieldsTests
     }
 
     [Fact]
+    public async Task CreateUser_RejectsMissingOrganization()
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.CreateUserAsync(CreateUserRequest(organizationId: string.Empty));
+
+        Assert.False(result.Success);
+        Assert.Equal("Не указана корректная организация.", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateUser_RejectsMissingOrganization()
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateUserAsync(1, new UserUpdateRequest
+        {
+            Username = "test-user",
+            OrganizationId = string.Empty,
+            Role = "user"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Не указана корректная организация.", result.Message);
+    }
+
+    [Fact]
+    public async Task CreateSurvey_RejectsMissingOrganizations()
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.CreateSurveyAsync(new SurveyAddRequest
+        {
+            Title = "Анкета",
+            StartDate = "2026-08-04",
+            EndDate = "2026-08-05",
+            Organizations = [],
+            Criteria = ["Критерий"]
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Выберите хотя бы одну организацию", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateSurvey_RejectsMissingOrganizations()
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.UpdateSurveyAsync(1, new SurveyUpdateRequest
+        {
+            Title = "Анкета",
+            StartDate = new DateTime(2026, 8, 4),
+            EndDate = new DateTime(2026, 8, 5),
+            Organizations = [],
+            Criteria = ["Критерий"]
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Выберите хотя бы одну организацию", result.Message);
+    }
+
+    [Fact]
+    public async Task ExtendSurvey_RejectsMissingOrganizations()
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = 1,
+            Extensions = []
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Необходимо предоставить данные для продления", result.Message);
+    }
+
+    [Fact]
     public async Task CreateOrganization_RejectsMissingStartDate()
     {
         var service = new OrganizationManagementService(_connectionFactory, _clock);
@@ -48,16 +127,23 @@ public sealed class RequiredCreationFieldsTests
         Assert.Equal("Дата начала обязательна.", result.Message);
     }
 
+    private SurveyService CreateSurveyService()
+        => new(
+            _connectionFactory,
+            new SurveyRepository(_connectionFactory, _clock),
+            _clock);
+
     private static UserSaveRequest CreateUserRequest(
         string role = "user",
-        string? dateBegin = "2026-08-04")
+        string? dateBegin = "2026-08-04",
+        string organizationId = "1")
     {
         return new UserSaveRequest
         {
             Username = "test-user",
             Password = "StrongPassword1",
             FullName = "Тестовый пользователь",
-            OrganizationId = "1",
+            OrganizationId = organizationId,
             Role = role,
             DateBegin = dateBegin
         };

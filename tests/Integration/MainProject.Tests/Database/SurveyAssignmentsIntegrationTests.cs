@@ -59,8 +59,25 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public' AND table_name = 'theme_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("030", versions);
+        Assert.Contains("031", versions);
+        var userOrganizationIsNullable = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'app_user'
+              AND column_name = 'id_organization';
+            """);
+        var userOrganizationDeleteAction = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT delete_rule
+            FROM information_schema.referential_constraints
+            WHERE constraint_schema = 'public'
+              AND constraint_name = 'app_user_id_organization_fkey';
+            """);
         Assert.Contains("background_image", themeColumns);
+        Assert.Equal("NO", userOrganizationIsNullable);
+        Assert.Equal("RESTRICT", userOrganizationDeleteAction);
         Assert.DoesNotContain("gradient_enabled", themeColumns);
         Assert.DoesNotContain("background_image_data_url", themeColumns);
         Assert.DoesNotContain("soft_lighten_percent", themeColumns);

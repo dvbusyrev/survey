@@ -13,7 +13,8 @@
   /*text-align: right;*/
 }
 
-.app-field-group:has(:required) > label::after {
+.app-field-group:has(:required) > label::after,
+.app-field-group:has([aria-required="true"]) > label::after {
   content: " *";
 }
 

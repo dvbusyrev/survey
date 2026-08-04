@@ -42,3 +42,4 @@ COMMIT;
 \ir 028_remove_legacy_theme_columns.sql
 \ir 029_redesign_auto_creation_reporting_period.sql
 \ir 030_reconcile_schema_consistency.sql
+\ir 031_require_user_organization.sql

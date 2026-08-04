@@ -71,6 +71,9 @@
             }
         });
         getElementByRole('criteria-step')?.classList.remove('confirmed-criteria');
+        const organizationField = getElementByRole('selected-organizations-container');
+        organizationField?.setAttribute('aria-invalid', 'false');
+        organizationField?.classList.remove('invalid');
         criteria.replace(['']);
         organizations.updateDisplay();
         organizations.close();
@@ -129,8 +132,15 @@
             isValid = false;
         }
         if (organizations.getSelected().length === 0) {
+            const organizationField = getElementByRole('selected-organizations-container');
+            organizationField?.setAttribute('aria-invalid', 'true');
+            organizationField?.classList.add('invalid');
             showError('Ошибка', 'Выберите хотя бы одну организацию.');
             isValid = false;
+        } else {
+            const organizationField = getElementByRole('selected-organizations-container');
+            organizationField?.setAttribute('aria-invalid', 'false');
+            organizationField?.classList.remove('invalid');
         }
         return criteria.validate() && isValid;
     }
