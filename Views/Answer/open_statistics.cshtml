@@ -1,0 +1,81 @@
+@using System.Security.Claims
+@using MainProject.Infrastructure.Security
+@{
+    ViewData["Title"] = "Статистика ответов";
+    ViewData["RendersAppChrome"] = true;
+    var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var userId = int.TryParse(userIdClaim, out var parsedUserId) ? parsedUserId : 0;
+    var organizationName = User.FindFirst("organization_name")?.Value ?? string.Empty;
+    var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
+    var displayName = !string.IsNullOrWhiteSpace(organizationName) && !string.IsNullOrWhiteSpace(userName)
+        ? $"{organizationName}: {userName}"
+        : (!string.IsNullOrWhiteSpace(userName) ? userName : AppRoles.GetDisplayName(userRole));
+}
+
+@section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
+}
+
+@section Head {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+}
+
+<div id="chrome-context"
+     data-user-role="@userRole"
+     data-user-id="@userId"
+     data-display-name="@displayName"
+     data-user-name="@userName"
+     data-organization-name="@organizationName"
+     hidden></div>
+
+<div class="page-container">
+    <div id="chrome-header"></div>
+    <div class="admin-container">
+        <div id="chrome-navigation"></div>
+        <div id="content_admin">
+            <div class="app-page answers-page__statistics" id="default_content" data-page="answers-statistics">
+                @await Html.PartialAsync(
+                    "~/Views/Shared/_PageIntro.cshtml",
+                    new MainProject.Web.ViewModels.PageIntroModel
+                    {
+                        Title = "Статистика ответов",
+                        Description = "Аналитика средних оценок по годам, кварталам и организациям."
+                    })
+
+                <section class="app-section app-page__section">
+                    <div class="answers-page__statistics-grid">
+                        <div class="answers-page__statistics-card">
+                            <h3 class="answers-page__statistics-title">По годам</h3>
+                            <div class="answers-page__statistics-wrapper">
+                                <canvas id="lineChart"></canvas>
+                                <div class="answers-page__statistics-loading" id="lineLoading"></div>
+                            </div>
+                        </div>
+
+                        <div class="answers-page__statistics-card">
+                            <h3 class="answers-page__statistics-title">По кварталам</h3>
+                            <div class="answers-page__statistics-wrapper">
+                                <canvas id="barChart"></canvas>
+                                <div class="answers-page__statistics-loading" id="barLoading"></div>
+                            </div>
+                        </div>
+
+                        <div class="answers-page__statistics-card answers-page__statistics-card--wide">
+                            <h3 class="answers-page__statistics-title">По организациям</h3>
+                            <div class="answers-page__statistics-wrapper">
+                                <canvas id="radarChart"></canvas>
+                                <div class="answers-page__statistics-loading" id="radarLoading"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+    <div id="chrome-footer"></div>
+</div>
+
+@section Scripts {
+    <script src="~/js/features/answers/answer-statistics-page.js" asp-append-version="true"></script>
+}

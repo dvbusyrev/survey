@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const isWatchMode = process.argv.includes('--watch');
 const currentFile = fileURLToPath(import.meta.url);
 const rootDir = path.resolve(path.dirname(currentFile), '..');
-const outdir = path.join(rootDir, 'Web/wwwroot/js/dist');
+const outdir = path.join(rootDir, 'wwwroot/js/dist');
 
 const buildOptions = {
   absWorkingDir: rootDir,
@@ -16,10 +16,10 @@ const buildOptions = {
     'process.env.NODE_ENV': '"production"'
   },
   entryPoints: {
-    'auth-page': 'Web/wwwroot/js/entries/auth-page.js',
-    'check-answers-app': 'Web/wwwroot/js/entries/check-answers-app.js',
-    'survey-fill-app': 'Web/wwwroot/js/entries/survey-fill-app.js',
-    'survey-user-app': 'Web/wwwroot/js/entries/survey-user-app.js'
+    'auth-page': 'wwwroot/js/entries/auth-page.js',
+    'check-answers-app': 'wwwroot/js/entries/check-answers-app.js',
+    'survey-fill-app': 'wwwroot/js/entries/survey-fill-app.js',
+    'survey-user-app': 'wwwroot/js/entries/survey-user-app.js'
   },
   format: 'iife',
   loader: {

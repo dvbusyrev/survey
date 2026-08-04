@@ -1,0 +1,57 @@
+@model MainProject.Web.ViewModels.UserSurveyPageContentViewModel
+@using System.Text.Json
+
+@{
+    var pageModel = Model ?? new MainProject.Web.ViewModels.UserSurveyPageContentViewModel();
+    var surveysJson = JsonSerializer.Serialize(pageModel.Surveys);
+    var paginationModel = pageModel.Pagination;
+    ViewData["ClientSurveySection"] = pageModel.IsArchive ? "archived" : "active";
+    ViewData["ClientSurveyActiveCount"] = pageModel.ActiveCount;
+}
+
+<div class="client-surveys-page__content"
+     data-role="survey-user-content"
+     data-active-tab="@pageModel.ActiveTab"
+     data-current-page="@pageModel.CurrentPage"
+     data-total-pages="@pageModel.TotalPages"
+     data-total-count="@(pageModel.IsArchive ? pageModel.ArchivedCount : pageModel.ActiveCount)"
+     data-active-count="@pageModel.ActiveCount"
+     data-is-archive="@(pageModel.IsArchive ? "true" : "false")"
+     data-search-term="@pageModel.SearchTerm"
+     data-signed-only="@(pageModel.SignedOnly ? "true" : "false")">
+    @await Html.PartialAsync("~/Views/Survey/Partials/_ClientSurveySubnav.cshtml")
+
+    <header class="app-page__intro">
+        <p class="app-page__description" data-role="subtitle">@pageModel.Description</p>
+    </header>
+
+    @if (pageModel.IsArchive)
+    {
+        <div class="app-page__toolbar survey-list-toolbar client-surveys-page__filter-toolbar">
+            @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyDateFilter.cshtml")
+            @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyNameFilter.cshtml")
+        </div>
+
+        <script type="application/json" data-role="server-filter-bootstrap">
+            @Html.Raw(JsonSerializer.Serialize(pageModel.FilterState))
+        </script>
+    }
+
+    <section class="app-section app-page__section u-hidden" data-role="loading">
+        <div class="loading" aria-hidden="true"></div>
+    </section>
+
+    <div data-role="table-section">
+        @await Html.PartialAsync(
+            "~/Views/Survey/Partials/_UserSurveyTable.cshtml",
+            new MainProject.Web.ViewModels.UserSurveyTableViewModel
+            {
+                Surveys = pageModel.Surveys,
+                IsArchive = pageModel.IsArchive
+            })
+    </div>
+
+    @await Html.PartialAsync("~/Views/Shared/_AppPagination.cshtml", paginationModel)
+
+    <script type="application/json" data-role="survey-user-items">@Html.Raw(surveysJson)</script>
+</div>

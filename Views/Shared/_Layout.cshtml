@@ -1,0 +1,204 @@
+@using System.Text.Json
+@using MainProject.Infrastructure.Security
+@inject MainProject.Application.UseCases.UserChromeContextService UserChromeContextService
+@inject MainProject.Application.UseCases.Admin.ThemeSettingsService ThemeSettingsService
+<!DOCTYPE html>
+<html lang="ru-RU">
+<head>
+    @{
+        var layoutThemeSettings = await ThemeSettingsService.GetAsync();
+        var layoutThemeJson = JsonSerializer.Serialize(layoutThemeSettings);
+        var inlineBackgroundImage = string.IsNullOrWhiteSpace(layoutThemeSettings.BackgroundImageDataUrl)
+            ? "none"
+        : $"url('{layoutThemeSettings.BackgroundImageDataUrl.Replace("'", "\\'")}')";
+        var inlineImageOpacity = (Math.Clamp(layoutThemeSettings.BackgroundImageOpacity, 0, 100) / 100d)
+            .ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
+    <title>Анкетирование</title>
+    @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+    @RenderSection("PageStyles", required: false)
+    <link rel="stylesheet" href="~/css/shared/app-theme.css" asp-append-version="true" />
+    <style id="app-theme-inline">
+        :root {
+            --app-theme-font-color: @layoutThemeSettings.FontColor;
+            --app-theme-background-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-background-start-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-background-end-color: @layoutThemeSettings.BackgroundColor;
+            --app-theme-gradient-opacity: 0;
+            --app-theme-background-image: @Html.Raw(inlineBackgroundImage);
+            --app-theme-background-image-opacity: @inlineImageOpacity;
+        }
+
+        body,
+        .page-container,
+        .admin-container,
+        .content-wrapper {
+            background: transparent !important;
+        }
+
+        #app-theme-background {
+            background: @layoutThemeSettings.BackgroundColor !important;
+        }
+
+        #app-theme-background::before {
+            background: none !important;
+            opacity: 0 !important;
+        }
+    </style>
+    <script id="app-theme-config" type="application/json">@Html.Raw(layoutThemeJson)</script>
+    <script src="~/js/core/app-theme.js" asp-append-version="true"></script>
+    @RenderSection("Head", required: false)
+</head>
+    <body class="@(ViewData["BodyClass"] as string ?? string.Empty)">
+    <div id="app-theme-background" aria-hidden="true"></div>
+    <div id="app-theme-effects-root" aria-hidden="true"></div>
+    @{
+        var isAuthenticated = User?.Identity?.IsAuthenticated == true;
+        var chromeContext = isAuthenticated
+            ? await UserChromeContextService.GetCurrentContextAsync()
+            : new MainProject.Application.DTO.UserChromeContext();
+        var layoutUserRole = chromeContext.UserRole;
+        var layoutUserId = chromeContext.UserId;
+        var layoutOrganizationName = chromeContext.OrganizationName;
+        var layoutUserName = chromeContext.UserName;
+        var layoutDisplayName = chromeContext.DisplayName;
+        var rendersOwnAppChrome = ViewData["RendersAppChrome"] is true;
+    }
+    <div id="global-antiforgery-token" hidden aria-hidden="true">
+        @Html.AntiForgeryToken()
+    </div>
+    @if (isAuthenticated)
+    {
+        <div id="layout-chrome-context"
+             data-user-role="@layoutUserRole"
+             data-user-id="@layoutUserId"
+             data-display-name="@layoutDisplayName"
+             data-user-name="@layoutUserName"
+             data-organization-name="@layoutOrganizationName"
+             hidden></div>
+        @await Html.PartialAsync("~/Views/Shared/_NavigationTemplates.cshtml")
+        @await Html.PartialAsync("~/Views/Shared/_AppChromeScripts.cshtml")
+    }
+    @if (isAuthenticated && !rendersOwnAppChrome)
+    {
+        <div class="page-container">
+            <div id="chrome-header"></div>
+            <div class="admin-container @(layoutUserRole == AppRoles.Admin ? string.Empty : "app-client-container")">
+                @if (layoutUserRole == AppRoles.Admin)
+                {
+                    <div id="chrome-navigation"></div>
+                }
+                <div id="content_admin">
+                    @RenderBody()
+                </div>
+            </div>
+            <div id="chrome-footer"></div>
+        </div>
+    }
+    else
+    {
+        @RenderBody()
+    }
+    <script src="~/js/core/antiforgery.js" asp-append-version="true"></script>
+    @if (isAuthenticated)
+    {
+        <script>
+            (function () {
+                const contentNode = document.getElementById('default_content');
+                const headerHost = document.getElementById('chrome-header');
+                const navHost = document.getElementById('chrome-navigation');
+                const footerHost = document.getElementById('chrome-footer');
+                if (!contentNode || !headerHost || !footerHost || typeof window.mountHeader !== 'function' || typeof window.mountFooter !== 'function') {
+                    return;
+                }
+
+                const getActiveTab = function () {
+                    const path = window.location.pathname.toLowerCase();
+                    const pageAlias = (contentNode.dataset.page || '').toLowerCase();
+                    const routeMap = [
+                        ['/statistics', 'open_statistics'],
+                        ['/survey/answer', 'list_answers_users'],
+                        ['/surveys/answers', 'list_answers_users'],
+                        ['/survey/create', 'add_survey'],
+                        ['/surveys/create', 'add_survey'],
+                        ['/survey/archive', 'archived_surveys'],
+                        ['/surveys/archive', 'archived_surveys'],
+                        ['/survey', 'get_surveys'],
+                        ['/surveys', 'get_surveys'],
+                        ['/users/archive', 'archived_users'],
+                        ['/users', 'get_users'],
+                        ['/organizations/survey', 'organization_surveys'],
+                        ['/organizations/surveys', 'organization_surveys'],
+                        ['/organizations/archive', 'archive_list_organizations'],
+                        ['/organizations', 'get_organization'],
+                        ['/reports', 'reports'],
+                        ['/settings/survey-creation', 'survey_auto_creation'],
+                        ['/survey-auto-creation', 'survey_auto_creation'],
+                        ['/settings/theme', 'theme_settings'],
+                        ['/theme/configuration', 'theme_settings'],
+                        ['/theme-settings', 'theme_settings'],
+                        ['/settings/email', 'email_settings'],
+                        ['/mail/configuration', 'email_settings'],
+                        ['/mail-settings', 'email_settings'],
+                        ['/email', 'email_new'],
+                        ['/mail', 'email_new'],
+                        ['/logs', 'get_logs'],
+                        ['/event-log', 'get_logs'],
+                        ['/help', 'help']
+                    ];
+
+                    for (const pair of routeMap) {
+                        if (path.startsWith(pair[0])) {
+                            return pair[1];
+                        }
+                    }
+
+                    const pageMap = {
+                        'users-list': 'get_users',
+                        'users-archive': 'archived_users',
+                        'answers-list': 'list_answers_users',
+                        'survey-add': 'add_survey',
+                        'surveys-list': 'get_surveys',
+                        'surveys-archive': 'archived_surveys',
+                        'organization-list': 'get_organization',
+                        'organization-surveys': 'organization_surveys',
+                        'reports': 'reports',
+                        'survey-auto-creation': 'survey_auto_creation',
+                        'theme-settings-page': 'theme_settings',
+                        'mail-compose': 'email_new',
+                        'mail-settings-page': 'email_settings',
+                        'help-page': 'help'
+                    };
+
+                    return pageMap[pageAlias] || 'get_surveys';
+                };
+
+                const contextNode = document.getElementById('layout-chrome-context');
+                const userRole = (contextNode && contextNode.dataset.userRole) || '';
+                const userId = Number((contextNode && contextNode.dataset.userId) || 0);
+                const displayName = (contextNode && contextNode.dataset.displayName) || '';
+                const userName = (contextNode && contextNode.dataset.userName) || '';
+                const organizationName = (contextNode && contextNode.dataset.organizationName) || '';
+                const isAdmin = String(userRole || '').trim().toLowerCase() === 'admin';
+
+                window.mountHeader(headerHost, { userRole, userId, displayName, userName, organizationName });
+                if (isAdmin && navHost && typeof window.mountNavigation === 'function') {
+                    window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole });
+                }
+                window.mountFooter(footerHost);
+                if (typeof window.reapplyCurrentThemeSettings === 'function') {
+                    window.reapplyCurrentThemeSettings();
+                }
+            })();
+        </script>
+    }
+    @if (isAuthenticated && layoutUserRole == AppRoles.Admin)
+    {
+        @await Html.PartialAsync("~/Views/Shared/_AdminAppTemplates.cshtml")
+    }
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

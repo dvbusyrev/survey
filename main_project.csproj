@@ -30,7 +30,7 @@
     <Content Remove="tests/**/*" />
   </ItemGroup>
 
-  <!-- Frontend bundles are committed to Web/wwwroot/js/dist, so Node is only needed when regenerating them. -->
+  <!-- Frontend bundles are committed to wwwroot/js/dist, so Node is only needed when regenerating them. -->
   <Target Name="BuildFrontendAssets" BeforeTargets="Build;Publish" Condition="'$(RunFrontendBuild)' == 'true' and Exists('$(MSBuildProjectDirectory)/package.json') and Exists('$(MSBuildProjectDirectory)/node_modules')">
     <Message Text="Building frontend assets with npm..." Importance="high" />
     <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)" />

@@ -26,7 +26,6 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
-    WebRootPath = "Web/wwwroot",
     EnvironmentName = ResolveEnvironmentName()
 });
 
@@ -65,13 +64,6 @@ if (builder.Environment.IsDevelopment())
 builder.Services.AddControllersWithViews(options =>
 {
     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
-})
-.AddRazorOptions(options =>
-{
-    options.ViewLocationFormats.Clear();
-    options.ViewLocationFormats.Add("/Web/Views/{1}/{0}.cshtml");
-    options.ViewLocationFormats.Add("/Web/Views/Shared/{0}.cshtml");
-    options.ViewLocationFormats.Add("/Web/Views/{0}.cshtml");
 });
 builder.Services.AddAntiforgery(options =>
 {
