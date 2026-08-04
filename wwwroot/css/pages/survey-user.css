@@ -218,6 +218,10 @@
     padding: 0;
 }
 
+.user-survey-modal .answers-table {
+    margin-bottom: 0;
+}
+
 .user-survey-modal [data-role="body-actions"] {
     display: none;
 }
