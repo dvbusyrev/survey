@@ -172,7 +172,7 @@
             const selected = state.getSelected();
             if (selected.length === 0) {
                 const empty = window.AppUi.createElement('p', {
-                    className: 'survey-editor-page__empty-selection',
+                    className: 'app-field-placeholder survey-editor-page__empty-selection',
                     text: 'Организации не выбраны'
                 });
                 list.appendChild(empty);

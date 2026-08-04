@@ -296,6 +296,7 @@
 
         if (values.length === 0) {
             field.textContent = 'Организации не выбраны';
+            field.classList.add('app-field-placeholder');
         } else {
             values.forEach((name) => {
                 field.appendChild(window.AppUi.createElement('span', {

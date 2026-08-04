@@ -219,7 +219,7 @@
 
                     if (selectedOrganizations.length === 0) {
                         organizationSelection.appendChild(window.AppUi.createElement('p', {
-                            className: 'survey-editor-page__empty-selection',
+                            className: 'app-field-placeholder survey-editor-page__empty-selection',
                             text: 'Организации не выбраны'
                         }));
                     } else {

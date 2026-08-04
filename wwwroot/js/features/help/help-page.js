@@ -52,6 +52,7 @@
             const displayField = document.querySelector(`[data-help-display="${instructionType}"]`);
             if (displayField && payload.displayText) {
                 displayField.value = payload.displayText;
+                displayField.classList.remove('app-field-placeholder');
             }
 
             showHelpMessage(payload.message || 'Файл успешно загружен', 'success');

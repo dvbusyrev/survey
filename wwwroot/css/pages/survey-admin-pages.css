@@ -364,8 +364,6 @@
 
 .survey-editor-page__empty-selection {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
   font-weight: 400;
   line-height: 1.35;
 }

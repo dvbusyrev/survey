@@ -44,7 +44,7 @@
                     <div class="app-field-with-icon">
                         <div class="icon-container field-icon-container"><i class="fas fa-building"></i></div>
                         <select id="userOrganization" class="app-field" required>
-                            <option value="">Выберите организацию</option>
+                            <option value="" selected disabled>Выберите организацию</option>
                             @foreach (var org in organizations)
                             {
                                 <option value="@org.Id">@org.Name</option>
@@ -54,7 +54,8 @@
                 </div>
                 <div class="app-field-group">
                     <label for="userRole">Роль</label>
-                    <select id="userRole" class="app-field">
+                    <select id="userRole" class="app-field" required>
+                        <option value="" selected disabled>Выберите роль</option>
                         <option value="user">Клиент</option>
                         <option value="admin">Администратор</option>
                     </select>
@@ -117,6 +118,7 @@
                     <div class="app-field-with-icon">
                         <div class="icon-container field-icon-container"><i class="fas fa-building"></i></div>
                         <select id="editUserOrganization" class="app-field" required>
+                            <option value="" disabled>Выберите организацию</option>
                             @foreach (var org in organizations)
                             {
                                 <option value="@org.Id">@org.Name</option>
@@ -126,7 +128,8 @@
                 </div>
                 <div class="app-field-group">
                     <label for="editUserRole">Роль</label>
-                    <select id="editUserRole" class="app-field">
+                    <select id="editUserRole" class="app-field" required>
+                        <option value="" disabled>Выберите роль</option>
                         <option value="user">Клиент</option>
                         <option value="admin">Администратор</option>
                     </select>

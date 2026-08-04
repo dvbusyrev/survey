@@ -204,7 +204,7 @@
 
         if (state.selectedSurveys.length === 0) {
             const empty = window.AppUi.createElement('p', {
-                className: 'survey-auto-creation-page__empty-selection',
+                className: 'app-field-placeholder survey-auto-creation-page__empty-selection',
                 text: 'Анкеты не выбраны'
             });
             host.appendChild(empty);

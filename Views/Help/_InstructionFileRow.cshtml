@@ -8,7 +8,7 @@
     <label class="help-page__instruction-label" for="@inputId">@Model.Title</label>
     <div class="help-page__instruction-row">
         <input type="text"
-               class="app-field help-page__file-field"
+               class="app-field help-page__file-field @(!Model.HasFile ? "app-field-placeholder" : null)"
                id="@inputId"
                data-help-display="@Model.Type"
                value="@Model.DisplayText"
