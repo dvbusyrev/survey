@@ -26,13 +26,13 @@ public partial class SurveyService
         if (!IsValidBusinessDayPeriod(request.ReportingOffsetBusinessDays))
         {
             return InvalidAutoCreationRequest(
-                "Поле «Срок подготвки отчёта» должно быть положительным целым числом.");
+                "Поле «Срок подготовки отчёта» должно быть положительным целым числом.");
         }
 
         if (!IsValidBusinessDayPeriod(request.ActivePeriodBusinessDays))
         {
             return InvalidAutoCreationRequest(
-                "Поле «Срок доступности анкеты» должно быть положительным целым числом.");
+                "Поле «Срок доступности анкет» должно быть положительным целым числом.");
         }
 
         var surveyIds = (request.SurveyIds ?? [])
