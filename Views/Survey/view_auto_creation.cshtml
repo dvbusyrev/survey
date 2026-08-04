@@ -136,30 +136,31 @@
                         </div>
                     </div>
 
-                    <div class="survey-auto-creation-page__actions">
-                        <button type="button"
-                                class="app-button app-button--secondary survey-auto-creation-page__action-btn"
-                                data-click-call="saveSurveyAutoCreationSettings">
-                            Сохранить
-                        </button>
-                        @if (Model?.IsEnabled == true)
-                        {
-                            <button type="button"
-                                    class="btn app-button app-button--primary survey-auto-creation-page__action-btn"
-                                    data-click-call="stopSurveyAutoCreation">
-                                Остановить
-                            </button>
-                        }
-                        else
-                        {
-                            <button type="button"
-                                    class="btn app-button app-button--primary survey-auto-creation-page__action-btn"
-                                    data-click-call="startSurveyAutoCreation">
-                                Запустить
-                            </button>
-                        }
-                    </div>
                 </section>
+
+                <div class="app-form-actions survey-auto-creation-page__actions">
+                    <button type="button"
+                            class="app-button app-button--secondary"
+                            data-click-call="saveSurveyAutoCreationSettings">
+                        Сохранить
+                    </button>
+                    @if (Model?.IsEnabled == true)
+                    {
+                        <button type="button"
+                                class="app-button app-button--primary"
+                                data-click-call="stopSurveyAutoCreation">
+                            Остановить
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button"
+                                class="app-button app-button--primary"
+                                data-click-call="startSurveyAutoCreation">
+                            Запустить
+                        </button>
+                    }
+                </div>
             </div>
         </div>
     </div>

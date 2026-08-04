@@ -234,10 +234,6 @@
   width: min(22rem, 100%);
 }
 
-.theme-settings-page__actions {
-  justify-content: center;
-}
-
 .theme-settings-page__preview-list {
   display: grid;
   gap: var(--app-gap-xl);

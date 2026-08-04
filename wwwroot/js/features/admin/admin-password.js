@@ -89,6 +89,10 @@
     }
 
     function addPasswordEye(input) {
+        if (window.AppPassword?.mountField) {
+            return window.AppPassword.mountField(input);
+        }
+
         if (!input || input.dataset.eyeApplied === 'true') return;
         const inlineToggle = input
             .closest('.app-field-with-icon.has-toggle')
@@ -135,7 +139,7 @@
 
     function initUserModalPasswordEyes() {
         const passwordFields = document.querySelectorAll(
-            '#addUserModal input[data-password-field="true"], #editUserModal input[data-password-field="true"], input[name="password"][data-password-field="true"], #addUserModal input[type="password"], #editUserModal input[type="password"], input[name="password"]'
+            'input[data-password-field="true"], #addUserModal input[type="password"], #editUserModal input[type="password"], input[name="password"]'
         );
         passwordFields.forEach(addPasswordEye);
     }

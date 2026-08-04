@@ -6,6 +6,30 @@
   margin-bottom: var(--app-field-group-margin-bottom, var(--app-gap-lg));
 }
 
+.app-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--app-modal-field-gap, var(--app-gap-lg));
+}
+
+.app-form > .app-field-group {
+  margin-bottom: 0;
+}
+
+.app-form > .app-field-group > label {
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.app-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--app-button-container-gap);
+  margin-top: var(--app-gap-xl, 1.5rem);
+}
+
 .app-field-group > label {
   margin: 0;
   color: var(--text-main);
@@ -143,6 +167,11 @@ textarea.app-field {
 }
 
 .app-field.invalid {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.18);
+}
+
+.app-field-with-icon:has(.app-field.invalid) {
   border-color: #dc3545;
   box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.18);
 }

@@ -58,6 +58,11 @@
         savedSettings: null
     };
 
+    function initializeEmailPasswordToggle() {
+        const input = getEmailField('email-smtp-password');
+        window.AppPassword?.mountField(input);
+    }
+
     function isMessagePage() {
         return document.querySelector('[data-page="mail-compose"]') !== null;
     }
@@ -161,22 +166,32 @@
             setEmailInvalidState('email-smtp-host', true);
         }
 
+        if (!settings.smtpUserName) {
+            errors.push('Поле «Логин SMTP» обязательно');
+            setEmailInvalidState('email-smtp-user-name', true);
+        }
+
+        if (!settings.smtpPassword) {
+            errors.push('Поле «Пароль SMTP» обязательно');
+            setEmailInvalidState('email-smtp-password', true);
+        }
+
         if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
             errors.push('Поле «Порт SMTP» должно быть числом от 1 до 65535');
             setEmailInvalidState('email-smtp-port', true);
         }
 
-        if (!isValidEmailAddress(settings.fromAddress)) {
+        if (!settings.fromAddress) {
+            errors.push('Поле «Эл. почта отправителя» обязательно');
+            setEmailInvalidState('email-from-address', true);
+        } else if (!isValidEmailAddress(settings.fromAddress)) {
             errors.push('Поле «Эл. почта отправителя» заполнено некорректно');
             setEmailInvalidState('email-from-address', true);
         }
 
-        const hasUserName = Boolean(settings.smtpUserName);
-        const hasPassword = Boolean(settings.smtpPassword);
-        if (hasUserName !== hasPassword) {
-            errors.push('Логин SMTP и пароль SMTP должны быть заполнены вместе');
-            setEmailInvalidState('email-smtp-user-name', true);
-            setEmailInvalidState('email-smtp-password', true);
+        if (!settings.fromDisplayName) {
+            errors.push('Поле «Имя отправителя» обязательно');
+            setEmailInvalidState('email-from-display-name', true);
         }
 
         return errors;
@@ -356,6 +371,7 @@
 
     window.initEmailSettingsPage = function initEmailSettingsPage() {
         emailSettingsPageState.savedSettings = collectCurrentPagePayload();
+        initializeEmailPasswordToggle();
         bindEmailAction('email-reset-button', resetEmailSettings);
         bindEmailAction('email-save-button', window.saveEmailSettings);
         bindEmailAction('email-send-button', window.sendEmailMessage);

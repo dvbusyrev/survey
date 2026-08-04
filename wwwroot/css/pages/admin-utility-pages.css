@@ -8,8 +8,6 @@
 .help-page__actions,
 .email-settings-page__actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--app-button-container-gap);
 }
 
 .help-page__actions {
@@ -127,11 +125,6 @@
   }
 }
 
-.email-settings-page__form {
-  display: grid;
-  gap: 18px;
-}
-
 .email-settings-page__notice {
   margin-bottom: 20px;
   color: var(--text-secondary);
@@ -162,20 +155,12 @@
   line-height: 1.2;
 }
 
-.email-settings-page__form-group {
-}
-
 .email-settings-page__form-group--textarea {
   align-items: start;
 }
 
 .email-settings-page__form-group--textarea textarea {
   min-height: 220px;
-}
-
-.email-settings-page__actions {
-  margin-top: 24px;
-  justify-content: center;
 }
 
 .reports-page__grid {
@@ -351,18 +336,6 @@ text-align: center;
   overflow-y: visible;
 }
 
-.survey-auto-creation-page__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--app-button-container-gap);
-}
-
-.survey-auto-creation-page__action-btn {
-  width: auto;
-  max-width: 100%;
-}
-
 @media (max-width: 900px) {
 .reports-page__grid {
 grid-template-columns: minmax(0, 1fr);
@@ -376,13 +349,6 @@ grid-template-columns: minmax(0, 1fr);
 grid-template-columns: minmax(0, 1fr);
 }
 
-.survey-auto-creation-page__actions {
-  flex-direction: column;
-}
-
-.survey-auto-creation-page__action-btn {
-  width: auto;
-}
 }
 
 @media (max-width: 640px) {

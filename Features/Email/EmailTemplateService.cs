@@ -233,16 +233,28 @@ public sealed class EmailTemplateService
             errors.Add("Поле \"Порт SMTP\" должно быть числом от 1 до 65535");
         }
 
-        if (!EmailAddressParser.IsValid(normalized.FromAddress))
+        if (string.IsNullOrWhiteSpace(normalized.FromAddress))
+        {
+            errors.Add("Поле \"Эл. почта отправителя\" обязательно");
+        }
+        else if (!EmailAddressParser.IsValid(normalized.FromAddress))
         {
             errors.Add("Поле \"Эл. почта отправителя\" заполнено некорректно");
         }
 
-        var hasUserName = !string.IsNullOrWhiteSpace(normalized.SmtpUserName);
-        var hasPassword = !string.IsNullOrWhiteSpace(normalized.SmtpPassword);
-        if (hasUserName != hasPassword)
+        if (string.IsNullOrWhiteSpace(normalized.SmtpUserName))
         {
-            errors.Add("Логин SMTP и пароль SMTP должны быть заполнены вместе");
+            errors.Add("Поле \"Логин SMTP\" обязательно");
+        }
+
+        if (string.IsNullOrWhiteSpace(normalized.SmtpPassword))
+        {
+            errors.Add("Поле \"Пароль SMTP\" обязательно");
+        }
+
+        if (string.IsNullOrWhiteSpace(normalized.FromDisplayName))
+        {
+            errors.Add("Поле \"Имя отправителя\" обязательно");
         }
 
         ThrowIfInvalid(errors);
