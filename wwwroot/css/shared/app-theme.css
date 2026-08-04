@@ -51,6 +51,7 @@
   --app-field-padding: 0.75rem 0.9rem;
   --app-field-font-size: 0.95rem;
   --app-field-line-height: 1.4;
+  --app-field-placeholder-opacity: 45%;
   --app-field-label-gap: var(--app-gap-sm);
   --app-field-top-offset: var(--app-field-label-gap);
   --app-field-radius: 0.5rem;

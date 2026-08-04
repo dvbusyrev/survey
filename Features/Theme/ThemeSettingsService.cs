@@ -229,7 +229,7 @@ public class ThemeSettingsService
 
         if (normalized.BackgroundImageOpacity < 0 || normalized.BackgroundImageOpacity > 100)
         {
-            errors.Add("Прозрачность фонового изображения должна быть от 0 до 100.");
+            errors.Add("Непрозрачность фонового изображения должна быть от 0 до 100.");
         }
 
         ValidatePercent(normalized.HeaderDarkenPercent, "Яркость шапки", errors);

@@ -49,7 +49,7 @@
     const THEME_IMAGE_FIELDS = {
         dataUrl: { id: 'theme-background-image-data-url', property: 'backgroundImageDataUrl' },
         fileName: { id: 'theme-background-image-file-name', property: 'backgroundImageFileName' },
-        opacity: { id: 'theme-background-image-opacity', property: 'backgroundImageOpacity', defaultValue: 35, label: 'Прозрачность изображения' }
+        opacity: { id: 'theme-background-image-opacity', property: 'backgroundImageOpacity', defaultValue: 35, label: 'Непрозрачность изображения' }
     };
 
     const THEME_ALLOWED_IMAGE_PREFIXES = ['data:image/png;base64,', 'data:image/jpeg;base64,', 'data:image/jpg;base64,', 'data:image/webp;base64,'];
@@ -240,7 +240,7 @@
 
         if (selectedEffects.length === 0) {
             summary.replaceChildren(window.AppUi.createElement('span', {
-                className: 'theme-settings-page__empty-selection',
+                className: 'app-field-placeholder theme-settings-page__empty-selection',
                 text: 'Эффекты не выбраны'
             }));
             return;
@@ -262,9 +262,10 @@
         }
 
         const fileName = readThemeValue(THEME_IMAGE_FIELDS.fileName.id);
-        nameField.value = fileName
-            || getDefaultThemeImageFileName(readThemeValue(THEME_IMAGE_FIELDS.dataUrl.id))
-            || 'Изображение не выбрано';
+        const displayName = fileName
+            || getDefaultThemeImageFileName(readThemeValue(THEME_IMAGE_FIELDS.dataUrl.id));
+        nameField.value = displayName || 'Изображение не выбрано';
+        nameField.classList.toggle('app-field-placeholder', !displayName);
     }
 
     function getDefaultThemeImageFileName(dataUrl) {

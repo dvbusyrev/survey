@@ -13,6 +13,10 @@
   /*text-align: right;*/
 }
 
+.app-field-group:has(:required) > label::after {
+  content: " *";
+}
+
 input[type="checkbox"],
 .app-checkbox-input {
   flex: 0 0 auto;
@@ -93,8 +97,13 @@ select.app-field option,
 .app-field-group input[type="number"]::placeholder,
 .app-field-group textarea::placeholder,
 .app-field::placeholder {
-  color: var(--text-light);
+  color: color-mix(in srgb, var(--text-light) var(--app-field-placeholder-opacity), transparent);
   font-size: 0.88rem;
+  opacity: 1;
+}
+
+.app-field-placeholder {
+  color: color-mix(in srgb, var(--text-light) var(--app-field-placeholder-opacity), transparent);
 }
 
 .app-field-group textarea,
