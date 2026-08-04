@@ -30,7 +30,7 @@
                                class="app-field"
                                id="email-smtp-host"
                                value="@settings.SmtpHost"
-                               placeholder="smtp.example.com" />
+                               placeholder="Введите SMTP сервер" />
                     </div>
                     <div class="app-field-group email-settings-page__form-group">
                         <label for="email-smtp-port">Порт SMTP</label>
@@ -39,7 +39,8 @@
                                id="email-smtp-port"
                                min="1"
                                max="65535"
-                               value="@settings.SmtpPort" />
+                               value="@settings.SmtpPort"
+                               placeholder="Введите порт SMTP" />
                     </div>
                     <div class="app-field-group email-settings-page__form-group">
                         <label for="email-smtp-enable-ssl">SSL/TLS</label>
@@ -87,7 +88,7 @@
                                class="app-field"
                                id="email-from-display-name"
                                value="@settings.FromDisplayName"
-                               placeholder="Название компании или отправителя" />
+                               placeholder="Введите имя отправителя" />
                     </div>
                 </div>
             </div>
