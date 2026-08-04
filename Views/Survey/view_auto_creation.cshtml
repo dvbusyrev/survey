@@ -15,7 +15,6 @@
         ? $"{organizationName}: {userName}"
         : (!string.IsNullOrWhiteSpace(userName) ? userName : AppRoles.GetDisplayName(userRole));
     var reportingPeriodOptions = SurveyAutoCreationScheduleHelper.GetReportingPeriodOptions();
-    var businessDayOptions = SurveyAutoCreationScheduleHelper.GetBusinessDayPeriodOptions();
 }
 
 @section PageStyles {
@@ -70,22 +69,28 @@
 
                         <div class="reports-page__field">
                             <label for="surveyAutoCreationReportingOffset">Период на отчётность</label>
-                            <select id="surveyAutoCreationReportingOffset" class="app-field reports-page__quarter-select">
-                                @foreach (var option in businessDayOptions)
-                                {
-                                    <option value="@option.Value" selected="@(Model?.ReportingOffsetBusinessDays == option.Value)">@option.Label</option>
-                                }
-                            </select>
+                            <input id="surveyAutoCreationReportingOffset"
+                                   class="app-field"
+                                   type="text"
+                                   inputmode="numeric"
+                                   pattern="[0-9]*"
+                                   autocomplete="off"
+                                   value="@(Model?.ReportingOffsetBusinessDays ?? 1)"
+                                   placeholder="Введите количество рабочих дней"
+                                   required />
                         </div>
 
                         <div class="reports-page__field">
                             <label for="surveyAutoCreationActivePeriod">Период действия</label>
-                            <select id="surveyAutoCreationActivePeriod" class="app-field reports-page__quarter-select">
-                                @foreach (var option in businessDayOptions)
-                                {
-                                    <option value="@option.Value" selected="@(Model?.ActivePeriodBusinessDays == option.Value)">@option.Label</option>
-                                }
-                            </select>
+                            <input id="surveyAutoCreationActivePeriod"
+                                   class="app-field"
+                                   type="text"
+                                   inputmode="numeric"
+                                   pattern="[0-9]*"
+                                   autocomplete="off"
+                                   value="@(Model?.ActivePeriodBusinessDays ?? 8)"
+                                   placeholder="Введите количество рабочих дней"
+                                   required />
                         </div>
                     </div>
 

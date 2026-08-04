@@ -14,13 +14,20 @@ public sealed class SurveyAutoCreationScheduleHelperTests
     }
 
     [Fact]
-    public void GetBusinessDayPeriodOptions_DoesNotContainZero()
+    public async Task CalculateAsync_ActivePeriodContainsExactlyRequestedBusinessDays()
     {
-        var options = SurveyAutoCreationScheduleHelper.GetBusinessDayPeriodOptions();
+        var result = await SurveyAutoCreationScheduleHelper.CalculateAsync(
+            new DateTime(2026, 8, 10),
+            "month",
+            reportingOffsetBusinessDays: 1,
+            activePeriodBusinessDays: 8,
+            (date, _) => Task.FromResult(IsWeekday(date)));
 
-        Assert.Equal(14, options.Count);
-        Assert.Equal(1, options[0].Value);
-        Assert.Equal(14, options[^1].Value);
+        var businessDayCount = Enumerable.Range(0, (result.EndDate - result.StartDate).Days + 1)
+            .Select(offset => result.StartDate.AddDays(offset))
+            .Count(IsWeekday);
+
+        Assert.Equal(8, businessDayCount);
     }
 
     [Fact]
@@ -35,7 +42,7 @@ public sealed class SurveyAutoCreationScheduleHelperTests
             activePeriodBusinessDays: 2,
             (date, _) => Task.FromResult(IsWeekday(date) && !holidays.Contains(date)));
 
-        Assert.Equal(new DateTime(2026, 5, 25), result.StartDate);
+        Assert.Equal(new DateTime(2026, 5, 26), result.StartDate);
         Assert.Equal(new DateTime(2026, 5, 28), result.EndDate);
     }
 
@@ -49,8 +56,21 @@ public sealed class SurveyAutoCreationScheduleHelperTests
             activePeriodBusinessDays: 3,
             (date, _) => Task.FromResult(IsWeekday(date)));
 
-        Assert.Equal(new DateTime(2026, 4, 27), result.StartDate);
+        Assert.Equal(new DateTime(2026, 4, 28), result.StartDate);
         Assert.Equal(new DateTime(2026, 4, 30), result.EndDate);
+    }
+
+    [Fact]
+    public async Task CalculateAsync_AllowsPeriodsGreaterThanFourteenBusinessDays()
+    {
+        var result = await SurveyAutoCreationScheduleHelper.CalculateAsync(
+            new DateTime(2026, 8, 10),
+            "month",
+            reportingOffsetBusinessDays: 20,
+            activePeriodBusinessDays: 20,
+            (date, _) => Task.FromResult(IsWeekday(date)));
+
+        Assert.True(result.StartDate < result.EndDate);
     }
 
     [Fact]

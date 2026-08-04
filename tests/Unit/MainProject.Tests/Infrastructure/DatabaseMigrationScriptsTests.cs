@@ -33,6 +33,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 028_remove_legacy_theme_columns.sql", script);
         Assert.Contains(@"\ir 029_redesign_auto_creation_reporting_period.sql", script);
         Assert.Contains(@"\ir 030_reconcile_schema_consistency.sql", script);
+        Assert.Contains(@"\ir 031_require_user_organization.sql", script);
+        Assert.Contains(@"\ir 032_allow_arbitrary_auto_creation_periods.sql", script);
     }
 
     [Fact]
@@ -312,6 +314,21 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("DROP COLUMN IF EXISTS id_creation_day CASCADE", script);
         Assert.Contains("DROP COLUMN IF EXISTS id_begin_day CASCADE", script);
         Assert.Contains("VALUES ('029', 'redesign_auto_creation_reporting_period')", script);
+    }
+
+    [Fact]
+    public void AutoCreationArbitraryPeriodsMigration_RemovesUpperLimits()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "032_allow_arbitrary_auto_creation_periods.sql"));
+
+        Assert.Contains("CHECK (working_period >= 1)", script);
+        Assert.Contains("CHECK (reporting_offset_business_days >= 1)", script);
+        Assert.DoesNotContain("BETWEEN 1 AND 14", script);
+        Assert.Contains("VALUES ('032', 'allow_arbitrary_auto_creation_periods')", script);
     }
 
     [Fact]

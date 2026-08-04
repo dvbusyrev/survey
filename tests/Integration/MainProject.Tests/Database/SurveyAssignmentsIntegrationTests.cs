@@ -58,7 +58,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public' AND table_name = 'theme_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("031", versions);
+        Assert.Contains("032", versions);
         var userOrganizationIsNullable = await connection.ExecuteScalarAsync<string>(
             """
             SELECT is_nullable
@@ -722,8 +722,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var result = await autoCreation.SaveAsync(new SurveyAutoCreationSettingsRequest
         {
             ReportingPeriod = "quarter",
-            ReportingOffsetBusinessDays = 4,
-            ActivePeriodBusinessDays = 10,
+            ReportingOffsetBusinessDays = 16,
+            ActivePeriodBusinessDays = 20,
             SurveyIds = [survey.SurveyId!.Value]
         });
 
@@ -743,8 +743,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         Assert.True(result.Success);
         Assert.Equal("quarter", stored.ReportingPeriod);
-        Assert.Equal(4, stored.ReportingOffset);
-        Assert.Equal(10, stored.WorkingPeriod);
+        Assert.Equal(16, stored.ReportingOffset);
+        Assert.Equal(20, stored.WorkingPeriod);
         Assert.False(stored.IsEnabled);
         Assert.Equal(survey.SurveyId, selectedSurveyId);
     }
@@ -795,20 +795,20 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         });
 
         Assert.True(result.Success);
-        Assert.Equal("2026-06-16", result.StartDate);
+        Assert.Equal("2026-06-17", result.StartDate);
         Assert.Equal("2026-06-23", result.EndDate);
         Assert.Collection(
             result.Periods,
             period =>
             {
                 Assert.Equal(6, period.Month);
-                Assert.Equal("2026-06-16", period.StartDate);
+                Assert.Equal("2026-06-17", period.StartDate);
                 Assert.Equal("2026-06-23", period.EndDate);
             },
             period =>
             {
                 Assert.Equal(7, period.Month);
-                Assert.Equal("2026-07-24", period.StartDate);
+                Assert.Equal("2026-07-27", period.StartDate);
                 Assert.Equal("2026-07-31", period.EndDate);
             });
     }
@@ -860,7 +860,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal(organizationIds, copiedAssignments.Select(static row => row.OrganizationId));
         Assert.All(copiedAssignments, row =>
         {
-            Assert.Equal(new DateTime(2026, 4, 23), row.DateBegin);
+            Assert.Equal(new DateTime(2026, 4, 24), row.DateBegin);
             Assert.Equal(new DateTime(2026, 4, 30), row.DateEnd);
         });
         Assert.True(repeatedRun.Processed);

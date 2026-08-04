@@ -43,3 +43,4 @@ COMMIT;
 \ir 029_redesign_auto_creation_reporting_period.sql
 \ir 030_reconcile_schema_consistency.sql
 \ir 031_require_user_organization.sql
+\ir 032_allow_arbitrary_auto_creation_periods.sql

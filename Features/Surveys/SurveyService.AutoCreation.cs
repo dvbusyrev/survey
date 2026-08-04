@@ -72,7 +72,7 @@ public partial class SurveyService
         if (!IsValidBusinessDayPeriod(request.ReportingOffsetBusinessDays)
             || !IsValidBusinessDayPeriod(request.ActivePeriodBusinessDays))
         {
-            return InvalidPreview("Количество рабочих дней должно быть от 1 до 14.");
+            return InvalidPreview("Количество рабочих дней должно быть положительным целым числом.");
         }
 
         if (request.TargetYear is < 2000 or > 2100 || request.TargetMonth is < 1 or > 12)

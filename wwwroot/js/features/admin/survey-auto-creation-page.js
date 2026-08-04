@@ -333,15 +333,31 @@
         state.availableSurveys = cloneSurveys(payload).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
     }
 
+    function normalizeBusinessDayInput(input) {
+        if (!input) {
+            return 0;
+        }
+
+        const digits = String(input.value || '').replace(/\D/g, '');
+        if (!digits) {
+            input.value = '';
+            return 0;
+        }
+
+        const value = Number.parseInt(digits, 10);
+        input.value = String(value);
+        return value;
+    }
+
+    function readBusinessDayInput(selector) {
+        return normalizeBusinessDayInput(getQueryRoot().querySelector(selector));
+    }
+
     function collectRequest() {
         const root = getQueryRoot();
         const reportingPeriod = root.querySelector('#surveyAutoCreationReportingPeriod')?.value || 'month';
-        const reportingOffsetBusinessDays = Number(
-            root.querySelector('#surveyAutoCreationReportingOffset')?.value || 1
-        );
-        const activePeriodBusinessDays = Number(
-            root.querySelector('#surveyAutoCreationActivePeriod')?.value || 8
-        );
+        const reportingOffsetBusinessDays = readBusinessDayInput('#surveyAutoCreationReportingOffset');
+        const activePeriodBusinessDays = readBusinessDayInput('#surveyAutoCreationActivePeriod');
 
         return {
             reportingPeriod,
@@ -529,6 +545,8 @@
         const previousButton = pageRoot.querySelector('[data-role="survey-auto-creation-calendar-previous"]');
         const nextButton = pageRoot.querySelector('[data-role="survey-auto-creation-calendar-next"]');
         const handlePreviewChange = () => void refreshSchedulePreview();
+        const numericInputs = previewInputs.filter((input) => input.matches('[inputmode="numeric"]'));
+        const handleNumericInput = (event) => normalizeBusinessDayInput(event.currentTarget);
         const handlePrevious = () => {
             shiftPreviewMonth(-1);
             renderSchedulePreview();
@@ -541,6 +559,7 @@
         };
 
         previewInputs.forEach((input) => input.addEventListener('change', handlePreviewChange));
+        numericInputs.forEach((input) => input.addEventListener('input', handleNumericInput));
         previousButton?.addEventListener('click', handlePrevious);
         nextButton?.addEventListener('click', handleNext);
         void refreshSchedulePreview();
@@ -550,6 +569,7 @@
             state.previewAbortController?.abort();
             state.previewAbortController = null;
             previewInputs.forEach((input) => input.removeEventListener('change', handlePreviewChange));
+            numericInputs.forEach((input) => input.removeEventListener('input', handleNumericInput));
             previousButton?.removeEventListener('click', handlePrevious);
             nextButton?.removeEventListener('click', handleNext);
             closeSurveyDropdown();

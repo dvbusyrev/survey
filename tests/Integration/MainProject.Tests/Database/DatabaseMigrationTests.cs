@@ -38,6 +38,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 029_redesign_auto_creation_reporting_period.sql", script);
         Assert.Contains(@"\ir 030_reconcile_schema_consistency.sql", script);
         Assert.Contains(@"\ir 031_require_user_organization.sql", script);
+        Assert.Contains(@"\ir 032_allow_arbitrary_auto_creation_periods.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -357,6 +358,21 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("ALTER COLUMN id_organization SET NOT NULL", script);
         Assert.Contains("ON DELETE RESTRICT", script);
         Assert.Contains("VALUES ('031', 'require_user_organization')", script);
+    }
+
+    [Fact]
+    public void AutoCreationArbitraryPeriodsMigration_RemovesUpperLimits()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "032_allow_arbitrary_auto_creation_periods.sql"));
+
+        Assert.Contains("CHECK (working_period >= 1)", script);
+        Assert.Contains("CHECK (reporting_offset_business_days >= 1)", script);
+        Assert.DoesNotContain("BETWEEN 1 AND 14", script);
+        Assert.Contains("VALUES ('032', 'allow_arbitrary_auto_creation_periods')", script);
     }
 
     private static string GetRepositoryRoot()

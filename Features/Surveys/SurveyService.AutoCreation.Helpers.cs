@@ -26,13 +26,13 @@ public partial class SurveyService
         if (!IsValidBusinessDayPeriod(request.ReportingOffsetBusinessDays))
         {
             return InvalidAutoCreationRequest(
-                $"Поле «Период на отчётность» должно быть от 1 до {SurveyAutoCreationScheduleHelper.MaxBusinessDayPeriod} рабочих дней.");
+                "Поле «Период на отчётность» должно быть положительным целым числом.");
         }
 
         if (!IsValidBusinessDayPeriod(request.ActivePeriodBusinessDays))
         {
             return InvalidAutoCreationRequest(
-                $"Поле «Период действия» должно быть от 1 до {SurveyAutoCreationScheduleHelper.MaxBusinessDayPeriod} рабочих дней.");
+                "Поле «Период действия» должно быть положительным целым числом.");
         }
 
         var surveyIds = (request.SurveyIds ?? [])
@@ -101,8 +101,7 @@ public partial class SurveyService
     }
 
     private static bool IsValidBusinessDayPeriod(int value)
-        => value is >= SurveyAutoCreationScheduleHelper.MinBusinessDayPeriod
-            and <= SurveyAutoCreationScheduleHelper.MaxBusinessDayPeriod;
+        => value >= SurveyAutoCreationScheduleHelper.MinBusinessDayPeriod;
 
     private static NormalizeSurveyAutoCreationRequestResult InvalidAutoCreationRequest(string message)
         => new() { ValidationError = message };

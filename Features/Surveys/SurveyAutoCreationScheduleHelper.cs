@@ -3,7 +3,6 @@ namespace MainProject.Application.UseCases.Surveys;
 public static class SurveyAutoCreationScheduleHelper
 {
     public const int MinBusinessDayPeriod = 1;
-    public const int MaxBusinessDayPeriod = 14;
 
     private static readonly (string Value, string Label)[] ReportingPeriodOptions =
     [
@@ -15,22 +14,6 @@ public static class SurveyAutoCreationScheduleHelper
 
     public static IReadOnlyList<(string Value, string Label)> GetReportingPeriodOptions()
         => ReportingPeriodOptions;
-
-    public static IReadOnlyList<(int Value, string Label)> GetBusinessDayPeriodOptions()
-    {
-        var options = new List<(int Value, string Label)>();
-        for (var value = MinBusinessDayPeriod; value <= MaxBusinessDayPeriod; value++)
-        {
-            var suffix = value % 10 == 1 && value % 100 != 11
-                ? "день"
-                : value % 10 is >= 2 and <= 4 && value % 100 is not (>= 12 and <= 14)
-                    ? "дня"
-                    : "дней";
-            options.Add((value, $"{value} раб. {suffix}"));
-        }
-
-        return options;
-    }
 
     public static bool TryNormalizeReportingPeriod(string? value, out string normalized)
     {
@@ -79,7 +62,7 @@ public static class SurveyAutoCreationScheduleHelper
 
         var startDate = await SubtractBusinessDaysAsync(
             endDate,
-            activePeriodBusinessDays,
+            activePeriodBusinessDays - 1,
             isBusinessDayAsync,
             cancellationToken);
 
@@ -88,7 +71,7 @@ public static class SurveyAutoCreationScheduleHelper
 
     private static void ValidateBusinessDayPeriod(int value, string parameterName)
     {
-        if (value is < MinBusinessDayPeriod or > MaxBusinessDayPeriod)
+        if (value < MinBusinessDayPeriod)
         {
             throw new ArgumentOutOfRangeException(parameterName);
         }
