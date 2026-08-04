@@ -58,8 +58,36 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public' AND table_name = 'theme_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("033", versions);
+        Assert.Contains("034", versions);
         Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT to_regclass('public.week_day')::text;"));
+        var auditColumnsWithoutGenerator = (await connection.QueryAsync<string>(
+            """
+            SELECT table_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = ANY(@AuditTables)
+              AND column_name = 'id_audit'
+              AND is_identity = 'NO'
+              AND column_default IS NULL;
+            """,
+            new
+            {
+                AuditTables = new[]
+                {
+                    "answer_l",
+                    "answer_item_l",
+                    "app_user_l",
+                    "auto_creation_config_l",
+                    "email_config_l",
+                    "organization_l",
+                    "organization_survey_l",
+                    "survey_auto_creation_config_l",
+                    "survey_l",
+                    "survey_question_l",
+                    "theme_config_l"
+                }
+            })).ToArray();
+        Assert.Empty(auditColumnsWithoutGenerator);
         var userOrganizationIsNullable = await connection.ExecuteScalarAsync<string>(
             """
             SELECT is_nullable

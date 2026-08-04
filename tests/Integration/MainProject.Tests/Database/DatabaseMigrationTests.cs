@@ -40,6 +40,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 031_require_user_organization.sql", script);
         Assert.Contains(@"\ir 032_allow_arbitrary_auto_creation_periods.sql", script);
         Assert.Contains(@"\ir 033_remove_obsolete_week_day.sql", script);
+        Assert.Contains(@"\ir 034_repair_audit_id_generators.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -388,6 +389,22 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("DROP TABLE IF EXISTS public.week_day", script);
         Assert.DoesNotContain("CASCADE", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("VALUES ('033', 'remove_obsolete_week_day')", script);
+    }
+
+    [Fact]
+    public void AuditIdGeneratorRepairMigration_SupportsLegacyAndCurrentSchemas()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "034_repair_audit_id_generators.sql"));
+
+        Assert.Contains("is_identity = 'YES'", script);
+        Assert.Contains("column_default", script);
+        Assert.Contains("ALTER SEQUENCE public.%I OWNED BY public.%I.id_audit", script);
+        Assert.Contains("ALTER COLUMN id_audit SET DEFAULT", script);
+        Assert.Contains("VALUES ('034', 'repair_audit_id_generators')", script);
     }
 
     private static string GetRepositoryRoot()

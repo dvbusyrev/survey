@@ -1,10 +1,13 @@
 \set ON_ERROR_STOP on
 
+INSERT INTO public.email_config DEFAULT VALUES;
+
 DO $verification$
 DECLARE
     legacy_theme_column_count integer;
     obsolete_schedule_column_count integer;
     applied_migration_count integer;
+    audit_column_without_generator_count integer;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -83,11 +86,45 @@ BEGIN
     END IF;
 
     SELECT COUNT(*)
+    INTO audit_column_without_generator_count
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name IN (
+          'answer_l',
+          'answer_item_l',
+          'app_user_l',
+          'auto_creation_config_l',
+          'email_config_l',
+          'organization_l',
+          'organization_survey_l',
+          'survey_auto_creation_config_l',
+          'survey_l',
+          'survey_question_l',
+          'theme_config_l'
+      )
+      AND column_name = 'id_audit'
+      AND is_identity = 'NO'
+      AND column_default IS NULL;
+
+    IF audit_column_without_generator_count <> 0 THEN
+        RAISE EXCEPTION 'An audit id generator is missing after the upgrade';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM public.email_config_l
+        WHERE operation = 'INSERT'
+          AND id_config IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'Email settings audit insert failed after the upgrade';
+    END IF;
+
+    SELECT COUNT(*)
     INTO applied_migration_count
     FROM public.schema_migrations
-    WHERE version IN ('028', '029', '030', '031', '032', '033');
+    WHERE version IN ('028', '029', '030', '031', '032', '033', '034');
 
-    IF applied_migration_count <> 6 THEN
+    IF applied_migration_count <> 7 THEN
         RAISE EXCEPTION 'Not all current migrations were applied';
     END IF;
 END;

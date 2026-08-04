@@ -45,3 +45,4 @@ COMMIT;
 \ir 031_require_user_organization.sql
 \ir 032_allow_arbitrary_auto_creation_periods.sql
 \ir 033_remove_obsolete_week_day.sql
+\ir 034_repair_audit_id_generators.sql

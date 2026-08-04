@@ -43,3 +43,24 @@ SET
     footer_darken_percent = EXCLUDED.footer_darken_percent,
     button_darken_percent = EXCLUDED.button_darken_percent,
     surface_tint_opacity_percent = EXCLUDED.surface_tint_opacity_percent;
+
+-- Reproduce an upgraded database where the audit identity generator was lost
+-- while email_template_l was renamed to email_config_l.
+DO $seed$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'email_config_l'
+          AND column_name = 'id_audit'
+          AND is_identity = 'YES'
+    ) THEN
+        ALTER TABLE public.email_config_l
+            ALTER COLUMN id_audit DROP IDENTITY IF EXISTS;
+    END IF;
+
+    ALTER TABLE public.email_config_l
+        ALTER COLUMN id_audit DROP DEFAULT;
+END;
+$seed$;
