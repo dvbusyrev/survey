@@ -153,7 +153,7 @@
         const form = byId('organizationForm');
         if (!form) return;
 
-        if (!ensureValidDateInput('DateBegin', 'Дата начала')) {
+        if (!ensureValidDateInput('DateBegin', 'Дата начала', { required: true })) {
             return;
         }
 

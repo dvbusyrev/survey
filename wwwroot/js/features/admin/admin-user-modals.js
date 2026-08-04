@@ -131,7 +131,7 @@ function submitFormAdd() {
     const dateBegin = window.AppDate?.getInputIso('dateBegin') || '';
     const dateEnd = window.AppDate?.getInputIso('dateEnd') || '';
 
-    if (!ensureValidDateInput('dateBegin', 'Дата начала')) {
+    if (!ensureValidDateInput('dateBegin', 'Дата начала', { required: true })) {
         return;
     }
 
@@ -150,7 +150,7 @@ function submitFormAdd() {
         fullName: document.getElementById('fullName')?.value || '',
         email: document.getElementById('email_input')?.value || '', // Используем value, а не innerHTML
         organizationId: document.getElementById('userOrganization')?.value || '0',
-        role: document.getElementById('userRole')?.value || 'user',
+        role: document.getElementById('userRole')?.value || '',
         dateBegin,
         dateEnd
     };

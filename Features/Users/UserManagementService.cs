@@ -470,9 +470,21 @@ public sealed class UserManagementService
             return false;
         }
 
+        if (string.IsNullOrWhiteSpace(request.Role))
+        {
+            validationError = "Роль обязательна.";
+            return false;
+        }
+
         if (!AppRoles.IsSupported(normalizedRole))
         {
             validationError = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.DateBegin))
+        {
+            validationError = "Дата начала обязательна.";
             return false;
         }
 
