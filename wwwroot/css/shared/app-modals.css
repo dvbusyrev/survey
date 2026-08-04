@@ -187,9 +187,10 @@
 }
 
 .modal-body {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
+  align-content: start;
   gap: var(--app-modal-field-gap);
   min-height: 0;
   max-height: none;

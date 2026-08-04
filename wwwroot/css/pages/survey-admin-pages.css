@@ -371,7 +371,7 @@
 .survey-editor-page__organization-action {
   display: flex;
   justify-content: flex-start;
-  margin-top: 0.55rem;
+  margin-top: 0;
 }
 
 .survey-editor-page__criteria-list {
@@ -440,7 +440,7 @@
 .survey-editor-page__criteria-action {
   display: flex;
   justify-content: flex-start;
-  margin-top: 0.55rem;
+  margin-top: 0;
 }
 
 .survey-editor-page__criteria-item:not(:last-child) .survey-editor-page__criteria-action {
