@@ -2,7 +2,11 @@ name: CI
 
 on:
   push:
+    branches:
+      - master
   pull_request:
+    branches:
+      - master
 
 permissions:
   contents: read
@@ -13,16 +17,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -42,8 +46,8 @@ jobs:
 
       - name: Run analyzers as errors
         run: |
-          dotnet build tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -warnaserror
-          dotnet build tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -warnaserror
+          dotnet build tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -p:NuGetAudit=false -p:WarningsNotAsErrors=NU1900 -warnaserror
+          dotnet build tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -p:NuGetAudit=false -p:WarningsNotAsErrors=NU1900 -warnaserror
 
       - name: Check .NET dependencies
         run: |
@@ -72,16 +76,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -132,7 +136,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install --yes postgresql-client
@@ -147,17 +151,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file tests/migrations/seed-v027-theme-data.sql
 
-      - name: Apply current migration
+      - name: Apply current migrations
         env:
           PGPASSWORD: postgres
-        run: psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file db/migrations/028_remove_legacy_theme_columns.sql
+        run: psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file db/migrations/000_apply_all.sql
 
-      - name: Verify preserved data and removed legacy columns
+      - name: Verify upgraded schema and preserved data
         env:
           PGPASSWORD: postgres
-        run: |
-          test "$(psql --host localhost --username postgres --dbname survey_migration_rehearsal --tuples-only --no-align --command \"SELECT font_color || ':' || background_color || ':' || background_image_opacity FROM public.theme_config WHERE id_config = 1;\")" = '#112233:#445566:40'
-          test "$(psql --host localhost --username postgres --dbname survey_migration_rehearsal --tuples-only --no-align --command \"SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('theme_config', 'theme_config_l') AND column_name IN ('gradient_enabled', 'gradient_start_color', 'gradient_end_color', 'background_image_data_url', 'soft_lighten_percent', 'button_strong_darken_percent');\")" = '0'
+        run: psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file tests/migrations/verify-v030-upgrade.sql
 
   browser-smoke:
     runs-on: ubuntu-latest
@@ -178,16 +180,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
@@ -239,7 +241,7 @@ jobs:
 
       - name: Upload browser test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-smoke-artifacts
           path: |

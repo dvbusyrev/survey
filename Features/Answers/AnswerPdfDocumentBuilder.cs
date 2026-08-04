@@ -22,9 +22,7 @@ public static class AnswerPdfDocumentBuilder
                 page.Size(PageSizes.A4);
                 page.Margin(2, Unit.Centimetre);
                 page.DefaultTextStyle(style => style
-                    .FontSize(12)
-                    .FontFamily("Arial")
-                    .Fallback(x => x.FontFamily("Times New Roman")));
+                    .FontSize(12));
 
                 page.Header()
                     .AlignCenter()
