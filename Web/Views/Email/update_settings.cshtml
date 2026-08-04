@@ -1,9 +1,9 @@
-@model MainProject.Application.DTO.Email.EmailTemplateSettings
+@model MainProject.Application.DTO.Email.EmailSenderSettings
 
 @{
     ViewData["Title"] = "Настройки отправителя";
     ViewData["SettingsSection"] = "sender";
-    var settings = Model ?? new MainProject.Application.DTO.Email.EmailTemplateSettings();
+    var settings = Model ?? new MainProject.Application.DTO.Email.EmailSenderSettings();
 }
 
 @section PageStyles {
@@ -93,10 +93,6 @@
                 </div>
             </div>
         </div>
-
-        <input type="hidden" id="email-to" value="@settings.To" />
-        <input type="hidden" id="email-subject" value="@settings.Subject" />
-        <textarea id="email-content" hidden aria-hidden="true">@settings.Content</textarea>
 
         <div class="email-settings-page__actions">
             <button type="button" id="email-reset-button" class="app-button app-button--secondary">Сброс</button>

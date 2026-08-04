@@ -8,10 +8,13 @@ public sealed class SmtpEmailSender
 {
     private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(100);
 
-    public async Task<int> SendAsync(EmailTemplateSettings message, CancellationToken cancellationToken = default)
+    public async Task<int> SendAsync(
+        EmailMessageSettings message,
+        EmailSenderSettings sender,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(message.SmtpHost)
-            || string.IsNullOrWhiteSpace(message.FromAddress))
+        if (string.IsNullOrWhiteSpace(sender.SmtpHost)
+            || string.IsNullOrWhiteSpace(sender.FromAddress))
         {
             throw new InvalidOperationException("SMTP настройки заполнены не полностью.");
         }
@@ -26,7 +29,7 @@ public sealed class SmtpEmailSender
 
         using var mail = new MailMessage
         {
-            From = CreateFromAddress(message),
+            From = CreateFromAddress(sender),
             Subject = string.IsNullOrWhiteSpace(message.Subject) ? "Без темы" : message.Subject,
             Body = string.IsNullOrWhiteSpace(message.Content) ? "Пустое письмо" : message.Content,
             IsBodyHtml = LooksLikeHtml(message.Content)
@@ -37,17 +40,17 @@ public sealed class SmtpEmailSender
             mail.To.Add(new MailAddress(recipient));
         }
 
-        using var smtp = new SmtpClient(message.SmtpHost, message.SmtpPort)
+        using var smtp = new SmtpClient(sender.SmtpHost, sender.SmtpPort)
         {
             DeliveryMethod = SmtpDeliveryMethod.Network,
             Timeout = (int)SendTimeout.TotalMilliseconds,
-            EnableSsl = message.SmtpEnableSsl
+            EnableSsl = sender.SmtpEnableSsl
         };
 
-        if (!string.IsNullOrWhiteSpace(message.SmtpUserName))
+        if (!string.IsNullOrWhiteSpace(sender.SmtpUserName))
         {
             smtp.UseDefaultCredentials = false;
-            smtp.Credentials = new NetworkCredential(message.SmtpUserName, message.SmtpPassword);
+            smtp.Credentials = new NetworkCredential(sender.SmtpUserName, sender.SmtpPassword);
         }
         else
         {
@@ -118,11 +121,11 @@ public sealed class SmtpEmailSender
         }
     }
 
-    private static MailAddress CreateFromAddress(EmailTemplateSettings message)
+    private static MailAddress CreateFromAddress(EmailSenderSettings sender)
     {
-        return string.IsNullOrWhiteSpace(message.FromDisplayName)
-            ? new MailAddress(message.FromAddress)
-            : new MailAddress(message.FromAddress, message.FromDisplayName);
+        return string.IsNullOrWhiteSpace(sender.FromDisplayName)
+            ? new MailAddress(sender.FromAddress)
+            : new MailAddress(sender.FromAddress, sender.FromDisplayName);
     }
 
     private static bool LooksLikeHtml(string? content)

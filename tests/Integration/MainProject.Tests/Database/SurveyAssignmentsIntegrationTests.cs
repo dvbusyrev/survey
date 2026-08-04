@@ -285,11 +285,14 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             Password = "RepositoryPass1!",
             DateBegin = DateTime.Today.ToString("yyyy-MM-dd")
         });
-        await emailService.SaveAsync(new EmailTemplateSettings
+        await emailService.SaveMessageAsync(new EmailMessageSettings
         {
             To = "recipient@example.test",
             Subject = "Тест",
-            Content = "Содержание",
+            Content = "Содержание"
+        });
+        await emailService.SaveSenderAsync(new EmailSenderSettings
+        {
             SmtpHost = "smtp.example.test",
             SmtpPort = 587,
             SmtpEnableSsl = true,
@@ -297,6 +300,12 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             SmtpPassword = "smtp-password",
             FromAddress = "sender@example.test",
             FromDisplayName = "Отправитель"
+        });
+        await emailService.SaveMessageAsync(new EmailMessageSettings
+        {
+            To = "recipient@example.test",
+            Subject = "Обновлённое письмо",
+            Content = "Новое содержание"
         });
         await themeService.SaveAsync(new ThemeSettings
         {
@@ -310,7 +319,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             SurfaceTintOpacityPercent = 50
         });
 
-        var email = await emailService.GetAsync();
+        var emailMessage = await emailService.GetMessageAsync();
+        var emailSender = await emailService.GetSenderAsync();
         var theme = await themeService.GetAsync();
         var organization = await organizationService.GetOrganizationByIdAsync(organizationId);
         await using var connection = _fixture.CreateConnection();
@@ -331,8 +341,11 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.True(createUser.Success);
         Assert.Equal("Репозиторий организация", organization!.OrganizationName);
         Assert.Equal(organizationId, user.OrganizationId);
-        Assert.Equal("smtp.example.test", email.SmtpHost);
-        Assert.Equal("smtp-password", email.SmtpPassword);
+        Assert.Equal("recipient@example.test", emailMessage.To);
+        Assert.Equal("Обновлённое письмо", emailMessage.Subject);
+        Assert.Equal("Новое содержание", emailMessage.Content);
+        Assert.Equal("smtp.example.test", emailSender.SmtpHost);
+        Assert.Equal("smtp-password", emailSender.SmtpPassword);
         Assert.NotEqual("smtp-password", storedSmtpPassword);
         Assert.Equal("#B2A8FF", theme.BackgroundColor);
         Assert.True(deletion.Success);

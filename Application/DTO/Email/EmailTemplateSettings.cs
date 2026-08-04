@@ -1,10 +1,14 @@
 namespace MainProject.Application.DTO.Email;
 
-public sealed class EmailTemplateSettings
+public sealed class EmailMessageSettings
 {
     public string To { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+}
+
+public sealed class EmailSenderSettings
+{
     public string SmtpHost { get; set; } = string.Empty;
     public int SmtpPort { get; set; } = 587;
     public bool SmtpEnableSsl { get; set; } = true;

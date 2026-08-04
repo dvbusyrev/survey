@@ -1,8 +1,8 @@
-@model MainProject.Application.DTO.Email.EmailTemplateSettings
+@model MainProject.Application.DTO.Email.EmailMessageSettings
 
 @{
     ViewData["Title"] = "Электронная почта";
-    var settings = Model ?? new MainProject.Application.DTO.Email.EmailTemplateSettings();
+    var settings = Model ?? new MainProject.Application.DTO.Email.EmailMessageSettings();
 }
 
 @section PageStyles {
@@ -47,14 +47,6 @@
                 </div>
             </div>
         </div>
-
-        <input type="hidden" id="email-smtp-host" value="@settings.SmtpHost" />
-        <input type="hidden" id="email-smtp-port" value="@settings.SmtpPort" />
-        <input type="hidden" id="email-smtp-enable-ssl" value="@(settings.SmtpEnableSsl ? "true" : "false")" />
-        <input type="hidden" id="email-smtp-user-name" value="@settings.SmtpUserName" />
-        <input type="hidden" id="email-smtp-password" value="@settings.SmtpPassword" />
-        <input type="hidden" id="email-from-address" value="@settings.FromAddress" />
-        <input type="hidden" id="email-from-display-name" value="@settings.FromDisplayName" />
 
         <div class="email-settings-page__actions">
             <button type="button" id="email-save-button" class="app-button app-button--secondary">Сохранить</button>

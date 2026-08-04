@@ -17,38 +17,67 @@ public class EmailController : Controller
 
     [HttpGet("email/settings")]
     [HttpGet("mail/settings")]
-    public async Task<IActionResult> GetEmailSettings(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSenderSettings(CancellationToken cancellationToken)
     {
-        var settings = await _emailTemplateService.GetAsync(cancellationToken);
+        var settings = await _emailTemplateService.GetSenderAsync(cancellationToken);
         return Ok(settings);
     }
 
     [HttpPost("email/settings")]
     [HttpPost("mail/settings")]
-    public async Task<IActionResult> SaveEmailSettings([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveSenderSettings([FromBody] EmailSenderSettings? settings, CancellationToken cancellationToken)
     {
         try
         {
-            await _emailTemplateService.SaveAsync(settings ?? new EmailTemplateSettings(), cancellationToken);
-            return Ok(new { success = true, message = "Настройки электронной почты сохранены." });
+            await _emailTemplateService.SaveSenderAsync(settings ?? new EmailSenderSettings(), cancellationToken);
+            return Ok(new { success = true, message = "Настройки отправителя сохранены." });
         }
         catch (EmailTemplateValidationException ex)
         {
-            return BadRequest(new { success = false, error = "Проверьте корректность настроек электронной почты.", errors = ex.Errors });
+            return BadRequest(new { success = false, error = "Проверьте корректность настроек отправителя.", errors = ex.Errors });
         }
         catch (Exception ex)
         {
-            return this.SafeError(ex, "Не удалось сохранить настройки электронной почты.", "Ошибка при сохранении настроек электронной почты");
+            return this.SafeError(ex, "Не удалось сохранить настройки отправителя.", "Ошибка при сохранении настроек отправителя");
+        }
+    }
+
+    [HttpGet("email/message")]
+    [HttpGet("mail/message")]
+    public async Task<IActionResult> GetMessage(CancellationToken cancellationToken)
+    {
+        var settings = await _emailTemplateService.GetMessageAsync(cancellationToken);
+        return Ok(settings);
+    }
+
+    [HttpPost("email/message")]
+    [HttpPost("mail/message")]
+    public async Task<IActionResult> SaveMessage(
+        [FromBody] EmailMessageSettings? settings,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _emailTemplateService.SaveMessageAsync(settings ?? new EmailMessageSettings(), cancellationToken);
+            return Ok(new { success = true, message = "Письмо сохранено." });
+        }
+        catch (EmailTemplateValidationException ex)
+        {
+            return BadRequest(new { success = false, error = "Проверьте параметры письма.", errors = ex.Errors });
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(ex, "Не удалось сохранить письмо.", "Ошибка при сохранении письма");
         }
     }
 
     [HttpPost("email/send")]
     [HttpPost("mail/send")]
-    public async Task<IActionResult> SendMessage([FromBody] EmailTemplateSettings? settings, CancellationToken cancellationToken)
+    public async Task<IActionResult> SendMessage([FromBody] EmailMessageSettings? settings, CancellationToken cancellationToken)
     {
         try
         {
-            var recipientCount = await _emailTemplateService.SendAsync(settings ?? new EmailTemplateSettings(), cancellationToken);
+            var recipientCount = await _emailTemplateService.SendAsync(settings ?? new EmailMessageSettings(), cancellationToken);
             return Ok(new
             {
                 success = true,
@@ -59,7 +88,7 @@ public class EmailController : Controller
         }
         catch (EmailTemplateValidationException ex)
         {
-            return BadRequest(new { success = false, error = "Проверьте параметры письма.", errors = ex.Errors });
+            return BadRequest(new { success = false, error = "Проверьте письмо и настройки отправителя.", errors = ex.Errors });
         }
         catch (InvalidOperationException ex)
         {
@@ -84,7 +113,7 @@ public class EmailController : Controller
     [HttpGet("mail/new")]
     public async Task<IActionResult> NewMessage(CancellationToken cancellationToken)
     {
-        var settings = await _emailTemplateService.GetAsync(cancellationToken);
+        var settings = await _emailTemplateService.GetMessageAsync(cancellationToken);
         return View("new_message", settings);
     }
 
@@ -92,7 +121,7 @@ public class EmailController : Controller
     [HttpGet("mail/configuration")]
     public async Task<IActionResult> UpdateSettings(CancellationToken cancellationToken)
     {
-        var settings = await _emailTemplateService.GetAsync(cancellationToken);
+        var settings = await _emailTemplateService.GetSenderAsync(cancellationToken);
         return View("update_settings", settings);
     }
 
