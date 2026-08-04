@@ -107,6 +107,13 @@
         return setModalVisible(modal, isVisible);
     }
 
+    function setSurveyEditorModalTitle(title) {
+        const titleElement = document.querySelector('#surveyEditorModal [data-role="survey-editor-title"]');
+        if (titleElement) {
+            titleElement.textContent = title;
+        }
+    }
+
     function closeSurveyEditorModal() {
         setSurveyEditorModalVisible(false);
         syncSurveyListHistory();
@@ -133,6 +140,7 @@
             window.resetSurveyCreateForm();
         }
 
+        setSurveyEditorModalTitle('Добавление анкеты');
         syncSurveyListHistory();
         setSurveyEditorModalVisible(true);
     }
@@ -205,6 +213,7 @@
 
         window.openAddSurveyModal();
         window.prefillSurveyCreateForm(template);
+        setSurveyEditorModalTitle('Копирование анкеты');
     }
 
     async function openCopySurveyModalFromTrigger(trigger) {
@@ -507,7 +516,7 @@
         const frame = createSurveyModalFrame({
             id: 'surveySignaturesModal',
             className: 'survey-signatures-modal',
-            title: 'Проверить прохождение',
+            title: 'Просмотр прохождения',
             bodyClassName: 'app-modal-body--compact survey-signatures-modal__body',
             footer: false,
             onClose: closeSurveySignaturesModal
@@ -554,7 +563,7 @@
             const survey = buildSurveyData(trigger);
             ensureSignaturesModal();
 
-            signaturesTitle.textContent = 'Проверить прохождение';
+            signaturesTitle.textContent = 'Просмотр прохождения';
 
             const content = await loadSurveySignaturesContent(survey);
             signaturesHost.replaceChildren(
@@ -583,7 +592,7 @@
         const frame = createSurveyModalFrame({
             id: 'surveyExtensionModal',
             className: 'admin-extension-modal',
-            title: 'Продлить доступ',
+            title: 'Продление доступа',
             bodyClassName: 'admin-extension-modal__body',
             onClose: closeSurveyExtensionModal
         });
