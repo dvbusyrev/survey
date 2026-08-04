@@ -62,6 +62,10 @@ BEGIN
         RAISE EXCEPTION 'Obsolete weekday schedule columns remain after the upgrade';
     END IF;
 
+    IF to_regclass('public.week_day') IS NOT NULL THEN
+        RAISE EXCEPTION 'Obsolete week_day table remains after the upgrade';
+    END IF;
+
     IF NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
@@ -81,9 +85,9 @@ BEGIN
     SELECT COUNT(*)
     INTO applied_migration_count
     FROM public.schema_migrations
-    WHERE version IN ('028', '029', '030');
+    WHERE version IN ('028', '029', '030', '031', '032', '033');
 
-    IF applied_migration_count <> 3 THEN
+    IF applied_migration_count <> 6 THEN
         RAISE EXCEPTION 'Not all current migrations were applied';
     END IF;
 END;

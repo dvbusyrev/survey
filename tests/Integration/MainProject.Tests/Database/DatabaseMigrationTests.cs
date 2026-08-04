@@ -39,6 +39,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 030_reconcile_schema_consistency.sql", script);
         Assert.Contains(@"\ir 031_require_user_organization.sql", script);
         Assert.Contains(@"\ir 032_allow_arbitrary_auto_creation_periods.sql", script);
+        Assert.Contains(@"\ir 033_remove_obsolete_week_day.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -373,6 +374,20 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("CHECK (reporting_offset_business_days >= 1)", script);
         Assert.DoesNotContain("BETWEEN 1 AND 14", script);
         Assert.Contains("VALUES ('032', 'allow_arbitrary_auto_creation_periods')", script);
+    }
+
+    [Fact]
+    public void ObsoleteWeekDayMigration_DropsTheDictionaryWithoutCascade()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "033_remove_obsolete_week_day.sql"));
+
+        Assert.Contains("DROP TABLE IF EXISTS public.week_day", script);
+        Assert.DoesNotContain("CASCADE", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("VALUES ('033', 'remove_obsolete_week_day')", script);
     }
 
     private static string GetRepositoryRoot()

@@ -58,7 +58,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public' AND table_name = 'theme_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("032", versions);
+        Assert.Contains("033", versions);
+        Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT to_regclass('public.week_day')::text;"));
         var userOrganizationIsNullable = await connection.ExecuteScalarAsync<string>(
             """
             SELECT is_nullable
