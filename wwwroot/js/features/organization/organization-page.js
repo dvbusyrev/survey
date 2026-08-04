@@ -259,7 +259,7 @@
             return;
         }
 
-        if (!ensureValidDateInput('organizationDateBegin', 'Дата начала')) {
+        if (!ensureValidDateInput('organizationDateBegin', 'Дата начала', { required: true })) {
             return;
         }
 
@@ -303,7 +303,7 @@
     }
 
     async function updateOrganizationPage(id) {
-        if (!ensureValidDateInput('date_begin', 'Дата начала')) {
+        if (!ensureValidDateInput('date_begin', 'Дата начала', { required: true })) {
             return;
         }
 

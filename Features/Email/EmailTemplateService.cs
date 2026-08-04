@@ -2,27 +2,20 @@ using Dapper;
 using MainProject.Application.DTO.Email;
 using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.Persistence;
-using Microsoft.AspNetCore.DataProtection;
 
 namespace MainProject.Application.UseCases.Admin;
 
 public sealed class EmailTemplateService
 {
-    private const int DefaultConfigId = 1;
-    private const string SmtpPasswordProtectionPurpose = "MainProject.EmailTemplate.SmtpPassword";
-
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly SmtpEmailSender _emailSender;
-    private readonly IDataProtector _passwordProtector;
 
     public EmailTemplateService(
         IDbConnectionFactory connectionFactory,
-        SmtpEmailSender emailSender,
-        IDataProtectionProvider dataProtectionProvider)
+        SmtpEmailSender emailSender)
     {
         _connectionFactory = connectionFactory;
         _emailSender = emailSender;
-        _passwordProtector = dataProtectionProvider.CreateProtector(SmtpPasswordProtectionPurpose);
     }
 
     public async Task<EmailMessageSettings> GetMessageAsync(CancellationToken cancellationToken = default)
@@ -35,45 +28,19 @@ public sealed class EmailTemplateService
                 subject_text AS Subject,
                 body_text AS Content
             FROM public.email_config
-            WHERE id_config = @ConfigId
+            ORDER BY date_update DESC, id_config DESC
             LIMIT 1;
             """,
-            new { ConfigId = DefaultConfigId },
             cancellationToken: cancellationToken)) ?? new EmailMessageSettings();
     }
 
     public async Task<EmailSenderSettings> GetSenderAsync(CancellationToken cancellationToken = default)
     {
-        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        var stored = await connection.QueryFirstOrDefaultAsync<StoredEmailSenderSettings>(new CommandDefinition(
-            """
-            SELECT
-                smtp_host AS SmtpHost,
-                smtp_port AS SmtpPort,
-                smtp_enable_ssl AS SmtpEnableSsl,
-                smtp_user_name AS SmtpUserName,
-                smtp_password AS ProtectedSmtpPassword,
-                from_address AS FromAddress,
-                from_display_name AS FromDisplayName
-            FROM public.email_config
-            WHERE id_config = @ConfigId
-            LIMIT 1;
-            """,
-            new { ConfigId = DefaultConfigId },
-            cancellationToken: cancellationToken));
+        var stored = await LoadStoredSenderAsync(cancellationToken);
 
         return stored == null
             ? new EmailSenderSettings()
-            : new EmailSenderSettings
-            {
-                SmtpHost = stored.SmtpHost ?? string.Empty,
-                SmtpPort = stored.SmtpPort > 0 ? stored.SmtpPort : 587,
-                SmtpEnableSsl = stored.SmtpEnableSsl,
-                SmtpUserName = stored.SmtpUserName ?? string.Empty,
-                SmtpPassword = UnprotectPassword(stored.ProtectedSmtpPassword),
-                FromAddress = stored.FromAddress ?? string.Empty,
-                FromDisplayName = stored.FromDisplayName ?? string.Empty
-            };
+            : MapStoredSender(stored, includePassword: false);
     }
 
     public async Task SaveMessageAsync(
@@ -84,15 +51,28 @@ public sealed class EmailTemplateService
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO public.email_config (id_config, recipient_emails, subject_text, body_text)
-            VALUES (@ConfigId, @To, @Subject, @Content)
-            ON CONFLICT (id_config) DO UPDATE
-            SET
-                recipient_emails = EXCLUDED.recipient_emails,
-                subject_text = EXCLUDED.subject_text,
-                body_text = EXCLUDED.body_text;
+            WITH current_config AS
+            (
+                SELECT id_config
+                FROM public.email_config
+                ORDER BY date_update DESC, id_config DESC
+                LIMIT 1
+            ),
+            updated AS
+            (
+                UPDATE public.email_config
+                SET
+                    recipient_emails = @To,
+                    subject_text = @Subject,
+                    body_text = @Content
+                WHERE id_config = (SELECT id_config FROM current_config)
+                RETURNING id_config
+            )
+            INSERT INTO public.email_config (recipient_emails, subject_text, body_text)
+            SELECT @To, @Subject, @Content
+            WHERE NOT EXISTS (SELECT 1 FROM updated);
             """,
-            new { ConfigId = DefaultConfigId, normalized.To, normalized.Subject, normalized.Content },
+            new { normalized.To, normalized.Subject, normalized.Content },
             cancellationToken: cancellationToken));
     }
 
@@ -100,38 +80,59 @@ public sealed class EmailTemplateService
         EmailSenderSettings settings,
         CancellationToken cancellationToken = default)
     {
-        var normalized = NormalizeAndValidateSender(settings);
+        var normalized = NormalizeAndValidateSender(settings, requirePassword: false);
+        if (string.IsNullOrWhiteSpace(normalized.SmtpPassword))
+        {
+            var stored = await LoadStoredSenderAsync(cancellationToken);
+            normalized.SmtpPassword = ReadStoredPassword(stored?.SmtpPassword);
+        }
+
+        if (string.IsNullOrWhiteSpace(normalized.SmtpPassword))
+        {
+            throw new EmailTemplateValidationException(["Поле \"Новый пароль\" обязательно, если пароль ещё не сохранён"]);
+        }
+
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(
             """
+            WITH current_config AS
+            (
+                SELECT id_config
+                FROM public.email_config
+                ORDER BY date_update DESC, id_config DESC
+                LIMIT 1
+            ),
+            updated AS
+            (
+                UPDATE public.email_config
+                SET
+                    smtp_host = @SmtpHost,
+                    smtp_port = @SmtpPort,
+                    smtp_enable_ssl = @SmtpEnableSsl,
+                    smtp_user_name = @SmtpUserName,
+                    smtp_password = @SmtpPassword,
+                    from_address = @FromAddress,
+                    from_display_name = @FromDisplayName
+                WHERE id_config = (SELECT id_config FROM current_config)
+                RETURNING id_config
+            )
             INSERT INTO public.email_config
             (
-                id_config, smtp_host, smtp_port, smtp_enable_ssl,
+                smtp_host, smtp_port, smtp_enable_ssl,
                 smtp_user_name, smtp_password, from_address, from_display_name
             )
-            VALUES
-            (
-                @ConfigId, @SmtpHost, @SmtpPort, @SmtpEnableSsl,
-                @SmtpUserName, @ProtectedSmtpPassword, @FromAddress, @FromDisplayName
-            )
-            ON CONFLICT (id_config) DO UPDATE
-            SET
-                smtp_host = EXCLUDED.smtp_host,
-                smtp_port = EXCLUDED.smtp_port,
-                smtp_enable_ssl = EXCLUDED.smtp_enable_ssl,
-                smtp_user_name = EXCLUDED.smtp_user_name,
-                smtp_password = EXCLUDED.smtp_password,
-                from_address = EXCLUDED.from_address,
-                from_display_name = EXCLUDED.from_display_name;
+            SELECT
+                @SmtpHost, @SmtpPort, @SmtpEnableSsl,
+                @SmtpUserName, @SmtpPassword, @FromAddress, @FromDisplayName
+            WHERE NOT EXISTS (SELECT 1 FROM updated);
             """,
             new
             {
-                ConfigId = DefaultConfigId,
                 normalized.SmtpHost,
                 normalized.SmtpPort,
                 normalized.SmtpEnableSsl,
                 normalized.SmtpUserName,
-                ProtectedSmtpPassword = ProtectPassword(normalized.SmtpPassword),
+                normalized.SmtpPassword,
                 normalized.FromAddress,
                 normalized.FromDisplayName
             },
@@ -143,23 +144,51 @@ public sealed class EmailTemplateService
         CancellationToken cancellationToken = default)
     {
         var message = NormalizeAndValidateMessage(settings);
-        var sender = NormalizeAndValidateSender(await GetSenderAsync(cancellationToken));
+        var storedSender = await LoadStoredSenderAsync(cancellationToken);
+        var sender = NormalizeAndValidateSender(storedSender == null
+            ? new EmailSenderSettings()
+            : MapStoredSender(storedSender, includePassword: true));
         return await _emailSender.SendAsync(message, sender, cancellationToken);
     }
 
-    private string ProtectPassword(string? password)
+    private async Task<StoredEmailSenderSettings?> LoadStoredSenderAsync(CancellationToken cancellationToken)
     {
-        return string.IsNullOrWhiteSpace(password)
-            ? string.Empty
-            : _passwordProtector.Protect(password);
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await connection.QueryFirstOrDefaultAsync<StoredEmailSenderSettings>(new CommandDefinition(
+            """
+            SELECT
+                smtp_host AS SmtpHost,
+                smtp_port AS SmtpPort,
+                smtp_enable_ssl AS SmtpEnableSsl,
+                smtp_user_name AS SmtpUserName,
+                smtp_password AS SmtpPassword,
+                from_address AS FromAddress,
+                from_display_name AS FromDisplayName
+            FROM public.email_config
+            ORDER BY date_update DESC, id_config DESC
+            LIMIT 1;
+            """,
+            cancellationToken: cancellationToken));
     }
 
-    private string UnprotectPassword(string? protectedPassword)
-    {
-        return string.IsNullOrWhiteSpace(protectedPassword)
+    private static EmailSenderSettings MapStoredSender(
+        StoredEmailSenderSettings stored,
+        bool includePassword)
+        => new()
+        {
+            SmtpHost = stored.SmtpHost ?? string.Empty,
+            SmtpPort = stored.SmtpPort > 0 ? stored.SmtpPort : 587,
+            SmtpEnableSsl = stored.SmtpEnableSsl,
+            SmtpUserName = stored.SmtpUserName ?? string.Empty,
+            SmtpPassword = includePassword ? ReadStoredPassword(stored.SmtpPassword) : string.Empty,
+            FromAddress = stored.FromAddress ?? string.Empty,
+            FromDisplayName = stored.FromDisplayName ?? string.Empty
+        };
+
+    private static string ReadStoredPassword(string? password)
+        => string.IsNullOrWhiteSpace(password) || password.StartsWith("CfDJ8", StringComparison.Ordinal)
             ? string.Empty
-            : _passwordProtector.Unprotect(protectedPassword);
-    }
+            : password;
 
     private static EmailMessageSettings NormalizeAndValidateMessage(EmailMessageSettings? settings)
     {
@@ -204,7 +233,9 @@ public sealed class EmailTemplateService
         return normalized;
     }
 
-    private static EmailSenderSettings NormalizeAndValidateSender(EmailSenderSettings? settings)
+    private static EmailSenderSettings NormalizeAndValidateSender(
+        EmailSenderSettings? settings,
+        bool requirePassword = true)
     {
         if (settings == null)
         {
@@ -247,7 +278,7 @@ public sealed class EmailTemplateService
             errors.Add("Поле \"Логин SMTP\" обязательно");
         }
 
-        if (string.IsNullOrWhiteSpace(normalized.SmtpPassword))
+        if (requirePassword && string.IsNullOrWhiteSpace(normalized.SmtpPassword))
         {
             errors.Add("Поле \"Пароль SMTP\" обязательно");
         }
@@ -276,7 +307,7 @@ internal sealed class StoredEmailSenderSettings
     public int SmtpPort { get; init; }
     public bool SmtpEnableSsl { get; init; }
     public string? SmtpUserName { get; init; }
-    public string? ProtectedSmtpPassword { get; init; }
+    public string? SmtpPassword { get; init; }
     public string? FromAddress { get; init; }
     public string? FromDisplayName { get; init; }
 }

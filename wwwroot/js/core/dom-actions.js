@@ -235,12 +235,4 @@
         handleConfiguredCall(element, event, 'focus');
     });
 
-    document.addEventListener('dblclick', function (event) {
-        const element = event.target.closest('[data-dblclick-call]');
-        if (!element) {
-            return;
-        }
-
-        handleConfiguredCall(element, event, 'dblclick');
-    });
 })();

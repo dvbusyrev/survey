@@ -36,14 +36,6 @@ builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls)
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
-var dataProtectionOptions = builder.Configuration.GetSection("DataProtection");
-var dataProtectionKeyRingPath = dataProtectionOptions["KeyRingPath"] ?? "data-protection-keys";
-var resolvedKeyRingPath = Path.IsPathRooted(dataProtectionKeyRingPath)
-    ? dataProtectionKeyRingPath
-    : Path.Combine(builder.Environment.ContentRootPath, dataProtectionKeyRingPath);
-Directory.CreateDirectory(resolvedKeyRingPath);
-var dataProtectionApplicationName = dataProtectionOptions["ApplicationName"] ?? "AIS.Anketirovanie";
-
 // Настройка логирования
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole(options =>
@@ -136,8 +128,7 @@ builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
 builder.Services
     .AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(resolvedKeyRingPath))
-    .SetApplicationName(dataProtectionApplicationName);
+    .SetApplicationName("AIS.Anketirovanie");
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<UserChromeContextService>();

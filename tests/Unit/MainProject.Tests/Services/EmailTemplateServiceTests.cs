@@ -2,7 +2,6 @@ using MainProject.Application.DTO.Email;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.Persistence;
-using Microsoft.AspNetCore.DataProtection;
 using Npgsql;
 
 namespace MainProject.Tests.Services;
@@ -11,7 +10,6 @@ public sealed class EmailTemplateServiceTests
 {
     [Theory]
     [InlineData("smtp-user", "Поле \"Логин SMTP\" обязательно")]
-    [InlineData("smtp-password", "Поле \"Пароль SMTP\" обязательно")]
     [InlineData("from-address", "Поле \"Эл. почта отправителя\" обязательно")]
     [InlineData("display-name", "Поле \"Имя отправителя\" обязательно")]
     public async Task SaveSender_RejectsMissingRequiredField(string field, string expectedError)
@@ -21,9 +19,6 @@ public sealed class EmailTemplateServiceTests
         {
             case "smtp-user":
                 settings.SmtpUserName = string.Empty;
-                break;
-            case "smtp-password":
-                settings.SmtpPassword = string.Empty;
                 break;
             case "from-address":
                 settings.FromAddress = string.Empty;
@@ -35,8 +30,7 @@ public sealed class EmailTemplateServiceTests
 
         var service = new EmailTemplateService(
             new UnexpectedConnectionFactory(),
-            new SmtpEmailSender(),
-            new EphemeralDataProtectionProvider());
+            new SmtpEmailSender());
 
         var exception = await Assert.ThrowsAsync<EmailTemplateValidationException>(
             () => service.SaveSenderAsync(settings));

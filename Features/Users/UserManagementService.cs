@@ -558,6 +558,14 @@ public sealed class UserManagementService
             return false;
         }
 
+        if (string.IsNullOrWhiteSpace(request.DateBegin))
+        {
+            dateBegin = null;
+            dateEnd = null;
+            validationError = "Дата начала обязательна.";
+            return false;
+        }
+
         if (!TryParseOptionalDate(request.DateBegin, out dateBegin, out validationError))
         {
             dateEnd = null;

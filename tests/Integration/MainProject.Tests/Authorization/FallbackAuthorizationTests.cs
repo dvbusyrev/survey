@@ -106,16 +106,12 @@ public sealed class FallbackAuthorizationTests : IClassFixture<FallbackAuthoriza
 
     public sealed class TestApplicationFactory : WebApplicationFactory<Program>
     {
-        private readonly string _keyRingPath = Path.Combine(Path.GetTempPath(), $"ais-anketirovanie-tests-{Guid.NewGuid():N}");
-        private readonly string? _originalKeyRingPath;
         private readonly string? _originalConnectionString;
 
         public TestApplicationFactory()
         {
-            _originalKeyRingPath = Environment.GetEnvironmentVariable("DataProtection__KeyRingPath");
             _originalConnectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 
-            Environment.SetEnvironmentVariable("DataProtection__KeyRingPath", _keyRingPath);
             Environment.SetEnvironmentVariable(
                 "ConnectionStrings__DefaultConnection",
                 "Host=127.0.0.1;Port=1;Database=authorization_test;Username=test");
@@ -142,12 +138,6 @@ public sealed class FallbackAuthorizationTests : IClassFixture<FallbackAuthoriza
         {
             base.Dispose(disposing);
 
-            if (Directory.Exists(_keyRingPath))
-            {
-                Directory.Delete(_keyRingPath, recursive: true);
-            }
-
-            Environment.SetEnvironmentVariable("DataProtection__KeyRingPath", _originalKeyRingPath);
             Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", _originalConnectionString);
         }
     }

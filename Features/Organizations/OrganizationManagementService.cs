@@ -131,7 +131,7 @@ public class OrganizationManagementService
 
     public virtual async Task<OperationResult> CreateOrganizationAsync(OrganizationSaveRequest request, CancellationToken cancellationToken = default)
     {
-        if (!TryValidateOrganizationRequest(request, requireDateBegin: true, out var dateBegin, out var dateEnd, out var validationError))
+        if (!TryValidateOrganizationRequest(request, out var dateBegin, out var dateEnd, out var validationError))
         {
             return new OperationResult
             {
@@ -154,7 +154,7 @@ public class OrganizationManagementService
 
     public virtual async Task<OperationResult> UpdateOrganizationAsync(int id, OrganizationSaveRequest request, CancellationToken cancellationToken = default)
     {
-        if (!TryValidateOrganizationRequest(request, requireDateBegin: false, out var dateBegin, out var dateEnd, out var validationError))
+        if (!TryValidateOrganizationRequest(request, out var dateBegin, out var dateEnd, out var validationError))
         {
             return new OperationResult
             {
@@ -761,7 +761,6 @@ public class OrganizationManagementService
 
     private static bool TryValidateOrganizationRequest(
         OrganizationSaveRequest request,
-        bool requireDateBegin,
         out DateTime? dateBegin,
         out DateTime? dateEnd,
         out string validationError)
@@ -776,7 +775,7 @@ public class OrganizationManagementService
             return false;
         }
 
-        if (requireDateBegin && string.IsNullOrWhiteSpace(request.DateBegin))
+        if (string.IsNullOrWhiteSpace(request.DateBegin))
         {
             dateBegin = null;
             dateEnd = null;

@@ -9,7 +9,7 @@
 .app-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--app-modal-field-gap, var(--app-gap-lg));
+  gap: var(--app-form-field-gap);
 }
 
 .app-form > .app-field-group {

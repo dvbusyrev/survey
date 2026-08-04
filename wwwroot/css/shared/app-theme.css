@@ -53,6 +53,7 @@
   --app-field-line-height: 1.4;
   --app-field-placeholder-opacity: 45%;
   --app-field-label-gap: var(--app-gap-sm);
+  --app-form-field-gap: var(--app-gap-xl);
   --app-field-top-offset: var(--app-field-label-gap);
   --app-field-radius: 0.5rem;
   --app-field-icon-size: 2.875rem;

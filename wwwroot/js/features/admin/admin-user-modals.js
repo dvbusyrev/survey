@@ -413,7 +413,7 @@ async function updateUser() {
         const dateBeginIso = window.AppDate?.getInputIso(elements.dateBegin) || '';
         const dateEndIso = window.AppDate?.getInputIso(elements.dateEnd) || '';
 
-        if (!ensureValidDateInput(elements.dateBegin, 'Дата начала')) {
+        if (!ensureValidDateInput(elements.dateBegin, 'Дата начала', { required: true })) {
             return;
         }
 

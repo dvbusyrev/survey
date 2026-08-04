@@ -34,7 +34,7 @@
         <div class="app-field-group">
             <label for="date_begin">Дата начала</label>
             <input type="date" class="app-field" id="date_begin" name="date_begin" data-date-native="true" data-date-label="Дата начала" lang="ru-RU"
-                   value="@(Model?.DateBegin?.ToString("yyyy-MM-dd"))" />
+                   value="@(Model?.DateBegin?.ToString("yyyy-MM-dd"))" required />
         </div>
         <div class="app-field-group">
             <label for="date_end">Дата конца</label>

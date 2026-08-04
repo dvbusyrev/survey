@@ -62,6 +62,24 @@ public sealed class RequiredCreationFieldsTests
     }
 
     [Fact]
+    public async Task UpdateUser_RejectsMissingStartDate()
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateUserAsync(1, new UserUpdateRequest
+        {
+            Username = "test-user",
+            FullName = "Тестовый пользователь",
+            OrganizationId = "1",
+            Role = "user",
+            DateBegin = null
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата начала обязательна.", result.Message);
+    }
+
+    [Fact]
     public async Task CreateSurvey_RejectsMissingOrganizations()
     {
         var service = CreateSurveyService();
@@ -118,6 +136,21 @@ public sealed class RequiredCreationFieldsTests
         var service = new OrganizationManagementService(_connectionFactory, _clock);
 
         var result = await service.CreateOrganizationAsync(new OrganizationSaveRequest
+        {
+            Name = "Организация",
+            DateBegin = null
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата начала обязательна.", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateOrganization_RejectsMissingStartDate()
+    {
+        var service = new OrganizationManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateOrganizationAsync(1, new OrganizationSaveRequest
         {
             Name = "Организация",
             DateBegin = null

@@ -17,7 +17,7 @@
         new MainProject.Web.ViewModels.PageIntroModel
         {
             // Title = "Настройка эл. почты",
-            Description = "Здесь можно сохранить SMTP-профиль отправителя. Параметры хранятся в базе данных, а пароль SMTP сохраняется в защищённом виде."
+            Description = "Здесь можно сохранить SMTP-профиль отправителя."
         })
 
     <section class="app-section app-page__section">
@@ -81,22 +81,20 @@
                         </div>
                     </div>
                     <div class="app-field-group">
-                        <label for="email-smtp-password">Пароль SMTP</label>
+                        <label for="email-smtp-password">Новый пароль</label>
                         <div class="app-field-with-icon has-toggle">
                             <div class="icon-container field-icon-container"><i class="fas fa-lock"></i></div>
                             <input type="text"
                                    class="app-field is-password-masked"
                                    id="email-smtp-password"
-                                   value="@settings.SmtpPassword"
                                    data-password-field="true"
                                    data-password-visible="false"
-                                   autocomplete="current-password"
+                                   autocomplete="new-password"
                                    inputmode="text"
                                    lang="ru"
                                    autocapitalize="none"
                                    spellcheck="false"
-                                   placeholder="Введите пароль SMTP"
-                                   required />
+                                   placeholder="Введите новый пароль или оставьте поле пустым" />
                             <button type="button" class="password-toggle-btn" aria-label="Показать пароль" title="Показать пароль"></button>
                         </div>
                     </div>

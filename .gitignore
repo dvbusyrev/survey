@@ -10,7 +10,6 @@
 *.sln.docstates
 .DS_Store
 wwwroot/dumps/
-data-protection-keys/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

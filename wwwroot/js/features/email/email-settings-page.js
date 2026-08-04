@@ -117,7 +117,7 @@
         setEmailFieldValue('email-smtp-port', normalizedSettings.smtpPort || '');
         setEmailFieldValue('email-smtp-enable-ssl', normalizedSettings.smtpEnableSsl ? 'true' : 'false');
         setEmailFieldValue('email-smtp-user-name', normalizedSettings.smtpUserName);
-        setEmailFieldValue('email-smtp-password', normalizedSettings.smtpPassword);
+        setEmailFieldValue('email-smtp-password', '');
         setEmailFieldValue('email-from-address', normalizedSettings.fromAddress);
         setEmailFieldValue('email-from-display-name', normalizedSettings.fromDisplayName);
     }
@@ -169,11 +169,6 @@
         if (!settings.smtpUserName) {
             errors.push('Поле «Логин SMTP» обязательно');
             setEmailInvalidState('email-smtp-user-name', true);
-        }
-
-        if (!settings.smtpPassword) {
-            errors.push('Поле «Пароль SMTP» обязательно');
-            setEmailInvalidState('email-smtp-password', true);
         }
 
         if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
@@ -308,7 +303,12 @@
             const payload = await response.json();
             clearEmailInvalidStates();
             if (options.updateSavedSettings) {
-                emailSettingsPageState.savedSettings = { ...settings };
+                emailSettingsPageState.savedSettings = options.payloadType === 'sender'
+                    ? { ...settings, smtpPassword: '' }
+                    : { ...settings };
+            }
+            if (options.payloadType === 'sender') {
+                setEmailFieldValue('email-smtp-password', '');
             }
             showEmailToast(
                 payload?.message || options.successMessage,

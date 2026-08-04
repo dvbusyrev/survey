@@ -14,7 +14,6 @@ using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.External.Calendar;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.Security;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
@@ -327,11 +326,16 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var userService = new UserManagementService(_connectionFactory, _clock);
         var emailService = new EmailTemplateService(
             _connectionFactory,
-            new SmtpEmailSender(),
-            new EphemeralDataProtectionProvider());
+            new SmtpEmailSender());
         var themeService = new ThemeSettingsService(
             _connectionFactory,
             NullLogger<ThemeSettingsService>.Instance);
+
+        await using (var seedConnection = _fixture.CreateConnection())
+        {
+            await seedConnection.ExecuteAsync(
+                "INSERT INTO public.email_config (id_config) VALUES (7);");
+        }
 
         var createOrganization = await organizationService.CreateOrganizationAsync(new OrganizationSaveRequest
         {
@@ -366,6 +370,16 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             FromAddress = "sender@example.test",
             FromDisplayName = "Отправитель"
         });
+        await emailService.SaveSenderAsync(new EmailSenderSettings
+        {
+            SmtpHost = "smtp.example.test",
+            SmtpPort = 587,
+            SmtpEnableSsl = true,
+            SmtpUserName = "smtp-user",
+            SmtpPassword = string.Empty,
+            FromAddress = "sender@example.test",
+            FromDisplayName = "Отправитель"
+        });
         await emailService.SaveMessageAsync(new EmailMessageSettings
         {
             To = "recipient@example.test",
@@ -389,8 +403,11 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var theme = await themeService.GetAsync();
         var organization = await organizationService.GetOrganizationByIdAsync(organizationId);
         await using var connection = _fixture.CreateConnection();
-        var storedSmtpPassword = await connection.QuerySingleAsync<string>(
-            "SELECT smtp_password FROM public.email_config WHERE id_config = 1;");
+        var storedEmailConfig = await connection.QuerySingleAsync<(int IdConfig, string SmtpPassword)>(
+            "SELECT id_config AS IdConfig, smtp_password AS SmtpPassword FROM public.email_config;");
+        await connection.ExecuteAsync(
+            "UPDATE public.email_config SET smtp_password = 'CfDJ8LegacyPassword';");
+        var senderWithLegacyPassword = await emailService.GetSenderAsync();
         var users = (await userService.GetActiveUsersPageAsync(1, "name", "asc")).Users;
         var user = Assert.Single(users, item => item.NameUser == "repository-user");
         var deletion = await userService.DeleteUserAsync(user.IdUser);
@@ -410,8 +427,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal("Обновлённое письмо", emailMessage.Subject);
         Assert.Equal("Новое содержание", emailMessage.Content);
         Assert.Equal("smtp.example.test", emailSender.SmtpHost);
-        Assert.Equal("smtp-password", emailSender.SmtpPassword);
-        Assert.NotEqual("smtp-password", storedSmtpPassword);
+        Assert.Empty(emailSender.SmtpPassword);
+        Assert.Equal(7, storedEmailConfig.IdConfig);
+        Assert.Equal("smtp-password", storedEmailConfig.SmtpPassword);
+        Assert.Empty(senderWithLegacyPassword.SmtpPassword);
         Assert.Equal("#B2A8FF", theme.BackgroundColor);
         Assert.True(deletion.Success);
         Assert.False(archiveBlockedByHistory.Success);

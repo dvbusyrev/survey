@@ -2797,17 +2797,6 @@
         });
       }
     }
-    function handleDoubleClick(event) {
-      const target = getEventTarget(event);
-      const row = target?.closest('[data-role="user-survey-row"]');
-      if (!belongsToPage(row) || target.closest("button") || row.dataset.rowAction) {
-        return;
-      }
-      const surveyId = readPositiveNumber(row, "surveyId");
-      if (surveyId) {
-        openSurveyById?.(surveyId);
-      }
-    }
     function handleMouseOver(event) {
       const target = getEventTarget(event);
       const row = target?.closest('[data-role="user-survey-row"][data-hover-label]');
@@ -2871,7 +2860,6 @@
     }
     const listeners = [
       ["click", handleClick],
-      ["dblclick", handleDoubleClick],
       ["mouseover", handleMouseOver],
       ["mousemove", handleMouseMove],
       ["mouseout", handleMouseOut],
