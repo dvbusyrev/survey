@@ -35,6 +35,8 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 026_rebuild_audit_tables_as_structured_snapshots.sql", script);
         Assert.Contains(@"\ir 027_store_theme_background_image_blob.sql", script);
         Assert.Contains(@"\ir 028_remove_legacy_theme_columns.sql", script);
+        Assert.Contains(@"\ir 029_redesign_auto_creation_reporting_period.sql", script);
+        Assert.Contains(@"\ir 030_reconcile_schema_consistency.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -63,6 +65,8 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("CREATE TABLE public.auto_creation_config_l", schema);
         Assert.Contains("old_row_data jsonb", schema);
         Assert.Contains("new_row_data jsonb", schema);
+        Assert.Contains("date_update timestamp without time zone DEFAULT now() NOT NULL", schema);
+        Assert.Contains("trg_answer_set_update_metadata", schema);
         Assert.DoesNotContain("recovery/", migration);
         Assert.DoesNotContain("\\restrict", schema);
         Assert.DoesNotContain("transaction_timeout", schema);
@@ -317,6 +321,25 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("background_image_content_type text", script);
         Assert.Contains("ALTER TABLE public.theme_config_l", script);
         Assert.Contains("VALUES ('027', 'store_theme_background_image_blob')", script);
+    }
+
+    [Fact]
+    public void SchemaConsistencyMigration_ReconcilesBootstrapAndUpgradeSchemas()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "030_reconcile_schema_consistency.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS date_update", script);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS user_update", script);
+        Assert.Contains("DROP COLUMN IF EXISTS date_update", script);
+        Assert.Contains("DROP COLUMN IF EXISTS user_update", script);
+        Assert.Contains("ALTER COLUMN font_color SET DEFAULT '#343D4B'", script);
+        Assert.Contains("ALTER COLUMN background_color SET DEFAULT '#B2A8FF'", script);
+        Assert.Contains("idx_survey_auto_creation_config_id_survey", script);
+        Assert.Contains("VALUES ('030', 'reconcile_schema_consistency')", script);
     }
 
     private static string GetRepositoryRoot()

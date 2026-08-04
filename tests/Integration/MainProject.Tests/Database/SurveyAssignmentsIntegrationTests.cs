@@ -59,12 +59,60 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public' AND table_name = 'theme_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("029", versions);
+        Assert.Contains("030", versions);
         Assert.Contains("background_image", themeColumns);
         Assert.DoesNotContain("gradient_enabled", themeColumns);
         Assert.DoesNotContain("background_image_data_url", themeColumns);
         Assert.DoesNotContain("soft_lighten_percent", themeColumns);
         Assert.DoesNotContain("button_strong_darken_percent", themeColumns);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Migrations_ReconcileMetadataDefaultsIndexesAndLegacyNames()
+    {
+        await using var connection = _fixture.CreateConnection();
+
+        var answerColumns = (await connection.QueryAsync<string>(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'answer';
+            """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var autoCreationColumns = (await connection.QueryAsync<string>(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'auto_creation_config';
+            """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var themeDefaults = await connection.QuerySingleAsync<(string FontColor, string BackgroundColor)>(
+            """
+            SELECT
+                MAX(column_default) FILTER (WHERE column_name = 'font_color') AS FontColor,
+                MAX(column_default) FILTER (WHERE column_name = 'background_color') AS BackgroundColor
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'theme_config';
+            """);
+        var legacyObjects = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM pg_class
+            WHERE relnamespace = 'public'::regnamespace
+              AND relname IN (
+                  'organization_organization_id_seq',
+                  'email_template_l_id_audit_seq',
+                  'l_survey_auto_creation_config_id_audit_seq',
+                  'idx_answer_id_organization_survey',
+                  'idx_answer_item_id_answer'
+              );
+            """);
+
+        Assert.Contains("date_update", answerColumns);
+        Assert.Contains("user_update", answerColumns);
+        Assert.DoesNotContain("date_update", autoCreationColumns);
+        Assert.DoesNotContain("user_update", autoCreationColumns);
+        Assert.Contains("#343D4B", themeDefaults.FontColor);
+        Assert.Contains("#B2A8FF", themeDefaults.BackgroundColor);
+        Assert.Equal(0, legacyObjects);
     }
 
     [RequiresPostgresFact]

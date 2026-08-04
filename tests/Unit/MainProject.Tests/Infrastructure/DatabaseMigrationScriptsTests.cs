@@ -32,6 +32,7 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 027_store_theme_background_image_blob.sql", script);
         Assert.Contains(@"\ir 028_remove_legacy_theme_columns.sql", script);
         Assert.Contains(@"\ir 029_redesign_auto_creation_reporting_period.sql", script);
+        Assert.Contains(@"\ir 030_reconcile_schema_consistency.sql", script);
     }
 
     [Fact]
@@ -58,6 +59,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("CREATE TABLE public.auto_creation_config_l", schema);
         Assert.Contains("old_row_data jsonb", schema);
         Assert.Contains("new_row_data jsonb", schema);
+        Assert.Contains("date_update timestamp without time zone DEFAULT now() NOT NULL", schema);
+        Assert.Contains("trg_answer_set_update_metadata", schema);
         Assert.DoesNotContain("recovery/", migration);
         Assert.DoesNotContain("\\restrict", schema);
         Assert.DoesNotContain("transaction_timeout", schema);
@@ -309,6 +312,23 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("DROP COLUMN IF EXISTS id_creation_day CASCADE", script);
         Assert.Contains("DROP COLUMN IF EXISTS id_begin_day CASCADE", script);
         Assert.Contains("VALUES ('029', 'redesign_auto_creation_reporting_period')", script);
+    }
+
+    [Fact]
+    public void SchemaConsistencyMigration_NormalizesCurrentSchema()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "030_reconcile_schema_consistency.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS date_update", script);
+        Assert.Contains("DROP TRIGGER IF EXISTS trg_auto_creation_config_set_update_metadata", script);
+        Assert.Contains("DROP INDEX IF EXISTS public.idx_answer_id_organization_survey", script);
+        Assert.Contains("RENAME CONSTRAINT %I TO %I", script);
+        Assert.Contains("RENAME TO organization_id_organization_seq", script);
+        Assert.Contains("VALUES ('030', 'reconcile_schema_consistency')", script);
     }
 
     [Fact]
