@@ -11,6 +11,7 @@ using MainProject.Application.UseCases.Surveys;
 using MainProject.Application.UseCases;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.External.Email;
+using MainProject.Infrastructure.External.Calendar;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.Security;
 using Microsoft.AspNetCore.DataProtection;
@@ -58,7 +59,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public' AND table_name = 'theme_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("028", versions);
+        Assert.Contains("029", versions);
         Assert.Contains("background_image", themeColumns);
         Assert.DoesNotContain("gradient_enabled", themeColumns);
         Assert.DoesNotContain("background_image_data_url", themeColumns);
@@ -623,22 +624,96 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         var result = await autoCreation.SaveAsync(new SurveyAutoCreationSettingsRequest
         {
-            CreationPattern = "1-monday",
-            StartPattern = "2-friday",
-            EndOffsetBusinessDays = 10,
+            ReportingPeriod = "quarter",
+            ReportingOffsetBusinessDays = 4,
+            ActivePeriodBusinessDays = 10,
             SurveyIds = [survey.SurveyId!.Value]
         });
 
         await using var connection = _fixture.CreateConnection();
-        var stored = await connection.QuerySingleAsync<(int WorkingPeriod, bool IsEnabled)>(
-            "SELECT working_period, is_enabled FROM public.auto_creation_config WHERE id_config = 1;");
+        var stored = await connection.QuerySingleAsync<(string ReportingPeriod, int ReportingOffset, int WorkingPeriod, bool IsEnabled)>(
+            """
+            SELECT
+                reporting_period AS ReportingPeriod,
+                reporting_offset_business_days AS ReportingOffset,
+                working_period AS WorkingPeriod,
+                is_enabled AS IsEnabled
+            FROM public.auto_creation_config
+            WHERE id_config = 1;
+            """);
         var selectedSurveyId = await connection.ExecuteScalarAsync<int>(
             "SELECT id_survey FROM public.survey_auto_creation_config WHERE id_config = 1;");
 
         Assert.True(result.Success);
+        Assert.Equal("quarter", stored.ReportingPeriod);
+        Assert.Equal(4, stored.ReportingOffset);
         Assert.Equal(10, stored.WorkingPeriod);
         Assert.False(stored.IsEnabled);
         Assert.Equal(survey.SurveyId, selectedSurveyId);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AutoCreation_SurveyOptionsContainOneLatestTemplatePerName()
+    {
+        await using var connection = _fixture.CreateConnection();
+        var surveyIds = (await connection.QueryAsync<int>(
+            """
+            INSERT INTO public.survey (name_survey, description)
+            VALUES
+                ('Повторяющаяся анкета', 'Первая версия'),
+                ('  повторяющаяся АНКЕТА  ', 'Последняя версия')
+            RETURNING id_survey;
+            """)).ToArray();
+
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var options = await service.GetSurveyOptionsAsync();
+        var matchingOptions = options
+            .Where(static option => string.Equals(
+                option.Name.Trim(),
+                "Повторяющаяся анкета",
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        var option = Assert.Single(matchingOptions);
+        Assert.Equal(surveyIds.Max(), option.Id);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AutoCreation_PreviewUsesTheSameBusinessDayScheduleAsRunPending()
+    {
+        var service = new SurveyService(
+            _connectionFactory,
+            _surveyRepository,
+            new FixedClock(new DateTime(2026, 6, 1)),
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: CreateWeekdayProductionCalendar());
+
+        var result = await service.GetSchedulePreviewAsync(new SurveyAutoCreationPreviewRequest
+        {
+            ReportingPeriod = "quarter",
+            ReportingOffsetBusinessDays = 5,
+            ActivePeriodBusinessDays = 5,
+            TargetYear = 2026,
+            TargetMonth = 6
+        });
+
+        Assert.True(result.Success);
+        Assert.Equal("2026-06-16", result.StartDate);
+        Assert.Equal("2026-06-23", result.EndDate);
+        Assert.Collection(
+            result.Periods,
+            period =>
+            {
+                Assert.Equal(6, period.Month);
+                Assert.Equal("2026-06-16", period.StartDate);
+                Assert.Equal("2026-06-23", period.EndDate);
+            },
+            period =>
+            {
+                Assert.Equal(7, period.Month);
+                Assert.Equal("2026-07-24", period.StartDate);
+                Assert.Equal("2026-07-31", period.EndDate);
+            });
     }
 
     [RequiresPostgresFact]
@@ -649,14 +724,15 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var autoCreation = new SurveyService(
             _connectionFactory,
             _surveyRepository,
-            new FixedClock(new DateTime(2026, 4, 20)),
-            logger: NullLogger<SurveyService>.Instance);
+            new FixedClock(new DateTime(2026, 4, 27)),
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: CreateWeekdayProductionCalendar());
 
         var startResult = await autoCreation.StartAsync(new SurveyAutoCreationSettingsRequest
         {
-            CreationPattern = "3-monday",
-            StartPattern = "3-monday",
-            EndOffsetBusinessDays = 5,
+            ReportingPeriod = "quarter",
+            ReportingOffsetBusinessDays = 5,
+            ActivePeriodBusinessDays = 5,
             SurveyIds = [survey.SurveyId!.Value]
         });
         var repeatedRun = await autoCreation.RunPendingAsync();
@@ -687,8 +763,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal(organizationIds, copiedAssignments.Select(static row => row.OrganizationId));
         Assert.All(copiedAssignments, row =>
         {
-            Assert.Equal(new DateTime(2026, 4, 20), row.DateBegin);
-            Assert.Equal(new DateTime(2026, 4, 27), row.DateEnd);
+            Assert.Equal(new DateTime(2026, 4, 23), row.DateBegin);
+            Assert.Equal(new DateTime(2026, 4, 30), row.DateEnd);
         });
         Assert.True(repeatedRun.Processed);
         Assert.Equal(0, repeatedRun.CreatedSurveyCount);
@@ -831,6 +907,15 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             new FixedCurrentUserService(),
             new FixedClock(DateTime.Today));
 
+    private static ProductionCalendarService CreateWeekdayProductionCalendar()
+    {
+        var handler = new StaticCalendarHandler();
+        return new ProductionCalendarService(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://calendar.test/")
+        });
+    }
+
     private async Task<List<int>> CreateOrganizationsAsync(int count)
     {
         await using var connection = _fixture.CreateConnection();
@@ -963,5 +1048,30 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         public int OrganizationId { get; init; }
         public DateTime DateBegin { get; init; }
         public DateTime? DateEnd { get; init; }
+    }
+
+    private sealed class StaticCalendarHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var yearParameter = (request.RequestUri?.Query ?? string.Empty)
+                .TrimStart('?')
+                .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .SingleOrDefault(static parameter => parameter.StartsWith("year=", StringComparison.OrdinalIgnoreCase));
+            var year = int.Parse(yearParameter?.Split('=', 2)[1]
+                ?? throw new InvalidOperationException("Год календаря не передан."));
+            var days = DateTime.IsLeapYear(year) ? 366 : 365;
+            var calendar = new char[days];
+            for (var day = 1; day <= days; day++)
+            {
+                var date = new DateTime(year, 1, 1).AddDays(day - 1);
+                calendar[day - 1] = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? '1' : '0';
+            }
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(new string(calendar))
+            });
+        }
     }
 }

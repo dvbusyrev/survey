@@ -31,6 +31,7 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 026_rebuild_audit_tables_as_structured_snapshots.sql", script);
         Assert.Contains(@"\ir 027_store_theme_background_image_blob.sql", script);
         Assert.Contains(@"\ir 028_remove_legacy_theme_columns.sql", script);
+        Assert.Contains(@"\ir 029_redesign_auto_creation_reporting_period.sql", script);
     }
 
     [Fact]
@@ -291,6 +292,23 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("ALTER COLUMN date_end DROP NOT NULL", script);
         Assert.Contains("CREATE OR REPLACE VIEW public.survey_schedule", script);
         Assert.Contains("VALUES ('021', 'allow_empty_auto_creation_period')", script);
+    }
+
+    [Fact]
+    public void AutoCreationReportingPeriodMigration_ReplacesWeekdaySchedule()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "029_redesign_auto_creation_reporting_period.sql"));
+
+        Assert.Contains("reporting_period text NOT NULL DEFAULT 'month'", script);
+        Assert.Contains("reporting_offset_business_days integer NOT NULL DEFAULT 1", script);
+        Assert.Contains("working_period SET NOT NULL", script);
+        Assert.Contains("DROP COLUMN IF EXISTS id_creation_day CASCADE", script);
+        Assert.Contains("DROP COLUMN IF EXISTS id_begin_day CASCADE", script);
+        Assert.Contains("VALUES ('029', 'redesign_auto_creation_reporting_period')", script);
     }
 
     [Fact]

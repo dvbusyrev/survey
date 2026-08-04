@@ -284,6 +284,26 @@ text-align: center;
   align-items: end;
 }
 
+.survey-auto-creation-page__calendar-field {
+  min-width: 0;
+}
+
+.survey-auto-creation-page__calendar {
+  display: grid;
+  align-items: stretch;
+  gap: var(--app-gap-md);
+  width: min(100%, 42rem);
+  justify-self: start;
+  min-height: 0;
+  height: auto;
+  padding: var(--app-section-padding);
+}
+
+.survey-auto-creation-page__calendar-day {
+  cursor: default;
+  pointer-events: none;
+}
+
 .survey-auto-creation-page__selection {
   display: grid;
   gap: 0;

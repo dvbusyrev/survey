@@ -10,10 +10,9 @@ namespace MainProject.Application.UseCases.Surveys;
 public partial class SurveyService
 {
     private const int SingletonConfigId = 1;
-    private const string DefaultPattern = "1-monday";
-    private const int DefaultCreationDayId = 1;
-    private const int DefaultBeginDayId = 1;
-    private static readonly int? DefaultWorkingPeriod = null;
+    private const string DefaultReportingPeriod = "month";
+    private const int DefaultReportingOffsetBusinessDays = 1;
+    private const int DefaultActivePeriodBusinessDays = 8;
     private const string StorageUnavailableMessage = "Автосоздание анкет недоступно: в базе данных ещё не применена актуальная миграция настроек автосоздания.";
 
     public async Task<SurveyAutoCreationPageViewModel> GetPageModelAsync(CancellationToken cancellationToken = default)
@@ -31,9 +30,11 @@ public partial class SurveyService
 
         return new SurveyAutoCreationPageViewModel
         {
-            CreationPattern = config.CreationPattern,
-            StartPattern = config.StartPattern,
-            EndOffsetBusinessDays = config.WorkingPeriod,
+            ReportingPeriod = config.ReportingPeriod,
+            ReportingOffsetBusinessDays = config.ReportingOffsetBusinessDays,
+            ActivePeriodBusinessDays = config.WorkingPeriod,
+            PreviewYear = _clock.Today.Year,
+            PreviewMonth = _clock.Today.Month,
             IsEnabled = config.IsEnabled,
             SelectedSurveys = selectedSurveys
                 .Select(static survey => new SurveyAutoCreationSelectedSurveyViewModel
@@ -48,7 +49,72 @@ public partial class SurveyService
     public async Task<IReadOnlyList<SurveySelectionItem>> GetSurveyOptionsAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        return await _surveyRepository.GetSurveySelectionOptionsAsync(connection, cancellationToken: cancellationToken);
+        return await _surveyRepository.GetAutoCreationSurveySelectionOptionsAsync(
+            connection,
+            SingletonConfigId,
+            cancellationToken);
+    }
+
+    public async Task<SurveyAutoCreationPreviewResult> GetSchedulePreviewAsync(
+        SurveyAutoCreationPreviewRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request == null)
+        {
+            return InvalidPreview("Параметры календаря не переданы.");
+        }
+
+        if (!SurveyAutoCreationScheduleHelper.TryNormalizeReportingPeriod(request.ReportingPeriod, out var reportingPeriod))
+        {
+            return InvalidPreview("Некорректное значение поля «Период отчётности».");
+        }
+
+        if (!IsValidBusinessDayPeriod(request.ReportingOffsetBusinessDays)
+            || !IsValidBusinessDayPeriod(request.ActivePeriodBusinessDays))
+        {
+            return InvalidPreview("Количество рабочих дней должно быть от 1 до 14.");
+        }
+
+        if (request.TargetYear is < 2000 or > 2100 || request.TargetMonth is < 1 or > 12)
+        {
+            return InvalidPreview("Некорректный месяц календаря.");
+        }
+
+        if (_productionCalendar == null)
+        {
+            throw new InvalidOperationException("Сервис производственного календаря не настроен.");
+        }
+
+        var targetMonth = new DateTime(request.TargetYear, request.TargetMonth, 1);
+        var periods = new List<SurveyAutoCreationPreviewPeriod>(2);
+        for (var monthOffset = 0; monthOffset < 2; monthOffset++)
+        {
+            var month = targetMonth.AddMonths(monthOffset);
+            var schedule = await SurveyAutoCreationScheduleHelper.CalculateAsync(
+                month,
+                reportingPeriod,
+                request.ReportingOffsetBusinessDays,
+                request.ActivePeriodBusinessDays,
+                _productionCalendar.IsBusinessDayAsync,
+                cancellationToken);
+            periods.Add(new SurveyAutoCreationPreviewPeriod
+            {
+                Year = month.Year,
+                Month = month.Month,
+                StartDate = schedule.StartDate.ToString("yyyy-MM-dd"),
+                EndDate = schedule.EndDate.ToString("yyyy-MM-dd")
+            });
+        }
+
+        return new SurveyAutoCreationPreviewResult
+        {
+            Success = true,
+            TargetYear = targetMonth.Year,
+            TargetMonth = targetMonth.Month,
+            StartDate = periods[0].StartDate,
+            EndDate = periods[0].EndDate,
+            Periods = periods
+        };
     }
 
     public Task<SurveyAutoCreationCommandResult> SaveAsync(SurveyAutoCreationSettingsRequest? request, CancellationToken cancellationToken = default)
@@ -117,38 +183,41 @@ public partial class SurveyService
             };
         }
 
-        var today = _clock.Today.Date;
-        if (!TryParseDayOfWeek(config.CreationDayName, out var creationDayOfWeek)
-            || !TryParseDayOfWeek(config.BeginDayName, out var beginDayOfWeek)
-            || !SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(today.Year, today.Month, config.CreationWeekNumber, creationDayOfWeek, out var creationDate)
-            || !SurveyAutoCreationScheduleHelper.TryResolveMonthWeekdayDate(today.Year, today.Month, config.BeginWeekNumber, beginDayOfWeek, out var startDate))
+        if (_productionCalendar == null)
         {
-            await transaction.CommitAsync(cancellationToken);
-            _logger.LogWarning("Конфигурация автосоздания содержит некорректные дни расписания.");
-            return new SurveyAutoCreationRunResult
-            {
-                IsEnabled = true
-            };
+            throw new InvalidOperationException("Сервис производственного календаря не настроен.");
         }
 
-        if (today < creationDate.Date)
+        var today = _clock.Today.Date;
+        var schedule = await SurveyAutoCreationScheduleHelper.CalculateAsync(
+            today,
+            config.ReportingPeriod,
+            config.ReportingOffsetBusinessDays,
+            config.WorkingPeriod,
+            _productionCalendar.IsBusinessDayAsync,
+            cancellationToken);
+
+        if (today < schedule.StartDate)
         {
             await transaction.CommitAsync(cancellationToken);
             return new SurveyAutoCreationRunResult
             {
                 IsEnabled = true,
-                WasDue = today >= creationDate.Date,
-                ScheduleDate = creationDate.Date
+                WasDue = false,
+                ScheduleDate = schedule.StartDate
             };
         }
 
-        var endDate = config.WorkingPeriod.HasValue
-            ? SurveyAutoCreationScheduleHelper.AddBusinessDays(startDate.Date, config.WorkingPeriod.Value)
-            : (DateTime?)null;
         var createdCount = 0;
         foreach (var surveyId in surveyIdArray)
         {
-            var created = await CopySurveyTemplateAsync(connection, transaction, surveyId, startDate.Date, endDate?.Date, cancellationToken);
+            var created = await CopySurveyTemplateAsync(
+                connection,
+                transaction,
+                surveyId,
+                schedule.StartDate,
+                schedule.EndDate,
+                cancellationToken);
             if (created)
             {
                 createdCount += 1;
@@ -158,11 +227,10 @@ public partial class SurveyService
         await transaction.CommitAsync(cancellationToken);
 
         _logger.LogInformation(
-            "Автосоздание анкет выполнилось успешно. Создано копий: {Count}, дата запуска периода: {CreationDate}, дата начала: {StartDate}, дата конца: {EndDate}",
+            "Автосоздание анкет выполнилось успешно. Создано копий: {Count}, дата начала: {StartDate}, дата конца: {EndDate}",
             createdCount,
-            creationDate.Date,
-            startDate.Date,
-            endDate?.Date);
+            schedule.StartDate,
+            schedule.EndDate);
 
         return new SurveyAutoCreationRunResult
         {
@@ -170,7 +238,7 @@ public partial class SurveyService
             WasDue = true,
             Processed = true,
             CreatedSurveyCount = createdCount,
-            ScheduleDate = creationDate.Date
+            ScheduleDate = schedule.StartDate
         };
     }
 }

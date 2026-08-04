@@ -2,9 +2,11 @@ namespace MainProject.Web.ViewModels;
 
 public sealed class SurveyAutoCreationPageViewModel
 {
-    public string CreationPattern { get; init; } = "1-monday";
-    public string StartPattern { get; init; } = "1-monday";
-    public int? EndOffsetBusinessDays { get; init; }
+    public string ReportingPeriod { get; init; } = "month";
+    public int ReportingOffsetBusinessDays { get; init; } = 1;
+    public int ActivePeriodBusinessDays { get; init; } = 8;
+    public int PreviewYear { get; init; }
+    public int PreviewMonth { get; init; }
     public bool IsEnabled { get; init; }
     public IReadOnlyList<SurveyAutoCreationSelectedSurveyViewModel> SelectedSurveys { get; init; }
         = Array.Empty<SurveyAutoCreationSelectedSurveyViewModel>();

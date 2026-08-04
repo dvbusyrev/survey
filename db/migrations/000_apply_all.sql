@@ -40,3 +40,4 @@ COMMIT;
 \ir 026_rebuild_audit_tables_as_structured_snapshots.sql
 \ir 027_store_theme_background_image_blob.sql
 \ir 028_remove_legacy_theme_columns.sql
+\ir 029_redesign_auto_creation_reporting_period.sql

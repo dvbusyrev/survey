@@ -13,7 +13,13 @@
         const node = root?.querySelector?.('#survey-auto-creation-bootstrap')
             || document.getElementById('survey-auto-creation-bootstrap');
         if (!node?.textContent) {
-            return { isEnabled: false, selectedSurveys: [] };
+            const today = new Date();
+            return {
+                isEnabled: false,
+                previewYear: today.getFullYear(),
+                previewMonth: today.getMonth() + 1,
+                selectedSurveys: []
+            };
         }
 
         try {
@@ -29,7 +35,12 @@
         cleanup: null,
         selectedSurveys: [],
         availableSurveys: null,
-        surveyDropdown: null
+        surveyDropdown: null,
+        previewYear: 0,
+        previewMonth: 0,
+        previewRequestId: 0,
+        previewAbortController: null,
+        previewErrorShown: false
     };
 
     function getQueryRoot() {
@@ -48,9 +59,127 @@
             return [];
         }
 
-        return items
+        const uniqueByName = new Map();
+        items
             .map((item) => normalizeSurvey(item))
-            .filter((item) => item.id > 0 && item.name);
+            .filter((item) => item.id > 0 && item.name)
+            .forEach((item) => {
+                const key = item.name.toLocaleLowerCase('ru-RU');
+                if (!uniqueByName.has(key)) {
+                    uniqueByName.set(key, item);
+                }
+            });
+
+        return Array.from(uniqueByName.values());
+    }
+
+    function createElement(tagName, className, text) {
+        return window.AppUi.createElement(tagName, { className, text });
+    }
+
+    function getPreviewTargetDate() {
+        return new Date(state.previewYear, state.previewMonth - 1, 1);
+    }
+
+    function setPreviewTargetDate(date) {
+        state.previewYear = date.getFullYear();
+        state.previewMonth = date.getMonth() + 1;
+    }
+
+    function shiftPreviewMonth(offset) {
+        const target = getPreviewTargetDate();
+        target.setMonth(target.getMonth() + offset);
+        setPreviewTargetDate(target);
+    }
+
+    function buildCalendarWeekdays() {
+        const row = createElement('div', 'survey-period-filter__weekday-row');
+        window.SurveyFilterCore.WEEKDAY_NAMES.forEach((weekday) => {
+            row.appendChild(createElement('span', 'survey-period-filter__weekday', weekday));
+        });
+        return row;
+    }
+
+    function buildCalendarDay(isoValue, startDate, endDate) {
+        const date = window.SurveyFilterCore.parseIso(isoValue);
+        const day = createElement(
+            'button',
+            'survey-period-filter__day-button survey-auto-creation-page__calendar-day',
+            date ? String(date.getDate()) : ''
+        );
+        day.type = 'button';
+        day.tabIndex = -1;
+        day.setAttribute('aria-hidden', 'true');
+
+        const compare = window.SurveyFilterCore.compareIso;
+        const inRange = startDate && endDate
+            && compare(isoValue, startDate) >= 0
+            && compare(isoValue, endDate) <= 0;
+        day.classList.toggle('is-in-range', inRange);
+        day.classList.toggle('is-range-start', isoValue === startDate);
+        day.classList.toggle('is-range-end', isoValue === endDate);
+        day.classList.toggle('is-range-single', startDate === endDate && isoValue === startDate);
+        return day;
+    }
+
+    function buildCalendarCard(monthDate, startDate, endDate) {
+        const core = window.SurveyFilterCore;
+        const card = createElement('div', 'survey-period-filter__calendar-card');
+        const title = createElement(
+            'h4',
+            'survey-period-filter__calendar-title',
+            core.getMonthDescription(monthDate.getFullYear(), monthDate.getMonth())
+        );
+        const days = createElement('div', 'survey-period-filter__days-grid');
+        const firstDayIndex = (new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay() + 6) % 7;
+        const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+
+        for (let index = 0; index < firstDayIndex; index += 1) {
+            days.appendChild(createElement('span', 'survey-period-filter__day-placeholder'));
+        }
+
+        for (let day = 1; day <= daysInMonth; day += 1) {
+            const isoValue = core.toIso(new Date(monthDate.getFullYear(), monthDate.getMonth(), day));
+            days.appendChild(buildCalendarDay(isoValue, startDate, endDate));
+        }
+
+        card.appendChild(title);
+        card.appendChild(buildCalendarWeekdays());
+        card.appendChild(days);
+        return card;
+    }
+
+    function renderSchedulePreview(result = {}) {
+        const root = getQueryRoot();
+        const calendars = root.querySelector('[data-role="survey-auto-creation-calendars"]');
+        if (!calendars || !window.SurveyFilterCore) {
+            return;
+        }
+
+        const firstMonth = getPreviewTargetDate();
+        const secondMonth = window.SurveyFilterCore.shiftMonth(firstMonth, 1);
+        const periods = Array.isArray(result.periods)
+            ? result.periods
+            : (Array.isArray(result.Periods) ? result.Periods : []);
+        const getPeriod = (monthDate) => periods.find((period) => (
+            Number(period.year ?? period.Year) === monthDate.getFullYear()
+            && Number(period.month ?? period.Month) === monthDate.getMonth() + 1
+        )) || {};
+        const firstPeriod = getPeriod(firstMonth);
+        const secondPeriod = getPeriod(secondMonth);
+
+        calendars.replaceChildren(
+            buildCalendarCard(
+                firstMonth,
+                String(firstPeriod.startDate || firstPeriod.StartDate || ''),
+                String(firstPeriod.endDate || firstPeriod.EndDate || '')
+            ),
+            buildCalendarCard(
+                secondMonth,
+                String(secondPeriod.startDate || secondPeriod.StartDate || ''),
+                String(secondPeriod.endDate || secondPeriod.EndDate || '')
+            )
+        );
     }
 
     function showToast(message, type, options = {}) {
@@ -186,7 +315,7 @@
     }
 
     async function loadSurveyOptions() {
-        const response = await fetch('/survey/data', {
+        const response = await fetch('/settings/survey-creation/surveys', {
             headers: {
                 Accept: 'application/json'
             }
@@ -206,25 +335,40 @@
 
     function collectRequest() {
         const root = getQueryRoot();
-        const creationPattern = root.querySelector('#surveyAutoCreationPattern')?.value || '';
-        const startPattern = root.querySelector('#surveyAutoCreationStartPattern')?.value || '';
-        const endOffsetValue = root.querySelector('#surveyAutoCreationEndOffset')?.value || '';
-        const endOffsetBusinessDays = endOffsetValue ? Number(endOffsetValue) : null;
+        const reportingPeriod = root.querySelector('#surveyAutoCreationReportingPeriod')?.value || 'month';
+        const reportingOffsetBusinessDays = Number(
+            root.querySelector('#surveyAutoCreationReportingOffset')?.value || 1
+        );
+        const activePeriodBusinessDays = Number(
+            root.querySelector('#surveyAutoCreationActivePeriod')?.value || 8
+        );
 
         return {
-            creationPattern,
-            startPattern,
-            endOffsetBusinessDays,
+            reportingPeriod,
+            reportingOffsetBusinessDays,
+            activePeriodBusinessDays,
             surveyIds: state.selectedSurveys.map((survey) => survey.id)
         };
     }
 
-    async function postAction(url, payload) {
+    function collectPreviewRequest() {
+        const request = collectRequest();
+        return {
+            reportingPeriod: request.reportingPeriod,
+            reportingOffsetBusinessDays: request.reportingOffsetBusinessDays,
+            activePeriodBusinessDays: request.activePeriodBusinessDays,
+            targetYear: state.previewYear,
+            targetMonth: state.previewMonth
+        };
+    }
+
+    async function postAction(url, payload, signal = null) {
         const options = {
             method: 'POST',
             headers: {
                 RequestVerificationToken: window.AppHttp?.getAntiforgeryToken() || ''
-            }
+            },
+            signal
         };
 
         if (payload !== undefined) {
@@ -248,6 +392,45 @@
         }
 
         return parsed || { success: true };
+    }
+
+    async function refreshSchedulePreview() {
+        const calendar = getQueryRoot().querySelector('[data-role="survey-auto-creation-calendar"]');
+        const requestId = ++state.previewRequestId;
+        state.previewAbortController?.abort();
+        state.previewAbortController = new AbortController();
+        calendar?.setAttribute('aria-busy', 'true');
+
+        try {
+            const result = await postAction(
+                '/settings/survey-creation/preview',
+                collectPreviewRequest(),
+                state.previewAbortController.signal
+            );
+            if (requestId !== state.previewRequestId) {
+                return;
+            }
+
+            state.previewErrorShown = false;
+            renderSchedulePreview(result);
+        } catch (error) {
+            if (error?.name === 'AbortError' || requestId !== state.previewRequestId) {
+                return;
+            }
+
+            if (!state.previewErrorShown) {
+                state.previewErrorShown = true;
+                showToast(
+                    error instanceof Error ? error.message : 'Не удалось рассчитать календарь действия.',
+                    'error',
+                    { title: 'Ошибка' }
+                );
+            }
+        } finally {
+            if (requestId === state.previewRequestId) {
+                calendar?.removeAttribute('aria-busy');
+            }
+        }
     }
 
     function refreshPage() {
@@ -329,11 +512,46 @@
         state.pageRoot = pageRoot;
         state.availableSurveys = null;
         const bootstrap = parseBootstrap(pageRoot);
+        const today = new Date();
+        state.previewYear = Number(bootstrap.previewYear) || today.getFullYear();
+        state.previewMonth = Number(bootstrap.previewMonth) || (today.getMonth() + 1);
+        state.previewErrorShown = false;
         state.selectedSurveys = cloneSurveys(bootstrap.selectedSurveys).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
         renderSelectedSurveys();
+        renderSchedulePreview();
         mountSurveyDropdownController();
 
+        const previewInputs = [
+            pageRoot.querySelector('#surveyAutoCreationReportingPeriod'),
+            pageRoot.querySelector('#surveyAutoCreationReportingOffset'),
+            pageRoot.querySelector('#surveyAutoCreationActivePeriod')
+        ].filter(Boolean);
+        const previousButton = pageRoot.querySelector('[data-role="survey-auto-creation-calendar-previous"]');
+        const nextButton = pageRoot.querySelector('[data-role="survey-auto-creation-calendar-next"]');
+        const handlePreviewChange = () => void refreshSchedulePreview();
+        const handlePrevious = () => {
+            shiftPreviewMonth(-1);
+            renderSchedulePreview();
+            void refreshSchedulePreview();
+        };
+        const handleNext = () => {
+            shiftPreviewMonth(1);
+            renderSchedulePreview();
+            void refreshSchedulePreview();
+        };
+
+        previewInputs.forEach((input) => input.addEventListener('change', handlePreviewChange));
+        previousButton?.addEventListener('click', handlePrevious);
+        nextButton?.addEventListener('click', handleNext);
+        void refreshSchedulePreview();
+
         const cleanup = () => {
+            state.previewRequestId += 1;
+            state.previewAbortController?.abort();
+            state.previewAbortController = null;
+            previewInputs.forEach((input) => input.removeEventListener('change', handlePreviewChange));
+            previousButton?.removeEventListener('click', handlePrevious);
+            nextButton?.removeEventListener('click', handleNext);
             closeSurveyDropdown();
             state.surveyDropdown?.destroy?.();
             state.surveyDropdown = null;

@@ -2,6 +2,7 @@ using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.Support;
 using MainProject.Infrastructure.Persistence;
+using MainProject.Infrastructure.External.Calendar;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -15,6 +16,7 @@ public partial class SurveyService
     private readonly SurveyRepository _surveyRepository;
     private readonly AnswerRepository _answerRepository;
     private readonly IClock _clock;
+    private readonly ProductionCalendarService? _productionCalendar;
     private readonly ILogger<SurveyService> _logger;
 
     protected SurveyService()
@@ -31,12 +33,14 @@ public partial class SurveyService
         SurveyRepository surveyRepository,
         IClock clock,
         AnswerRepository? answerRepository = null,
-        ILogger<SurveyService>? logger = null)
+        ILogger<SurveyService>? logger = null,
+        ProductionCalendarService? productionCalendar = null)
     {
         _connectionFactory = connectionFactory;
         _surveyRepository = surveyRepository;
         _answerRepository = answerRepository!;
         _clock = clock;
+        _productionCalendar = productionCalendar;
         _logger = logger ?? NullLogger<SurveyService>.Instance;
     }
 

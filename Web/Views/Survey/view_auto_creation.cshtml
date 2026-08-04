@@ -14,11 +14,12 @@
     var displayName = !string.IsNullOrWhiteSpace(organizationName) && !string.IsNullOrWhiteSpace(userName)
         ? $"{organizationName}: {userName}"
         : (!string.IsNullOrWhiteSpace(userName) ? userName : AppRoles.GetDisplayName(userRole));
-    var monthWeekdayOptions = SurveyAutoCreationScheduleHelper.GetMonthWeekdayOptions();
-    var endOffsetOptions = SurveyAutoCreationScheduleHelper.GetBusinessDayOffsetOptions();
+    var reportingPeriodOptions = SurveyAutoCreationScheduleHelper.GetReportingPeriodOptions();
+    var businessDayOptions = SurveyAutoCreationScheduleHelper.GetBusinessDayPeriodOptions();
 }
 
 @section PageStyles {
+    <link rel="stylesheet" href="~/css/pages/survey-admin-pages.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pages/admin-utility-pages.css" asp-append-version="true" />
 }
 
@@ -42,7 +43,7 @@
                     new MainProject.Web.ViewModels.PageIntroModel
                     {
                         // Title = "Автоматическое создание анкет",
-                        Description = "Настройте день создания новых копий анкет, день их открытия и срок закрытия в рабочих днях. После запуска система будет автоматически создавать копии выбранных анкет по расписанию."
+                        Description = "Настройте период отчётности и сроки в рабочих днях. Система каждый час проверяет расписание и создаёт пропущенные анкеты с рассчитанными датами."
                     })
 
                 <section class="app-section app-page__section reports-page__card survey-auto-creation-page__card">
@@ -58,34 +59,57 @@
 
                     <div class="survey-auto-creation-page__controls">
                         <div class="reports-page__field">
-                            <label for="surveyAutoCreationPattern">Создание анкеты</label>
-                            <select id="surveyAutoCreationPattern" class="app-field reports-page__quarter-select">
-                                @foreach (var option in monthWeekdayOptions)
+                            <label for="surveyAutoCreationReportingPeriod">Период отчётности</label>
+                            <select id="surveyAutoCreationReportingPeriod" class="app-field reports-page__quarter-select">
+                                @foreach (var option in reportingPeriodOptions)
                                 {
-                                    <option value="@option.Value" selected="@(Model?.CreationPattern == option.Value)">@option.Label</option>
+                                    <option value="@option.Value" selected="@(Model?.ReportingPeriod == option.Value)">@option.Label</option>
                                 }
                             </select>
                         </div>
 
                         <div class="reports-page__field">
-                            <label for="surveyAutoCreationStartPattern">Дата начала</label>
-                            <select id="surveyAutoCreationStartPattern" class="app-field reports-page__quarter-select">
-                                @foreach (var option in monthWeekdayOptions)
+                            <label for="surveyAutoCreationReportingOffset">Период на отчётность</label>
+                            <select id="surveyAutoCreationReportingOffset" class="app-field reports-page__quarter-select">
+                                @foreach (var option in businessDayOptions)
                                 {
-                                    <option value="@option.Value" selected="@(Model?.StartPattern == option.Value)">@option.Label</option>
+                                    <option value="@option.Value" selected="@(Model?.ReportingOffsetBusinessDays == option.Value)">@option.Label</option>
                                 }
                             </select>
                         </div>
 
                         <div class="reports-page__field">
-                            <label for="surveyAutoCreationEndOffset">Период действия</label>
-                            <select id="surveyAutoCreationEndOffset" class="app-field reports-page__quarter-select">
-                                <option value="" selected="@(Model?.EndOffsetBusinessDays == null)"></option>
-                                @foreach (var option in endOffsetOptions)
+                            <label for="surveyAutoCreationActivePeriod">Период действия</label>
+                            <select id="surveyAutoCreationActivePeriod" class="app-field reports-page__quarter-select">
+                                @foreach (var option in businessDayOptions)
                                 {
-                                    <option value="@option.Value" selected="@(Model?.EndOffsetBusinessDays == option.Value)">@option.Label</option>
+                                    <option value="@option.Value" selected="@(Model?.ActivePeriodBusinessDays == option.Value)">@option.Label</option>
                                 }
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="reports-page__field survey-auto-creation-page__calendar-field">
+                        <label>Календарь действия</label>
+                        <div class="app-field survey-auto-creation-page__calendar"
+                             data-role="survey-auto-creation-calendar"
+                             aria-live="polite">
+                            <div class="survey-period-filter__panel-nav">
+                                <button type="button"
+                                        class="survey-period-filter__nav-button"
+                                        data-role="survey-auto-creation-calendar-previous"
+                                        aria-label="Предыдущий месяц">
+                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                </button>
+                                <button type="button"
+                                        class="survey-period-filter__nav-button"
+                                        data-role="survey-auto-creation-calendar-next"
+                                        aria-label="Следующий месяц">
+                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <div class="survey-period-filter__calendars"
+                                 data-role="survey-auto-creation-calendars"></div>
                         </div>
                     </div>
 
@@ -146,11 +170,14 @@
     @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
     {
         isEnabled = Model?.IsEnabled ?? false,
+        previewYear = Model?.PreviewYear ?? DateTime.Today.Year,
+        previewMonth = Model?.PreviewMonth ?? DateTime.Today.Month,
         selectedSurveys = Model?.SelectedSurveys ?? Array.Empty<MainProject.Web.ViewModels.SurveyAutoCreationSelectedSurveyViewModel>()
     }))
 </script>
 
 @section Scripts {
+    <script src="~/js/features/survey/survey-filter-core.js" asp-append-version="true"></script>
     <script src="~/js/features/admin/survey-auto-creation-page.js" asp-append-version="true"></script>
     <script>
         window.initSurveyAutoCreationPage?.();

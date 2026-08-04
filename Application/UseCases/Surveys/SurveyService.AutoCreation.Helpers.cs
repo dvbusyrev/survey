@@ -1,7 +1,5 @@
-using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.DTO.Configuration;
-using MainProject.Infrastructure.Persistence;
 using MainProject.Web.ViewModels;
 using Npgsql;
 
@@ -17,80 +15,54 @@ public partial class SurveyService
     {
         if (request == null)
         {
-            return new NormalizeSurveyAutoCreationRequestResult
-            {
-                ValidationError = "Параметры автосоздания не переданы"
-            };
+            return InvalidAutoCreationRequest("Параметры автосоздания не переданы");
         }
 
-        var creationPattern = (request.CreationPattern ?? string.Empty).Trim().ToLowerInvariant();
-        var startPattern = (request.StartPattern ?? string.Empty).Trim().ToLowerInvariant();
-        var surveyIds = (request.SurveyIds ?? new List<int>())
+        if (!SurveyAutoCreationScheduleHelper.TryNormalizeReportingPeriod(request.ReportingPeriod, out var reportingPeriod))
+        {
+            return InvalidAutoCreationRequest("Некорректное значение поля «Период отчётности».");
+        }
+
+        if (!IsValidBusinessDayPeriod(request.ReportingOffsetBusinessDays))
+        {
+            return InvalidAutoCreationRequest(
+                $"Поле «Период на отчётность» должно быть от 1 до {SurveyAutoCreationScheduleHelper.MaxBusinessDayPeriod} рабочих дней.");
+        }
+
+        if (!IsValidBusinessDayPeriod(request.ActivePeriodBusinessDays))
+        {
+            return InvalidAutoCreationRequest(
+                $"Поле «Период действия» должно быть от 1 до {SurveyAutoCreationScheduleHelper.MaxBusinessDayPeriod} рабочих дней.");
+        }
+
+        var surveyIds = (request.SurveyIds ?? [])
             .Where(static id => id > 0)
             .Distinct()
             .OrderBy(static id => id)
             .ToArray();
-
-        if (!SurveyAutoCreationScheduleHelper.TryParseMonthWeekdayPattern(creationPattern, out var creationWeekNumber, out var creationDayOfWeek))
-        {
-            return new NormalizeSurveyAutoCreationRequestResult
-            {
-                ValidationError = "Некорректное значение поля «Создание анкеты»."
-            };
-        }
-
-        if (!SurveyAutoCreationScheduleHelper.TryParseMonthWeekdayPattern(startPattern, out var beginWeekNumber, out var beginDayOfWeek))
-        {
-            return new NormalizeSurveyAutoCreationRequestResult
-            {
-                ValidationError = "Некорректное значение поля «Дата начала»."
-            };
-        }
-
-        var effectiveWorkingPeriod = request.EndOffsetBusinessDays;
-        if (effectiveWorkingPeriod.HasValue
-            && (effectiveWorkingPeriod.Value <= 0
-                || effectiveWorkingPeriod.Value > SurveyAutoCreationScheduleHelper.MaxBusinessDayOffset))
-        {
-            return new NormalizeSurveyAutoCreationRequestResult
-            {
-                ValidationError = $"Поле «Период действия» должно быть от 1 до {SurveyAutoCreationScheduleHelper.MaxBusinessDayOffset} рабочих дней."
-            };
-        }
-
         if (surveyIds.Length == 0)
         {
-            return new NormalizeSurveyAutoCreationRequestResult
-            {
-                ValidationError = "Выберите хотя бы одну анкету."
-            };
-        }
-
-        var creationDayName = SurveyAutoCreationScheduleHelper.GetPatternWeekdayName(creationDayOfWeek);
-        var beginDayName = SurveyAutoCreationScheduleHelper.GetPatternWeekdayName(beginDayOfWeek);
-        var creationDayId = string.IsNullOrWhiteSpace(creationDayName)
-            ? null
-            : await _surveyRepository.GetWeekDayIdAsync(connection, transaction, creationWeekNumber, creationDayName, cancellationToken);
-        var beginDayId = string.IsNullOrWhiteSpace(beginDayName)
-            ? null
-            : await _surveyRepository.GetWeekDayIdAsync(connection, transaction, beginWeekNumber, beginDayName, cancellationToken);
-        if (creationDayId == null || beginDayId == null)
-        {
-            return new NormalizeSurveyAutoCreationRequestResult
-            {
-                ValidationError = "Дни расписания не найдены в справочнике week_day."
-            };
+            return InvalidAutoCreationRequest("Выберите хотя бы одну анкету.");
         }
 
         var existingSurveyIds = await _surveyRepository.GetExistingSurveyIdsAsync(
-            connection, transaction, surveyIds, cancellationToken);
-
+            connection,
+            transaction,
+            surveyIds,
+            cancellationToken);
         if (existingSurveyIds.Count != surveyIds.Length)
         {
-            return new NormalizeSurveyAutoCreationRequestResult
-            {
-                ValidationError = "Одна или несколько выбранных анкет не найдены."
-            };
+            return InvalidAutoCreationRequest("Одна или несколько выбранных анкет не найдены.");
+        }
+
+        var distinctNameCount = await _surveyRepository.GetDistinctSurveyNameCountAsync(
+            connection,
+            transaction,
+            surveyIds,
+            cancellationToken);
+        if (distinctNameCount != surveyIds.Length)
+        {
+            return InvalidAutoCreationRequest("Анкеты с одинаковым названием нельзя выбирать несколько раз.");
         }
 
         return new NormalizeSurveyAutoCreationRequestResult
@@ -98,13 +70,11 @@ public partial class SurveyService
             IsValid = true,
             NormalizedRequest = new SurveyAutoCreationSettingsRequest
             {
-                CreationPattern = creationPattern,
-                StartPattern = startPattern,
-                EndOffsetBusinessDays = effectiveWorkingPeriod,
+                ReportingPeriod = reportingPeriod,
+                ReportingOffsetBusinessDays = request.ReportingOffsetBusinessDays,
+                ActivePeriodBusinessDays = request.ActivePeriodBusinessDays,
                 SurveyIds = surveyIds.ToList()
-            },
-            CreationDayId = creationDayId.Value,
-            BeginDayId = beginDayId.Value
+            }
         };
     }
 
@@ -117,15 +87,11 @@ public partial class SurveyService
             connection,
             transaction,
             SingletonConfigId,
-            DefaultCreationDayId,
-            DefaultBeginDayId,
-            DefaultWorkingPeriod,
+            DefaultReportingPeriod,
+            DefaultReportingOffsetBusinessDays,
+            DefaultActivePeriodBusinessDays,
             lockRow,
             cancellationToken);
-
-    private static bool TryParseDayOfWeek(string? dayName, out DayOfWeek dayOfWeek)
-        => Enum.TryParse(dayName, ignoreCase: true, out dayOfWeek)
-           && dayOfWeek is >= DayOfWeek.Monday and <= DayOfWeek.Friday;
 
     private async Task<bool> GetIsEnabledAsync(CancellationToken cancellationToken)
     {
@@ -134,61 +100,72 @@ public partial class SurveyService
         return config.IsEnabled;
     }
 
+    private static bool IsValidBusinessDayPeriod(int value)
+        => value is >= SurveyAutoCreationScheduleHelper.MinBusinessDayPeriod
+            and <= SurveyAutoCreationScheduleHelper.MaxBusinessDayPeriod;
 
-    private static SurveyAutoCreationPageViewModel BuildDefaultPageModel()
-    {
-        return new SurveyAutoCreationPageViewModel
+    private static NormalizeSurveyAutoCreationRequestResult InvalidAutoCreationRequest(string message)
+        => new() { ValidationError = message };
+
+    private SurveyAutoCreationPageViewModel BuildDefaultPageModel()
+        => new()
         {
-            CreationPattern = DefaultPattern,
-            StartPattern = DefaultPattern,
-            EndOffsetBusinessDays = DefaultWorkingPeriod,
+            ReportingPeriod = DefaultReportingPeriod,
+            ReportingOffsetBusinessDays = DefaultReportingOffsetBusinessDays,
+            ActivePeriodBusinessDays = DefaultActivePeriodBusinessDays,
+            PreviewYear = _clock.Today.Year,
+            PreviewMonth = _clock.Today.Month,
             IsEnabled = false
         };
-    }
+
+    private static SurveyAutoCreationPreviewResult InvalidPreview(string message)
+        => new() { Message = message };
 
     private static SurveyAutoCreationCommandResult BuildStorageUnavailableCommandResult()
-    {
-        return new SurveyAutoCreationCommandResult
-        {
-            Message = StorageUnavailableMessage
-        };
-    }
+        => new() { Message = StorageUnavailableMessage };
 
     private async Task<bool> CopySurveyTemplateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
         DateTime startDate,
-        DateTime? endDate,
+        DateTime endDate,
         CancellationToken cancellationToken)
     {
         var originalSurvey = await _surveyRepository.GetSurveyByIdAsync(
-            connection, transaction, surveyId, cancellationToken);
-
+            connection,
+            transaction,
+            surveyId,
+            cancellationToken);
         if (originalSurvey == null)
         {
             throw new InvalidOperationException($"Анкета {surveyId} не найдена для автосоздания.");
         }
 
-        var copyName = originalSurvey.NameSurvey;
         var alreadyCreated = await _surveyRepository.HasSurveyWithScheduleAsync(
             connection,
             transaction,
-            copyName,
+            originalSurvey.NameSurvey,
             startDate,
             endDate,
             cancellationToken);
-
         if (alreadyCreated)
         {
             return false;
         }
 
         var newSurveyId = await _surveyRepository.CreateSurveyAsync(
-            connection, transaction, copyName, originalSurvey.Description, cancellationToken);
-
+            connection,
+            transaction,
+            originalSurvey.NameSurvey,
+            originalSurvey.Description,
+            cancellationToken);
         await _surveyRepository.CopySurveyQuestionsAsync(
-            connection, transaction, surveyId, newSurveyId, cancellationToken);
+            connection,
+            transaction,
+            surveyId,
+            newSurveyId,
+            cancellationToken);
 
         var organizationIds = await _surveyRepository.GetOrganizationIdsAsync(
             connection,
@@ -211,8 +188,6 @@ public partial class SurveyService
     {
         public bool IsValid { get; init; }
         public SurveyAutoCreationSettingsRequest NormalizedRequest { get; init; } = new();
-        public int CreationDayId { get; init; }
-        public int BeginDayId { get; init; }
         public string ValidationError { get; init; } = string.Empty;
     }
 }

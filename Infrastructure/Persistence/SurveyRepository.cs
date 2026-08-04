@@ -1230,6 +1230,30 @@ public sealed class SurveyRepository
         return surveys.ToArray();
     }
 
+    public async Task<IReadOnlyList<SurveySelectionItem>> GetAutoCreationSurveySelectionOptionsAsync(
+        NpgsqlConnection connection,
+        int configId,
+        CancellationToken cancellationToken = default)
+    {
+        var surveys = await connection.QueryAsync<SurveySelectionItem>(new CommandDefinition(
+            """
+            SELECT DISTINCT ON (lower(btrim(s.name_survey)))
+                s.id_survey AS Id,
+                s.name_survey AS Name
+            FROM public.survey s
+            LEFT JOIN public.survey_auto_creation_config selected
+              ON selected.id_config = @ConfigId
+             AND selected.id_survey = s.id_survey
+            ORDER BY
+                lower(btrim(s.name_survey)),
+                (selected.id_survey IS NOT NULL) DESC,
+                s.id_survey DESC;
+            """,
+            new { ConfigId = configId },
+            cancellationToken: cancellationToken));
+        return surveys.ToArray();
+    }
+
     public async Task<IReadOnlySet<int>> GetExistingSurveyIdsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
@@ -1249,6 +1273,21 @@ public sealed class SurveyRepository
         return ids.ToHashSet();
     }
 
+    public Task<int> GetDistinctSurveyNameCountAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction? transaction,
+        IReadOnlyCollection<int> surveyIds,
+        CancellationToken cancellationToken = default) =>
+        connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            """
+            SELECT COUNT(DISTINCT lower(btrim(name_survey)))
+            FROM public.survey
+            WHERE id_survey = ANY(@SurveyIds);
+            """,
+            new { SurveyIds = surveyIds.ToArray() },
+            transaction,
+            cancellationToken: cancellationToken));
+
     public Task<bool> HasCurrentAutoCreationStorageAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction = null,
@@ -1256,13 +1295,22 @@ public sealed class SurveyRepository
         connection.ExecuteScalarAsync<bool>(new CommandDefinition(
             """
             SELECT
-                to_regclass('public.week_day') IS NOT NULL
-                AND to_regclass('public.auto_creation_config') IS NOT NULL
+                to_regclass('public.auto_creation_config') IS NOT NULL
                 AND to_regclass('public.survey_auto_creation_config') IS NOT NULL
                 AND EXISTS (
                     SELECT 1 FROM information_schema.columns
                     WHERE table_schema = 'public' AND table_name = 'auto_creation_config'
-                      AND column_name = 'working_period' AND is_nullable = 'YES'
+                      AND column_name = 'reporting_period' AND is_nullable = 'NO'
+                )
+                AND EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'auto_creation_config'
+                      AND column_name = 'reporting_offset_business_days' AND is_nullable = 'NO'
+                )
+                AND EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'auto_creation_config'
+                      AND column_name = 'working_period' AND is_nullable = 'NO'
                 )
                 AND EXISTS (
                     SELECT 1 FROM information_schema.columns
@@ -1277,20 +1325,26 @@ public sealed class SurveyRepository
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
         int configId,
-        int defaultCreationDayId,
-        int defaultBeginDayId,
-        int? defaultWorkingPeriod,
+        string defaultReportingPeriod,
+        int defaultReportingOffsetBusinessDays,
+        int defaultWorkingPeriod,
         bool lockRow,
         CancellationToken cancellationToken = default)
     {
         await connection.ExecuteAsync(new CommandDefinition(
             """
             INSERT INTO public.auto_creation_config
-                (id_config, id_creation_day, id_begin_day, working_period, is_enabled)
-            VALUES (@ConfigId, @CreationDayId, @BeginDayId, @WorkingPeriod, FALSE)
+                (id_config, reporting_period, reporting_offset_business_days, working_period, is_enabled)
+            VALUES (@ConfigId, @ReportingPeriod, @ReportingOffsetBusinessDays, @WorkingPeriod, FALSE)
             ON CONFLICT (id_config) DO NOTHING;
             """,
-            new { ConfigId = configId, CreationDayId = defaultCreationDayId, BeginDayId = defaultBeginDayId, WorkingPeriod = defaultWorkingPeriod },
+            new
+            {
+                ConfigId = configId,
+                ReportingPeriod = defaultReportingPeriod,
+                ReportingOffsetBusinessDays = defaultReportingOffsetBusinessDays,
+                WorkingPeriod = defaultWorkingPeriod
+            },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -1299,19 +1353,11 @@ public sealed class SurveyRepository
             $"""
             SELECT
                 c.id_config AS IdConfig,
-                c.id_creation_day AS CreationDayId,
-                c.id_begin_day AS BeginDayId,
+                c.reporting_period AS ReportingPeriod,
+                c.reporting_offset_business_days AS ReportingOffsetBusinessDays,
                 c.working_period AS WorkingPeriod,
-                c.is_enabled AS IsEnabled,
-                creation_day.en_name_day AS CreationDayName,
-                creation_day.week_number AS CreationWeekNumber,
-                begin_day.en_name_day AS BeginDayName,
-                begin_day.week_number AS BeginWeekNumber,
-                creation_day.week_number::text || '-' || lower(creation_day.en_name_day) AS CreationPattern,
-                begin_day.week_number::text || '-' || lower(begin_day.en_name_day) AS StartPattern
+                c.is_enabled AS IsEnabled
             FROM public.auto_creation_config c
-            INNER JOIN public.week_day creation_day ON creation_day.id_day = c.id_creation_day
-            INNER JOIN public.week_day begin_day ON begin_day.id_day = c.id_begin_day
             WHERE c.id_config = @ConfigId
             {lockClause};
             """,
@@ -1336,24 +1382,32 @@ public sealed class SurveyRepository
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int configId,
-        int creationDayId,
-        int beginDayId,
-        int? workingPeriod,
+        string reportingPeriod,
+        int reportingOffsetBusinessDays,
+        int workingPeriod,
         bool isEnabled,
         IReadOnlyCollection<int> surveyIds,
         CancellationToken cancellationToken = default)
     {
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO public.auto_creation_config (id_config, id_creation_day, id_begin_day, working_period, is_enabled)
-            VALUES (@ConfigId, @CreationDayId, @BeginDayId, @WorkingPeriod, @IsEnabled)
+            INSERT INTO public.auto_creation_config
+                (id_config, reporting_period, reporting_offset_business_days, working_period, is_enabled)
+            VALUES (@ConfigId, @ReportingPeriod, @ReportingOffsetBusinessDays, @WorkingPeriod, @IsEnabled)
             ON CONFLICT (id_config) DO UPDATE SET
-                id_creation_day = EXCLUDED.id_creation_day,
-                id_begin_day = EXCLUDED.id_begin_day,
+                reporting_period = EXCLUDED.reporting_period,
+                reporting_offset_business_days = EXCLUDED.reporting_offset_business_days,
                 working_period = EXCLUDED.working_period,
                 is_enabled = EXCLUDED.is_enabled;
             """,
-            new { ConfigId = configId, CreationDayId = creationDayId, BeginDayId = beginDayId, WorkingPeriod = workingPeriod, IsEnabled = isEnabled },
+            new
+            {
+                ConfigId = configId,
+                ReportingPeriod = reportingPeriod,
+                ReportingOffsetBusinessDays = reportingOffsetBusinessDays,
+                WorkingPeriod = workingPeriod,
+                IsEnabled = isEnabled
+            },
             transaction,
             cancellationToken: cancellationToken));
         await connection.ExecuteAsync(new CommandDefinition(
@@ -1412,22 +1466,6 @@ public sealed class SurveyRepository
         connection.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM public.survey_auto_creation_config WHERE id_config = @ConfigId;",
             new { ConfigId = configId },
-            cancellationToken: cancellationToken));
-
-    public Task<int?> GetWeekDayIdAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction? transaction,
-        int weekNumber,
-        string dayName,
-        CancellationToken cancellationToken = default) =>
-        connection.ExecuteScalarAsync<int?>(new CommandDefinition(
-            """
-            SELECT id_day FROM public.week_day
-            WHERE week_number = @WeekNumber AND lower(en_name_day) = lower(@DayName)
-            LIMIT 1;
-            """,
-            new { WeekNumber = weekNumber, DayName = dayName },
-            transaction,
             cancellationToken: cancellationToken));
 
     public async Task<IReadOnlyList<int>> GetAvailableYearsAsync(CancellationToken cancellationToken = default)

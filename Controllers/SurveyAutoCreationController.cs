@@ -27,6 +27,39 @@ public class SurveyAutoCreationController : Controller
         return View("~/Web/Views/Survey/view_auto_creation.cshtml", model);
     }
 
+    [HttpGet("settings/survey-creation/surveys")]
+    [HttpGet("survey-auto-creation/surveys")]
+    public async Task<IActionResult> GetSurveyOptions(CancellationToken cancellationToken)
+    {
+        var surveys = (await _surveyAutoCreationService.GetSurveyOptionsAsync(cancellationToken))
+            .Select(static survey => new { id = survey.Id, name = survey.Name })
+            .ToArray();
+        return Json(surveys);
+    }
+
+    [HttpPost("settings/survey-creation/preview")]
+    [HttpPost("survey-auto-creation/preview")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Preview(
+        [FromBody] SurveyAutoCreationPreviewRequest? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _surveyAutoCreationService.GetSchedulePreviewAsync(request, cancellationToken);
+            if (!result.Success)
+            {
+                return BadRequest(new { success = false, message = result.Message });
+            }
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(ex, "Не удалось рассчитать календарь действия.", "Ошибка расчёта календаря автосоздания анкет");
+        }
+    }
+
     [HttpPost("settings/survey-creation/save")]
     [HttpPost("survey-auto-creation/save")]
     [ValidateAntiForgeryToken]

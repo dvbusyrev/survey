@@ -47,9 +47,9 @@ public partial class SurveyService
                 connection,
                 transaction,
                 SingletonConfigId,
-                normalizeResult.CreationDayId,
-                normalizeResult.BeginDayId,
-                normalizedRequest.EndOffsetBusinessDays,
+                normalizedRequest.ReportingPeriod,
+                normalizedRequest.ReportingOffsetBusinessDays,
+                normalizedRequest.ActivePeriodBusinessDays,
                 isEnabled,
                 normalizedRequest.SurveyIds,
                 cancellationToken);

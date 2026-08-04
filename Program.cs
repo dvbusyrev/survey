@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.External.Email;
+using MainProject.Infrastructure.External.Calendar;
 using MainProject.Infrastructure.Time;
 using MainProject.Application.UseCases;
 using MainProject.Application.UseCases.Admin;
@@ -160,6 +161,12 @@ builder.Services.AddScoped<OrganizationManagementService>();
 builder.Services.AddScoped<SurveyService>();
 builder.Services.AddScoped<AnswerService>();
 builder.Services.AddScoped<SmtpEmailSender>();
+builder.Services.AddHttpClient<ProductionCalendarService>(client =>
+{
+    var baseUrl = builder.Configuration["ProductionCalendar:BaseUrl"] ?? "https://isdayoff.ru";
+    client.BaseAddress = new Uri($"{baseUrl.TrimEnd('/')}/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 
 // Сжатие ответов для ускорения загрузки
 builder.Services.AddResponseCompression(options =>

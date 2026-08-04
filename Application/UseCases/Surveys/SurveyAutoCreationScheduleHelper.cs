@@ -1,179 +1,133 @@
-using System.Text.RegularExpressions;
-
 namespace MainProject.Application.UseCases.Surveys;
 
 public static class SurveyAutoCreationScheduleHelper
 {
-    public const int MaxMonthWeekdayOccurrence = 3;
-    public const int MaxBusinessDayOffset = 14;
+    public const int MinBusinessDayPeriod = 1;
+    public const int MaxBusinessDayPeriod = 14;
 
-    private static readonly Regex PatternRegex = new(
-        "^(?<occurrence>[1-3])-(?<weekday>monday|tuesday|wednesday|thursday|friday)$",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly (string Value, string Label)[] ReportingPeriodOptions =
+    [
+        ("month", "Месяц"),
+        ("quarter", "Квартал"),
+        ("half-year", "Полугодие"),
+        ("year", "Год")
+    ];
 
-    private static readonly (string Value, string Label)[] MonthWeekdayOptions = BuildMonthWeekdayOptions();
+    public static IReadOnlyList<(string Value, string Label)> GetReportingPeriodOptions()
+        => ReportingPeriodOptions;
 
-    public static IReadOnlyList<(string Value, string Label)> GetMonthWeekdayOptions()
-        => MonthWeekdayOptions;
-
-    public static IReadOnlyList<(int Value, string Label)> GetBusinessDayOffsetOptions(int minInclusive = 1, int maxInclusive = MaxBusinessDayOffset)
+    public static IReadOnlyList<(int Value, string Label)> GetBusinessDayPeriodOptions()
     {
         var options = new List<(int Value, string Label)>();
-        for (var value = minInclusive; value <= maxInclusive; value++)
+        for (var value = MinBusinessDayPeriod; value <= MaxBusinessDayPeriod; value++)
         {
-            options.Add((value, $"{value} рабочих дней"));
+            var suffix = value % 10 == 1 && value % 100 != 11
+                ? "день"
+                : value % 10 is >= 2 and <= 4 && value % 100 is not (>= 12 and <= 14)
+                    ? "дня"
+                    : "дней";
+            options.Add((value, $"{value} раб. {suffix}"));
         }
 
         return options;
     }
 
-    public static bool IsValidMonthWeekdayPattern(string? pattern)
-        => TryParsePattern(pattern, out _, out _);
+    public static bool TryNormalizeReportingPeriod(string? value, out string normalized)
+    {
+        normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized is "month" or "quarter" or "half-year" or "year";
+    }
 
-    public static bool TryParseMonthWeekdayPattern(string? pattern, out int weekNumber, out DayOfWeek dayOfWeek)
-        => TryParsePattern(pattern, out weekNumber, out dayOfWeek);
-
-    public static string GetPatternWeekdayName(DayOfWeek dayOfWeek)
-        => dayOfWeek switch
+    public static bool IsLastMonthOfReportingPeriod(int month, string reportingPeriod)
+        => reportingPeriod switch
         {
-            DayOfWeek.Monday => "Monday",
-            DayOfWeek.Tuesday => "Tuesday",
-            DayOfWeek.Wednesday => "Wednesday",
-            DayOfWeek.Thursday => "Thursday",
-            DayOfWeek.Friday => "Friday",
-            _ => string.Empty
+            "month" => true,
+            "quarter" => month % 3 == 0,
+            "half-year" => month % 6 == 0,
+            "year" => month == 12,
+            _ => false
         };
 
-    public static bool TryResolveMonthWeekdayDate(int year, int month, string? pattern, out DateTime date)
+    public static async Task<SurveyAutoCreationSchedule> CalculateAsync(
+        DateTime currentDate,
+        string reportingPeriod,
+        int reportingOffsetBusinessDays,
+        int activePeriodBusinessDays,
+        Func<DateTime, CancellationToken, Task<bool>> isBusinessDayAsync,
+        CancellationToken cancellationToken = default)
     {
-        date = default;
-        if (!TryParsePattern(pattern, out var occurrence, out var dayOfWeek))
+        if (!TryNormalizeReportingPeriod(reportingPeriod, out var normalizedPeriod))
         {
-            return false;
+            throw new ArgumentException("Некорректный период отчётности.", nameof(reportingPeriod));
         }
 
-        var current = new DateTime(year, month, 1);
-        var matches = 0;
-        while (current.Month == month)
-        {
-            if (current.DayOfWeek == dayOfWeek)
-            {
-                matches += 1;
-                if (matches == occurrence)
-                {
-                    date = current.Date;
-                    return true;
-                }
-            }
+        ValidateBusinessDayPeriod(reportingOffsetBusinessDays, nameof(reportingOffsetBusinessDays));
+        ValidateBusinessDayPeriod(activePeriodBusinessDays, nameof(activePeriodBusinessDays));
 
-            current = current.AddDays(1);
+        var month = currentDate.Date;
+        var endDate = new DateTime(month.Year, month.Month, DateTime.DaysInMonth(month.Year, month.Month));
+        endDate = await MoveToBusinessDayAsync(endDate, -1, isBusinessDayAsync, cancellationToken);
+
+        if (IsLastMonthOfReportingPeriod(month.Month, normalizedPeriod))
+        {
+            endDate = await SubtractBusinessDaysAsync(
+                endDate,
+                reportingOffsetBusinessDays,
+                isBusinessDayAsync,
+                cancellationToken);
         }
 
-        return false;
+        var startDate = await SubtractBusinessDaysAsync(
+            endDate,
+            activePeriodBusinessDays,
+            isBusinessDayAsync,
+            cancellationToken);
+
+        return new SurveyAutoCreationSchedule(startDate, endDate);
     }
 
-    public static bool TryResolveMonthWeekdayDate(int year, int month, int weekNumber, DayOfWeek dayOfWeek, out DateTime date)
+    private static void ValidateBusinessDayPeriod(int value, string parameterName)
     {
-        date = default;
-        if (weekNumber is < 1 or > MaxMonthWeekdayOccurrence)
+        if (value is < MinBusinessDayPeriod or > MaxBusinessDayPeriod)
         {
-            return false;
+            throw new ArgumentOutOfRangeException(parameterName);
         }
-
-        var current = new DateTime(year, month, 1);
-        var matches = 0;
-        while (current.Month == month)
-        {
-            if (current.DayOfWeek == dayOfWeek)
-            {
-                matches += 1;
-                if (matches == weekNumber)
-                {
-                    date = current.Date;
-                    return true;
-                }
-            }
-
-            current = current.AddDays(1);
-        }
-
-        return false;
     }
 
-    public static DateTime AddBusinessDays(DateTime startDate, int businessDays)
+    private static async Task<DateTime> MoveToBusinessDayAsync(
+        DateTime date,
+        int direction,
+        Func<DateTime, CancellationToken, Task<bool>> isBusinessDayAsync,
+        CancellationToken cancellationToken)
     {
-        if (businessDays < 0)
+        var current = date.Date;
+        while (!await isBusinessDayAsync(current, cancellationToken))
         {
-            throw new ArgumentOutOfRangeException(nameof(businessDays));
-        }
-
-        var current = startDate.Date;
-        var remaining = businessDays;
-        while (remaining > 0)
-        {
-            current = current.AddDays(1);
-            if (current.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-            {
-                continue;
-            }
-
-            remaining -= 1;
+            current = current.AddDays(direction);
         }
 
         return current;
     }
 
-    private static bool TryParsePattern(string? pattern, out int occurrence, out DayOfWeek dayOfWeek)
+    private static async Task<DateTime> SubtractBusinessDaysAsync(
+        DateTime date,
+        int businessDays,
+        Func<DateTime, CancellationToken, Task<bool>> isBusinessDayAsync,
+        CancellationToken cancellationToken)
     {
-        occurrence = default;
-        dayOfWeek = default;
-
-        var match = PatternRegex.Match(pattern ?? string.Empty);
-        if (!match.Success)
+        var current = date.Date;
+        var remaining = businessDays;
+        while (remaining > 0)
         {
-            return false;
-        }
-
-        occurrence = int.Parse(match.Groups["occurrence"].Value);
-        return match.Groups["weekday"].Value.ToLowerInvariant() switch
-        {
-            "monday" => SetDayOfWeek(DayOfWeek.Monday, out dayOfWeek),
-            "tuesday" => SetDayOfWeek(DayOfWeek.Tuesday, out dayOfWeek),
-            "wednesday" => SetDayOfWeek(DayOfWeek.Wednesday, out dayOfWeek),
-            "thursday" => SetDayOfWeek(DayOfWeek.Thursday, out dayOfWeek),
-            "friday" => SetDayOfWeek(DayOfWeek.Friday, out dayOfWeek),
-            _ => false
-        };
-    }
-
-    private static bool SetDayOfWeek(DayOfWeek value, out DayOfWeek dayOfWeek)
-    {
-        dayOfWeek = value;
-        return true;
-    }
-
-    private static (string Value, string Label)[] BuildMonthWeekdayOptions()
-    {
-        var weekdays = new[]
-        {
-            ("monday", "понедельник"),
-            ("tuesday", "вторник"),
-            ("wednesday", "среда"),
-            ("thursday", "четверг"),
-            ("friday", "пятница")
-        };
-
-        var prefixes = new[] { "1", "2", "3" };
-        var options = new List<(string Value, string Label)>();
-
-        for (var occurrence = 1; occurrence <= MaxMonthWeekdayOccurrence; occurrence++)
-        {
-            foreach (var weekday in weekdays)
+            current = current.AddDays(-1);
+            if (await isBusinessDayAsync(current, cancellationToken))
             {
-                options.Add(($"{occurrence}-{weekday.Item1}", $"{prefixes[occurrence - 1]} {weekday.Item2}"));
+                remaining--;
             }
         }
 
-        return options.ToArray();
+        return current;
     }
 }
+
+public sealed record SurveyAutoCreationSchedule(DateTime StartDate, DateTime EndDate);

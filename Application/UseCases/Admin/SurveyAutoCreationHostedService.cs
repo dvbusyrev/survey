@@ -5,7 +5,7 @@ namespace MainProject.Application.UseCases.Admin;
 
 public sealed class SurveyAutoCreationHostedService : BackgroundService
 {
-    private static readonly TimeSpan RunInterval = TimeSpan.FromHours(6);
+    private static readonly TimeSpan RunInterval = TimeSpan.FromHours(1);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<SurveyAutoCreationHostedService> _logger;
 
