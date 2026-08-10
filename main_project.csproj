@@ -32,6 +32,13 @@
     <Content Remove="tests/**/*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/Fonts/*.ttf" />
+    <None Update="Assets/Fonts/LICENSE.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Frontend bundles are committed to wwwroot/js/dist, so Node is only needed when regenerating them. -->
   <Target Name="BuildFrontendAssets" BeforeTargets="Build;Publish" Condition="'$(RunFrontendBuild)' == 'true' and Exists('$(MSBuildProjectDirectory)/package.json') and Exists('$(MSBuildProjectDirectory)/node_modules')">
     <Message Text="Building frontend assets with npm..." Importance="high" />

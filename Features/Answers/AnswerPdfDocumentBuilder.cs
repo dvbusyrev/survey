@@ -1,5 +1,6 @@
 using System.Text;
 using MainProject.Domain.Entities;
+using QuestPDF.Drawing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -8,12 +9,15 @@ namespace MainProject.Application.UseCases.Answers;
 
 public static class AnswerPdfDocumentBuilder
 {
+    private const string PdfFontFamily = "Noto Sans";
     private static readonly DateTime StablePdfTimestamp = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly Lazy<bool> PdfFontsRegistered = new(RegisterPdfFonts);
 
     public static byte[] BuildPdfContent(Survey survey, IReadOnlyList<AnswerRecord> answers)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         QuestPDF.Settings.License = LicenseType.Community;
+        _ = PdfFontsRegistered.Value;
 
         var document = Document.Create(container =>
         {
@@ -22,7 +26,8 @@ public static class AnswerPdfDocumentBuilder
                 page.Size(PageSizes.A4);
                 page.Margin(2, Unit.Centimetre);
                 page.DefaultTextStyle(style => style
-                    .FontSize(12));
+                    .FontSize(12)
+                    .FontFamily(PdfFontFamily));
 
                 page.Header()
                     .AlignCenter()
@@ -99,5 +104,28 @@ public static class AnswerPdfDocumentBuilder
         using var stream = new MemoryStream();
         document.GeneratePdf(stream);
         return stream.ToArray();
+    }
+
+    private static bool RegisterPdfFonts()
+    {
+        RegisterPdfFont("NotoSans-Regular.ttf");
+        RegisterPdfFont("NotoSans-Bold.ttf");
+        return true;
+    }
+
+    private static void RegisterPdfFont(string fileName)
+    {
+        var assembly = typeof(AnswerPdfDocumentBuilder).Assembly;
+        var resourceName = assembly.GetManifestResourceNames()
+            .SingleOrDefault(name => name.EndsWith(fileName, StringComparison.Ordinal));
+
+        if (resourceName == null)
+        {
+            throw new InvalidOperationException($"Встроенный шрифт PDF \"{fileName}\" не найден.");
+        }
+
+        using var fontStream = assembly.GetManifestResourceStream(resourceName)
+            ?? throw new InvalidOperationException($"Не удалось прочитать встроенный шрифт PDF \"{fileName}\".");
+        FontManager.RegisterFont(fontStream);
     }
 }
