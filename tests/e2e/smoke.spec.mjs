@@ -528,6 +528,7 @@ test('клиент проходит доступные анкеты, черно�
     await answerJournalRow.click();
     await expect(page.locator('#answersModal')).toBeVisible();
     await expect(page.locator('#answersContainer .answers-modal__table tbody tr')).toHaveCount(1);
+    await expect(page.locator('#answersContainer .answers-modal__table-wrap')).toHaveCSS('padding-bottom', '0px');
 });
 
 test('клиент скачивает установленную инструкцию', async ({ page }) => {

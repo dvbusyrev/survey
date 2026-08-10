@@ -170,6 +170,7 @@
 
 .answers-modal__table-wrap {
   padding-top: 0;
+  padding-bottom: 0;
 }
 
 .answers-modal__table :is(.answers-modal__rating-column, .rating-cell) {
