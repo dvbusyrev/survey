@@ -238,6 +238,73 @@ test('администратор проходит основные раздел�
     await expect(page.getByText('Как выглядит', { exact: true })).toBeVisible();
 });
 
+test('ошибка удаления сохраняет текущий список и объясняет причину', async ({ page }) => {
+    await login(page, 'smoke-admin');
+
+    const surveyUrl = page.url();
+    await page.route(/\/survey\/\d+\/delete$/, async (route) => {
+        await route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                success: false,
+                message: 'Нельзя удалить анкету "Smoke survey": она уже назначалась организациям.'
+            })
+        });
+    });
+    await page.locator('[data-click-call="deleteSurveyFromTrigger"]').first().click();
+    await page.locator('.site-confirm__button--confirm').click();
+    const surveyToast = page.locator('.site-toast--error')
+        .filter({ hasText: 'Нельзя удалить анкету "Smoke survey"' })
+        .last();
+    await expect(surveyToast).toBeVisible();
+    await expect(page).toHaveURL(surveyUrl);
+    await surveyToast.locator('.site-toast__close').click();
+
+    await page.goto('/users');
+    const usersUrl = page.url();
+    await page.route(/\/users\/\d+\/delete$/, async (route) => {
+        await route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                success: false,
+                message: 'Нельзя удалить пользователя "Smoke client": он связан с сохранёнными ответами или черновиками анкет.'
+            })
+        });
+    });
+    await page.locator('[data-role="user-row"][data-user-name="smoke-client"]')
+        .locator('[data-click-call="deleteUserFromTrigger"]')
+        .click();
+    await page.locator('.site-confirm__button--confirm').click();
+    const userToast = page.locator('.site-toast--error')
+        .filter({ hasText: 'Нельзя удалить пользователя "Smoke client"' })
+        .last();
+    await expect(userToast).toBeVisible();
+    await expect(page).toHaveURL(usersUrl);
+    await userToast.locator('.site-toast__close').click();
+
+    await page.goto('/organizations');
+    const organizationsUrl = page.url();
+    await page.route(/\/organizations\/\d+\/delete$/, async (route) => {
+        await route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                success: false,
+                message: 'Нельзя удалить организацию: для неё уже заводились анкеты и выбирались пользователи.'
+            })
+        });
+    });
+    await page.locator('[data-click-call="deleteOrganization"]').first().click();
+    await page.locator('.site-confirm__button--confirm').click();
+    const organizationToast = page.locator('.site-toast--error')
+        .filter({ hasText: 'Нельзя удалить организацию' })
+        .last();
+    await expect(organizationToast).toBeVisible();
+    await expect(page).toHaveURL(organizationsUrl);
+});
+
 test('длинная таблица критериев прокручивается вместе с модальным окном', async ({ page }) => {
     await page.setViewportSize({ width: 947, height: 975 });
     await login(page, 'smoke-admin');

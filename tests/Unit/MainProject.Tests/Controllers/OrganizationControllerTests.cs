@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MainProject.Application.DTO;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Domain.Entities;
@@ -21,25 +22,30 @@ public sealed class OrganizationControllerTests
         var result = await controller.DeleteOrganization(42, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.Equal("Организация успешно удалена.", okResult.Value);
+        var payload = JsonSerializer.SerializeToElement(okResult.Value);
+        Assert.True(payload.GetProperty("success").GetBoolean());
+        Assert.Equal("Организация успешно удалена.", payload.GetProperty("message").GetString());
     }
 
     [Fact]
-    public async Task DeleteOrganization_ReturnsBadRequest_WhenArchiveIsForbidden()
+    public async Task DeleteOrganization_ReturnsConflict_WhenArchiveIsForbidden()
     {
         var controller = new OrganizationController(new StubOrganizationManagementService(
             new OperationResult
             {
                 Success = false,
-                Message = "Нельзя удалить организацию: для неё уже заводились анкеты и выбирались пользователи."
+                Message = "Нельзя удалить организацию: для неё уже заводились анкеты и выбирались пользователи.",
+                Code = "organization_in_use"
             }));
 
         var result = await controller.DeleteOrganization(42, CancellationToken.None);
 
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        var payload = JsonSerializer.SerializeToElement(conflictResult.Value);
+        Assert.False(payload.GetProperty("success").GetBoolean());
         Assert.Equal(
             "Нельзя удалить организацию: для неё уже заводились анкеты и выбирались пользователи.",
-            badRequestResult.Value);
+            payload.GetProperty("message").GetString());
     }
 
     private sealed class StubOrganizationManagementService : OrganizationManagementService

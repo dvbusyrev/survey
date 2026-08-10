@@ -228,17 +228,32 @@ public class SurveyAdminController : Controller
 
         try
         {
-            var surveys = await _surveyAdminService.DeleteSurveyAsync(surveyId, cancellationToken);
-            if (surveys == null)
+            var result = await _surveyAdminService.DeleteSurveyAsync(surveyId, cancellationToken);
+            if (!result.Success)
             {
-                return NotFound(new { success = false, message = "Анкета не найдена." });
+                var error = new
+                {
+                    success = false,
+                    message = result.Message
+                };
+
+                if (string.Equals(result.Code, "survey_not_found", StringComparison.Ordinal))
+                {
+                    return NotFound(error);
+                }
+
+                if (string.Equals(result.Code, "survey_in_use", StringComparison.Ordinal))
+                {
+                    return Conflict(error);
+                }
+
+                return BadRequest(error);
             }
 
             return Ok(new
             {
                 success = true,
-                message = "Анкета успешно удалена.",
-                surveys
+                message = result.Message
             });
         }
         catch (Exception ex)

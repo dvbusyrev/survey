@@ -183,7 +183,8 @@ public class OrganizationManagementService
             return new OperationResult
             {
                 Success = false,
-                Message = "Организация не найдена."
+                Message = "Организация не найдена.",
+                Code = "organization_not_found"
             };
         }
 
@@ -205,7 +206,8 @@ public class OrganizationManagementService
             Success = result.Archived,
             Message = result.Archived
                 ? "Организация успешно удалена."
-                : "Организация не найдена."
+                : "Организация не найдена.",
+            Code = result.Archived ? null : "organization_not_found"
         };
     }
 
@@ -509,42 +511,10 @@ public class OrganizationManagementService
     {
         var surveyNames = await connection.QueryAsync<string>(new CommandDefinition(
             """
-            SELECT DISTINCT survey_name
-            FROM (
-                SELECT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || os.id_survey::text) AS survey_name
-                FROM public.organization_survey os
-                LEFT JOIN public.survey s ON s.id_survey = os.id_survey
-                WHERE os.id_organization = @OrganizationId
-
-                UNION
-
-                SELECT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || os.id_survey::text) AS survey_name
-                FROM public.answer a
-                INNER JOIN public.organization_survey os ON os.id_organization_survey = a.id_organization_survey
-                LEFT JOIN public.survey s ON s.id_survey = os.id_survey
-                WHERE os.id_organization = @OrganizationId
-
-                UNION
-
-                SELECT COALESCE(
-                    NULLIF(TRIM(s.name_survey), ''),
-                    CASE WHEN audit_row.survey_id IS NOT NULL THEN 'Анкета #' || audit_row.survey_id::text END
-                ) AS survey_name
-                FROM (
-                    SELECT DISTINCT
-                        COALESCE(audit_raw.id_organization, os.id_organization) AS id_organization,
-                        COALESCE(audit_raw.survey_id, os.id_survey) AS survey_id
-                    FROM (
-                        SELECT id_organization, id_survey AS survey_id, id_organization_survey
-                        FROM public.organization_survey_l
-                    ) audit_raw
-                    LEFT JOIN public.organization_survey os
-                        ON os.id_organization_survey = audit_raw.id_organization_survey
-                ) audit_row
-                LEFT JOIN public.survey s ON s.id_survey = audit_row.survey_id
-                WHERE audit_row.id_organization = @OrganizationId
-            ) assigned_surveys
-            WHERE survey_name IS NOT NULL AND BTRIM(survey_name) <> ''
+            SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || os.id_survey::text) AS survey_name
+            FROM public.organization_survey os
+            LEFT JOIN public.survey s ON s.id_survey = os.id_survey
+            WHERE os.id_organization = @OrganizationId
             ORDER BY survey_name;
             """,
             new { OrganizationId = organizationId },
@@ -562,29 +532,9 @@ public class OrganizationManagementService
     {
         var userNames = await connection.QueryAsync<string>(new CommandDefinition(
             """
-            SELECT DISTINCT user_name
-            FROM (
-                SELECT COALESCE(NULLIF(TRIM(u.full_name), ''), NULLIF(TRIM(u.login), ''), 'Пользователь #' || u.id_user::text) AS user_name
-                FROM public.app_user u
-                WHERE u.id_organization = @OrganizationId
-
-                UNION
-
-                SELECT COALESCE(
-                    NULLIF(TRIM(u.full_name), ''),
-                    NULLIF(TRIM(u.login), ''),
-                    NULLIF(TRIM(audit_row.full_name), ''),
-                    NULLIF(TRIM(audit_row.user_name), ''),
-                    CASE WHEN audit_row.user_id IS NOT NULL THEN 'Пользователь #' || audit_row.user_id::text END
-                ) AS user_name
-                FROM (
-                    SELECT DISTINCT id_user AS user_id, id_organization, full_name, login AS user_name
-                    FROM public.app_user_l
-                ) audit_row
-                LEFT JOIN public.app_user u ON u.id_user = audit_row.user_id
-                WHERE audit_row.id_organization = @OrganizationId
-            ) assigned_users
-            WHERE user_name IS NOT NULL AND BTRIM(user_name) <> ''
+            SELECT DISTINCT COALESCE(NULLIF(TRIM(u.full_name), ''), NULLIF(TRIM(u.login), ''), 'Пользователь #' || u.id_user::text) AS user_name
+            FROM public.app_user u
+            WHERE u.id_organization = @OrganizationId
             ORDER BY user_name;
             """,
             new { OrganizationId = organizationId },

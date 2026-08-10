@@ -37,6 +37,9 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 032_allow_arbitrary_auto_creation_periods.sql", script);
         Assert.Contains(@"\ir 033_remove_obsolete_week_day.sql", script);
         Assert.Contains(@"\ir 034_repair_audit_id_generators.sql", script);
+        Assert.Contains(@"\ir 035_disallow_comments_for_top_rating.sql", script);
+        Assert.Contains(@"\ir 036_protect_referenced_records_from_deletion.sql", script);
+        Assert.Contains(@"\ir 037_store_answer_participants.sql", script);
     }
 
     [Fact]
@@ -363,6 +366,62 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("pg_catalog.setval", script);
         Assert.Contains("VALUES ('034', 'repair_audit_id_generators')", script);
         Assert.DoesNotContain("CASCADE", script, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DeletionProtectionMigration_RestrictsReferencedBusinessRecords()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "036_protect_referenced_records_from_deletion.sql"));
+
+        Assert.Contains("organization_survey_id_organization_fkey", script);
+        Assert.Contains("organization_survey_id_survey_fkey", script);
+        Assert.Contains("answer_id_organization_survey_fkey", script);
+        Assert.Contains("answer_draft_id_organization_survey_fkey", script);
+        Assert.Contains("ON DELETE RESTRICT", script);
+        Assert.DoesNotContain("ON DELETE CASCADE", script);
+        Assert.DoesNotContain("answer_l", script);
+        Assert.Contains("VALUES ('036', 'protect_referenced_records_from_deletion')", script);
+    }
+
+    [Fact]
+    public void AnswerParticipantMigration_StoresBusinessRelationsWithoutAuditDependencies()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "037_store_answer_participants.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.answer_participant", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.answer_draft_participant", script);
+        Assert.Contains("answer_participant_id_user_fkey", script);
+        Assert.Contains("answer_draft_participant_id_user_fkey", script);
+        Assert.Contains("ON DELETE RESTRICT", script);
+        Assert.Contains("DROP CONSTRAINT IF EXISTS answer_l_changed_by_user_id_fkey", script);
+        Assert.DoesNotContain("FROM public.answer_l", script);
+        Assert.DoesNotContain("FROM public.app_user_l", script);
+        Assert.Contains("VALUES ('037', 'store_answer_participants')", script);
+    }
+
+    [Fact]
+    public void DeletionRules_DoNotReadAuditTables()
+    {
+        var root = GetRepositoryRoot();
+        var source = string.Join(
+            Environment.NewLine,
+            File.ReadAllText(Path.Combine(root, "Features", "Users", "UserManagementService.cs")),
+            File.ReadAllText(Path.Combine(root, "Features", "Organizations", "OrganizationManagementService.cs")),
+            File.ReadAllText(Path.Combine(root, "Features", "Surveys", "SurveyService.Admin.cs")));
+
+        Assert.DoesNotContain("public.answer_l", source);
+        Assert.DoesNotContain("public.app_user_l", source);
+        Assert.DoesNotContain("public.organization_survey_l", source);
+        Assert.Contains("public.answer_participant", source);
+        Assert.Contains("public.answer_draft_participant", source);
     }
 
     [Fact]

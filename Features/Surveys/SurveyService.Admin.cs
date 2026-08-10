@@ -1,3 +1,4 @@
+using Dapper;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.Support;
@@ -501,21 +502,98 @@ public partial class SurveyService
         }
     }
 
-    public async Task<IReadOnlyList<Survey>?> DeleteSurveyAsync(int surveyId, CancellationToken cancellationToken = default)
+    public virtual async Task<OperationResult> DeleteSurveyAsync(int surveyId, CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         try
         {
+            var survey = await connection.QueryFirstOrDefaultAsync<SurveyDeletionCandidate>(new CommandDefinition(
+                """
+                SELECT id_survey AS SurveyId, name_survey AS SurveyName
+                FROM public.survey
+                WHERE id_survey = @SurveyId
+                FOR UPDATE;
+                """,
+                new { SurveyId = surveyId },
+                transaction,
+                cancellationToken: cancellationToken));
+            if (survey == null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = "Анкета не найдена.",
+                    Code = "survey_not_found"
+                };
+            }
+
+            var usage = (await connection.QueryAsync<SurveyDeletionUsage>(new CommandDefinition(
+                """
+                WITH assignment_usage AS (
+                    SELECT id_organization_survey, id_organization, id_survey
+                    FROM public.organization_survey
+                    WHERE id_survey = @SurveyId
+                )
+                SELECT DISTINCT
+                    COALESCE(
+                        NULLIF(TRIM(o.organization_short_name), ''),
+                        NULLIF(TRIM(o.organization_name), ''),
+                        'Организация #' || assignment_usage.id_organization::text
+                    ) AS OrganizationName,
+                    EXISTS (
+                        SELECT 1
+                        FROM public.answer a
+                        WHERE a.id_organization_survey = assignment_usage.id_organization_survey
+                    ) AS HasAnswer
+                FROM assignment_usage
+                LEFT JOIN public.organization o
+                    ON o.id_organization = assignment_usage.id_organization
+                ORDER BY OrganizationName;
+                """,
+                new { SurveyId = surveyId },
+                transaction,
+                cancellationToken: cancellationToken))).AsList();
+            if (usage.Count > 0)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = BuildSurveyDeleteBlockedMessage(survey.SurveyName, usage),
+                    Code = "survey_in_use"
+                };
+            }
+
             if (!await _surveyRepository.DeleteSurveyAsync(connection, transaction, surveyId, cancellationToken))
             {
                 await transaction.RollbackAsync(cancellationToken);
-                return null;
+                return new OperationResult
+                {
+                    Success = false,
+                    Message = "Анкета не найдена.",
+                    Code = "survey_not_found"
+                };
             }
 
             await transaction.CommitAsync(cancellationToken);
-            return await GetSurveysAsync(cancellationToken);
+            return new OperationResult
+            {
+                Success = true,
+                Message = "Анкета успешно удалена."
+            };
+        }
+        catch (PostgresException ex) when (ex.SqlState is PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.RestrictViolation)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new OperationResult
+            {
+                Success = false,
+                Message = $"Нельзя удалить анкету \"{surveyId}\": она связана с сохранёнными данными.",
+                Code = "survey_in_use"
+            };
         }
         catch
         {
@@ -523,4 +601,42 @@ public partial class SurveyService
             throw;
         }
     }
+
+    private static string BuildSurveyDeleteBlockedMessage(
+        string? surveyName,
+        IReadOnlyList<SurveyDeletionUsage> usage)
+    {
+        var displayName = string.IsNullOrWhiteSpace(surveyName) ? "Без названия" : surveyName.Trim();
+        var organizationNames = usage
+            .Select(item => item.OrganizationName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var answeredOrganizationNames = usage
+            .Where(item => item.HasAnswer)
+            .Select(item => item.OrganizationName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var message = answeredOrganizationNames.Length > 0
+            ? $"Нельзя удалить анкету \"{displayName}\": она уже назначалась организациям и по ней получены ответы."
+            : $"Нельзя удалить анкету \"{displayName}\": она уже назначалась организациям.";
+
+        if (organizationNames.Length > 0)
+        {
+            message += $"{Environment.NewLine}Организации: {string.Join(", ", organizationNames)}.";
+        }
+
+        if (answeredOrganizationNames.Length > 0)
+        {
+            message += $"{Environment.NewLine}Ответы получены от: {string.Join(", ", answeredOrganizationNames)}.";
+        }
+
+        return message;
+    }
+
+    private sealed record SurveyDeletionCandidate(int SurveyId, string? SurveyName);
+
+    private sealed record SurveyDeletionUsage(string OrganizationName, bool HasAnswer);
 }

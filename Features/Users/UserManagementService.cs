@@ -192,13 +192,30 @@ public sealed class UserManagementService
 
     public async Task<OperationResult> DeleteUserAsync(int id, CancellationToken cancellationToken = default)
     {
-        var result = await DeleteIfAllowedAsync(id, cancellationToken);
+        UserDeletionResult result;
+        try
+        {
+            result = await DeleteIfAllowedAsync(id, cancellationToken);
+        }
+        catch (PostgresException ex) when (ex.SqlState is PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.RestrictViolation)
+        {
+            const string message = "Нельзя удалить пользователя: он связан с сохранёнными данными анкет.";
+            return new OperationResult
+            {
+                Success = false,
+                Message = message,
+                Error = message,
+                Code = "user_in_use"
+            };
+        }
+
         if (!result.Found || result.User == null)
         {
             return new OperationResult
             {
                 Success = false,
-                Message = "Пользователь не найден."
+                Message = "Пользователь не найден.",
+                Code = "user_not_found"
             };
         }
 
@@ -210,7 +227,8 @@ public sealed class UserManagementService
                 Message = BuildUserDeleteBlockedMessage(
                     ResolveUserDisplayName(result.User),
                     result.AnsweredSurveyNames,
-                    result.SignedSurveyNames)
+                    result.SignedSurveyNames),
+                Code = "user_in_use"
             };
         }
 
@@ -219,7 +237,8 @@ public sealed class UserManagementService
             Success = result.Deleted,
             Message = result.Deleted
                 ? "Пользователь успешно удалён."
-                : "Пользователь не найден."
+                : "Пользователь не найден.",
+            Code = result.Deleted ? null : "user_not_found"
         };
     }
 
@@ -351,8 +370,8 @@ public sealed class UserManagementService
             return new UserDeletionResult(false, false, null, [], []);
         }
 
-        var answeredSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, "=", cancellationToken);
-        var signedSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, "<>", cancellationToken);
+        var answeredSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, signed: false, cancellationToken);
+        var signedSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, signed: true, cancellationToken);
         if (answeredSurveyNames.Count > 0 || signedSurveyNames.Count > 0)
         {
             await transaction.CommitAsync(cancellationToken);
@@ -372,28 +391,38 @@ public sealed class UserManagementService
         System.Data.IDbConnection connection,
         System.Data.IDbTransaction transaction,
         int userId,
-        string signatureOperator,
+        bool signed,
         CancellationToken cancellationToken)
     {
         var surveyNames = await connection.QueryAsync<string>(new CommandDefinition(
-            $"""
-            SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || audit_row.SurveyId::text) AS survey_name
-            FROM (
-                SELECT audit_raw.changed_by_user_id, COALESCE(audit_raw.SurveyId, os.id_survey) AS SurveyId, audit_raw.SignatureValue
-                FROM (
-                    SELECT changed_by_user_id, NULL::integer AS SurveyId, id_organization_survey AS IdOrganizationSurvey,
-                           COALESCE(csp, '') AS SignatureValue
-                    FROM public.answer_l
-                ) audit_raw
-                LEFT JOIN public.organization_survey os ON os.id_organization_survey = audit_raw.IdOrganizationSurvey
-            ) audit_row
-            LEFT JOIN public.survey s ON s.id_survey = audit_row.SurveyId
-            WHERE audit_row.changed_by_user_id = @UserId
-              AND audit_row.SurveyId IS NOT NULL
-              AND audit_row.SignatureValue {signatureOperator} ''
+            """
+            WITH user_participation AS (
+                SELECT participant.participation_type, assignment.id_survey
+                FROM public.answer_participant participant
+                INNER JOIN public.answer answer
+                    ON answer.id_answer = participant.id_answer
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = answer.id_organization_survey
+                WHERE participant.id_user = @UserId
+
+                UNION ALL
+
+                SELECT participant.participation_type, assignment.id_survey
+                FROM public.answer_draft_participant participant
+                INNER JOIN public.answer_draft draft
+                    ON draft.id_answer_draft = participant.id_answer_draft
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = draft.id_organization_survey
+                WHERE participant.id_user = @UserId
+            )
+            SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || participation.id_survey::text) AS survey_name
+            FROM user_participation participation
+            LEFT JOIN public.survey s ON s.id_survey = participation.id_survey
+            WHERE (@Signed AND participation.participation_type = 'signed')
+               OR (NOT @Signed AND participation.participation_type <> 'signed')
             ORDER BY survey_name;
             """,
-            new { UserId = userId },
+            new { UserId = userId, Signed = signed },
             transaction,
             cancellationToken: cancellationToken));
         return surveyNames
@@ -752,12 +781,12 @@ public sealed class UserManagementService
         IReadOnlyList<string> signedSurveyNames)
     {
         var builder = new StringBuilder();
-        builder.Append($"Пользователь \"{userDisplayName}\" не может быть удалён, так как уже работал с анкетами.");
+        builder.Append($"Нельзя удалить пользователя \"{userDisplayName}\": он связан с сохранёнными ответами или черновиками анкет.");
 
         if (answeredSurveyNames.Count > 0)
         {
             builder.AppendLine();
-            builder.Append("Отвечал на анкеты: ");
+            builder.Append("Связанные анкеты: ");
             builder.Append(string.Join(", ", answeredSurveyNames));
             builder.Append('.');
         }

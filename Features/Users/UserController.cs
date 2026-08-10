@@ -124,10 +124,30 @@ public class UserController : Controller
             var result = await _userManagementService.DeleteUserAsync(id, cancellationToken);
             if (!result.Success)
             {
-                return BadRequest(result.Message);
+                var error = new
+                {
+                    success = false,
+                    message = result.Message
+                };
+
+                if (string.Equals(result.Code, "user_not_found", StringComparison.Ordinal))
+                {
+                    return NotFound(error);
+                }
+
+                if (string.Equals(result.Code, "user_in_use", StringComparison.Ordinal))
+                {
+                    return Conflict(error);
+                }
+
+                return BadRequest(error);
             }
 
-            return Ok(result.Message);
+            return Ok(new
+            {
+                success = true,
+                message = result.Message
+            });
         }
         catch (Exception ex)
         {

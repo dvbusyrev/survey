@@ -41,6 +41,9 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 032_allow_arbitrary_auto_creation_periods.sql", script);
         Assert.Contains(@"\ir 033_remove_obsolete_week_day.sql", script);
         Assert.Contains(@"\ir 034_repair_audit_id_generators.sql", script);
+        Assert.Contains(@"\ir 035_disallow_comments_for_top_rating.sql", script);
+        Assert.Contains(@"\ir 036_protect_referenced_records_from_deletion.sql", script);
+        Assert.Contains(@"\ir 037_store_answer_participants.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -423,6 +426,44 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("answer_item_top_rating_comment_check", script);
         Assert.Contains("answer_draft_item_top_rating_comment_check", script);
         Assert.Contains("VALUES ('035', 'disallow_comments_for_top_rating')", script);
+    }
+
+    [Fact]
+    public void DeletionProtectionMigration_ReplacesCascadesWithRestrictions()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "036_protect_referenced_records_from_deletion.sql"));
+
+        Assert.Contains("organization_survey_id_organization_fkey", script);
+        Assert.Contains("organization_survey_id_survey_fkey", script);
+        Assert.Contains("answer_id_organization_survey_fkey", script);
+        Assert.Contains("answer_draft_id_organization_survey_fkey", script);
+        Assert.Contains("ON DELETE RESTRICT", script);
+        Assert.DoesNotContain("ON DELETE CASCADE", script);
+        Assert.DoesNotContain("answer_l", script);
+        Assert.Contains("VALUES ('036', 'protect_referenced_records_from_deletion')", script);
+    }
+
+    [Fact]
+    public void AnswerParticipantMigration_DoesNotReadAuditTables()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "037_store_answer_participants.sql"));
+
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.answer_participant", script);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS public.answer_draft_participant", script);
+        Assert.Contains("answer_participant_id_user_fkey", script);
+        Assert.Contains("answer_draft_participant_id_user_fkey", script);
+        Assert.Contains("DROP CONSTRAINT IF EXISTS answer_l_changed_by_user_id_fkey", script);
+        Assert.DoesNotContain("FROM public.answer_l", script);
+        Assert.DoesNotContain("FROM public.organization_survey_l", script);
+        Assert.Contains("VALUES ('037', 'store_answer_participants')", script);
     }
 
     private static string GetRepositoryRoot()

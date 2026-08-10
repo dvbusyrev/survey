@@ -19,6 +19,7 @@
     const mountedPageControllers = new Set();
     const mountedPageControllerByPage = new WeakMap();
     let pendingRouteTimer = null;
+    let surveyDeletePending = false;
     const SURVEY_ROW_SELECTOR = '.surveys-table tbody tr[data-survey-id]';
 
     function createSurveyModalFrame(options) {
@@ -657,6 +658,11 @@
     }
 
     async function deleteSurveyFromTrigger(trigger) {
+        if (surveyDeletePending) {
+            return;
+        }
+
+        surveyDeletePending = true;
         try {
             const survey = buildSurveyData(trigger);
             const isConfirmed = await window.siteConfirm(
@@ -706,6 +712,8 @@
             window.location.assign(target.fallbackUrl);
         } catch (error) {
             window.AppUi?.notify?.(error.message || 'Не удалось удалить анкету.', 'error');
+        } finally {
+            surveyDeletePending = false;
         }
     }
 

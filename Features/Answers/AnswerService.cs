@@ -82,9 +82,10 @@ public partial class AnswerService
 
     private async Task<int> InsertAnswerRecordAsync(
         AnswerRecord answerRecord,
+        int userId,
         CancellationToken cancellationToken = default)
     {
-        var result = await _answerRepository.SubmitAnswerAsync(answerRecord, cancellationToken);
+        var result = await _answerRepository.SubmitAnswerAsync(answerRecord, userId, cancellationToken);
         if (!result.Found)
         {
             throw new InvalidOperationException("Назначение анкеты для организации не найдено.");
@@ -105,9 +106,10 @@ public partial class AnswerService
 
     private async Task<bool> UpdateAnswerRecordAsync(
         AnswerRecord answerRecord,
+        int userId,
         CancellationToken cancellationToken = default)
     {
-        var result = await _answerRepository.UpdateAnswerAsync(answerRecord, cancellationToken);
+        var result = await _answerRepository.UpdateAnswerAsync(answerRecord, userId, cancellationToken);
         if (result.AlreadySigned)
         {
             throw new AnswerAlreadySignedException();
@@ -121,19 +123,24 @@ public partial class AnswerService
         int organizationId,
         string signature,
         byte[]? signedContent,
+        int userId,
         CancellationToken cancellationToken = default)
-        => _answerRepository.TrySaveAnswerSignatureAsync(surveyId, organizationId, signature, signedContent, cancellationToken);
+        => _answerRepository.TrySaveAnswerSignatureAsync(surveyId, organizationId, signature, signedContent, userId, cancellationToken);
 
-    private Task<bool> SaveDraftRecordAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
-        => _answerRepository.SaveDraftAsync(answerRecord, cancellationToken);
+    private Task<bool> SaveDraftRecordAsync(AnswerRecord answerRecord, int userId, CancellationToken cancellationToken = default)
+        => _answerRepository.SaveDraftAsync(answerRecord, userId, cancellationToken);
 
     private Task<bool> UpdateDraftSignatureAsync(
         int surveyId,
         int organizationId,
         string signature,
         byte[]? signedContent,
+        int userId,
         CancellationToken cancellationToken = default)
-        => _answerRepository.TrySaveDraftSignatureAsync(surveyId, organizationId, signature, signedContent, cancellationToken);
+        => _answerRepository.TrySaveDraftSignatureAsync(surveyId, organizationId, signature, signedContent, userId, cancellationToken);
+
+    private int GetRequiredCurrentUserId()
+        => UserId ?? throw new InvalidOperationException("Не удалось определить текущего пользователя.");
 
     private Task DeleteDraftRecordAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default)
         => _answerRepository.DeleteDraftAsync(surveyId, organizationId, cancellationToken);

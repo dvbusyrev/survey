@@ -47,3 +47,5 @@ COMMIT;
 \ir 033_remove_obsolete_week_day.sql
 \ir 034_repair_audit_id_generators.sql
 \ir 035_disallow_comments_for_top_rating.sql
+\ir 036_protect_referenced_records_from_deletion.sql
+\ir 037_store_answer_participants.sql

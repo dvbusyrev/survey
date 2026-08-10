@@ -65,7 +65,7 @@ public partial class AnswerService
         }
 
         if (await UpdateSignatureAsync(
-                surveyId, organizationId, signature, signedContent, cancellationToken))
+                surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken))
         {
             return true;
         }
@@ -138,7 +138,7 @@ public partial class AnswerService
         }
 
         if (await UpdateDraftSignatureAsync(
-                surveyId, organizationId, signature, signedContent, cancellationToken))
+                surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken))
         {
             return true;
         }

@@ -1,5 +1,6 @@
 (function () {
     let organizationDetailsFrame = window.__organizationDetailsFrame || null;
+    let organizationDeletePending = false;
 
     function byId(id) {
         return document.getElementById(id);
@@ -393,14 +394,16 @@
     }
 
     async function deleteOrganization(id) {
-        if (!id) return;
-        if (!await window.siteConfirm('Удалить организацию?', {
-            title: 'Удаление организации',
-            confirmText: 'Удалить',
-            cancelText: 'Отмена'
-        })) return;
+        if (!id || organizationDeletePending) return;
 
+        organizationDeletePending = true;
         try {
+            if (!await window.siteConfirm('Удалить организацию?', {
+                title: 'Удаление организации',
+                confirmText: 'Удалить',
+                cancelText: 'Отмена'
+            })) return;
+
             const response = await fetch(`/organizations/${id}/delete`, {
                 method: 'POST',
                 headers: {
@@ -427,6 +430,8 @@
             refreshOrganizationList();
         } catch (error) {
             window.AppUi?.notify?.(error.message || 'Не удалось удалить организацию.', 'error');
+        } finally {
+            organizationDeletePending = false;
         }
     }
 

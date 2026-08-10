@@ -62,10 +62,30 @@ public class OrganizationController : Controller
             var result = await _organizationManagementService.ArchiveOrganizationAsync(id, cancellationToken);
             if (!result.Success)
             {
-                return BadRequest(result.Message);
+                var error = new
+                {
+                    success = false,
+                    message = result.Message
+                };
+
+                if (string.Equals(result.Code, "organization_not_found", StringComparison.Ordinal))
+                {
+                    return NotFound(error);
+                }
+
+                if (string.Equals(result.Code, "organization_in_use", StringComparison.Ordinal))
+                {
+                    return Conflict(error);
+                }
+
+                return BadRequest(error);
             }
 
-            return Ok(result.Message);
+            return Ok(new
+            {
+                success = true,
+                message = result.Message
+            });
         }
         catch (Exception ex)
         {

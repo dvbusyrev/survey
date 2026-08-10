@@ -24,7 +24,7 @@ public partial class AnswerService
         }
 
         await AttachMatchingDraftSignatureAsync(answerRecord, cancellationToken);
-        await InsertAnswerRecordAsync(answerRecord, cancellationToken);
+        await InsertAnswerRecordAsync(answerRecord, GetRequiredCurrentUserId(), cancellationToken);
 
         var model = await BuildCheckAnswersPageAsync(
             answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers, cancellationToken);
@@ -56,7 +56,7 @@ public partial class AnswerService
             return validationResult;
         }
 
-        var saved = await SaveDraftRecordAsync(answerRecord, cancellationToken);
+        var saved = await SaveDraftRecordAsync(answerRecord, GetRequiredCurrentUserId(), cancellationToken);
         if (!saved)
         {
             return new AnswerMutationResult
@@ -90,7 +90,7 @@ public partial class AnswerService
             return validationResult;
         }
 
-        var updated = await UpdateAnswerRecordAsync(answerRecord, cancellationToken);
+        var updated = await UpdateAnswerRecordAsync(answerRecord, GetRequiredCurrentUserId(), cancellationToken);
         if (!updated)
         {
             return new AnswerMutationResult

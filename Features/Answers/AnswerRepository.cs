@@ -383,6 +383,7 @@ public sealed class AnswerRepository
 
     public async Task<AnswerStorageResult> SubmitAnswerAsync(
         AnswerRecord answerRecord,
+        int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -466,6 +467,10 @@ public sealed class AnswerRepository
             transaction,
             cancellationToken: cancellationToken));
 
+        await RecordAnswerParticipationAsync(
+            connection, transaction, answerId, userId, "submitted", cancellationToken);
+        await CopyDraftParticipationAsync(
+            connection, transaction, assignmentId.Value, answerId, cancellationToken);
         await ReplaceAnswerItemsAsync(connection, transaction, answerId, items, cancellationToken);
         await DeleteDraftAsync(connection, transaction, answerRecord.IdSurvey, answerRecord.OrganizationId, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -479,6 +484,7 @@ public sealed class AnswerRepository
 
     public async Task<AnswerStorageResult> UpdateAnswerAsync(
         AnswerRecord answerRecord,
+        int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -544,6 +550,8 @@ public sealed class AnswerRepository
             return new AnswerStorageResult();
         }
 
+        await RecordAnswerParticipationAsync(
+            connection, transaction, existingAnswer.AnswerId, userId, "edited", cancellationToken);
         await ReplaceAnswerItemsAsync(connection, transaction, existingAnswer.AnswerId, items, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -554,7 +562,10 @@ public sealed class AnswerRepository
         };
     }
 
-    public async Task<bool> SaveDraftAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
+    public async Task<bool> SaveDraftAsync(
+        AnswerRecord answerRecord,
+        int userId,
+        CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
@@ -600,6 +611,8 @@ public sealed class AnswerRepository
             transaction,
             cancellationToken: cancellationToken));
 
+        await RecordDraftParticipationAsync(
+            connection, transaction, draftId, userId, "saved", cancellationToken);
         await ReplaceDraftItemsAsync(connection, transaction, draftId, items, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return true;
@@ -610,9 +623,11 @@ public sealed class AnswerRepository
         int organizationId,
         string signature,
         byte[]? signedContent,
+        int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var affected = await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.answer answer
@@ -631,8 +646,28 @@ public sealed class AnswerRepository
                 Signature = signature,
                 SignedContent = signedContent
             },
+            transaction,
             cancellationToken: cancellationToken));
 
+        if (affected > 0)
+        {
+            var answerId = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                """
+                SELECT answer.id_answer
+                FROM public.answer answer
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = answer.id_organization_survey
+                WHERE assignment.id_organization = @OrganizationId
+                  AND assignment.id_survey = @SurveyId;
+                """,
+                new { SurveyId = surveyId, OrganizationId = organizationId },
+                transaction,
+                cancellationToken: cancellationToken));
+            await RecordAnswerParticipationAsync(
+                connection, transaction, answerId, userId, "signed", cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
         return affected > 0;
     }
 
@@ -641,9 +676,11 @@ public sealed class AnswerRepository
         int organizationId,
         string signature,
         byte[]? signedContent,
+        int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var affected = await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.answer_draft draft
@@ -662,8 +699,28 @@ public sealed class AnswerRepository
                 Signature = signature,
                 SignedContent = signedContent
             },
+            transaction,
             cancellationToken: cancellationToken));
 
+        if (affected > 0)
+        {
+            var draftId = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                """
+                SELECT draft.id_answer_draft
+                FROM public.answer_draft draft
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = draft.id_organization_survey
+                WHERE assignment.id_organization = @OrganizationId
+                  AND assignment.id_survey = @SurveyId;
+                """,
+                new { SurveyId = surveyId, OrganizationId = organizationId },
+                transaction,
+                cancellationToken: cancellationToken));
+            await RecordDraftParticipationAsync(
+                connection, transaction, draftId, userId, "signed", cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
         return affected > 0;
     }
 
@@ -874,6 +931,69 @@ public sealed class AnswerRepository
                 transaction,
                 cancellationToken: cancellationToken));
         }
+    }
+
+    private static Task RecordAnswerParticipationAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int answerId,
+        int userId,
+        string participationType,
+        CancellationToken cancellationToken)
+    {
+        return connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO public.answer_participant (id_answer, id_user, participation_type)
+            VALUES (@AnswerId, @UserId, @ParticipationType)
+            ON CONFLICT DO NOTHING;
+            """,
+            new { AnswerId = answerId, UserId = userId, ParticipationType = participationType },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    private static Task RecordDraftParticipationAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int draftId,
+        int userId,
+        string participationType,
+        CancellationToken cancellationToken)
+    {
+        return connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO public.answer_draft_participant (id_answer_draft, id_user, participation_type)
+            VALUES (@DraftId, @UserId, @ParticipationType)
+            ON CONFLICT DO NOTHING;
+            """,
+            new { DraftId = draftId, UserId = userId, ParticipationType = participationType },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    private static Task CopyDraftParticipationAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int assignmentId,
+        int answerId,
+        CancellationToken cancellationToken)
+    {
+        return connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO public.answer_participant (id_answer, id_user, participation_type)
+            SELECT
+                @AnswerId,
+                participant.id_user,
+                CASE WHEN participant.participation_type = 'signed' THEN 'signed' ELSE 'submitted' END
+            FROM public.answer_draft_participant participant
+            INNER JOIN public.answer_draft draft
+                ON draft.id_answer_draft = participant.id_answer_draft
+            WHERE draft.id_organization_survey = @AssignmentId
+            ON CONFLICT DO NOTHING;
+            """,
+            new { AnswerId = answerId, AssignmentId = assignmentId },
+            transaction,
+            cancellationToken: cancellationToken));
     }
 
     private static Task DeleteDraftAsync(

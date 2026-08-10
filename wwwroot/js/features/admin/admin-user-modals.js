@@ -198,55 +198,56 @@ function submitFormAdd() {
     });
 }
 
-async function deleteUser(id, fullName) {
-    const confirmed = await window.siteConfirm(`Вы уверены, что хотите удалить пользователя ${fullName || ''}?`, {
-        title: "Удаление пользователя",
-        confirmText: "Удалить",
-        cancelText: "Отмена"
-    });
+let userDeletePending = false;
 
-    if (!confirmed) {
+async function deleteUser(id, fullName) {
+    if (userDeletePending) {
         return;
     }
 
-    fetch(`/users/${id}/delete`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
+    userDeletePending = true;
+    try {
+        const confirmed = await window.siteConfirm(`Вы уверены, что хотите удалить пользователя ${fullName || ''}?`, {
+            title: "Удаление пользователя",
+            confirmText: "Удалить",
+            cancelText: "Отмена"
+        });
+
+        if (!confirmed) {
+            return;
         }
-    })
-    .then(async response => {
-        const responseText = await response.text();
-        if (!response.ok) {
-            let responseMessage = responseText;
-            try {
-                const payload = JSON.parse(responseText);
-                responseMessage = payload?.message || payload?.error || responseMessage;
-            } catch (parseError) {
-                responseMessage = responseText;
+
+        const response = await fetch(`/users/${id}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             }
+        });
+        const responseMessage = window.AppHttp?.readResponseMessage
+            ? await window.AppHttp.readResponseMessage(response, 'Не удалось удалить пользователя.')
+            : await response.text();
+        if (!response.ok) {
             throw new Error(responseMessage || 'Не удалось удалить пользователя.');
         }
-        return responseText;
-    })
-    .then(result => {
+
         closeModal('deleteUserModal');
         if (typeof window.handleAdminMutationSuccess === 'function') {
-            window.handleAdminMutationSuccess({
-                message: result,
+            await window.handleAdminMutationSuccess({
+                message: responseMessage || 'Пользователь успешно удалён.',
                 tabName: 'get_users',
                 fallbackUrl: '/users'
             });
             return;
         }
 
-        showAdminToast(result, 'success');
+        showAdminToast(responseMessage || 'Пользователь успешно удалён.', 'success');
         navigateAdminTab("get_users", "/users");
-    })
-    .catch(error => {
+    } catch (error) {
         console.error("Ошибка:", error);
         showAdminToast(error.message || 'Не удалось удалить пользователя.');
-    });
+    } finally {
+        userDeletePending = false;
+    }
 }
 
 function deleteUserFromTrigger(trigger) {

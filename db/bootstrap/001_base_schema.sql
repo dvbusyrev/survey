@@ -1050,7 +1050,7 @@ CREATE TRIGGER trg_week_day_set_update_metadata BEFORE INSERT OR UPDATE ON publi
 -- Name: answer answer_id_organization_survey_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.answer
-    ADD CONSTRAINT answer_id_organization_survey_fkey FOREIGN KEY (id_organization_survey) REFERENCES public.organization_survey(id_organization_survey) ON DELETE CASCADE;
+    ADD CONSTRAINT answer_id_organization_survey_fkey FOREIGN KEY (id_organization_survey) REFERENCES public.organization_survey(id_organization_survey) ON DELETE RESTRICT;
 
 
 -- Name: app_user app_user_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
@@ -1092,13 +1092,13 @@ ALTER TABLE ONLY public.answer_item
 -- Name: organization_survey organization_survey_id_survey_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.organization_survey
-    ADD CONSTRAINT organization_survey_id_survey_fkey FOREIGN KEY (id_survey) REFERENCES public.survey(id_survey) ON DELETE CASCADE;
+    ADD CONSTRAINT organization_survey_id_survey_fkey FOREIGN KEY (id_survey) REFERENCES public.survey(id_survey) ON DELETE RESTRICT;
 
 
 -- Name: organization_survey organization_survey_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.organization_survey
-    ADD CONSTRAINT organization_survey_organization_id_fkey FOREIGN KEY (id_organization) REFERENCES public.organization(id_organization) ON DELETE CASCADE;
+    ADD CONSTRAINT organization_survey_organization_id_fkey FOREIGN KEY (id_organization) REFERENCES public.organization(id_organization) ON DELETE RESTRICT;
 
 
 -- Name: survey_question survey_question_id_survey_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

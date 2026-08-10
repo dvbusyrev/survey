@@ -14,9 +14,11 @@ using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.External.Calendar;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.Security;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
+using Npgsql;
 
 namespace MainProject.Tests.Integration.Database;
 
@@ -58,7 +60,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public' AND table_name = 'theme_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        Assert.Contains("034", versions);
+        Assert.Contains("037", versions);
         Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT to_regclass('public.week_day')::text;"));
         var auditColumnsWithoutGenerator = (await connection.QueryAsync<string>(
             """
@@ -103,9 +105,30 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE constraint_schema = 'public'
               AND constraint_name = 'app_user_id_organization_fkey';
             """);
+        var protectedDeleteRules = (await connection.QueryAsync<ConstraintDeleteRule>(
+            """
+            SELECT constraint_name AS ConstraintName, delete_rule AS DeleteRule
+            FROM information_schema.referential_constraints
+            WHERE constraint_schema = 'public'
+              AND constraint_name = ANY(@ConstraintNames);
+            """,
+            new
+            {
+                ConstraintNames = new[]
+                {
+                    "organization_survey_id_organization_fkey",
+                    "organization_survey_id_survey_fkey",
+                    "answer_id_organization_survey_fkey",
+                    "answer_draft_id_organization_survey_fkey",
+                    "answer_participant_id_user_fkey",
+                    "answer_draft_participant_id_user_fkey"
+                }
+            })).ToDictionary(row => row.ConstraintName, row => row.DeleteRule, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("background_image", themeColumns);
         Assert.Equal("NO", userOrganizationIsNullable);
         Assert.Equal("RESTRICT", userOrganizationDeleteAction);
+        Assert.Equal(6, protectedDeleteRules.Count);
+        Assert.All(protectedDeleteRules.Values, deleteRule => Assert.Equal("RESTRICT", deleteRule));
         Assert.DoesNotContain("gradient_enabled", themeColumns);
         Assert.DoesNotContain("background_image_data_url", themeColumns);
         Assert.DoesNotContain("soft_lighten_percent", themeColumns);
@@ -440,7 +463,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var users = (await userService.GetActiveUsersPageAsync(1, "name", "asc")).Users;
         var user = Assert.Single(users, item => item.NameUser == "repository-user");
         var deletion = await userService.DeleteUserAsync(user.IdUser);
-        var archiveBlockedByHistory = await organizationService.ArchiveOrganizationAsync(organizationId);
+        var archiveAfterUserDeletion = await organizationService.ArchiveOrganizationAsync(organizationId);
         var createEmptyOrganization = await organizationService.CreateOrganizationAsync(new OrganizationSaveRequest
         {
             Name = "Организация без истории",
@@ -462,9 +485,90 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Empty(senderWithLegacyPassword.SmtpPassword);
         Assert.Equal("#B2A8FF", theme.BackgroundColor);
         Assert.True(deletion.Success);
-        Assert.False(archiveBlockedByHistory.Success);
-        Assert.Equal("organization_in_use", archiveBlockedByHistory.Code);
+        Assert.True(archiveAfterUserDeletion.Success);
         Assert.True(archiveEmptyOrganization.Success);
+    }
+
+    [RequiresPostgresFact]
+    public async Task DeletionProtection_BlocksReferencedRecordsInServicesAndDatabase()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var userId = await CreateUserAsync(organizationId, "deletion-protection-client");
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+
+        var workflow = CreateAnswerService(userId);
+        var submission = await workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 4));
+        Assert.True(submission.Success);
+
+        await using var connection = _fixture.CreateConnection();
+        await connection.OpenAsync();
+        var assignmentId = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT id_organization_survey
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId });
+        var participantTypes = (await connection.QueryAsync<string>(
+            """
+            SELECT participant.participation_type
+            FROM public.answer_participant participant
+            INNER JOIN public.answer answer ON answer.id_answer = participant.id_answer
+            WHERE answer.id_organization_survey = @AssignmentId
+              AND participant.id_user = @UserId;
+            """,
+            new { AssignmentId = assignmentId, UserId = userId })).ToArray();
+
+        var surveyDeletion = await new SurveyService(_connectionFactory, _surveyRepository, _clock)
+            .DeleteSurveyAsync(surveyId);
+        var userDeletion = await new UserManagementService(_connectionFactory, _clock)
+            .DeleteUserAsync(userId);
+        var organizationDeletion = await new OrganizationManagementService(_connectionFactory, _clock)
+            .ArchiveOrganizationAsync(organizationId);
+        var userDeletionHttpResult = await new UserController(new UserManagementService(_connectionFactory, _clock))
+            .DeleteUser(userId, CancellationToken.None);
+
+        Assert.False(surveyDeletion.Success);
+        Assert.Equal("survey_in_use", surveyDeletion.Code);
+        Assert.Contains("Интеграционная анкета", surveyDeletion.Message);
+        Assert.Contains("Орг 1", surveyDeletion.Message);
+        Assert.Contains("получены ответы", surveyDeletion.Message);
+
+        Assert.False(userDeletion.Success);
+        Assert.Contains("submitted", participantTypes);
+        Assert.Equal("user_in_use", userDeletion.Code);
+        Assert.Contains("Тестовый клиент", userDeletion.Message);
+        Assert.Contains("Связанные анкеты", userDeletion.Message);
+        Assert.IsType<ConflictObjectResult>(userDeletionHttpResult);
+
+        Assert.False(organizationDeletion.Success);
+        Assert.Equal("organization_in_use", organizationDeletion.Code);
+        Assert.Contains("Анкеты:", organizationDeletion.Message);
+        Assert.Contains("Пользователи:", organizationDeletion.Message);
+
+        var assignmentDeleteException = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            "DELETE FROM public.organization_survey WHERE id_organization_survey = @AssignmentId;",
+            new { AssignmentId = assignmentId }));
+        var surveyDeleteException = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            "DELETE FROM public.survey WHERE id_survey = @SurveyId;",
+            new { SurveyId = surveyId }));
+        var organizationDeleteException = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            "DELETE FROM public.organization WHERE id_organization = @OrganizationId;",
+            new { OrganizationId = organizationId }));
+        var userDeleteException = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            "DELETE FROM public.app_user WHERE id_user = @UserId;",
+            new { UserId = userId }));
+
+        var protectedDeletionSqlStates = new[]
+        {
+            PostgresErrorCodes.ForeignKeyViolation,
+            PostgresErrorCodes.RestrictViolation
+        };
+        Assert.Contains(assignmentDeleteException.SqlState, protectedDeletionSqlStates);
+        Assert.Contains(surveyDeleteException.SqlState, protectedDeletionSqlStates);
+        Assert.Contains(organizationDeleteException.SqlState, protectedDeletionSqlStates);
+        Assert.Contains(userDeleteException.SqlState, protectedDeletionSqlStates);
     }
 
     [RequiresPostgresFact]
@@ -1184,13 +1288,38 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains(allReportAnswers, item => item.IdSurvey == survey.SurveyId);
     }
 
-    private AnswerService CreateAnswerService()
-        => new(
+    private AnswerService CreateAnswerService(int? userId = null)
+    {
+        var participantUserId = userId ?? GetOrCreateAnswerParticipantUserId();
+        return new AnswerService(
             _connectionFactory,
             _surveyRepository,
             _answerRepository,
-            new FixedCurrentUserService(),
+            new FixedCurrentUserService(participantUserId),
             new FixedClock(DateTime.Today));
+    }
+
+    private int GetOrCreateAnswerParticipantUserId()
+    {
+        using var connection = _fixture.CreateConnection();
+        connection.Open();
+        var existingUserId = connection.ExecuteScalar<int?>(
+            "SELECT id_user FROM public.app_user ORDER BY id_user LIMIT 1;");
+        if (existingUserId.HasValue)
+        {
+            return existingUserId.Value;
+        }
+
+        var organizationId = connection.ExecuteScalar<int>(
+            "SELECT id_organization FROM public.organization ORDER BY id_organization LIMIT 1;");
+        return connection.ExecuteScalar<int>(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin)
+            VALUES (@OrganizationId, 'integration-answer-user', 'Пользователь ответов', 'admin', 'hash', CURRENT_DATE)
+            RETURNING id_user;
+            """,
+            new { OrganizationId = organizationId });
+    }
 
     private static ProductionCalendarService CreateWeekdayProductionCalendar()
     {
@@ -1333,6 +1462,12 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         public int OrganizationId { get; init; }
         public DateTime DateBegin { get; init; }
         public DateTime? DateEnd { get; init; }
+    }
+
+    private sealed class ConstraintDeleteRule
+    {
+        public string ConstraintName { get; init; } = string.Empty;
+        public string DeleteRule { get; init; } = string.Empty;
     }
 
     private sealed class StaticCalendarHandler : HttpMessageHandler
