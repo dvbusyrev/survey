@@ -9,4 +9,5 @@ public sealed class AnswerListItemViewModel
     public string SurveyName { get; init; } = string.Empty;
     public DateTime? CompletionDate { get; init; }
     public bool IsSigned { get; init; }
+    public bool CanDelete { get; init; }
 }

@@ -244,6 +244,7 @@ public sealed class AnswerRepository
         parameters.Add("HasDateFilter", request.DateStart.HasValue && request.DateEnd.HasValue);
         parameters.Add("DateStart", request.DateStart);
         parameters.Add("DateEnd", request.DateEnd);
+        parameters.Add("Today", _clock.Today.Date);
 
         var organizationOptions = BuildSelectionOptions(await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             """
@@ -288,7 +289,8 @@ public sealed class AnswerRepository
                 organization_name AS OrganizationName,
                 survey_name AS SurveyName,
                 completion_date AS CompletionDate,
-                is_signed AS IsSigned
+                is_signed AS IsSigned,
+                can_delete AS CanDelete
             FROM answer_rows
             WHERE {AnswerFilterPredicate}
             ORDER BY {BuildOrderBy(request.SortBy, request.SortDirection)}
@@ -305,6 +307,71 @@ public sealed class AnswerRepository
             rows,
             organizationOptions,
             surveyOptions);
+    }
+
+    public async Task<AnswerDeleteStorageResult> DeleteIfSurveyActiveAsync(
+        int answerId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var candidate = await connection.QueryFirstOrDefaultAsync<AnswerDeleteCandidate>(new CommandDefinition(
+                """
+                SELECT
+                    answer.id_answer AS AnswerId,
+                    assignment.date_begin <= @Today
+                        AND (assignment.date_end IS NULL OR assignment.date_end >= @Today) AS SurveyIsActive
+                FROM public.answer answer
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = answer.id_organization_survey
+                WHERE answer.id_answer = @AnswerId
+                FOR UPDATE OF answer, assignment;
+                """,
+                new
+                {
+                    AnswerId = answerId,
+                    Today = _clock.Today.Date
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+            if (candidate == null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return new AnswerDeleteStorageResult();
+            }
+
+            if (!candidate.SurveyIsActive)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return new AnswerDeleteStorageResult
+                {
+                    Found = true
+                };
+            }
+
+            var deleted = await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM public.answer WHERE id_answer = @AnswerId;",
+                new { AnswerId = answerId },
+                transaction,
+                cancellationToken: cancellationToken));
+            await transaction.CommitAsync(cancellationToken);
+
+            return new AnswerDeleteStorageResult
+            {
+                Found = true,
+                SurveyIsActive = true,
+                Deleted = deleted > 0
+            };
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<SurveySignatureReadData> GetSignatureStatusAsync(
@@ -1065,7 +1132,9 @@ public sealed class AnswerRepository
                 COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name, 'Нет данных') AS organization_name,
                 COALESCE(survey.name_survey, 'Нет данных') AS survey_name,
                 answer.completion_date,
-                (COALESCE(answer.csp, '') <> '') AS is_signed
+                (COALESCE(answer.csp, '') <> '') AS is_signed,
+                assignment.date_begin <= @Today
+                    AND (assignment.date_end IS NULL OR assignment.date_end >= @Today) AS can_delete
             FROM public.answer answer
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_organization_survey = answer.id_organization_survey
@@ -1101,5 +1170,11 @@ public sealed class AnswerRepository
     {
         public int AnswerId { get; init; }
         public string? Csp { get; init; }
+    }
+
+    private sealed class AnswerDeleteCandidate
+    {
+        public int AnswerId { get; init; }
+        public bool SurveyIsActive { get; init; }
     }
 }

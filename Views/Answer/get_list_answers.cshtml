@@ -60,7 +60,7 @@
                     aria-sort="@pageModel.GetAriaSort(MainProject.Web.ViewModels.AnswerListSortFields.Signed)">
                     <a class="logs-table__sort-link" href="@pageModel.BuildSortUrl(MainProject.Web.ViewModels.AnswerListSortFields.Signed)">Подпись</a>
                 </th>
-                <th class="table-th--end table-col--actions text-center" aria-label="Просмотр"></th>
+                <th class="table-th--end table-col--actions text-center">Действия</th>
             </tr>
         </thead>
         <tbody>
@@ -106,7 +106,24 @@
                                 <span class="answers-page__signed-icon">Подписана</span>
                             }
                         </td>
-                        <td class="answers-page__view-link answers-page__view-action action-icons table-col--actions text-center"></td>
+                        <td class="answers-page__view-link answers-page__view-action action-icons table-col--actions text-center">
+                            @if (answer.CanDelete)
+                            {
+                                <div class="action-icons__content">
+                                    <button type="button"
+                                            class="icon-container"
+                                            data-answer-id="@answer.IdAnswer"
+                                            data-survey-name="@(answer.SurveyName ?? string.Empty)"
+                                            data-organization-name="@(answer.OrganizationName ?? string.Empty)"
+                                            data-click-call="deleteAnswerFromTrigger"
+                                            data-click-pass-element="true"
+                                            aria-label="Удалить ответ">
+                                        <span aria-hidden="true"><i class="fas fa-trash"></i></span>
+                                        <span class="icon-tooltip">Удалить ответ</span>
+                                    </button>
+                                </div>
+                            }
+                        </td>
                     </tr>
                 }
             }

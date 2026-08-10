@@ -76,7 +76,8 @@ public partial class AnswerService
                 OrganizationName = row.OrganizationName,
                 SurveyName = row.SurveyName,
                 CompletionDate = row.CompletionDate,
-                IsSigned = row.IsSigned
+                IsSigned = row.IsSigned,
+                CanDelete = row.CanDelete
             }).ToList(),
             CurrentPage = readData.CurrentPage,
             TotalPages = readData.TotalPages,
@@ -100,6 +101,39 @@ public partial class AnswerService
                 DateFrom = bounds.FilterType == AnswerDateFilterType.Range ? bounds.Start?.ToString("yyyy-MM-dd") ?? string.Empty : string.Empty,
                 DateTo = bounds.FilterType == AnswerDateFilterType.Range ? bounds.End?.ToString("yyyy-MM-dd") ?? string.Empty : string.Empty
             }
+        };
+    }
+
+    public virtual async Task<OperationResult> DeleteAnswerAsync(
+        int answerId,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _answerRepository.DeleteIfSurveyActiveAsync(answerId, cancellationToken);
+        if (!result.Found)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = "Ответ не найден.",
+                Code = "answer_not_found"
+            };
+        }
+
+        if (!result.SurveyIsActive)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = "Нельзя удалить ответ: анкета больше не активна.",
+                Code = "survey_inactive"
+            };
+        }
+
+        return new OperationResult
+        {
+            Success = result.Deleted,
+            Message = result.Deleted ? "Ответ успешно удалён." : "Ответ не найден.",
+            Code = result.Deleted ? null : "answer_not_found"
         };
     }
 

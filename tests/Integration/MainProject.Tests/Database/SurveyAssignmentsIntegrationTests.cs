@@ -534,7 +534,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal("survey_in_use", surveyDeletion.Code);
         Assert.Contains("Интеграционная анкета", surveyDeletion.Message);
         Assert.Contains("Орг 1", surveyDeletion.Message);
-        Assert.Contains("получены ответы", surveyDeletion.Message);
+        Assert.Contains("по ней есть ответы", surveyDeletion.Message);
 
         Assert.False(userDeletion.Success);
         Assert.Contains("submitted", participantTypes);
@@ -570,6 +570,98 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains(surveyDeleteException.SqlState, protectedDeletionSqlStates);
         Assert.Contains(organizationDeleteException.SqlState, protectedDeletionSqlStates);
         Assert.Contains(userDeleteException.SqlState, protectedDeletionSqlStates);
+    }
+
+    [RequiresPostgresFact]
+    public async Task DeletionHierarchy_AllowsParentsAfterAnswerIsRemoved()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var userId = await CreateUserAsync(organizationId, "deletion-hierarchy-client");
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+        var answerService = CreateAnswerService(userId);
+        Assert.True((await answerService.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 4))).Success);
+
+        var answerPage = await _answerRepository.GetListAsync(new AnswerListReadRequest(
+            [],
+            [],
+            null,
+            null,
+            AnswerReadSortFields.Date,
+            "desc",
+            1,
+            10));
+        var answer = Assert.Single(answerPage.Rows);
+        var surveyService = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var userService = new UserManagementService(_connectionFactory, _clock);
+        var organizationService = new OrganizationManagementService(_connectionFactory, _clock);
+
+        Assert.False((await surveyService.DeleteSurveyAsync(surveyId)).Success);
+        Assert.False((await userService.DeleteUserAsync(userId)).Success);
+        Assert.False((await organizationService.ArchiveOrganizationAsync(organizationId)).Success);
+
+        Assert.True((await answerService.DeleteAnswerAsync(answer.IdAnswer)).Success);
+        Assert.True((await surveyService.DeleteSurveyAsync(surveyId)).Success);
+        Assert.True((await userService.DeleteUserAsync(userId)).Success);
+        Assert.True((await organizationService.ArchiveOrganizationAsync(organizationId)).Success);
+
+        await using var connection = _fixture.CreateConnection();
+        Assert.False(await connection.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS (SELECT 1 FROM public.answer WHERE id_answer = @AnswerId);",
+            new { AnswerId = answer.IdAnswer }));
+        Assert.False(await connection.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS (SELECT 1 FROM public.survey WHERE id_survey = @SurveyId);",
+            new { SurveyId = surveyId }));
+        Assert.False(await connection.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS (SELECT 1 FROM public.app_user WHERE id_user = @UserId);",
+            new { UserId = userId }));
+    }
+
+    [RequiresPostgresFact]
+    public async Task DeleteUser_AllowsDraftWithoutSubmittedAnswer()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var userId = await CreateUserAsync(organizationId, "draft-only-deletion-client");
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+        var answerService = CreateAnswerService(userId);
+        Assert.True((await answerService.SaveDraftAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 4))).Success);
+
+        var deletion = await new UserManagementService(_connectionFactory, _clock).DeleteUserAsync(userId);
+
+        Assert.True(deletion.Success);
+        await using var connection = _fixture.CreateConnection();
+        Assert.True(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.answer_draft draft
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = draft.id_organization_survey
+                WHERE assignment.id_survey = @SurveyId
+                  AND assignment.id_organization = @OrganizationId
+            );
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId }));
+        Assert.False(await connection.ExecuteScalarAsync<bool>(
+            "SELECT EXISTS (SELECT 1 FROM public.answer_draft_participant WHERE id_user = @UserId);",
+            new { UserId = userId }));
+
+        var surveyDeletion = await new SurveyService(_connectionFactory, _surveyRepository, _clock)
+            .DeleteSurveyAsync(surveyId);
+
+        Assert.True(surveyDeletion.Success);
+        Assert.False(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.answer_draft draft
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = draft.id_organization_survey
+                WHERE assignment.id_survey = @SurveyId
+            );
+            """,
+            new { SurveyId = surveyId }));
     }
 
     [RequiresPostgresFact]
@@ -1345,6 +1437,65 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal(2, reportAnswers[0].Answers.Count);
         Assert.Contains(reportSurveys, item => item.IdSurvey == survey.SurveyId && item.Questions.Count == 2);
         Assert.Contains(allReportAnswers, item => item.IdSurvey == survey.SurveyId);
+    }
+
+    [RequiresPostgresFact]
+    public async Task DeleteAnswer_AllowsActiveAssignmentAndRejectsExpiredAssignment()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationIds[0], 4))).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationIds[1], 4))).Success);
+
+        await using var connection = _fixture.CreateConnection();
+        await connection.ExecuteAsync(
+            """
+            UPDATE public.organization_survey
+            SET date_end = @DateEnd
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new
+            {
+                SurveyId = surveyId,
+                OrganizationId = organizationIds[0],
+                DateEnd = _clock.Today.AddDays(-1)
+            });
+
+        var answerPage = await _answerRepository.GetListAsync(new AnswerListReadRequest(
+            [],
+            [],
+            null,
+            null,
+            AnswerReadSortFields.Date,
+            "desc",
+            1,
+            10));
+        var expiredAnswer = Assert.Single(answerPage.Rows, row => row.IdOrganization == organizationIds[0]);
+        var activeAnswer = Assert.Single(answerPage.Rows, row => row.IdOrganization == organizationIds[1]);
+
+        Assert.False(expiredAnswer.CanDelete);
+        Assert.True(activeAnswer.CanDelete);
+
+        var rejected = await workflow.DeleteAnswerAsync(expiredAnswer.IdAnswer);
+        var deleted = await workflow.DeleteAnswerAsync(activeAnswer.IdAnswer);
+
+        Assert.False(rejected.Success);
+        Assert.Equal("survey_inactive", rejected.Code);
+        Assert.Equal("Нельзя удалить ответ: анкета больше не активна.", rejected.Message);
+        Assert.True(deleted.Success);
+        Assert.Equal("Ответ успешно удалён.", deleted.Message);
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM public.answer WHERE id_answer = ANY(@AnswerIds);",
+            new { AnswerIds = new[] { expiredAnswer.IdAnswer, activeAnswer.IdAnswer } }));
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM public.answer_item WHERE id_answer = @AnswerId;",
+            new { AnswerId = activeAnswer.IdAnswer }));
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM public.answer_participant WHERE id_answer = @AnswerId;",
+            new { AnswerId = activeAnswer.IdAnswer }));
     }
 
     private AnswerService CreateAnswerService(int? userId = null)

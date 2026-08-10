@@ -199,7 +199,7 @@ public sealed class UserManagementService
         }
         catch (PostgresException ex) when (ex.SqlState is PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.RestrictViolation)
         {
-            const string message = "Нельзя удалить пользователя: он связан с сохранёнными данными анкет.";
+            const string message = "Нельзя удалить пользователя: он связан с сохранёнными ответами анкет.";
             return new OperationResult
             {
                 Success = false,
@@ -378,6 +378,12 @@ public sealed class UserManagementService
             return new UserDeletionResult(true, false, user, answeredSurveyNames, signedSurveyNames);
         }
 
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM public.answer_draft_participant WHERE id_user = @UserId;",
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
         var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM public.app_user WHERE id_user = @UserId;",
             new { UserId = userId },
@@ -403,16 +409,6 @@ public sealed class UserManagementService
                     ON answer.id_answer = participant.id_answer
                 INNER JOIN public.organization_survey assignment
                     ON assignment.id_organization_survey = answer.id_organization_survey
-                WHERE participant.id_user = @UserId
-
-                UNION ALL
-
-                SELECT participant.participation_type, assignment.id_survey
-                FROM public.answer_draft_participant participant
-                INNER JOIN public.answer_draft draft
-                    ON draft.id_answer_draft = participant.id_answer_draft
-                INNER JOIN public.organization_survey assignment
-                    ON assignment.id_organization_survey = draft.id_organization_survey
                 WHERE participant.id_user = @UserId
             )
             SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || participation.id_survey::text) AS survey_name
@@ -781,7 +777,7 @@ public sealed class UserManagementService
         IReadOnlyList<string> signedSurveyNames)
     {
         var builder = new StringBuilder();
-        builder.Append($"Нельзя удалить пользователя \"{userDisplayName}\": он связан с сохранёнными ответами или черновиками анкет.");
+        builder.Append($"Нельзя удалить пользователя \"{userDisplayName}\": он связан с сохранёнными ответами анкет.");
 
         if (answeredSurveyNames.Count > 0)
         {

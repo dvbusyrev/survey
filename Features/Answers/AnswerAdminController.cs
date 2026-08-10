@@ -73,6 +73,41 @@ public class AnswerAdminController : Controller
         }
     }
 
+    [HttpPost("answers/{id:int}/delete")]
+    public async Task<IActionResult> DeleteAnswer(int id, CancellationToken cancellationToken = default)
+    {
+        if (id <= 0)
+        {
+            return BadRequest(new { success = false, message = "Некорректный идентификатор ответа." });
+        }
+
+        try
+        {
+            var result = await _answerService.DeleteAnswerAsync(id, cancellationToken);
+            var payload = new
+            {
+                success = result.Success,
+                message = result.Message
+            };
+
+            if (result.Success)
+            {
+                return Ok(payload);
+            }
+
+            return result.Code switch
+            {
+                "answer_not_found" => NotFound(payload),
+                "survey_inactive" => Conflict(payload),
+                _ => BadRequest(payload)
+            };
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(ex, "Не удалось удалить ответ.", $"Ошибка при удалении ответа {id}");
+        }
+    }
+
     [HttpGet("statistics")]
     public IActionResult OpenStatistics()
     {

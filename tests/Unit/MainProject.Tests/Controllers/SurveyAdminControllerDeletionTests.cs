@@ -11,7 +11,7 @@ public sealed class SurveyAdminControllerDeletionTests
     [Fact]
     public async Task DeleteSurvey_ReturnsConflictWithBusinessMessage_WhenSurveyIsInUse()
     {
-        const string message = "Нельзя удалить анкету \"Тестовая анкета\": она уже назначалась организациям.";
+        const string message = "Нельзя удалить анкету \"Тестовая анкета\": по ней есть ответы.";
         var controller = new SurveyAdminController(
             new StubSurveyService(new OperationResult
             {

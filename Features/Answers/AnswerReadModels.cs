@@ -20,6 +20,7 @@ public sealed class AnswerListReadRow
     public string SurveyName { get; init; } = string.Empty;
     public DateTime? CompletionDate { get; init; }
     public bool IsSigned { get; init; }
+    public bool CanDelete { get; init; }
 }
 
 public sealed record AnswerListReadData(

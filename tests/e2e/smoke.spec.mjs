@@ -263,7 +263,7 @@ test('ошибка удаления сохраняет текущий списо
             contentType: 'application/json',
             body: JSON.stringify({
                 success: false,
-                message: 'Нельзя удалить анкету "Smoke survey": она уже назначалась организациям.'
+                message: 'Нельзя удалить анкету "Smoke survey": по ней есть ответы.'
             })
         });
     });
@@ -284,7 +284,7 @@ test('ошибка удаления сохраняет текущий списо
             contentType: 'application/json',
             body: JSON.stringify({
                 success: false,
-                message: 'Нельзя удалить пользователя "Smoke client": он связан с сохранёнными ответами или черновиками анкет.'
+                message: 'Нельзя удалить пользователя "Smoke client": он связан с сохранёнными ответами анкет.'
             })
         });
     });
@@ -544,6 +544,23 @@ test('клиент проходит доступные анкеты, черно�
     await expect(page.locator('#answersModal')).toBeVisible();
     await expect(page.locator('#answersContainer .answers-modal__table tbody tr')).toHaveCount(1);
     await expect(page.locator('#answersContainer .answers-modal__table-wrap')).toHaveCSS('padding-bottom', '0px');
+
+    await page.locator('#answersModal [data-modal-close="answersModal"]').click();
+    const deleteAnswerButton = answerJournalRow.getByRole('button', { name: 'Удалить ответ', exact: true });
+    await expect(deleteAnswerButton).toBeVisible();
+    const answerDeleted = page.waitForResponse((response) => (
+        response.request().method() === 'POST'
+        && /\/answers\/\d+\/delete$/.test(new URL(response.url()).pathname)
+        && response.status() === 200
+    ));
+    await deleteAnswerButton.click();
+    await expect(page.locator('.site-confirm__title')).toHaveText('Удаление ответа');
+    await page.locator('.site-confirm__button--confirm').click();
+    await answerDeleted;
+    await expect(page.locator('.site-toast--success')
+        .filter({ hasText: 'Ответ успешно удалён.' })
+        .last()).toBeVisible();
+    await expect(page.locator('.answers-page__row')).toHaveCount(0);
 });
 
 test('клиент скачивает установленную инструкцию', async ({ page }) => {

@@ -532,31 +532,29 @@ public partial class SurveyService
 
             var usage = (await connection.QueryAsync<SurveyDeletionUsage>(new CommandDefinition(
                 """
-                WITH assignment_usage AS (
-                    SELECT id_organization_survey, id_organization, id_survey
-                    FROM public.organization_survey
-                    WHERE id_survey = @SurveyId
-                )
-                SELECT DISTINCT
+                SELECT
+                    assignment.id_organization_survey AS AssignmentId,
                     COALESCE(
                         NULLIF(TRIM(o.organization_short_name), ''),
                         NULLIF(TRIM(o.organization_name), ''),
-                        'Организация #' || assignment_usage.id_organization::text
+                        'Организация #' || assignment.id_organization::text
                     ) AS OrganizationName,
                     EXISTS (
                         SELECT 1
                         FROM public.answer a
-                        WHERE a.id_organization_survey = assignment_usage.id_organization_survey
+                        WHERE a.id_organization_survey = assignment.id_organization_survey
                     ) AS HasAnswer
-                FROM assignment_usage
+                FROM public.organization_survey assignment
                 LEFT JOIN public.organization o
-                    ON o.id_organization = assignment_usage.id_organization
-                ORDER BY OrganizationName;
+                    ON o.id_organization = assignment.id_organization
+                WHERE assignment.id_survey = @SurveyId
+                ORDER BY OrganizationName
+                FOR UPDATE OF assignment;
                 """,
                 new { SurveyId = surveyId },
                 transaction,
                 cancellationToken: cancellationToken))).AsList();
-            if (usage.Count > 0)
+            if (usage.Any(item => item.HasAnswer))
             {
                 await transaction.CommitAsync(cancellationToken);
                 return new OperationResult
@@ -565,6 +563,21 @@ public partial class SurveyService
                     Message = BuildSurveyDeleteBlockedMessage(survey.SurveyName, usage),
                     Code = "survey_in_use"
                 };
+            }
+
+            var assignmentIds = usage.Select(item => item.AssignmentId).ToArray();
+            if (assignmentIds.Length > 0)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM public.answer_draft WHERE id_organization_survey = ANY(@AssignmentIds);",
+                    new { AssignmentIds = assignmentIds },
+                    transaction,
+                    cancellationToken: cancellationToken));
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM public.organization_survey WHERE id_organization_survey = ANY(@AssignmentIds);",
+                    new { AssignmentIds = assignmentIds },
+                    transaction,
+                    cancellationToken: cancellationToken));
             }
 
             if (!await _surveyRepository.DeleteSurveyAsync(connection, transaction, surveyId, cancellationToken))
@@ -607,11 +620,6 @@ public partial class SurveyService
         IReadOnlyList<SurveyDeletionUsage> usage)
     {
         var displayName = string.IsNullOrWhiteSpace(surveyName) ? "Без названия" : surveyName.Trim();
-        var organizationNames = usage
-            .Select(item => item.OrganizationName)
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
         var answeredOrganizationNames = usage
             .Where(item => item.HasAnswer)
             .Select(item => item.OrganizationName)
@@ -619,14 +627,7 @@ public partial class SurveyService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var message = answeredOrganizationNames.Length > 0
-            ? $"Нельзя удалить анкету \"{displayName}\": она уже назначалась организациям и по ней получены ответы."
-            : $"Нельзя удалить анкету \"{displayName}\": она уже назначалась организациям.";
-
-        if (organizationNames.Length > 0)
-        {
-            message += $"{Environment.NewLine}Организации: {string.Join(", ", organizationNames)}.";
-        }
+        var message = $"Нельзя удалить анкету \"{displayName}\": по ней есть ответы.";
 
         if (answeredOrganizationNames.Length > 0)
         {
@@ -638,5 +639,5 @@ public partial class SurveyService
 
     private sealed record SurveyDeletionCandidate(int SurveyId, string? SurveyName);
 
-    private sealed record SurveyDeletionUsage(string OrganizationName, bool HasAnswer);
+    private sealed record SurveyDeletionUsage(int AssignmentId, string OrganizationName, bool HasAnswer);
 }
