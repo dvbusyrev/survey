@@ -410,6 +410,14 @@ public sealed class UserManagementService
                 INNER JOIN public.organization_survey assignment
                     ON assignment.id_organization_survey = answer.id_organization_survey
                 WHERE participant.id_user = @UserId
+
+                UNION ALL
+
+                SELECT 'legacy'::text, assignment.id_survey
+                FROM public.answer answer
+                INNER JOIN public.organization_survey assignment
+                    ON assignment.id_organization_survey = answer.id_organization_survey
+                WHERE answer.user_update = @UserId
             )
             SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || participation.id_survey::text) AS survey_name
             FROM user_participation participation

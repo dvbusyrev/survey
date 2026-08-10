@@ -175,9 +175,9 @@ public class OrganizationManagementService
         };
     }
 
-    public virtual async Task<OperationResult> ArchiveOrganizationAsync(int id, CancellationToken cancellationToken = default)
+    public virtual async Task<OperationResult> DeleteOrganizationAsync(int id, CancellationToken cancellationToken = default)
     {
-        var result = await ArchiveIfUnusedAsync(id, cancellationToken);
+        var result = await DeleteIfUnusedAsync(id, cancellationToken);
         if (!result.Found)
         {
             return new OperationResult
@@ -190,7 +190,7 @@ public class OrganizationManagementService
 
         if (result.SurveyNames.Count > 0 || result.UserNames.Count > 0)
         {
-            var message = BuildArchiveRestrictedMessage(result.SurveyNames, result.UserNames);
+            var message = BuildDeleteRestrictedMessage(result.SurveyNames, result.UserNames);
 
             return new OperationResult
             {
@@ -203,11 +203,11 @@ public class OrganizationManagementService
 
         return new OperationResult
         {
-            Success = result.Archived,
-            Message = result.Archived
+            Success = result.Deleted,
+            Message = result.Deleted
                 ? "Организация успешно удалена."
                 : "Организация не найдена.",
-            Code = result.Archived ? null : "organization_not_found"
+            Code = result.Deleted ? null : "organization_not_found"
         };
     }
 
@@ -393,7 +393,7 @@ public class OrganizationManagementService
             cancellationToken: cancellationToken));
     }
 
-    private async Task<OrganizationArchiveResult> ArchiveIfUnusedAsync(int organizationId, CancellationToken cancellationToken)
+    private async Task<OrganizationDeletionResult> DeleteIfUnusedAsync(int organizationId, CancellationToken cancellationToken)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
@@ -405,29 +405,24 @@ public class OrganizationManagementService
         if (!exists.HasValue)
         {
             await transaction.CommitAsync(cancellationToken);
-            return new OrganizationArchiveResult(false, false, [], []);
+            return new OrganizationDeletionResult(false, false, [], []);
         }
 
         var surveyNames = await GetAssignedSurveyNamesAsync(connection, organizationId, transaction, cancellationToken);
         var userNames = await GetAssignedUserNamesAsync(connection, organizationId, transaction, cancellationToken);
         if (surveyNames.Count > 0 || userNames.Count > 0)
         {
-            await transaction.CommitAsync(cancellationToken);
-            return new OrganizationArchiveResult(true, false, surveyNames, userNames);
+            await transaction.RollbackAsync(cancellationToken);
+            return new OrganizationDeletionResult(true, false, surveyNames, userNames);
         }
 
         var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
-            """
-            UPDATE public.organization
-            SET date_end = CASE WHEN date_end IS NULL OR date_end >= @Today
-                THEN (@Today - INTERVAL '1 day')::date ELSE date_end END
-            WHERE id_organization = @OrganizationId;
-            """,
-            new { OrganizationId = organizationId, Today = _clock.Today.Date },
+            "DELETE FROM public.organization WHERE id_organization = @OrganizationId;",
+            new { OrganizationId = organizationId },
             transaction,
             cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
-        return new OrganizationArchiveResult(true, affectedRows > 0, [], []);
+        return new OrganizationDeletionResult(true, affectedRows > 0, [], []);
     }
 
     protected virtual async Task<IReadOnlyList<OrganizationSurveyAssignmentRecord>> LoadLatestUnansweredAssignmentsAsync(
@@ -675,7 +670,7 @@ public class OrganizationManagementService
         return errors;
     }
 
-    private static string BuildArchiveRestrictedMessage(
+    private static string BuildDeleteRestrictedMessage(
         IReadOnlyList<string> surveyNames,
         IReadOnlyList<string> userNames)
     {
@@ -810,8 +805,8 @@ public sealed class OrganizationSurveyAssignmentRecord
     public DateTime? AssignmentDateEnd { get; init; }
 }
 
-public sealed record OrganizationArchiveResult(
+public sealed record OrganizationDeletionResult(
     bool Found,
-    bool Archived,
+    bool Deleted,
     IReadOnlyList<string> SurveyNames,
     IReadOnlyList<string> UserNames);

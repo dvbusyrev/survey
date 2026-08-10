@@ -299,6 +299,28 @@ test('ошибка удаления сохраняет текущий списо
     await expect(page).toHaveURL(usersUrl);
     await userToast.locator('.site-toast__close').click();
 
+    await page.unroute(/\/users\/\d+\/delete$/);
+    await page.route(/\/users\/\d+\/delete$/, async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                success: true,
+                message: 'Пользователь успешно удалён.'
+            })
+        });
+    });
+    await page.locator('[data-role="user-row"][data-user-name="smoke-client"]')
+        .locator('[data-click-call="deleteUserFromTrigger"]')
+        .click();
+    await page.locator('.site-confirm__button--confirm').click();
+    await expect(page.locator('.site-toast--success')
+        .filter({ hasText: 'Пользователь успешно удалён.' })
+        .last()).toBeVisible();
+    await expect(page.locator('.site-toast--error')
+        .filter({ hasText: 'closeModal is not defined' }))
+        .toHaveCount(0);
+
     await page.goto('/organizations');
     const organizationsUrl = page.url();
     await page.route(/\/organizations\/\d+\/delete$/, async (route) => {

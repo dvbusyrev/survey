@@ -59,7 +59,7 @@ public class OrganizationController : Controller
     {
         try
         {
-            var result = await _organizationManagementService.ArchiveOrganizationAsync(id, cancellationToken);
+            var result = await _organizationManagementService.DeleteOrganizationAsync(id, cancellationToken);
             if (!result.Success)
             {
                 var error = new

@@ -10,7 +10,7 @@ namespace MainProject.Tests.Controllers;
 public sealed class OrganizationControllerTests
 {
     [Fact]
-    public async Task DeleteOrganization_ReturnsOk_WhenArchiveSucceeds()
+    public async Task DeleteOrganization_ReturnsOk_WhenDeletionSucceeds()
     {
         var controller = new OrganizationController(new StubOrganizationManagementService(
             new OperationResult
@@ -50,11 +50,11 @@ public sealed class OrganizationControllerTests
 
     private sealed class StubOrganizationManagementService : OrganizationManagementService
     {
-        private readonly OperationResult _archiveResult;
+        private readonly OperationResult _deletionResult;
 
-        public StubOrganizationManagementService(OperationResult archiveResult)
+        public StubOrganizationManagementService(OperationResult deletionResult)
         {
-            _archiveResult = archiveResult;
+            _deletionResult = deletionResult;
         }
 
         public override Task<OrganizationListPageViewModel> GetActiveOrganizationsPageAsync(
@@ -90,8 +90,8 @@ public sealed class OrganizationControllerTests
         public override Task<OperationResult> UpdateOrganizationAsync(int id, OrganizationSaveRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public override Task<OperationResult> ArchiveOrganizationAsync(int id, CancellationToken cancellationToken = default)
-            => Task.FromResult(_archiveResult);
+        public override Task<OperationResult> DeleteOrganizationAsync(int id, CancellationToken cancellationToken = default)
+            => Task.FromResult(_deletionResult);
 
         public override Task<OrganizationSurveyEndDateUpdateResult> UpdateOrganizationSurveyEndDatesAsync(OrganizationSurveyEndDateUpdateRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

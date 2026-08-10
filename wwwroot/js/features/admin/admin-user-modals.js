@@ -230,7 +230,7 @@ async function deleteUser(id, fullName) {
             throw new Error(responseMessage || 'Не удалось удалить пользователя.');
         }
 
-        closeModal('deleteUserModal');
+        window.AppUi?.setModalVisibility('deleteUserModal', false);
         if (typeof window.handleAdminMutationSuccess === 'function') {
             await window.handleAdminMutationSuccess({
                 message: responseMessage || 'Пользователь успешно удалён.',

@@ -7,9 +7,9 @@ namespace MainProject.Tests.Services;
 public sealed class OrganizationManagementServiceTests
 {
     [Fact]
-    public void BuildArchiveRestrictedMessage_IncludesSurveyAndUserLists()
+    public void BuildDeleteRestrictedMessage_IncludesSurveyAndUserLists()
     {
-        var result = InvokeBuildArchiveRestrictedMessage(
+        var result = InvokeBuildDeleteRestrictedMessage(
             ["Анкета А", "Анкета Б"],
             ["Иван Иванов", "petrov"]);
 
@@ -21,9 +21,9 @@ public sealed class OrganizationManagementServiceTests
     }
 
     [Fact]
-    public void BuildArchiveRestrictedMessage_IncludesOnlyRelevantSection_WhenOnlyUsersExist()
+    public void BuildDeleteRestrictedMessage_IncludesOnlyRelevantSection_WhenOnlyUsersExist()
     {
-        var result = InvokeBuildArchiveRestrictedMessage(
+        var result = InvokeBuildDeleteRestrictedMessage(
             [],
             ["Иван Иванов"]);
 
@@ -64,12 +64,12 @@ public sealed class OrganizationManagementServiceTests
         Assert.False(Assert.Single(assignments, item => item.SurveyId == 11).IsExpired);
     }
 
-    private static string InvokeBuildArchiveRestrictedMessage(
+    private static string InvokeBuildDeleteRestrictedMessage(
         IReadOnlyList<string> surveyNames,
         IReadOnlyList<string> userNames)
     {
         var method = typeof(OrganizationManagementService).GetMethod(
-            "BuildArchiveRestrictedMessage",
+            "BuildDeleteRestrictedMessage",
             BindingFlags.Static | BindingFlags.NonPublic);
 
         Assert.NotNull(method);

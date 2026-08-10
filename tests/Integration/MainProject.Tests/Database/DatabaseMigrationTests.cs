@@ -44,6 +44,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 035_disallow_comments_for_top_rating.sql", script);
         Assert.Contains(@"\ir 036_protect_referenced_records_from_deletion.sql", script);
         Assert.Contains(@"\ir 037_store_answer_participants.sql", script);
+        Assert.Contains(@"\ir 038_repair_answer_participants.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -464,6 +465,23 @@ public sealed class DatabaseMigrationTests
         Assert.DoesNotContain("FROM public.answer_l", script);
         Assert.DoesNotContain("FROM public.organization_survey_l", script);
         Assert.Contains("VALUES ('037', 'store_answer_participants')", script);
+    }
+
+    [Fact]
+    public void AnswerParticipantRepairMigration_UsesAnswerMetadataWithoutAuditTables()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "038_repair_answer_participants.sql"));
+
+        Assert.Contains("FROM public.answer answer", script);
+        Assert.Contains("answer.user_update", script);
+        Assert.Contains("ON CONFLICT DO NOTHING", script);
+        Assert.DoesNotContain("FROM public.answer_l", script);
+        Assert.DoesNotContain("FROM public.app_user_l", script);
+        Assert.Contains("VALUES ('038', 'repair_answer_participants')", script);
     }
 
     private static string GetRepositoryRoot()

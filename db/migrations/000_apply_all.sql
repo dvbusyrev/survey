@@ -49,3 +49,4 @@ COMMIT;
 \ir 035_disallow_comments_for_top_rating.sql
 \ir 036_protect_referenced_records_from_deletion.sql
 \ir 037_store_answer_participants.sql
+\ir 038_repair_answer_participants.sql
