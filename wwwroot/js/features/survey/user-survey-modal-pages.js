@@ -177,7 +177,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
             const questionText = questionNode.querySelector('[data-role="question-title"]')?.textContent?.trim() || '';
             const answer = answers[questionId] || {};
             const rating = Number(answer.rating || 0);
-            const comment = String(answer.comment || '').trim();
+            const comment = rating === 5 ? '' : String(answer.comment || '').trim();
 
             if (!rating && !comment && !requireComplete) {
                 return;
@@ -313,7 +313,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
         }
 
         if (commentInput) {
-            commentInput.value = answer.comment || '';
+            commentInput.value = showComment ? answer.comment || '' : '';
         }
     }
 
@@ -329,7 +329,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
         if (activeRating > 0 || commentInput?.value) {
             answers[questionId] = {
                 rating: activeRating || null,
-                comment: commentInput?.value || ''
+                comment: activeRating === 5 ? '' : commentInput?.value || ''
             };
         }
 

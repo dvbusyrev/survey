@@ -591,7 +591,7 @@
         const questionText = questionNode.querySelector('[data-role="question-title"]')?.textContent?.trim() || "";
         const answer = answers[questionId] || {};
         const rating = Number(answer.rating || 0);
-        const comment = String(answer.comment || "").trim();
+        const comment = rating === 5 ? "" : String(answer.comment || "").trim();
         if (!rating && !comment && !requireComplete) {
           return;
         }
@@ -701,7 +701,7 @@
         commentBlock.classList.toggle("u-hidden", !showComment);
       }
       if (commentInput) {
-        commentInput.value = answer.comment || "";
+        commentInput.value = showComment ? answer.comment || "" : "";
       }
     }
     function bindQuestion(questionElement) {
@@ -715,7 +715,7 @@
       if (activeRating > 0 || commentInput?.value) {
         answers[questionId] = {
           rating: activeRating || null,
-          comment: commentInput?.value || ""
+          comment: activeRating === 5 ? "" : commentInput?.value || ""
         };
       }
       questionElement.querySelectorAll('[data-role="rating-button"]').forEach((button) => {

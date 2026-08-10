@@ -509,7 +509,7 @@
         commentBlock.classList.toggle("u-hidden", !showComment);
       }
       if (commentInput) {
-        commentInput.value = answer.comment || "";
+        commentInput.value = showComment ? answer.comment || "" : "";
       }
     }
     function bindQuestion(questionElement) {
@@ -554,7 +554,7 @@
             question_id: questionId,
             question_text: questionText,
             rating: answer.rating,
-            comment: answer.comment || ""
+            comment: answer.rating === 5 ? "" : answer.comment || ""
           };
         });
         const response = await fetch("/answers/create", {

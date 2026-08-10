@@ -45,7 +45,7 @@
             var questionId = question.Id.ToString();
             draftAnswers.TryGetValue(questionId, out var savedAnswer);
             var savedRating = savedAnswer?.Rating;
-            var savedComment = savedAnswer?.Comment ?? string.Empty;
+            var savedComment = savedRating == 5 ? string.Empty : savedAnswer?.Comment ?? string.Empty;
             var showComment = savedRating.HasValue && savedRating.Value < 5;
 
             <section class="answers-modal__info-block survey-user-question-card user-survey-question"

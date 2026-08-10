@@ -407,6 +407,24 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("VALUES ('034', 'repair_audit_id_generators')", script);
     }
 
+    [Fact]
+    public void TopRatingCommentMigration_CleansDataAndAddsConstraints()
+    {
+        var applyAllScript = File.ReadAllText(Path.Combine(GetRepositoryRoot(), "db", "migrations", "000_apply_all.sql"));
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "035_disallow_comments_for_top_rating.sql"));
+
+        Assert.Contains(@"\ir 035_disallow_comments_for_top_rating.sql", applyAllScript);
+        Assert.Contains("UPDATE public.answer_item", script);
+        Assert.Contains("UPDATE public.answer_draft_item", script);
+        Assert.Contains("answer_item_top_rating_comment_check", script);
+        Assert.Contains("answer_draft_item_top_rating_comment_check", script);
+        Assert.Contains("VALUES ('035', 'disallow_comments_for_top_rating')", script);
+    }
+
     private static string GetRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

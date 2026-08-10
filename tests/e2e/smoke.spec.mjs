@@ -52,12 +52,23 @@ test('клиент проходит доступные анкеты, черно�
     await expect(fillPage).toBeVisible();
     await expect(page.getByRole('button', { name: 'Подписать', exact: true })).toBeVisible();
 
+    const firstQuestion = fillPage.locator('[data-role="survey-question"]').first();
+    const commentBlock = firstQuestion.locator('[data-role="comment-block"]');
+    const commentInput = firstQuestion.locator('[data-role="comment-input"]');
+    await expect(commentBlock).toBeHidden();
+
+    await firstQuestion.locator('[data-role="rating-button"][data-rating="4"]').click();
+    await expect(commentBlock).toBeVisible();
+    await commentInput.fill('Комментарий для оценки 4');
+
     const draftSaved = page.waitForResponse((response) =>
         response.url().endsWith('/answers/draft')
         && response.request().method() === 'POST'
         && response.status() === 200);
-    await fillPage.locator('[data-role="rating-button"][data-rating="5"]').click();
+    await firstQuestion.locator('[data-role="rating-button"][data-rating="5"]').click();
     await draftSaved;
+    await expect(commentBlock).toBeHidden();
+    await expect(commentInput).toHaveValue('');
 
     const answerSaved = page.waitForResponse((response) =>
         response.url().endsWith('/answers/create')

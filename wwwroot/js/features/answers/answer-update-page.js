@@ -76,7 +76,7 @@
                 };
             }
 
-            const comment = commentField?.value?.trim() || '';
+            const comment = ratingValue === 5 ? '' : commentField?.value?.trim() || '';
             if (ratingValue < 5 && !comment) {
                 return {
                     error: 'Для каждой оценки ниже 5 требуется комментарий.'

@@ -696,7 +696,9 @@ public sealed class AnswerRepository
                     ? item.DisplayQuestion.Trim()
                     : questionLookup.GetValueOrDefault(questionOrder, $"Вопрос {questionOrder}"),
                 Rating = item.Rating,
-                Comment = string.IsNullOrWhiteSpace(item.Comment) ? null : item.Comment.Trim()
+                Comment = item.Rating == 5 || string.IsNullOrWhiteSpace(item.Comment)
+                    ? null
+                    : item.Comment.Trim()
             });
         }
 

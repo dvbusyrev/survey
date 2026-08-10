@@ -95,7 +95,7 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
         }
 
         if (commentInput) {
-            commentInput.value = answer.comment || '';
+            commentInput.value = showComment ? answer.comment || '' : '';
         }
     }
 
@@ -147,7 +147,7 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
                     question_id: questionId,
                     question_text: questionText,
                     rating: answer.rating,
-                    comment: answer.comment || ''
+                    comment: answer.rating === 5 ? '' : answer.comment || ''
                 };
             });
 

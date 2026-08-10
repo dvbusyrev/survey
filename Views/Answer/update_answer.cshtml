@@ -33,7 +33,7 @@
                     var questionId = answer.QuestionId;
                     var questionText = answer.DisplayQuestion;
                     var rating = answer.Rating;
-                    var comment = answer.Comment;
+                    var comment = rating == 5 ? string.Empty : answer.Comment;
 
                     <div class="question-container" id="quest_@questionId" data-question-id="@questionId">
                         <h3>@questionText</h3>

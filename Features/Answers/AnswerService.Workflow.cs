@@ -15,6 +15,8 @@ public partial class AnswerService
         AnswerRecord answerRecord,
         CancellationToken cancellationToken = default)
     {
+        NormalizeAnswerComments(answerRecord);
+
         var validationResult = await ValidateAnswerSubmissionAsync(answerRecord, cancellationToken);
         if (!validationResult.Success)
         {
@@ -46,6 +48,8 @@ public partial class AnswerService
         AnswerRecord answerRecord,
         CancellationToken cancellationToken = default)
     {
+        NormalizeAnswerComments(answerRecord);
+
         var validationResult = await ValidateDraftAnswerAsync(answerRecord, cancellationToken);
         if (!validationResult.Success)
         {
@@ -78,6 +82,8 @@ public partial class AnswerService
         AnswerRecord answerRecord,
         CancellationToken cancellationToken = default)
     {
+        NormalizeAnswerComments(answerRecord);
+
         var validationResult = await ValidateAnswerSubmissionAsync(answerRecord, cancellationToken);
         if (!validationResult.Success)
         {
@@ -469,6 +475,17 @@ public partial class AnswerService
     private static string NormalizeComment(string? comment)
     {
         return string.IsNullOrWhiteSpace(comment) ? string.Empty : comment.Trim();
+    }
+
+    private static void NormalizeAnswerComments(AnswerRecord answerRecord)
+    {
+        foreach (var answer in answerRecord.Answers)
+        {
+            if (answer.Rating == 5)
+            {
+                answer.Comment = null;
+            }
+        }
     }
 
     private async Task<AnswerMutationResult> ValidateAnswerSubmissionAsync(

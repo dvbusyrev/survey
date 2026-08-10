@@ -60,6 +60,8 @@ What this does:
 - applies `031_require_user_organization`
 - applies `032_allow_arbitrary_auto_creation_periods`
 - applies `033_remove_obsolete_week_day`
+- applies `034_repair_audit_id_generators`
+- applies `035_disallow_comments_for_top_rating`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -98,5 +100,7 @@ Migration sources:
 - `031_require_user_organization` makes the user organization mandatory at the database level
 - `032_allow_arbitrary_auto_creation_periods` removes the former 14-business-day upper limit from auto-creation periods
 - `033_remove_obsolete_week_day` removes the unused weekday dictionary after auto-creation switched to reporting periods
+- `034_repair_audit_id_generators` restores missing identity generators in audit tables
+- `035_disallow_comments_for_top_rating` removes comments from top-rated answers and prevents them from being stored again
 
 `db/bootstrap/001_base_schema.sql` is not an independently executable migration. It is the canonical base schema imported only by `001_unified_schema.sql` when a database has no migration history. Keep schema snapshots and bootstrap files outside `db/migrations` so the migration runner cannot treat them as standalone steps.

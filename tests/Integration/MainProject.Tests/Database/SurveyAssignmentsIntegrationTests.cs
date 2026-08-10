@@ -656,6 +656,54 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task TopRatingComments_AreRemovedFromDraftsAndSubmittedAnswers()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var workflow = CreateAnswerService();
+        var answerRecord = BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5);
+        answerRecord.Answers.ForEach(answer => answer.Comment = "Комментарий для оценки 5");
+
+        var draftResult = await workflow.SaveDraftAnswerAsync(answerRecord);
+
+        await using var connection = _fixture.CreateConnection();
+        var draftCommentCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.answer_draft_item item
+            INNER JOIN public.answer_draft draft ON draft.id_answer_draft = item.id_answer_draft
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = draft.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+              AND item.comment IS NOT NULL;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+
+        answerRecord.Answers.ForEach(answer => answer.Comment = "Комментарий для оценки 5");
+        var submissionResult = await workflow.InsertAnswerAsync(answerRecord);
+        var answerCommentCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.answer_item item
+            INNER JOIN public.answer answer ON answer.id_answer = item.id_answer
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = answer.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+              AND item.comment IS NOT NULL;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+
+        Assert.True(draftResult.Success);
+        Assert.True(submissionResult.Success);
+        Assert.NotNull(submissionResult.Model);
+        Assert.All(submissionResult.Model.Answers, answer => Assert.Null(answer.Comment));
+        Assert.Equal(0, draftCommentCount);
+        Assert.Equal(0, answerCommentCount);
+    }
+
+    [RequiresPostgresFact]
     public async Task Signature_CanBeSavedOnlyOnce()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
