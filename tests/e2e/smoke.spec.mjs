@@ -518,6 +518,16 @@ test('клиент проходит доступные анкеты, черно�
     await page.goto('/help');
     await expect(page.locator('[data-role="survey-user-content"][data-active-tab="help"]')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Скачать инструкцию', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    await login(page, 'smoke-admin');
+    await page.goto('/survey/answer');
+    const answerJournalRow = page.locator('.answers-page__row').first();
+    await expect(answerJournalRow).toBeVisible();
+    await answerJournalRow.click();
+    await expect(page.locator('#answersModal')).toBeVisible();
+    await expect(page.locator('#answersContainer .answers-modal__table tbody tr')).toHaveCount(1);
 });
 
 test('клиент скачивает установленную инструкцию', async ({ page }) => {
