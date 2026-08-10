@@ -542,8 +542,10 @@ test('клиент проходит доступные анкеты, черно�
     await expect(answerJournalRow).toBeVisible();
     await answerJournalRow.click();
     await expect(page.locator('#answersModal')).toBeVisible();
+    await expect(page.locator('#surveyAnswersTitle')).toHaveText('Просмотр ответов');
     await expect(page.locator('#answersContainer .answers-modal__table tbody tr')).toHaveCount(1);
     await expect(page.locator('#answersContainer .answers-modal__table-wrap')).toHaveCSS('padding-bottom', '0px');
+    await expect(page.locator('#answersContainer .answers-modal__table')).toHaveCSS('margin-bottom', '0px');
 
     await page.locator('#answersModal [data-modal-close="answersModal"]').click();
     const deleteAnswerButton = answerJournalRow.getByRole('button', { name: 'Удалить ответ', exact: true });

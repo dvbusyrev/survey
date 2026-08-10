@@ -38,7 +38,7 @@ window.AdminArchives = (function () {
 
     const mainLine = createElement('span', {
       className: 'answers-modal__title-main',
-      text: 'Просмотр оценок'
+      text: 'Просмотр ответов'
     });
 
     title.appendChild(mainLine);

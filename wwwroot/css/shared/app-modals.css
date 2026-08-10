@@ -173,6 +173,10 @@
   padding-bottom: 0;
 }
 
+.archive-answers-modal .answers-modal__table {
+  margin-bottom: 0;
+}
+
 .answers-modal__table :is(.answers-modal__rating-column, .rating-cell) {
   width: 9ch;
   min-width: 9ch;
