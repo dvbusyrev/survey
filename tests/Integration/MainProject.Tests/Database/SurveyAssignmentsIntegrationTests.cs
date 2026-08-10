@@ -502,6 +502,49 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task SurveyExtension_UpdatesExistingAndCreatesNewAssignments()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var survey = await CreateSurveyAsync([organizationIds[0]]);
+        var extendedUntil = DateTime.Today.AddDays(30);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+
+        var result = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = extendedUntil.ToString("yyyy-MM-dd")
+                },
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[1],
+                    ExtendedUntil = extendedUntil.ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+
+        await using var connection = _fixture.CreateConnection();
+        var assignments = (await connection.QueryAsync<AssignmentDateRow>(
+            """
+            SELECT id_organization AS OrganizationId, date_begin AS DateBegin, date_end AS DateEnd
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+            ORDER BY id_organization;
+            """,
+            new { SurveyId = survey.SurveyId })).ToArray();
+
+        Assert.True(result.Success, result.Message);
+        Assert.Equal(2, assignments.Length);
+        Assert.Equal(DateTime.Today.AddDays(-1), assignments[0].DateBegin);
+        Assert.Equal(DateTime.Today, assignments[1].DateBegin);
+        Assert.All(assignments, assignment => Assert.Equal(extendedUntil, assignment.DateEnd));
+    }
+
+    [RequiresPostgresFact]
     public async Task AssignmentRepository_SeparatesActiveAndArchivedSurveyPages()
     {
         var organizationIds = await CreateOrganizationsAsync(1);

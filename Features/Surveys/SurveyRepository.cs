@@ -790,11 +790,13 @@ public sealed class SurveyRepository
             INSERT INTO public.organization_survey (
                 id_organization,
                 id_survey,
+                date_begin,
                 date_end
             )
             SELECT
                 @OrganizationId,
                 survey.id_survey,
+                @DateBegin::date,
                 @DateEnd::date
             FROM public.survey survey
             WHERE survey.id_survey = @SurveyId
@@ -805,6 +807,7 @@ public sealed class SurveyRepository
             {
                 SurveyId = surveyId,
                 OrganizationId = organizationId,
+                DateBegin = _clock.Today.Date,
                 DateEnd = dateEnd.Date
             },
             transaction,
