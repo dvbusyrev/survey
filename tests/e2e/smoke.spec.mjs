@@ -122,6 +122,38 @@ test('администратор проходит основные раздел�
     await expect(page.getByText('Как выглядит', { exact: true })).toBeVisible();
 });
 
+test('клиент видит ошибку, если срок анкеты истёк перед отправкой', async ({ page }) => {
+    await login(page, 'smoke-client');
+
+    const surveyRow = page.locator('[data-role="user-survey-row"][data-row-action="fill"]');
+    await expect(surveyRow).toHaveCount(1);
+    await surveyRow.click();
+
+    const fillPage = page.locator('[data-role="survey-fill-page"]');
+    await expect(fillPage).toBeVisible();
+    const questions = fillPage.locator('[data-role="survey-question"]');
+    for (let index = 0; index < await questions.count(); index += 1) {
+        await questions.nth(index).locator('[data-role="rating-button"][data-rating="5"]').click();
+    }
+
+    await page.route('**/answers/create', async (route) => {
+        await route.fulfill({
+            status: 409,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                error: 'Срок прохождения анкеты истёк. Ответы не отправлены.'
+            })
+        });
+    });
+
+    await page.getByRole('button', { name: 'Отправить ответы', exact: true }).click();
+
+    await expect(page.locator('.site-toast--error')
+        .filter({ hasText: 'Срок прохождения анкеты истёк. Ответы не отправлены.' })
+        .last()).toBeVisible();
+    await expect(fillPage).toBeVisible();
+});
+
 test('клиент проходит доступные анкеты, черновик, отправку, архив и справку', async ({ page }) => {
     await login(page, 'smoke-client');
 

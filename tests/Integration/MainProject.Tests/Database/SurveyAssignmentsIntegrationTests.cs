@@ -535,6 +535,44 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task SubmitAnswer_WhenAssignmentExpiredAfterOpening_DoesNotPersistAnswer()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var workflow = CreateAnswerService();
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.organization_survey
+                SET date_end = CURRENT_DATE - 1
+                WHERE id_survey = @SurveyId
+                  AND id_organization = @OrganizationId;
+                """,
+                new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+        }
+
+        var exception = await Assert.ThrowsAsync<AnswerSubmissionClosedException>(() =>
+            workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5)));
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var answerCount = await verificationConnection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.answer answer
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = answer.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+
+        Assert.Equal(AnswerSubmissionClosedException.UserMessage, exception.Message);
+        Assert.Equal(0, answerCount);
+    }
+
+    [RequiresPostgresFact]
     public async Task ActiveUserSurveyPage_ShowsOnlyUnansweredActiveAssignments()
     {
         var organizationIds = await CreateOrganizationsAsync(1);

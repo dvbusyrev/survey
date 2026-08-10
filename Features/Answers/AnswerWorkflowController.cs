@@ -77,6 +77,13 @@ public class AnswerWorkflowController : Controller
                 ? this.SafeError(ex, "Анкета уже подписана.", "Повторное сохранение ответа", StatusCodes.Status409Conflict)
                 : this.SafeErrorView(ex, "Анкета уже подписана.", "Повторное сохранение ответа");
         }
+        catch (MainProject.Application.UseCases.Answers.AnswerSubmissionClosedException)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new OperationResponse
+            {
+                Error = MainProject.Application.UseCases.Answers.AnswerSubmissionClosedException.UserMessage
+            });
+        }
         catch (Exception ex)
         {
             return isAjaxRequest
@@ -277,9 +284,17 @@ public class AnswerWorkflowController : Controller
             return Challenge();
         }
 
-        if (!await _answerService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
+        if (!await _answerService.CanAccessOrganizationAsync(requestedOrganizationId, cancellationToken))
         {
             return Forbid();
+        }
+
+        if (!await _answerService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new OperationResponse
+            {
+                Error = MainProject.Application.UseCases.Answers.AnswerSubmissionClosedException.UserMessage
+            });
         }
 
         return null;

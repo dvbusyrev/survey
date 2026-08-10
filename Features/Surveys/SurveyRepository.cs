@@ -829,6 +829,26 @@ public sealed class SurveyRepository
             transaction,
             cancellationToken: cancellationToken));
 
+    public Task<bool> IsAssignmentActiveAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int assignmentId,
+        CancellationToken cancellationToken = default) =>
+        connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            """
+            SELECT date_begin <= @Today
+               AND (date_end IS NULL OR date_end >= @Today)
+            FROM public.organization_survey
+            WHERE id_organization_survey = @AssignmentId;
+            """,
+            new
+            {
+                AssignmentId = assignmentId,
+                Today = _clock.Today.Date
+            },
+            transaction,
+            cancellationToken: cancellationToken));
+
     private static int[] NormalizeOrganizationIds(IEnumerable<int> organizationIds)
         => organizationIds
             .Where(static id => id > 0)

@@ -90,6 +90,11 @@ public partial class AnswerService
             throw new InvalidOperationException("Назначение анкеты для организации не найдено.");
         }
 
+        if (result.SubmissionClosed)
+        {
+            throw new AnswerSubmissionClosedException();
+        }
+
         if (result.AlreadySigned)
         {
             throw new AnswerAlreadySignedException();

@@ -86,12 +86,56 @@ public sealed class WorkflowHttpTests
         using var forbiddenRequest = CreateJsonRequest(HttpMethod.Post, "/answers/draft", CreateAnswerRecord());
         forbiddenRequest.Headers.Add(TestAuthenticationHandler.RoleHeaderName, WorkflowIdentityRole);
         AddAntiforgeryHeaders(forbiddenRequest, antiforgery);
-        factory.Answers.AllowSubmission = false;
+        factory.Answers.AllowOrganizationAccess = false;
 
         using var forbiddenResponse = await client.SendAsync(forbiddenRequest);
 
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
         Assert.Equal(0, factory.Answers.SaveDraftCalls);
+    }
+
+    [Fact]
+    public async Task SubmitAnswer_WhenSurveyExpired_ReturnsConflictWithUserMessage()
+    {
+        await using var factory = new WorkflowApplicationFactory();
+        factory.Answers.AllowSubmission = false;
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        var antiforgery = await GetAntiforgeryTokenAsync(client, WorkflowIdentityRole);
+        using var request = CreateJsonRequest(HttpMethod.Post, "/answers/create", CreateAnswerRecord());
+        AddUserAndAntiforgeryHeaders(request, antiforgery);
+
+        using var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadFromJsonAsync<OperationResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(AnswerSubmissionClosedException.UserMessage, payload?.Error);
+        Assert.Equal(0, factory.Answers.InsertAnswerCalls);
+    }
+
+    [Fact]
+    public async Task SubmitAnswer_WhenSurveyExpiresDuringSave_ReturnsConflictWithUserMessage()
+    {
+        await using var factory = new WorkflowApplicationFactory();
+        factory.Answers.ThrowSubmissionClosedOnInsert = true;
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        var antiforgery = await GetAntiforgeryTokenAsync(client, WorkflowIdentityRole);
+        using var request = CreateJsonRequest(HttpMethod.Post, "/answers/create", CreateAnswerRecord());
+        AddUserAndAntiforgeryHeaders(request, antiforgery);
+
+        using var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadFromJsonAsync<OperationResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(AnswerSubmissionClosedException.UserMessage, payload?.Error);
+        Assert.Equal(1, factory.Answers.InsertAnswerCalls);
     }
 
     [Fact]
@@ -349,10 +393,12 @@ public sealed class WorkflowHttpTests
 
     private sealed class FakeAnswerService : AnswerService
     {
+        public bool AllowOrganizationAccess { get; set; } = true;
         public bool AllowSubmission { get; set; } = true;
         public int InsertAnswerCalls { get; private set; }
         public int SaveDraftCalls { get; private set; }
         public int SaveDraftSignatureCalls { get; private set; }
+        public bool ThrowSubmissionClosedOnInsert { get; set; }
         public bool ThrowOnSaveDraft { get; set; }
 
         public override bool IsAuthenticated => true;
@@ -360,13 +406,18 @@ public sealed class WorkflowHttpTests
         public override int? UserId => 42;
 
         public override Task<int?> GetCurrentUserOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult<int?>(10);
-        public override Task<bool> CanAccessOrganizationAsync(int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public override Task<bool> CanAccessOrganizationAsync(int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(AllowOrganizationAccess);
         public override Task<bool> CanSubmitAnswerAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(AllowSubmission);
         public override Task<bool> CanAccessAnswerRecordAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public override Task<AnswerMutationResult> InsertAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
         {
             InsertAnswerCalls++;
+            if (ThrowSubmissionClosedOnInsert)
+            {
+                throw new AnswerSubmissionClosedException();
+            }
+
             return Task.FromResult(new AnswerMutationResult { Success = true });
         }
 

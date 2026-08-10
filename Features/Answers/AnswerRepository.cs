@@ -401,6 +401,21 @@ public sealed class AnswerRepository
             return new AnswerStorageResult();
         }
 
+        var assignmentIsActive = await _surveyRepository.IsAssignmentActiveAsync(
+            connection,
+            transaction,
+            assignmentId.Value,
+            cancellationToken);
+        if (!assignmentIsActive)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AnswerStorageResult
+            {
+                Found = true,
+                SubmissionClosed = true
+            };
+        }
+
         var existingSignature = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
             """
             SELECT csp
