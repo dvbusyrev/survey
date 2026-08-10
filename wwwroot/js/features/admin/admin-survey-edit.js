@@ -113,7 +113,7 @@ function surveyEditSaveSelectedOrganization() {
                     ? window.getSelectedOrganizations()
                     : surveyEditSelectedOrganization
                 ).map(org => org.id),
-                Criteria: Array.from(document.querySelectorAll('.criteriy'))
+                Criteria: Array.from(document.querySelectorAll('#surveyEditorModal .criteriy'))
                     .map(input => input.value.trim())
                     .filter(text => text !== '')
             };
@@ -209,13 +209,13 @@ function surveyEditSaveSelectedOrganization() {
 
         if (startDate.value && !startDateIso) {
             const message = 'Введите дату начала в формате ДД.ММ.ГГГГ.';
-            window.SurveyAdminValidation?.setFieldError(startDate, `${message}.`);
+            window.SurveyAdminValidation?.setFieldError(startDate, message);
             errors.push(message);
             isValid = false;
         }
         if (endDate.value && !endDateIso) {
             const message = 'Введите дату конца в формате ДД.ММ.ГГГГ.';
-            window.SurveyAdminValidation?.setFieldError(endDate, `${message}.`);
+            window.SurveyAdminValidation?.setFieldError(endDate, message);
             errors.push(message);
             isValid = false;
         } else if (endDateIso && window.AppDate?.compare(endDateIso, window.AppDate.todayIso()) < 0) {
@@ -225,7 +225,7 @@ function surveyEditSaveSelectedOrganization() {
             isValid = false;
         } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
             const message = 'Дата конца должна быть позже даты начала.';
-            window.SurveyAdminValidation?.setFieldError(endDate, `${message}.`);
+            window.SurveyAdminValidation?.setFieldError(endDate, message);
             errors.push(message);
             isValid = false;
         }

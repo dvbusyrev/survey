@@ -79,25 +79,6 @@
         window.history.replaceState(nextState, document.title, target.fallbackUrl);
     }
 
-    function refreshSurveyListPreservingScroll() {
-        const target = resolveSurveyListTarget();
-
-        if (typeof window.refreshAdminUi === 'function') {
-            window.refreshAdminUi({
-                tabName: target.tabName,
-                fallbackUrl: target.fallbackUrl,
-                options: {
-                    force: true,
-                    historyMode: 'replace',
-                    scrollMode: 'carry'
-                }
-            });
-            return true;
-        }
-
-        return false;
-    }
-
     function setSurveyEditorModalVisible(isVisible) {
         const modal = document.getElementById('surveyEditorModal');
         if (!modal) {
@@ -391,19 +372,43 @@
     }
 
     function handleSurveyCreateSuccess(result) {
-        window.AppUi?.notify?.(result?.message || 'Анкета успешно создана.', 'success');
         closeSurveyEditorModal();
-        if (!refreshSurveyListPreservingScroll()) {
-            window.location.assign('/survey');
+        const target = resolveSurveyListTarget();
+        if (typeof window.handleAdminMutationSuccess === 'function') {
+            window.handleAdminMutationSuccess({
+                message: result?.message || 'Анкета успешно создана.',
+                tabName: target.tabName,
+                fallbackUrl: target.fallbackUrl,
+                options: {
+                    force: true,
+                    historyMode: 'replace',
+                    scrollMode: 'carry'
+                }
+            });
+            return;
         }
+
+        window.location.assign('/survey');
     }
 
     function handleSurveyUpdateSuccess(result) {
-        window.AppUi?.notify?.(result?.message || 'Анкета успешно обновлена.', 'success');
         closeSurveyEditorModal();
-        if (!refreshSurveyListPreservingScroll()) {
-            window.location.assign('/survey');
+        const target = resolveSurveyListTarget();
+        if (typeof window.handleAdminMutationSuccess === 'function') {
+            window.handleAdminMutationSuccess({
+                message: result?.message || 'Анкета успешно обновлена.',
+                tabName: target.tabName,
+                fallbackUrl: target.fallbackUrl,
+                options: {
+                    force: true,
+                    historyMode: 'replace',
+                    scrollMode: 'carry'
+                }
+            });
+            return;
         }
+
+        window.location.assign('/survey');
     }
 
     function buildSurveyData(trigger) {

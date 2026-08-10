@@ -1,4 +1,35 @@
 (function () {
+    const pendingNotificationStorageKey = 'admin:pending-notification';
+
+    function storePendingNotification(message, type) {
+        try {
+            window.sessionStorage.setItem(pendingNotificationStorageKey, JSON.stringify({
+                message: String(message || '').trim(),
+                type: type || 'success'
+            }));
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    function showPendingNotification() {
+        let pendingNotification = null;
+
+        try {
+            const rawValue = window.sessionStorage.getItem(pendingNotificationStorageKey);
+            window.sessionStorage.removeItem(pendingNotificationStorageKey);
+            pendingNotification = rawValue ? JSON.parse(rawValue) : null;
+        } catch (error) {
+            pendingNotification = null;
+        }
+
+        const message = String(pendingNotification?.message || '').trim();
+        if (message) {
+            window.AppUi?.notify?.(message, pendingNotification.type || 'success');
+        }
+    }
+
     function normalizePathname(pathname) {
         if (!pathname) {
             return '/';
@@ -333,7 +364,9 @@
 
     function handleAdminMutationSuccess({ message, notificationType = 'success', ...refreshOptions } = {}) {
         if (message) {
-            window.AppUi?.notify?.(message, notificationType);
+            if (!storePendingNotification(message, notificationType)) {
+                window.AppUi?.notify?.(message, notificationType);
+            }
         }
 
         window.dispatchEvent(new CustomEvent('admin:data-mutated', {
@@ -358,4 +391,6 @@
     window.syncAdminChromeContextFromDocument = syncAdminChromeContextFromDocument;
     window.refreshAdminUi = refreshAdminUi;
     window.handleAdminMutationSuccess = handleAdminMutationSuccess;
+
+    showPendingNotification();
 })();

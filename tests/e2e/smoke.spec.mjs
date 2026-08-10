@@ -11,6 +11,11 @@ function localIsoDaysAgo(days) {
     return `${year}-${month}-${day}`;
 }
 
+function localDisplayDaysAgo(days) {
+    const [year, month, day] = localIsoDaysAgo(days).split('-');
+    return `${day}.${month}.${year}`;
+}
+
 async function login(page, loginName) {
     await page.goto('/');
     await page.locator('#username').fill(loginName);
@@ -101,6 +106,27 @@ test('администратор проходит основные раздел�
     await page.locator('#endDate').fill(localIsoDaysAgo(1));
     await page.locator('[data-role="survey-submit"]').click();
     await expectPastEndDateToast(page);
+    await page.locator('#surveyTitle').fill('Smoke survey edited');
+    await page.locator('#surveyDescription').fill('Edited survey description');
+    await page.locator('#surveyEditorModal .criteriy').fill('Edited smoke question');
+    await page.locator('#startDate').fill(localIsoDaysAgo(0));
+    await page.locator('#endDate').fill(localIsoDaysAgo(-14));
+    const updateResponsePromise = page.waitForResponse((response) => (
+        response.request().method() === 'POST'
+        && /\/survey\/\d+\/update$/.test(new URL(response.url()).pathname)
+    ));
+    await page.locator('[data-role="survey-submit"]').click();
+    const updateResponse = await updateResponsePromise;
+    expect(updateResponse.status()).toBe(200);
+    await expect(page.locator('.site-toast--success').filter({ hasText: 'Анкета успешно обновлена.' }).last()).toBeVisible();
+    await expect(page.locator('.surveys-table tbody')).toContainText('Smoke survey edited');
+    await page.getByRole('link', { name: 'Редактировать', exact: true }).first().click();
+    await expect(page.locator('#surveyEditorModal')).toBeVisible();
+    await expect(page.locator('#surveyTitle')).toHaveValue('Smoke survey edited');
+    await expect(page.locator('#surveyDescription')).toHaveValue('Edited survey description');
+    await expect(page.locator('#surveyEditorModal .criteriy')).toHaveValue('Edited smoke question');
+    await expect(page.locator('#startDate')).toHaveValue(localDisplayDaysAgo(0));
+    await expect(page.locator('#endDate')).toHaveValue(localDisplayDaysAgo(-14));
     await page.locator('#surveyEditorModal .modal-close').click();
 
     await page.locator('a.nav-link[href="/users"]').click();

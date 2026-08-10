@@ -676,6 +676,36 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task UpdateSurvey_PersistsAllEditableFields()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var survey = await CreateSurveyAsync([organizationIds[0]]);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var startDate = DateTime.Today;
+        var endDate = DateTime.Today.AddDays(30);
+
+        var result = await service.UpdateSurveyAsync(survey.SurveyId!.Value, new SurveyUpdateRequest
+        {
+            Title = "Отредактированная анкета",
+            Description = "Новое описание",
+            StartDate = startDate,
+            EndDate = endDate,
+            Organizations = [organizationIds[1]],
+            Criteria = ["Новый первый критерий", "Новый второй критерий"]
+        });
+        var editPage = await service.GetSurveyEditPageAsync(survey.SurveyId.Value);
+
+        Assert.True(result.Success, result.Message);
+        Assert.NotNull(editPage);
+        Assert.Equal("Отредактированная анкета", editPage!.Survey.NameSurvey);
+        Assert.Equal("Новое описание", editPage.Survey.Description);
+        Assert.Equal(startDate.Date, editPage.Survey.DateBegin.Date);
+        Assert.Equal(endDate.Date, editPage.Survey.DateEnd?.Date);
+        Assert.Equal(new[] { organizationIds[1] }, editPage.SelectedOrganizationIds);
+        Assert.Equal(new[] { "Новый первый критерий", "Новый второй критерий" }, editPage.Criteria);
+    }
+
+    [RequiresPostgresFact]
     public async Task ArchiveCopy_UsesArchivedAssignmentLookup()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
