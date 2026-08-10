@@ -108,6 +108,23 @@
     return response.text();
   }
 
+  // wwwroot/js/features/survey/user-survey-notifications.js
+  var ANSWER_SUBMITTED_MESSAGE = "Ответы на анкету успешно отправлены. Анкета перенесена в раздел «Архив анкет».";
+  var ANSWER_SUBMISSION_FAILED_MESSAGE = "Не удалось отправить ответы на анкету.";
+  var SURVEY_SIGNED_MESSAGE = "Анкета успешно подписана.";
+  var SURVEY_SIGNING_FAILED_MESSAGE = "Не удалось подписать анкету.";
+  function resolveMessage(message, fallbackMessage) {
+    const normalizedMessage = String(message || "").trim();
+    return normalizedMessage || fallbackMessage;
+  }
+  function notifyAnswerSubmitted(message) {
+    window.AppUi?.notify?.(
+      resolveMessage(message, ANSWER_SUBMITTED_MESSAGE),
+      "success",
+      { title: "Успешно" }
+    );
+  }
+
   // wwwroot/js/features/survey/user-survey-signature.js
   var CADESCOM_CONTAINER_STORE = 100;
   var CAPICOM_STORE_OPEN_READ_ONLY = 0;
@@ -192,7 +209,7 @@
   }
   function notifySignature(message, type = "error", options = {}) {
     const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
-    window.AppUi?.notify?.(safeMessage || "Не удалось выполнить операцию с подписью.", type, {
+    window.AppUi?.notify?.(safeMessage || SURVEY_SIGNING_FAILED_MESSAGE, type, {
       title: type === "success" ? "Успешно" : "Ошибка",
       ...options
     });
@@ -284,8 +301,8 @@
       await checkCSPAvailable();
       const dataToSign = await getDataForSignature(id, organizationId, signatureMode);
       const signature = await createDigitalSignature(dataToSign);
-      await sendSignatureToServer(id, organizationId, signature, dataToSign, signatureMode);
-      updateUISuccess(signatureMode, page);
+      const result = await sendSignatureToServer(id, organizationId, signature, dataToSign, signatureMode);
+      updateUISuccess(signatureMode, page, result?.message);
       if (signatureMode !== "draft" && typeof window.refreshSurveyUserPageData === "function") {
         await window.refreshSurveyUserPageData({ preserveFilters: true });
       }
@@ -337,8 +354,7 @@
     const route = mode === "draft" ? "draft-signatures" : "signatures";
     const response = await fetch(`/${route}/${id}/${organizationId}`);
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || "Не удалось получить данные для подписи.");
+      throw new Error(await readResponseMessage(response, "Не удалось получить данные для подписи."));
     }
     const contentType = String(response.headers.get("content-type") || "").toLowerCase();
     if (contentType.includes("application/json")) {
@@ -449,13 +465,26 @@
       body: JSON.stringify(request)
     });
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(error || "Не удалось сохранить подпись.");
+      throw new Error(await readResponseMessage(response, SURVEY_SIGNING_FAILED_MESSAGE));
+    }
+    const message = await readResponseMessage(response, SURVEY_SIGNED_MESSAGE);
+    return { message };
+  }
+  async function readResponseMessage(response, fallbackMessage) {
+    const responseText = String(await response.text()).trim();
+    if (!responseText) {
+      return fallbackMessage;
+    }
+    try {
+      const payload = JSON.parse(responseText);
+      return payload?.error || payload?.message || payload?.detail || payload?.title || fallbackMessage;
+    } catch (error) {
+      return responseText;
     }
   }
-  function updateUISuccess(mode = "answer", source = document) {
+  function updateUISuccess(mode = "answer", source = document, message = SURVEY_SIGNED_MESSAGE) {
     applySurveySignedState(source || document, true, mode);
-    notifySignature("Документ успешно подписан.", "success");
+    notifySignature(message || SURVEY_SIGNED_MESSAGE, "success");
   }
 
   // wwwroot/js/features/survey/user-survey-modal-pages.js
@@ -799,18 +828,19 @@
         if (surveyId <= 0 || organizationId <= 0) {
           throw new Error("Не удалось определить анкету для отправки ответов.");
         }
-        await postSurveyJson("/answers/create", {
+        const responseData = await postSurveyJson("/answers/create", {
           id_survey: surveyId,
           id_organization: organizationId,
           answers: payloadAnswers
-        }, "Не удалось отправить ответы.");
+        }, ANSWER_SUBMISSION_FAILED_MESSAGE);
+        notifyAnswerSubmitted(responseData?.message);
         onSubmitted?.({
           survey,
           answers: payloadAnswers,
           organizationId
         });
       } catch (err) {
-        error = err?.message || "Не удалось отправить ответы.";
+        error = err?.message || ANSWER_SUBMISSION_FAILED_MESSAGE;
         renderError({ notify: true });
       } finally {
         loading = false;

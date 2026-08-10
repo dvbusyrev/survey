@@ -184,10 +184,16 @@ public sealed class WorkflowHttpTests
             new AnswerSignatureSaveRequest { Signature = Convert.ToBase64String("signature"u8.ToArray()) });
         AddUserAndAntiforgeryHeaders(signatureRequest, antiforgery);
         using var signatureResponse = await client.SendAsync(signatureRequest);
+        var answerPayload = await answerResponse.Content.ReadFromJsonAsync<OperationResponse>();
+        var signaturePayload = await signatureResponse.Content.ReadFromJsonAsync<OperationResponse>();
 
         Assert.Equal(HttpStatusCode.OK, draftResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, answerResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, signatureResponse.StatusCode);
+        Assert.Equal(
+            "Ответы на анкету успешно отправлены. Анкета перенесена в раздел «Архив анкет».",
+            answerPayload?.Message);
+        Assert.Equal("Анкета успешно подписана.", signaturePayload?.Message);
         Assert.Equal(1, factory.Answers.SaveDraftCalls);
         Assert.Equal(1, factory.Answers.InsertAnswerCalls);
         Assert.Equal(1, factory.Answers.SaveDraftSignatureCalls);
@@ -213,6 +219,38 @@ public sealed class WorkflowHttpTests
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         Assert.Contains("Не удалось сохранить черновик.", body);
         Assert.DoesNotContain("database password", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AnswerAndSignatureFailures_ReturnSpecificUserMessages()
+    {
+        await using var factory = new WorkflowApplicationFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        var antiforgery = await GetAntiforgeryTokenAsync(client, WorkflowIdentityRole);
+
+        factory.Answers.ThrowOnInsert = true;
+        using var answerRequest = CreateJsonRequest(HttpMethod.Post, "/answers/create", CreateAnswerRecord());
+        AddUserAndAntiforgeryHeaders(answerRequest, antiforgery);
+        answerRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        using var answerResponse = await client.SendAsync(answerRequest);
+
+        factory.Answers.ThrowOnInsert = false;
+        factory.Answers.ThrowOnSaveDraftSignature = true;
+        using var signatureRequest = CreateJsonRequest(
+            HttpMethod.Post,
+            "/draft-signatures/7/10",
+            new AnswerSignatureSaveRequest { Signature = Convert.ToBase64String("signature"u8.ToArray()) });
+        AddUserAndAntiforgeryHeaders(signatureRequest, antiforgery);
+        using var signatureResponse = await client.SendAsync(signatureRequest);
+
+        Assert.Equal(HttpStatusCode.InternalServerError, answerResponse.StatusCode);
+        Assert.Contains("Не удалось отправить ответы на анкету.", await answerResponse.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.InternalServerError, signatureResponse.StatusCode);
+        Assert.Contains("Не удалось подписать анкету.", await signatureResponse.Content.ReadAsStringAsync());
     }
 
     private static void AddUserAndAntiforgeryHeaders(HttpRequestMessage request, AntiforgeryToken antiforgery)
@@ -399,7 +437,9 @@ public sealed class WorkflowHttpTests
         public int SaveDraftCalls { get; private set; }
         public int SaveDraftSignatureCalls { get; private set; }
         public bool ThrowSubmissionClosedOnInsert { get; set; }
+        public bool ThrowOnInsert { get; set; }
         public bool ThrowOnSaveDraft { get; set; }
+        public bool ThrowOnSaveDraftSignature { get; set; }
 
         public override bool IsAuthenticated => true;
         public override bool IsAdmin => false;
@@ -416,6 +456,11 @@ public sealed class WorkflowHttpTests
             if (ThrowSubmissionClosedOnInsert)
             {
                 throw new AnswerSubmissionClosedException();
+            }
+
+            if (ThrowOnInsert)
+            {
+                throw new InvalidOperationException("database password must never leave the server");
             }
 
             return Task.FromResult(new AnswerMutationResult { Success = true });
@@ -464,6 +509,11 @@ public sealed class WorkflowHttpTests
         public override Task<bool> SaveDraftSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default)
         {
             SaveDraftSignatureCalls++;
+            if (ThrowOnSaveDraftSignature)
+            {
+                throw new InvalidOperationException("database password must never leave the server");
+            }
+
             return Task.FromResult(true);
         }
     }

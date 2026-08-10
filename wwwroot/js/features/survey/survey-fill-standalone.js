@@ -1,3 +1,8 @@
+import {
+    ANSWER_SUBMISSION_FAILED_MESSAGE,
+    storePendingAnswerSubmittedNotification
+} from './user-survey-notifications.js';
+
 window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(initialData) {
     const page = document.querySelector('[data-page="survey-fill-standalone"]');
     if (!page) {
@@ -216,12 +221,14 @@ window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(init
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => null);
-                throw new Error(errorData?.error || 'Не удалось отправить ответы.');
+                throw new Error(errorData?.error || ANSWER_SUBMISSION_FAILED_MESSAGE);
             }
 
+            const responseData = await response.json().catch(() => null);
+            storePendingAnswerSubmittedNotification(responseData?.message);
             window.location.assign('/archive');
         } catch (err) {
-            error = err?.message || 'Не удалось отправить ответы.';
+            error = err?.message || ANSWER_SUBMISSION_FAILED_MESSAGE;
             renderError();
         } finally {
             loading = false;

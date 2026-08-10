@@ -65,7 +65,7 @@ public class AnswerWorkflowController : Controller
                 return Ok(new OperationResponse
                 {
                     Success = true,
-                    Message = "Ответы успешно сохранены."
+                    Message = "Ответы на анкету успешно отправлены. Анкета перенесена в раздел «Архив анкет»."
                 });
             }
 
@@ -87,8 +87,8 @@ public class AnswerWorkflowController : Controller
         catch (Exception ex)
         {
             return isAjaxRequest
-                ? this.SafeError(ex, "Не удалось сохранить ответы.", "Ошибка при сохранении ответа")
-                : this.SafeErrorView(ex, "Не удалось сохранить ответы.", "Ошибка при сохранении ответа");
+                ? this.SafeError(ex, "Не удалось отправить ответы на анкету.", "Ошибка при сохранении ответа")
+                : this.SafeErrorView(ex, "Не удалось отправить ответы на анкету.", "Ошибка при сохранении ответа");
         }
     }
 

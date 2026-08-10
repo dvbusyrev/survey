@@ -15,6 +15,7 @@ import {
 import { createSurveyUserLocalFilters } from './user-survey-local-filters.js';
 import { createSurveyUserRowTooltip } from './user-survey-row-tooltip.js';
 import { fetchSurveyUserSnapshot } from './user-survey-snapshot-loader.js';
+import { showPendingAnswerSubmittedNotification } from './user-survey-notifications.js';
 
 function readSurveyUserBootstrapData(root = document) {
     const bootstrapElement = root.querySelector('#survey-user-list-bootstrap')
@@ -841,6 +842,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
 
     historyController.sync(state.activeTab, 'replace');
     hydrateCurrentSnapshot(initialSnapshot);
+    showPendingAnswerSubmittedNotification();
 
     const refreshSurveyUserPageData = function refreshSurveyUserPageData(options = {}) {
         return refreshAllSnapshots({

@@ -431,6 +431,26 @@
     return renderFooter(host);
   };
 
+  // wwwroot/js/features/survey/user-survey-notifications.js
+  var ANSWER_SUBMITTED_MESSAGE = "Ответы на анкету успешно отправлены. Анкета перенесена в раздел «Архив анкет».";
+  var ANSWER_SUBMISSION_FAILED_MESSAGE = "Не удалось отправить ответы на анкету.";
+  var pendingAnswerNotificationKey = "survey:pending-answer-notification";
+  function resolveMessage(message, fallbackMessage) {
+    const normalizedMessage = String(message || "").trim();
+    return normalizedMessage || fallbackMessage;
+  }
+  function storePendingAnswerSubmittedNotification(message) {
+    try {
+      window.sessionStorage.setItem(
+        pendingAnswerNotificationKey,
+        resolveMessage(message, ANSWER_SUBMITTED_MESSAGE)
+      );
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   // wwwroot/js/features/survey/survey-fill-standalone.js
   window.bindStandaloneSurveyFillPage = function bindStandaloneSurveyFillPage(initialData) {
     const page = document.querySelector('[data-page="survey-fill-standalone"]');
@@ -614,11 +634,13 @@
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.error || "Не удалось отправить ответы.");
+          throw new Error(errorData?.error || ANSWER_SUBMISSION_FAILED_MESSAGE);
         }
+        const responseData = await response.json().catch(() => null);
+        storePendingAnswerSubmittedNotification(responseData?.message);
         window.location.assign("/archive");
       } catch (err) {
-        error = err?.message || "Не удалось отправить ответы.";
+        error = err?.message || ANSWER_SUBMISSION_FAILED_MESSAGE;
         renderError();
       } finally {
         loading = false;

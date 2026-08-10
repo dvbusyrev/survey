@@ -386,6 +386,7 @@ test('клиент видит ошибку, если срок анкеты ис�
 });
 
 test('клиент проходит доступные анкеты, черновик, отправку, архив и справку', async ({ page }) => {
+    test.setTimeout(45_000);
     await login(page, 'smoke-client');
 
     const surveyRow = page.locator('[data-role="user-survey-row"][data-row-action="fill"]');
@@ -425,10 +426,94 @@ test('клиент проходит доступные анкеты, черно�
         && response.status() === 200);
     await page.getByRole('button', { name: 'Отправить ответы', exact: true }).click();
     await answerSaved;
+    await expect(page.locator('.site-toast--success')
+        .filter({
+            hasText: 'Ответы на анкету успешно отправлены. Анкета перенесена в раздел «Архив анкет».'
+        })
+        .last()).toBeVisible();
 
     await page.goto('/archive');
     await expect(page.locator('[data-role="survey-user-content"][data-active-tab="archived"]')).toBeVisible();
-    await expect(page.locator('[data-role="user-survey-row"][data-row-action="view"]')).toHaveCount(1);
+    const archivedSurveyRow = page.locator('[data-role="user-survey-row"][data-row-action="view"]');
+    await expect(archivedSurveyRow).toHaveCount(1);
+    await archivedSurveyRow.click();
+    await expect(page.locator('[data-role="survey-answers-page"]')).toBeVisible();
+
+    await page.evaluate(() => {
+        const certificate = {
+            SubjectName: 'CN=Тестовый подписант',
+            IssuerName: 'CN=Тестовый удостоверяющий центр',
+            ValidFromDate: '2026-01-01T00:00:00Z',
+            ValidToDate: '2030-01-01T00:00:00Z',
+            Thumbprint: 'TEST-THUMBPRINT'
+        };
+        const certificates = {
+            Count: 1,
+            Item: async () => certificate
+        };
+
+        window.cadesplugin = {
+            version: 'test',
+            CreateObjectAsync: async (name) => {
+                if (name === 'CAdESCOM.Store') {
+                    return {
+                        Open: async () => {},
+                        Certificates: certificates
+                    };
+                }
+                if (name === 'CAdESCOM.CPSigner') {
+                    return { propset_Certificate: async () => {} };
+                }
+                if (name === 'CAdESCOM.CadesSignedData') {
+                    return {
+                        propset_ContentEncoding: async () => {},
+                        propset_Content: async () => {},
+                        SignCades: async () => 'test-signature'
+                    };
+                }
+
+                return {};
+            }
+        };
+    });
+
+    let rejectSignature = true;
+    await page.route('**/signatures/*/*', async (route) => {
+        if (route.request().method() === 'GET') {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    content: '0KLQtdGB0YI=',
+                    contentEncoding: 'base64',
+                    detached: true
+                })
+            });
+            return;
+        }
+
+        await route.fulfill({
+            status: rejectSignature ? 500 : 200,
+            contentType: 'application/json',
+            body: JSON.stringify(rejectSignature
+                ? { error: 'Не удалось подписать анкету.' }
+                : { success: true, message: 'Анкета успешно подписана.' })
+        });
+    });
+
+    const signButton = page.getByRole('button', { name: 'Подписать', exact: true });
+    await signButton.click();
+    await page.locator('.cert-item').click();
+    await expect(page.locator('.site-toast--error')
+        .filter({ hasText: 'Не удалось подписать анкету.' })
+        .last()).toBeVisible();
+
+    rejectSignature = false;
+    await signButton.click();
+    await page.locator('.cert-item').click();
+    await expect(page.locator('.site-toast--success')
+        .filter({ hasText: 'Анкета успешно подписана.' })
+        .last()).toBeVisible();
 
     await page.goto('/help');
     await expect(page.locator('[data-role="survey-user-content"][data-active-tab="help"]')).toBeVisible();

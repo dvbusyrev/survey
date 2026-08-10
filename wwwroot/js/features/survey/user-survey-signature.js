@@ -3,6 +3,10 @@ import {
     getAnswersPageContainer,
     getFillPageContainer
 } from './user-survey-flow-shared.js';
+import {
+    SURVEY_SIGNED_MESSAGE,
+    SURVEY_SIGNING_FAILED_MESSAGE
+} from './user-survey-notifications.js';
 
 const CADESCOM_CONTAINER_STORE = 100;
 const CAPICOM_STORE_OPEN_READ_ONLY = 0;
@@ -111,7 +115,7 @@ function notifySignature(message, type = 'error', options = {}) {
         ? window.normalizeClientErrorMessage(message)
         : message;
 
-    window.AppUi?.notify?.(safeMessage || 'Не удалось выполнить операцию с подписью.', type, {
+    window.AppUi?.notify?.(safeMessage || SURVEY_SIGNING_FAILED_MESSAGE, type, {
         title: type === 'success' ? 'Успешно' : 'Ошибка',
         ...options
     });
@@ -222,9 +226,9 @@ export async function CSP(id, organizationId, options = {}) {
 
         const signature = await createDigitalSignature(dataToSign);
 
-        await sendSignatureToServer(id, organizationId, signature, dataToSign, signatureMode);
+        const result = await sendSignatureToServer(id, organizationId, signature, dataToSign, signatureMode);
 
-        updateUISuccess(signatureMode, page);
+        updateUISuccess(signatureMode, page, result?.message);
         if (signatureMode !== 'draft' && typeof window.refreshSurveyUserPageData === 'function') {
             await window.refreshSurveyUserPageData({ preserveFilters: true });
         }
@@ -287,8 +291,7 @@ async function getDataForSignature(id, organizationId, mode = 'answer') {
     const route = mode === 'draft' ? 'draft-signatures' : 'signatures';
     const response = await fetch(`/${route}/${id}/${organizationId}`);
     if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Не удалось получить данные для подписи.');
+        throw new Error(await readResponseMessage(response, 'Не удалось получить данные для подписи.'));
     }
 
     const contentType = String(response.headers.get('content-type') || '').toLowerCase();
@@ -431,13 +434,32 @@ async function sendSignatureToServer(id, organizationId, signature, dataToSign, 
     });
 
     if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Не удалось сохранить подпись.');
+        throw new Error(await readResponseMessage(response, SURVEY_SIGNING_FAILED_MESSAGE));
+    }
+
+    const message = await readResponseMessage(response, SURVEY_SIGNED_MESSAGE);
+    return { message };
+}
+
+async function readResponseMessage(response, fallbackMessage) {
+    const responseText = String(await response.text()).trim();
+    if (!responseText) {
+        return fallbackMessage;
+    }
+
+    try {
+        const payload = JSON.parse(responseText);
+        return payload?.error
+            || payload?.message
+            || payload?.detail
+            || payload?.title
+            || fallbackMessage;
+    } catch (error) {
+        return responseText;
     }
 }
 
-
-function updateUISuccess(mode = 'answer', source = document) {
+function updateUISuccess(mode = 'answer', source = document, message = SURVEY_SIGNED_MESSAGE) {
     applySurveySignedState(source || document, true, mode);
-    notifySignature('Документ успешно подписан.', 'success');
+    notifySignature(message || SURVEY_SIGNED_MESSAGE, 'success');
 }

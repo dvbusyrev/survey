@@ -66,7 +66,11 @@ public class AnswerSigningController : Controller
                 return NotFound("Запись для обновления не найдена.");
             }
 
-            return Ok("Запись успешно обновлена.");
+            return Ok(new OperationResponse
+            {
+                Success = true,
+                Message = "Анкета успешно подписана."
+            });
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
@@ -78,7 +82,7 @@ public class AnswerSigningController : Controller
         }
         catch (Exception ex)
         {
-            return this.SafeError(ex, "Не удалось сохранить подпись.", "Ошибка при сохранении подписи ответа");
+            return this.SafeError(ex, "Не удалось подписать анкету.", "Ошибка при сохранении подписи ответа");
         }
     }
 
@@ -130,7 +134,11 @@ public class AnswerSigningController : Controller
                 return NotFound("Черновик для обновления не найден.");
             }
 
-            return Ok("Черновик успешно подписан.");
+            return Ok(new OperationResponse
+            {
+                Success = true,
+                Message = "Анкета успешно подписана."
+            });
         }
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
@@ -142,7 +150,7 @@ public class AnswerSigningController : Controller
         }
         catch (Exception ex)
         {
-            return this.SafeError(ex, "Не удалось сохранить подпись черновика.", "Ошибка при сохранении подписи черновика");
+            return this.SafeError(ex, "Не удалось подписать анкету.", "Ошибка при сохранении подписи черновика");
         }
     }
 

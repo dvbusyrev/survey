@@ -9,6 +9,10 @@ import {
     renderSurveyHostError,
     showSurveyError
 } from './user-survey-flow-shared.js';
+import {
+    ANSWER_SUBMISSION_FAILED_MESSAGE,
+    notifyAnswerSubmitted
+} from './user-survey-notifications.js';
 
 window.createAnswerReport = function createAnswerReport(idSurvey, organizationId, type) {
     window.AppScrollState?.prepareNavigation({ carry: true });
@@ -426,18 +430,19 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
                 throw new Error('Не удалось определить анкету для отправки ответов.');
             }
 
-            await postSurveyJson('/answers/create', {
+            const responseData = await postSurveyJson('/answers/create', {
                 id_survey: surveyId,
                 id_organization: organizationId,
                 answers: payloadAnswers
-            }, 'Не удалось отправить ответы.');
+            }, ANSWER_SUBMISSION_FAILED_MESSAGE);
+            notifyAnswerSubmitted(responseData?.message);
             onSubmitted?.({
                 survey,
                 answers: payloadAnswers,
                 organizationId
             });
         } catch (err) {
-            error = err?.message || 'Не удалось отправить ответы.';
+            error = err?.message || ANSWER_SUBMISSION_FAILED_MESSAGE;
             renderError({ notify: true });
         } finally {
             loading = false;
