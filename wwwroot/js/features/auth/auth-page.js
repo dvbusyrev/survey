@@ -61,6 +61,17 @@
         });
     }
 
+    function showAuthenticationStatus() {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('auth') !== 'blocked') {
+            return;
+        }
+
+        notifyAuthError('Пользователь заблокирован.');
+        url.searchParams.delete('auth');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
     function renderEyeIcon() {
         if (!toggleButton) {
             return;
@@ -170,4 +181,5 @@
     });
 
     setPasswordVisibility(false);
+    showAuthenticationStatus();
 })();

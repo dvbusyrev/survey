@@ -14,6 +14,7 @@ using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.External.Calendar;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.Security;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -1231,7 +1232,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             """,
             new { OrganizationId = organizationId, Login = login, PasswordHash = passwordHash });
 
-        var loginResult = await new AuthService(_connectionFactory).AuthenticateAsync(login, password);
+        var accessStatusService = new UserAccessStatusService(_connectionFactory, _clock);
+        var loginResult = await new AuthService(_connectionFactory, accessStatusService).AuthenticateAsync(login, password);
         var chrome = await new UserChromeContextService(
                 _connectionFactory,
                 new FixedCurrentUserService(userId, login, "user", "Вход"))
@@ -1244,6 +1246,63 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal(userId, chrome.UserId);
         Assert.Equal(login, chrome.UserName);
         Assert.Equal("Вход", chrome.OrganizationName);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Auth_RejectsArchivedUserAndUserFromArchivedOrganization()
+    {
+        await using var connection = _fixture.CreateConnection();
+        var today = _clock.Today.Date;
+        var activeOrganizationId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.organization (organization_name, organization_short_name, date_begin)
+            VALUES ('Действующая организация входа', 'Действующая', @DateBegin)
+            RETURNING id_organization;
+            """,
+            new { DateBegin = today.AddDays(-10) });
+        var archivedOrganizationId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.organization (organization_name, organization_short_name, date_begin, date_end)
+            VALUES ('Архивная организация входа', 'Архивная', @DateBegin, @DateEnd)
+            RETURNING id_organization;
+            """,
+            new { DateBegin = today.AddDays(-10), DateEnd = today.AddDays(-1) });
+
+        const string password = "blocked-password";
+        const string archivedUserLogin = "archived-auth-user";
+        const string archivedOrganizationUserLogin = "archived-organization-auth-user";
+        var passwordHasher = new PasswordHasher<string>();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin, date_end)
+            VALUES
+                (@ActiveOrganizationId, @ArchivedUserLogin, 'Архивный пользователь', 'user', @ArchivedUserPassword, @DateBegin, @DateEnd),
+                (@ArchivedOrganizationId, @ArchivedOrganizationUserLogin, 'Пользователь архивной организации', 'user', @ArchivedOrganizationUserPassword, @DateBegin, NULL);
+            """,
+            new
+            {
+                ActiveOrganizationId = activeOrganizationId,
+                ArchivedOrganizationId = archivedOrganizationId,
+                ArchivedUserLogin = archivedUserLogin,
+                ArchivedOrganizationUserLogin = archivedOrganizationUserLogin,
+                ArchivedUserPassword = passwordHasher.HashPassword(archivedUserLogin, password),
+                ArchivedOrganizationUserPassword = passwordHasher.HashPassword(archivedOrganizationUserLogin, password),
+                DateBegin = today.AddDays(-10),
+                DateEnd = today.AddDays(-1)
+            });
+
+        var accessStatusService = new UserAccessStatusService(_connectionFactory, _clock);
+        var authService = new AuthService(_connectionFactory, accessStatusService);
+
+        var archivedUserResult = await authService.AuthenticateAsync(archivedUserLogin, password);
+        var archivedOrganizationUserResult = await authService.AuthenticateAsync(archivedOrganizationUserLogin, password);
+
+        Assert.False(archivedUserResult.Success);
+        Assert.Equal(StatusCodes.Status403Forbidden, archivedUserResult.StatusCode);
+        Assert.Equal(AuthService.BlockedUserMessage, archivedUserResult.ErrorMessage);
+        Assert.False(archivedOrganizationUserResult.Success);
+        Assert.Equal(StatusCodes.Status403Forbidden, archivedOrganizationUserResult.StatusCode);
+        Assert.Equal(AuthService.BlockedUserMessage, archivedOrganizationUserResult.ErrorMessage);
     }
 
     [RequiresPostgresFact]

@@ -8,17 +8,24 @@ namespace MainProject.Application.UseCases;
 
 public class AuthService
 {
+    public const string BlockedUserMessage = "Пользователь заблокирован.";
+
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly IUserAccessStatusService _userAccessStatusService;
     private static readonly PasswordHasher<string> PasswordHasher = new();
 
     protected AuthService()
     {
         _connectionFactory = null!;
+        _userAccessStatusService = null!;
     }
 
-    public AuthService(IDbConnectionFactory connectionFactory)
+    public AuthService(
+        IDbConnectionFactory connectionFactory,
+        IUserAccessStatusService userAccessStatusService)
     {
         _connectionFactory = connectionFactory;
+        _userAccessStatusService = userAccessStatusService;
     }
 
     public virtual async Task<LoginResult> AuthenticateAsync(
@@ -57,6 +64,16 @@ public class AuthService
                 Success = false,
                 StatusCode = StatusCodes.Status401Unauthorized,
                 ErrorMessage = "Неверный логин или пароль."
+            };
+        }
+
+        if (!await _userAccessStatusService.IsAccessAllowedAsync(user.UserId, cancellationToken))
+        {
+            return new LoginResult
+            {
+                Success = false,
+                StatusCode = StatusCodes.Status403Forbidden,
+                ErrorMessage = BlockedUserMessage
             };
         }
 

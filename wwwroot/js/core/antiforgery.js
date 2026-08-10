@@ -18,6 +18,23 @@
         }
     }
 
+    function redirectBlockedUser(response) {
+        const wasBlocked = response.status === 401
+            && response.headers.get('X-Authentication-Status') === 'blocked';
+        const redirectedToBlockedLogin = response.redirected
+            && new URL(response.url, window.location.href).searchParams.get('auth') === 'blocked';
+
+        if (wasBlocked || redirectedToBlockedLogin) {
+            window.location.assign('/?auth=blocked');
+        }
+
+        return response;
+    }
+
+    function sendFetch(input, init) {
+        return originalFetch(input, init).then(redirectBlockedUser);
+    }
+
     const originalFetch = window.fetch?.bind(window);
     if (originalFetch) {
         window.fetch = function (input, init) {
@@ -26,12 +43,12 @@
             const url = typeof input === 'string' ? input : request?.url || window.location.href;
 
             if (!isUnsafeMethod(method) || !isSameOrigin(url)) {
-                return originalFetch(input, init);
+                return sendFetch(input, init);
             }
 
             const token = getRequestVerificationToken();
             if (!token) {
-                return originalFetch(input, init);
+                return sendFetch(input, init);
             }
 
             if (request && !init) {
@@ -41,7 +58,7 @@
                     input = new Request(request, { headers });
                 }
 
-                return originalFetch(input);
+                return sendFetch(input);
             }
 
             const headers = new Headers(init?.headers || request?.headers || undefined);
@@ -49,7 +66,7 @@
                 headers.set(headerName, token);
             }
 
-            return originalFetch(input, { ...init, headers });
+            return sendFetch(input, { ...init, headers });
         };
     }
 

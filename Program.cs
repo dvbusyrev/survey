@@ -77,33 +77,7 @@ builder.Services
         options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
             ? CookieSecurePolicy.SameAsRequest
             : CookieSecurePolicy.Always;
-        options.Events = new CookieAuthenticationEvents
-        {
-            OnRedirectToLogin = async context =>
-            {
-                if (IsApiRequest(context.Request))
-                {
-                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    context.Response.ContentType = "application/json; charset=utf-8";
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Требуется авторизация. Выполните вход снова." }));
-                    return;
-                }
-
-                context.Response.Redirect("/");
-            },
-            OnRedirectToAccessDenied = async context =>
-            {
-                if (IsApiRequest(context.Request))
-                {
-                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                    context.Response.ContentType = "application/json; charset=utf-8";
-                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Доступ запрещён." }));
-                    return;
-                }
-
-                context.Response.Redirect("/");
-            }
-        };
+        options.EventsType = typeof(ApplicationCookieAuthenticationEvents);
     });
 
 builder.Services.AddAuthorization(options =>
@@ -130,6 +104,8 @@ builder.Services
     .AddDataProtection()
     .SetApplicationName("AIS.Anketirovanie");
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IUserAccessStatusService, UserAccessStatusService>();
+builder.Services.AddScoped<ApplicationCookieAuthenticationEvents>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<UserChromeContextService>();
 builder.Services.AddScoped<EmailTemplateService>();

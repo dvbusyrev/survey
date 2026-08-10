@@ -58,6 +58,21 @@ test('ошибка входа использует актуальное назв
     await expect(toast).not.toContainText('имя пользователя');
 });
 
+test('архивный пользователь и пользователь архивной организации не могут войти', async ({ page }) => {
+    for (const loginName of ['smoke-archived-user', 'smoke-archived-org-user']) {
+        await page.goto('/');
+        await page.locator('#username').fill(loginName);
+        await page.locator('#password').fill(password);
+        await page.getByRole('button', { name: 'Войти', exact: true }).click();
+
+        const toast = page.locator('.site-toast--error')
+            .filter({ hasText: 'Пользователь заблокирован.' })
+            .last();
+        await expect(toast).toBeVisible();
+        await expect(page).toHaveURL(/\/$/);
+    }
+});
+
 test('администратор проходит основные разделы', async ({ page }) => {
     test.setTimeout(45_000);
     await login(page, 'smoke-admin');

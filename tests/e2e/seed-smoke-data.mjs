@@ -27,6 +27,18 @@ VALUES
     (:smoke_organization_id, 'smoke-admin', 'Smoke administrator', 'admin', '${passwordHash}', 'admin@example.test', CURRENT_DATE),
     (:smoke_organization_id, 'smoke-client', 'Smoke client', 'user', '${passwordHash}', 'client@example.test', CURRENT_DATE);
 
+INSERT INTO public.app_user (id_organization, login, full_name, role, password, email, date_begin, date_end)
+VALUES
+    (:smoke_organization_id, 'smoke-archived-user', 'Smoke archived user', 'user', '${passwordHash}', 'archived-user@example.test', CURRENT_DATE - 10, CURRENT_DATE - 1);
+
+INSERT INTO public.organization (organization_name, organization_short_name, date_begin, date_end)
+VALUES ('Smoke archived organization', 'Smoke archived org', CURRENT_DATE - 10, CURRENT_DATE - 1)
+RETURNING id_organization AS smoke_archived_organization_id \\gset
+
+INSERT INTO public.app_user (id_organization, login, full_name, role, password, email, date_begin)
+VALUES
+    (:smoke_archived_organization_id, 'smoke-archived-org-user', 'Smoke archived organization user', 'user', '${passwordHash}', 'archived-org-user@example.test', CURRENT_DATE - 10);
+
 INSERT INTO public.survey (name_survey, description)
 VALUES ('Smoke survey', 'Survey used only by browser smoke tests')
 RETURNING id_survey AS smoke_survey_id \\gset

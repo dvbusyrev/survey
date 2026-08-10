@@ -13,6 +13,7 @@ using MainProject.Application.UseCases.Admin;
 using MainProject.Application.UseCases.Answers;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Security;
+using MainProject.Web.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -60,6 +61,67 @@ public sealed class WorkflowHttpTests
         using var authenticatedVisit = await client.SendAsync(authenticatedRequest);
         Assert.Equal(HttpStatusCode.Redirect, authenticatedVisit.StatusCode);
         Assert.Equal("/survey", authenticatedVisit.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task AuthenticatedVisitor_WhenAccessIsBlocked_IsSignedOutAndRedirectedWithReason()
+    {
+        await using var factory = new LoginApplicationFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+
+        var antiforgery = await GetAntiforgeryTokenAsync(client);
+        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/login")
+        {
+            Content = JsonContent.Create(new[] { "smoke-admin", "SmokePass1!" })
+        };
+        AddAntiforgeryHeaders(loginRequest, antiforgery);
+        using var loginResponse = await client.SendAsync(loginRequest);
+        loginResponse.EnsureSuccessStatusCode();
+
+        factory.AccessStatus.AllowAccess = false;
+        using var protectedResponse = await client.GetAsync("/survey");
+
+        Assert.Equal(HttpStatusCode.Redirect, protectedResponse.StatusCode);
+        Assert.Equal("/?auth=blocked", protectedResponse.Headers.Location?.OriginalString);
+        Assert.Contains(
+            protectedResponse.Headers.GetValues("Set-Cookie"),
+            value => value.StartsWith(".AIS.Anketirovanie.Auth=;", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AuthenticatedApiRequest_WhenAccessIsBlocked_ReturnsBlockedMessage()
+    {
+        await using var factory = new LoginApplicationFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+
+        var antiforgery = await GetAntiforgeryTokenAsync(client);
+        using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/login")
+        {
+            Content = JsonContent.Create(new[] { "smoke-admin", "SmokePass1!" })
+        };
+        AddAntiforgeryHeaders(loginRequest, antiforgery);
+        using var loginResponse = await client.SendAsync(loginRequest);
+        loginResponse.EnsureSuccessStatusCode();
+
+        factory.AccessStatus.AllowAccess = false;
+        using var protectedRequest = new HttpRequestMessage(HttpMethod.Get, "/survey");
+        protectedRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        using var protectedResponse = await client.SendAsync(protectedRequest);
+        var payload = await protectedResponse.Content.ReadFromJsonAsync<OperationResponse>();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, protectedResponse.StatusCode);
+        Assert.Equal(AuthService.BlockedUserMessage, payload?.Error);
+        Assert.Equal(
+            ApplicationCookieAuthenticationEvents.BlockedReason,
+            protectedResponse.Headers.GetValues(ApplicationCookieAuthenticationEvents.AuthenticationStatusHeader).Single());
     }
 
     [Fact]
@@ -312,10 +374,14 @@ public sealed class WorkflowHttpTests
 
     private sealed class LoginApplicationFactory : ApplicationFactoryBase
     {
+        public FakeUserAccessStatusService AccessStatus { get; } = new();
+
         protected override void ConfigureTestServices(IServiceCollection services)
         {
             services.RemoveAll<AuthService>();
             services.AddSingleton<AuthService, SuccessfulAuthService>();
+            services.RemoveAll<IUserAccessStatusService>();
+            services.AddSingleton<IUserAccessStatusService>(AccessStatus);
         }
     }
 
@@ -419,6 +485,14 @@ public sealed class WorkflowHttpTests
                 UserName = "Smoke admin",
                 OrganizationName = "Тестовая организация"
             });
+    }
+
+    private sealed class FakeUserAccessStatusService : IUserAccessStatusService
+    {
+        public bool AllowAccess { get; set; } = true;
+
+        public Task<bool> IsAccessAllowedAsync(int userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(AllowAccess);
     }
 
     private sealed class FixedThemeSettingsService : ThemeSettingsService
