@@ -80,6 +80,38 @@ public sealed class RequiredCreationFieldsTests
     }
 
     [Fact]
+    public async Task CreateUser_RejectsPastEndDate()
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.CreateUserAsync(CreateUserRequest(
+            dateBegin: "2026-08-02",
+            dateEnd: "2026-08-03"));
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateUser_RejectsPastEndDate()
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateUserAsync(1, new UserUpdateRequest
+        {
+            Username = "test-user",
+            FullName = "Тестовый пользователь",
+            OrganizationId = "1",
+            Role = "user",
+            DateBegin = "2026-08-02",
+            DateEnd = "2026-08-03"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
+    [Fact]
     public async Task CreateSurvey_RejectsMissingOrganizations()
     {
         var service = CreateSurveyService();
@@ -98,6 +130,39 @@ public sealed class RequiredCreationFieldsTests
     }
 
     [Fact]
+    public async Task CreateSurvey_RejectsPastEndDate()
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.CreateSurveyAsync(new SurveyAddRequest
+        {
+            Title = "Анкета",
+            StartDate = "2026-08-02",
+            EndDate = "2026-08-03",
+            Organizations = [1],
+            Criteria = ["Критерий"]
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
+    [Fact]
+    public async Task CopySurvey_RejectsPastEndDate()
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.CopySurveyAsync(1, new SurveyCopyRequest
+        {
+            StartDate = "2026-08-02",
+            EndDate = "2026-08-03"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
+    [Fact]
     public async Task UpdateSurvey_RejectsMissingOrganizations()
     {
         var service = CreateSurveyService();
@@ -113,6 +178,24 @@ public sealed class RequiredCreationFieldsTests
 
         Assert.False(result.Success);
         Assert.Equal("Выберите хотя бы одну организацию", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateSurvey_RejectsPastEndDate()
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.UpdateSurveyAsync(1, new SurveyUpdateRequest
+        {
+            Title = "Анкета",
+            StartDate = new DateTime(2026, 8, 2),
+            EndDate = new DateTime(2026, 8, 3),
+            Organizations = [1],
+            Criteria = ["Критерий"]
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
     }
 
     [Fact]
@@ -160,6 +243,38 @@ public sealed class RequiredCreationFieldsTests
         Assert.Equal("Дата начала обязательна.", result.Message);
     }
 
+    [Fact]
+    public async Task CreateOrganization_RejectsPastEndDate()
+    {
+        var service = new OrganizationManagementService(_connectionFactory, _clock);
+
+        var result = await service.CreateOrganizationAsync(new OrganizationSaveRequest
+        {
+            Name = "Организация",
+            DateBegin = "2026-08-02",
+            DateEnd = "2026-08-03"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateOrganization_RejectsPastEndDate()
+    {
+        var service = new OrganizationManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateOrganizationAsync(1, new OrganizationSaveRequest
+        {
+            Name = "Организация",
+            DateBegin = "2026-08-02",
+            DateEnd = "2026-08-03"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
     private SurveyService CreateSurveyService()
         => new(
             _connectionFactory,
@@ -169,7 +284,8 @@ public sealed class RequiredCreationFieldsTests
     private static UserSaveRequest CreateUserRequest(
         string role = "user",
         string? dateBegin = "2026-08-04",
-        string organizationId = "1")
+        string organizationId = "1",
+        string? dateEnd = null)
     {
         return new UserSaveRequest
         {
@@ -178,7 +294,8 @@ public sealed class RequiredCreationFieldsTests
             FullName = "Тестовый пользователь",
             OrganizationId = organizationId,
             Role = role,
-            DateBegin = dateBegin
+            DateBegin = dateBegin,
+            DateEnd = dateEnd
         };
     }
 

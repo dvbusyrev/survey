@@ -107,6 +107,16 @@ function ensureValidDateInput(target, label, options = {}) {
     return false;
 }
 
+function ensureUserEndDateNotPast(dateEnd, target) {
+    if (!dateEnd || (window.AppDate?.compare(dateEnd, window.AppDate.todayIso()) ?? -1) >= 0) {
+        return true;
+    }
+
+    showAdminToast('Дата конца не может быть раньше сегодняшней даты.');
+    window.AppDate?.focusInput?.(target);
+    return false;
+}
+
 function submitFormAdd() {
     if (!document.getElementById('username').value){
         showAdminToast('Введите никнейм пользователя!');
@@ -136,6 +146,10 @@ function submitFormAdd() {
     }
 
     if (!ensureValidDateInput('dateEnd', 'Дата конца')) {
+        return;
+    }
+
+    if (!ensureUserEndDateNotPast(dateEnd, 'dateEnd')) {
         return;
     }
 
@@ -418,6 +432,10 @@ async function updateUser() {
         }
 
         if (!ensureValidDateInput(elements.dateEnd, 'Дата конца')) {
+            return;
+        }
+
+        if (!ensureUserEndDateNotPast(dateEndIso, elements.dateEnd)) {
             return;
         }
 

@@ -2,12 +2,29 @@ import { expect, test } from '@playwright/test';
 
 const password = 'SmokePass1!';
 
+function localIsoDaysAgo(days) {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 async function login(page, loginName) {
     await page.goto('/');
     await page.locator('#username').fill(loginName);
     await page.locator('#password').fill(password);
     await page.getByRole('button', { name: 'Войти', exact: true }).click();
     await expect(page).toHaveURL(/\/survey$/);
+}
+
+async function expectPastEndDateToast(page) {
+    const toast = page.locator('.site-toast--error')
+        .filter({ hasText: 'Дата конца не может быть раньше сегодняшней даты.' })
+        .last();
+    await expect(toast).toBeVisible();
+    await toast.locator('.site-toast__close').click();
 }
 
 test('администратор проходит основные разделы', async ({ page }) => {
@@ -20,6 +37,32 @@ test('администратор проходит основные раздел�
     await page.locator('[data-click-call="openAddSurveyModal"]').click();
     await expect(page.locator('#surveyEditorModal')).toBeVisible();
     await expect(page.locator('#surveyEditorModal')).toContainText('Добавление анкеты');
+    await page.locator('#surveyTitle').fill('Анкета с просроченной датой');
+    await page.locator('#startDate').fill(localIsoDaysAgo(2));
+    await page.locator('#endDate').fill(localIsoDaysAgo(1));
+    await page.locator('[data-role="organization-dropdown-trigger"]').click();
+    await page.locator('[data-role="organization-option"]').first().click();
+    await page.locator('.criteriy').fill('Критерий');
+    await page.locator('[data-role="survey-submit"]').click();
+    await expectPastEndDateToast(page);
+    await page.locator('#surveyEditorModal .modal-close').click();
+
+    await page.getByRole('button', { name: 'Копировать', exact: true }).first().click();
+    await expect(page.locator('#surveyEditorModal')).toBeVisible();
+    await expect(page.locator('#surveyEditorModal')).toContainText('Копирование анкеты');
+    await page.locator('#startDate').fill(localIsoDaysAgo(2));
+    await page.locator('#endDate').fill(localIsoDaysAgo(1));
+    await page.locator('[data-role="survey-submit"]').click();
+    await expectPastEndDateToast(page);
+    await page.locator('#surveyEditorModal .modal-close').click();
+
+    await page.getByRole('link', { name: 'Редактировать', exact: true }).first().click();
+    await expect(page.locator('#surveyEditorModal')).toBeVisible();
+    await expect(page.locator('#surveyEditorModal')).toContainText('Редактирование анкеты');
+    await page.locator('#startDate').fill(localIsoDaysAgo(2));
+    await page.locator('#endDate').fill(localIsoDaysAgo(1));
+    await page.locator('[data-role="survey-submit"]').click();
+    await expectPastEndDateToast(page);
     await page.locator('#surveyEditorModal .modal-close').click();
 
     await page.locator('a.nav-link[href="/users"]').click();
@@ -27,9 +70,47 @@ test('администратор проходит основные раздел�
     await expect(page.locator('[data-page="users-list"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Добавить пользователя', exact: true })).toBeVisible();
 
+    await page.getByRole('button', { name: 'Добавить пользователя', exact: true }).click();
+    await expect(page.locator('#addUserModal')).toBeVisible();
+    await page.locator('#fullName').fill('Просроченный пользователь');
+    await page.locator('#username').fill('expired-user');
+    await page.locator('#password').fill('SmokePassword1!');
+    await page.locator('#userOrganization').selectOption({ index: 1 });
+    await page.locator('#userRole').selectOption('user');
+    await page.locator('#dateBegin').fill(localIsoDaysAgo(2));
+    await page.locator('#dateEnd').fill(localIsoDaysAgo(1));
+    await page.locator('#addUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    await expectPastEndDateToast(page);
+    await page.locator('#addUserModal .modal-close').click();
+
+    await page.locator('[data-click-call="openEditUserModalFromTrigger"]').first().click();
+    await expect(page.locator('#editUserModal')).toBeVisible();
+    await page.locator('#editDateBegin').fill(localIsoDaysAgo(2));
+    await page.locator('#editDateEnd').fill(localIsoDaysAgo(1));
+    await page.locator('#editUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    await expectPastEndDateToast(page);
+    await page.locator('#editUserModal .modal-close').click();
+
     await page.goto('/organizations');
     await expect(page.locator('[data-page="organization-list"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Добавить организацию', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Добавить организацию', exact: true }).click();
+    await expect(page.locator('#addOrganizationModal')).toBeVisible();
+    await page.locator('#Name').fill('Просроченная организация');
+    await page.locator('#DateBegin').fill(localIsoDaysAgo(2));
+    await page.locator('#DateEnd').fill(localIsoDaysAgo(1));
+    await page.locator('#addOrganizationModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    await expectPastEndDateToast(page);
+    await page.locator('#addOrganizationModal .modal-close').click();
+
+    await page.locator('[data-click-call="openEditOrganizationModalFromTrigger"]').first().click();
+    await expect(page.locator('#editOrganizationModal')).toBeVisible();
+    await page.locator('#organizationDateBegin').fill(localIsoDaysAgo(2));
+    await page.locator('#organizationDateEnd').fill(localIsoDaysAgo(1));
+    await page.locator('#editOrganizationModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    await expectPastEndDateToast(page);
+    await page.locator('#editOrganizationModal .modal-close').click();
 
     await page.goto('/logs');
     await expect(page.locator('[data-page="get_logs"]')).toBeVisible();

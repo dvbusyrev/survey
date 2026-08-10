@@ -126,6 +126,10 @@
         if ((safeGetValue('startDate') && !startDate) || (safeGetValue('endDate') && !endDate)) {
             showError('Ошибка', 'Используйте формат даты ДД.ММ.ГГГГ.');
             isValid = false;
+        } else if (endDate && window.AppDate?.compare(endDate, window.AppDate.todayIso()) < 0) {
+            safeGetElement('endDate')?.classList.add('invalid');
+            showError('Ошибка', 'Дата конца не может быть раньше сегодняшней даты.');
+            isValid = false;
         } else if (startDate && endDate && window.AppDate?.compare(endDate, startDate) <= 0) {
             safeGetElement('endDate')?.classList.add('invalid');
             showError('Ошибка', 'Дата конца должна быть позже даты начала.');

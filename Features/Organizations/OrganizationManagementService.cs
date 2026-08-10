@@ -759,7 +759,7 @@ public class OrganizationManagementService
         return builder.ToString();
     }
 
-    private static bool TryValidateOrganizationRequest(
+    private bool TryValidateOrganizationRequest(
         OrganizationSaveRequest request,
         out DateTime? dateBegin,
         out DateTime? dateEnd,
@@ -791,6 +791,12 @@ public class OrganizationManagementService
 
         if (!TryParseOptionalDate(request.DateEnd, out dateEnd, out validationError))
         {
+            return false;
+        }
+
+        if (dateEnd.HasValue && dateEnd.Value.Date < _clock.Today.Date)
+        {
+            validationError = "Дата конца не может быть раньше сегодняшней даты.";
             return false;
         }
 

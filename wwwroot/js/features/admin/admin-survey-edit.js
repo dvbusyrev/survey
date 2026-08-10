@@ -218,6 +218,10 @@ function surveyEditSaveSelectedOrganization() {
         if ((startDate.value && !startDateIso) || (endDate.value && !endDateIso)) {
             errors.push('Используйте формат даты ДД.ММ.ГГГГ');
             isValid = false;
+        } else if (endDateIso && window.AppDate?.compare(endDateIso, window.AppDate.todayIso()) < 0) {
+            endDate.classList.add('invalid');
+            errors.push('Дата конца не может быть раньше сегодняшней даты.');
+            isValid = false;
         } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
             endDate.classList.add('invalid');
             errors.push('Дата конца должна быть позже даты начала');
@@ -260,6 +264,11 @@ function surveyEditSaveSelectedOrganization() {
 
                 if (!startDate || !endDate) {
                     window.AppUi?.notify?.('Пожалуйста, заполните все обязательные поля', 'error');
+                    return;
+                }
+
+                if ((window.AppDate?.compare(endDate, window.AppDate.todayIso()) ?? -1) < 0) {
+                    window.AppUi?.notify?.('Дата конца не может быть раньше сегодняшней даты.', 'error');
                     return;
                 }
 

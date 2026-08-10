@@ -27,6 +27,16 @@
         return false;
     }
 
+    function ensureEndDateNotPast(dateEnd, target) {
+        if (!dateEnd || (window.AppDate?.compare(dateEnd, window.AppDate.todayIso()) ?? -1) >= 0) {
+            return true;
+        }
+
+        showOrganizationToast('Дата конца не может быть раньше сегодняшней даты.');
+        window.AppDate?.focusInput?.(target);
+        return false;
+    }
+
     function closeOrganizationModal(modalId) {
         const modal = byId(modalId);
         if (modal) {
@@ -174,6 +184,10 @@
             return;
         }
 
+        if (!ensureEndDateNotPast(payload.DateEnd, 'DateEnd')) {
+            return;
+        }
+
         if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
             showOrganizationToast('Дата конца не может быть раньше даты начала.');
             window.AppDate?.focusInput?.('DateEnd');
@@ -270,6 +284,10 @@
         const dateBegin = window.AppDate?.getInputIso('organizationDateBegin') || '';
         const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
 
+        if (!ensureEndDateNotPast(dateEnd, 'organizationDateEnd')) {
+            return;
+        }
+
         if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
             window.AppUi?.notify?.('Дата конца не может быть раньше даты начала.', 'error');
             window.AppDate?.focusInput?.('organizationDateEnd');
@@ -321,6 +339,10 @@
 
         if (!payload.Name) {
             window.AppUi?.notify?.('Введите название организации!', 'error');
+            return;
+        }
+
+        if (!ensureEndDateNotPast(payload.DateEnd, 'date_end')) {
             return;
         }
 

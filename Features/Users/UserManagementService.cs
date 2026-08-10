@@ -439,7 +439,7 @@ public sealed class UserManagementService
         };
     }
 
-    private static bool TryValidateUserCreateRequest(
+    private bool TryValidateUserCreateRequest(
         UserSaveRequest request,
         out int organizationId,
         out string normalizedRole,
@@ -499,6 +499,11 @@ public sealed class UserManagementService
             return false;
         }
 
+        if (!TryValidateEndDateNotPast(dateEnd, out validationError))
+        {
+            return false;
+        }
+
         if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value < dateBegin.Value)
         {
             validationError = "Дата конца не может быть раньше даты начала.";
@@ -513,7 +518,7 @@ public sealed class UserManagementService
         return true;
     }
 
-    private static bool TryValidateUserUpdateRequest(
+    private bool TryValidateUserUpdateRequest(
         UserUpdateRequest request,
         out int organizationId,
         out string normalizedRole,
@@ -577,6 +582,11 @@ public sealed class UserManagementService
             return false;
         }
 
+        if (!TryValidateEndDateNotPast(dateEnd, out validationError))
+        {
+            return false;
+        }
+
         if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value < dateBegin.Value)
         {
             validationError = "Дата конца не может быть раньше даты начала.";
@@ -594,6 +604,18 @@ public sealed class UserManagementService
             passwordHash = PasswordHasher.HashPassword(request.Username.Trim(), request.Password);
         }
 
+        return true;
+    }
+
+    private bool TryValidateEndDateNotPast(DateTime? dateEnd, out string validationError)
+    {
+        if (dateEnd.HasValue && dateEnd.Value.Date < _clock.Today.Date)
+        {
+            validationError = "Дата конца не может быть раньше сегодняшней даты.";
+            return false;
+        }
+
+        validationError = string.Empty;
         return true;
     }
 

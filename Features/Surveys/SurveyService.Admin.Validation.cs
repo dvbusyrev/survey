@@ -11,7 +11,7 @@ namespace MainProject.Application.UseCases.Surveys;
 
 public partial class SurveyService
 {
-    private static bool TryValidateCreateRequest(
+    private bool TryValidateCreateRequest(
         SurveyAddRequest? request,
         out string title,
         out string description,
@@ -49,6 +49,11 @@ public partial class SurveyService
             return false;
         }
 
+        if (!TryValidateEndDateNotPast(endDate, out validationError))
+        {
+            return false;
+        }
+
         if (!TryNormalizeOrganizationIds(request.Organizations, out organizationIds, out validationError))
         {
             return false;
@@ -57,7 +62,7 @@ public partial class SurveyService
         return TryBuildQuestionRows(request.Criteria, out questionRows, out validationError);
     }
 
-    private static bool TryValidateUpdateRequest(
+    private bool TryValidateUpdateRequest(
         SurveyUpdateRequest? request,
         out string title,
         out string description,
@@ -98,6 +103,11 @@ public partial class SurveyService
         startDate = request.StartDate;
         endDate = request.EndDate;
 
+        if (!TryValidateEndDateNotPast(endDate, out validationError))
+        {
+            return false;
+        }
+
         if (!TryNormalizeOrganizationIds(request.Organizations, out organizationIds, out validationError))
         {
             return false;
@@ -106,7 +116,7 @@ public partial class SurveyService
         return TryBuildQuestionRows(request.Criteria, out questionRows, out validationError);
     }
 
-    private static bool TryValidateCopyRequest(
+    private bool TryValidateCopyRequest(
         SurveyCopyRequest? request,
         out DateTime startDate,
         out DateTime endDate,
@@ -122,7 +132,12 @@ public partial class SurveyService
             return false;
         }
 
-        return TryParseDateRange(request.StartDate, request.EndDate, out startDate, out endDate, out validationError);
+        if (!TryParseDateRange(request.StartDate, request.EndDate, out startDate, out endDate, out validationError))
+        {
+            return false;
+        }
+
+        return TryValidateEndDateNotPast(endDate, out validationError);
     }
 
     private IReadOnlyList<string> ValidateExtensionRequest(SurveyExtensionRequest request)
@@ -187,6 +202,18 @@ public partial class SurveyService
             return false;
         }
 
+        return true;
+    }
+
+    private bool TryValidateEndDateNotPast(DateTime endDate, out string validationError)
+    {
+        if (endDate.Date < _clock.Today.Date)
+        {
+            validationError = "Дата конца не может быть раньше сегодняшней даты.";
+            return false;
+        }
+
+        validationError = string.Empty;
         return true;
     }
 
