@@ -58,7 +58,7 @@ public class AnswerAdminController : Controller
     {
         if (id <= 0)
         {
-            return BadRequest("Неверный ID анкеты");
+            return BadRequest("Некорректный идентификатор анкеты.");
         }
 
         try

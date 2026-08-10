@@ -36,7 +36,7 @@
         try {
             entry = await entryStore.loadDetails(logId, sourceTable);
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'Не удалось загрузить событие';
+            const message = error instanceof Error ? error.message : 'Не удалось загрузить событие.';
             console.error('Не удалось загрузить событие журнала:', error);
             window.AppUi?.notify?.(message, 'error');
             return;

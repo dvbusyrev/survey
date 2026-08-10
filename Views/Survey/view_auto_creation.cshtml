@@ -77,7 +77,8 @@
                                    autocomplete="off"
                                    value="@(Model?.ReportingOffsetBusinessDays ?? 1)"
                                    placeholder="Введите количество рабочих дней"
-                                   required />
+                                   required
+                                   data-required-message="Введите срок подготовки отчёта." />
                         </div>
 
                         <div class="reports-page__field">
@@ -90,7 +91,8 @@
                                    autocomplete="off"
                                    value="@(Model?.ActivePeriodBusinessDays ?? 8)"
                                    placeholder="Введите количество рабочих дней"
-                                   required />
+                                   required
+                                   data-required-message="Введите срок доступности анкет." />
                         </div>
                     </div>
 
@@ -118,10 +120,14 @@
                         </div>
                     </div>
 
-                    <div class="survey-auto-creation-page__selection">
-                        <div class="survey-auto-creation-page__selection-title">Анкеты</div>
-                        <div class="app-field survey-auto-creation-page__selected-list"
+                    <div class="survey-auto-creation-page__selection" data-validation-group>
+                        <div class="survey-auto-creation-page__selection-title" data-validation-label>Анкеты</div>
+                        <div id="surveyAutoCreationSelectedList"
+                             class="app-field survey-auto-creation-page__selected-list"
                              data-role="survey-auto-creation-selected-list"
+                             role="group"
+                             aria-required="true"
+                             data-required-message="Выберите хотя бы одну анкету."
                              aria-live="polite"></div>
                         <div class="survey-auto-creation-page__selection-action">
                             <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-auto-creation-page__survey-dropdown"

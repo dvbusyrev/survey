@@ -19,14 +19,14 @@ function buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly, filterQue
 
 function getSnapshotLoadError(tab) {
     return tab === 'help'
-        ? 'Ошибка загрузки справки'
-        : 'Ошибка загрузки данных анкет';
+        ? 'Не удалось загрузить справку.'
+        : 'Не удалось загрузить анкеты.';
 }
 
 function getSnapshotParseError(tab) {
     return tab === 'help'
-        ? 'Не удалось построить содержимое справки'
-        : 'Не удалось построить содержимое страницы анкет';
+        ? 'Не удалось отобразить справку.'
+        : 'Не удалось отобразить страницу анкет.';
 }
 
 export async function fetchSurveyUserSnapshot({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {

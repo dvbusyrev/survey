@@ -15,24 +15,24 @@ public partial class SurveyService
     {
         if (request == null)
         {
-            return InvalidAutoCreationRequest("Параметры автосоздания не переданы");
+            return InvalidAutoCreationRequest("Параметры автосоздания не переданы.");
         }
 
         if (!SurveyAutoCreationScheduleHelper.TryNormalizeReportingPeriod(request.ReportingPeriod, out var reportingPeriod))
         {
-            return InvalidAutoCreationRequest("Некорректное значение поля «Период отчётности».");
+            return InvalidAutoCreationRequest("Выберите период отчётности.");
         }
 
         if (!IsValidBusinessDayPeriod(request.ReportingOffsetBusinessDays))
         {
             return InvalidAutoCreationRequest(
-                "Поле «Срок подготовки отчёта» должно быть положительным целым числом.");
+                "Срок подготовки отчёта должен быть положительным целым числом.");
         }
 
         if (!IsValidBusinessDayPeriod(request.ActivePeriodBusinessDays))
         {
             return InvalidAutoCreationRequest(
-                "Поле «Срок доступности анкет» должно быть положительным целым числом.");
+                "Срок доступности анкет должен быть положительным целым числом.");
         }
 
         var surveyIds = (request.SurveyIds ?? [])

@@ -108,7 +108,9 @@
                     data-date-native="true"
                     data-date-label="Дата конца"
                     lang="ru-RU"
-                    min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" />
+                    min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")"
+                    required
+                    data-required-message="Укажите новую дату конца." />
             </div>
 
             <div class="organization-surveys-page__actions">

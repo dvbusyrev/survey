@@ -201,6 +201,7 @@
         }
 
         host.replaceChildren();
+        host.dataset.value = state.selectedSurveys.map((survey) => survey.id).join(',');
 
         if (state.selectedSurveys.length === 0) {
             const empty = window.AppUi.createElement('p', {
@@ -210,6 +211,8 @@
             host.appendChild(empty);
             return;
         }
+
+        window.AppValidation?.clearFieldError?.(host);
 
         state.selectedSurveys.forEach((survey) => {
             const item = window.AppUi.createElement('div', {
@@ -378,6 +381,40 @@
         };
     }
 
+    function validateRequest(request) {
+        const root = getQueryRoot();
+        const validation = window.AppValidation?.validateRequiredFields?.(root) || {
+            valid: true,
+            invalidFields: [],
+            errors: []
+        };
+        const errors = [...validation.errors];
+        const reportingOffset = root.querySelector('#surveyAutoCreationReportingOffset');
+        const activePeriod = root.querySelector('#surveyAutoCreationActivePeriod');
+
+        if (String(reportingOffset?.value || '').trim() && request.reportingOffsetBusinessDays < 1) {
+            const message = 'Срок подготовки отчёта должен быть положительным целым числом.';
+            window.AppValidation?.setFieldError?.(reportingOffset, message);
+            errors.push(message);
+            validation.invalidFields.push(reportingOffset);
+        }
+
+        if (String(activePeriod?.value || '').trim() && request.activePeriodBusinessDays < 1) {
+            const message = 'Срок доступности анкет должен быть положительным целым числом.';
+            window.AppValidation?.setFieldError?.(activePeriod, message);
+            errors.push(message);
+            validation.invalidFields.push(activePeriod);
+        }
+
+        if (errors.length === 0) {
+            return true;
+        }
+
+        window.AppValidation?.notifyErrors?.(errors);
+        window.AppValidation?.focusFirstInvalid?.(validation);
+        return false;
+    }
+
     async function postAction(url, payload, signal = null) {
         const options = {
             method: 'POST',
@@ -466,6 +503,10 @@
     }
 
     async function submitAction(url, payload, successTitle) {
+        if (payload !== undefined && !validateRequest(payload)) {
+            return false;
+        }
+
         try {
             const result = await postAction(url, payload);
             showToast(result.message || 'Операция выполнена.', 'success', { title: successTitle });

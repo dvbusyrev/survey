@@ -53,7 +53,7 @@
     function notifyAuthError(message) {
         const safeMessage = typeof message === 'string' && message.trim().length > 0
             ? message.trim()
-            : 'Проверьте правильность введенных данных.';
+            : 'Проверьте правильность введённых данных.';
 
         window.AppUi.notify(safeMessage, 'error', {
             title: 'Ошибка авторизации',
@@ -111,6 +111,7 @@
     form?.addEventListener('reset', (event) => {
         event.preventDefault();
         setSubmittingState(false);
+        window.AppValidation?.clearAll?.(form);
         if (usernameInput) {
             usernameInput.value = '';
         }
@@ -126,6 +127,13 @@
             return;
         }
 
+        const validation = window.AppValidation?.validateRequiredFields?.(form);
+        if (validation && !validation.valid) {
+            window.AppValidation?.notifyErrors?.(validation.errors, { title: 'Ошибка авторизации' });
+            window.AppValidation?.focusFirstInvalid?.(validation);
+            return;
+        }
+
         setSubmittingState(true);
         try {
             const response = await fetch('/auth/login', {
@@ -138,7 +146,7 @@
 
             const responseText = await response.text();
             if (!response.ok) {
-                throw new Error(getErrorMessage(responseText, 'Проверьте правильность введенных данных.'));
+                throw new Error(getErrorMessage(responseText, 'Проверьте правильность введённых данных.'));
             }
 
             const payload = parseJsonSafely(responseText);
@@ -152,10 +160,10 @@
                 return;
             }
 
-            throw new Error('Неизвестная роль пользователя');
+            throw new Error('Для пользователя задана неподдерживаемая роль.');
         } catch (error) {
             console.error('Ошибка авторизации:', error);
-            notifyAuthError(error instanceof Error ? error.message : 'Произошла ошибка при попытке входа.');
+            notifyAuthError(error instanceof Error ? error.message : 'Не удалось выполнить вход.');
         } finally {
             setSubmittingState(false);
         }

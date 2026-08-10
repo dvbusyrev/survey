@@ -509,7 +509,11 @@
         commentBlock.classList.toggle("u-hidden", !showComment);
       }
       if (commentInput) {
+        commentInput.required = showComment;
         commentInput.value = showComment ? answer.comment || "" : "";
+        if (!showComment) {
+          window.AppValidation?.clearFieldError?.(commentInput);
+        }
       }
     }
     function bindQuestion(questionElement) {
@@ -528,6 +532,9 @@
           };
           renderError();
           updateQuestionState(questionId, questionElement);
+          window.AppValidation?.clearFieldError?.(
+            questionElement.querySelector('[data-role="ratings"]')
+          );
         });
       });
       const commentInput = questionElement.querySelector('[data-role="comment-input"]');
@@ -541,7 +548,43 @@
       });
       updateQuestionState(questionId, questionElement);
     }
+    function validateCompleteAnswers() {
+      const errors = [];
+      const invalidFields = [];
+      getQuestionNodes().forEach((questionNode) => {
+        const questionId = questionNode.dataset.questionId || "";
+        const answer = answers[questionId] || {};
+        const rating = Number(answer.rating || 0);
+        const ratings = questionNode.querySelector('[data-role="ratings"]');
+        const commentInput = questionNode.querySelector('[data-role="comment-input"]');
+        if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+          const message = "Выберите оценку для каждого вопроса.";
+          window.AppValidation?.setFieldError?.(ratings, message);
+          errors.push(message);
+          invalidFields.push(ratings);
+        } else {
+          window.AppValidation?.clearFieldError?.(ratings);
+        }
+        if (rating > 0 && rating < 5 && !String(answer.comment || "").trim()) {
+          const message = "Для каждой оценки ниже 5 требуется комментарий.";
+          window.AppValidation?.setFieldError?.(commentInput, message);
+          errors.push(message);
+          invalidFields.push(commentInput);
+        } else {
+          window.AppValidation?.clearFieldError?.(commentInput);
+        }
+      });
+      if (errors.length === 0) {
+        return true;
+      }
+      window.AppValidation?.notifyErrors?.(errors);
+      window.AppValidation?.focusFirstInvalid?.({ invalidFields });
+      return false;
+    }
     async function submitAnswers() {
+      if (!validateCompleteAnswers()) {
+        return;
+      }
       try {
         loading = true;
         error = null;
@@ -571,11 +614,11 @@
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          throw new Error(errorData?.error || "Ошибка при отправке ответов");
+          throw new Error(errorData?.error || "Не удалось отправить ответы.");
         }
         window.location.assign("/archive");
       } catch (err) {
-        error = err?.message || "Не удалось отправить ответы";
+        error = err?.message || "Не удалось отправить ответы.";
         renderError();
       } finally {
         loading = false;

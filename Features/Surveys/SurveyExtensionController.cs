@@ -28,7 +28,7 @@ public class SurveyExtensionController : Controller
 
         if (request == null)
         {
-            return BadRequest(new { success = false, message = "Необходимо предоставить данные для продления" });
+            return BadRequest(new { success = false, message = "Данные для продления не предоставлены." });
         }
 
         try

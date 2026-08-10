@@ -29,7 +29,7 @@ public class SurveyAnswersController : Controller
             var model = await _surveyAnswersService.GetSurveyAnswerPageAsync(idSurvey, type, cancellationToken);
             if (model == null)
             {
-                return NotFound("Анкета не найдена");
+                return NotFound("Анкета не найдена.");
             }
 
             return View("~/Views/Answer/view_answer.cshtml", model);

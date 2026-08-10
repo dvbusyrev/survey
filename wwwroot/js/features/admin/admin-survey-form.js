@@ -61,6 +61,7 @@
 
     function resetSurveyCreateForm() {
         setSubmitButtonLabel('Сохранить');
+        window.SurveyAdminValidation?.clearAll(document.getElementById('surveyEditorModal'));
         organizations.setSelected([]);
         organizations.resetAvailable();
         ['surveyTitle', 'surveyDescription', 'startDate', 'endDate'].forEach((id) => {
@@ -111,42 +112,65 @@
 
     function validateForm() {
         let isValid = true;
-        ['surveyTitle', 'startDate', 'endDate'].forEach((id) => {
+        const errors = [];
+        const requiredFields = [
+            { id: 'surveyTitle', message: 'Введите название анкеты.' },
+            { id: 'startDate', message: 'Укажите дату начала.' },
+            { id: 'endDate', message: 'Укажите дату конца.' }
+        ];
+        requiredFields.forEach(({ id, message }) => {
             const field = safeGetElement(id);
-            if (!field?.value.trim()) {
-                field?.classList.add('invalid');
-                isValid = false;
-            } else {
-                field.classList.remove('invalid');
+            if (field?.value.trim()) {
+                window.SurveyAdminValidation?.clearFieldError(field);
+                return;
             }
+            window.SurveyAdminValidation?.setFieldError(field, message);
+            errors.push(message);
+            isValid = false;
         });
         safeGetElement('surveyDescription')?.classList.remove('invalid');
         const startDate = window.AppDate?.getInputIso('startDate') || '';
         const endDate = window.AppDate?.getInputIso('endDate') || '';
-        if ((safeGetValue('startDate') && !startDate) || (safeGetValue('endDate') && !endDate)) {
-            showError('Ошибка', 'Используйте формат даты ДД.ММ.ГГГГ.');
+        if (safeGetValue('startDate') && !startDate) {
+            const message = 'Введите дату начала в формате ДД.ММ.ГГГГ.';
+            window.SurveyAdminValidation?.setFieldError(safeGetElement('startDate'), message);
+            errors.push(message);
+            isValid = false;
+        }
+        if (safeGetValue('endDate') && !endDate) {
+            const message = 'Введите дату конца в формате ДД.ММ.ГГГГ.';
+            window.SurveyAdminValidation?.setFieldError(safeGetElement('endDate'), message);
+            errors.push(message);
             isValid = false;
         } else if (endDate && window.AppDate?.compare(endDate, window.AppDate.todayIso()) < 0) {
-            safeGetElement('endDate')?.classList.add('invalid');
-            showError('Ошибка', 'Дата конца не может быть раньше сегодняшней даты.');
+            const message = 'Дата конца не может быть раньше сегодняшней даты.';
+            window.SurveyAdminValidation?.setFieldError(safeGetElement('endDate'), message);
+            errors.push(message);
             isValid = false;
         } else if (startDate && endDate && window.AppDate?.compare(endDate, startDate) <= 0) {
-            safeGetElement('endDate')?.classList.add('invalid');
-            showError('Ошибка', 'Дата конца должна быть позже даты начала.');
+            const message = 'Дата конца должна быть позже даты начала.';
+            window.SurveyAdminValidation?.setFieldError(safeGetElement('endDate'), message);
+            errors.push(message);
             isValid = false;
         }
+        const organizationField = getElementByRole('selected-organizations-container');
         if (organizations.getSelected().length === 0) {
-            const organizationField = getElementByRole('selected-organizations-container');
-            organizationField?.setAttribute('aria-invalid', 'true');
-            organizationField?.classList.add('invalid');
-            showError('Ошибка', 'Выберите хотя бы одну организацию.');
+            const message = 'Выберите хотя бы одну организацию.';
+            window.SurveyAdminValidation?.setFieldError(organizationField, message);
+            errors.push(message);
             isValid = false;
         } else {
-            const organizationField = getElementByRole('selected-organizations-container');
-            organizationField?.setAttribute('aria-invalid', 'false');
-            organizationField?.classList.remove('invalid');
+            window.SurveyAdminValidation?.clearFieldError(organizationField);
         }
-        return criteria.validate() && isValid;
+        const criteriaValid = criteria.validate();
+        if (!criteriaValid) {
+            errors.push(criteria.getValidationMessage() || 'Заполните критерии оценки.');
+        }
+        if (errors.length > 0) {
+            const uniqueErrors = [...new Set(errors)];
+            showError('Проверьте поля', uniqueErrors.join(' • '));
+        }
+        return criteriaValid && isValid;
     }
 
     function addSurvey() {
@@ -170,15 +194,15 @@
         })
             .then((response) => response.ok
                 ? response.json()
-                : response.json().then((error) => Promise.reject(new Error(error.message || 'Ошибка сервера.'))))
+                : response.json().then((error) => Promise.reject(new Error(error.message || 'Не удалось создать анкету.'))))
             .then((result) => {
                 if (!result.success) throw new Error(result.message || 'Не удалось создать анкету.');
                 if (typeof window.handleSurveyCreateSuccess === 'function') {
                     window.handleSurveyCreateSuccess(result);
                 } else if (typeof window.handleAdminMutationSuccess === 'function') {
-                    window.handleAdminMutationSuccess({ message: result.message || 'Анкета успешно создана', tabName: 'get_surveys', fallbackUrl: '/survey' });
+                    window.handleAdminMutationSuccess({ message: result.message || 'Анкета успешно создана.', tabName: 'get_surveys', fallbackUrl: '/survey' });
                 } else {
-                    showSuccess('Успех', 'Анкета успешно создана');
+                    showSuccess('Успех', 'Анкета успешно создана.');
                     window.setTimeout(() => window.location.reload(), 2000);
                 }
             })

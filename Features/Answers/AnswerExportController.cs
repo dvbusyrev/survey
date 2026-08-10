@@ -34,7 +34,7 @@ public class AnswerExportController : Controller
             var result = await _answerService.CreatePdfReportAsync(idSurvey, idOrganization, cancellationToken);
             if (result == null)
             {
-                return NotFound("Ответы не найдены");
+                return NotFound("Ответы не найдены.");
             }
 
             return File(result.Content, result.ContentType, result.FileName);
@@ -62,7 +62,7 @@ public class AnswerExportController : Controller
             var result = await _answerService.CreateSignedArchiveAsync(idSurvey, idOrganization, cancellationToken);
             if (result == null)
             {
-                return NotFound("Ответы не найдены");
+                return NotFound("Ответы не найдены.");
             }
 
             return File(result.Content, result.ContentType, result.FileName);
@@ -91,7 +91,7 @@ public class AnswerExportController : Controller
             var result = await _answerService.CreateSurveyReportAsync(idSurvey, idOrganization, type, cancellationToken);
             if (result == null)
             {
-                return NotFound("Не удалось создать отчет");
+                return NotFound("Не удалось сформировать отчёт.");
             }
 
             return File(result.Content, result.ContentType, result.FileName);

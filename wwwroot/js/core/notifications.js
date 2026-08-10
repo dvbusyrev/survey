@@ -185,7 +185,7 @@
         }
     }
 
-    function normalizeClientErrorMessage(message, fallbackMessage = 'Произошла ошибка.') {
+    function normalizeClientErrorMessage(message, fallbackMessage = 'Не удалось выполнить операцию.') {
         const normalizedMessage = normalizeMessage(message).trim();
         if (!normalizedMessage) {
             return fallbackMessage;
@@ -219,7 +219,7 @@
         }
 
         if (/(cannot read propert|cannot set propert|is not a function|undefined is not an object|null is not an object|script error)/i.test(normalizedMessage)) {
-            return 'Произошла ошибка интерфейса.';
+            return 'Не удалось выполнить операцию в интерфейсе.';
         }
 
         if (/(23505|duplicate key value|unique constraint|повторяющееся значение ключа)/i.test(normalizedMessage)) {

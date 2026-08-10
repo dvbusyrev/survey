@@ -375,7 +375,7 @@ public sealed class WorkflowHttpTests
             {
                 Success = username == "smoke-admin" && password == "SmokePass1!",
                 StatusCode = username == "smoke-admin" && password == "SmokePass1!" ? 200 : 401,
-                ErrorMessage = "Неверное имя пользователя или пароль",
+                ErrorMessage = "Неверный логин или пароль.",
                 UserId = 1,
                 Role = AppRoles.Admin,
                 UserName = "Smoke admin",

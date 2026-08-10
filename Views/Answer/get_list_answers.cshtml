@@ -67,7 +67,7 @@
             @if (!pageModel.Answers.Any())
             {
                 <tr>
-                    <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
+                    <td colspan="5" class="table-empty-cell">Результаты не найдены.</td>
                 </tr>
             }
             else
@@ -75,7 +75,7 @@
                 <tr id="none_result"
                     data-role="survey-filter-empty-row"
                     class="is-hidden">
-                    <td colspan="5" class="table-empty-cell">Результаты не найдены!</td>
+                    <td colspan="5" class="table-empty-cell">Результаты не найдены.</td>
                 </tr>
 
                 foreach (var answer in pageModel.Answers)

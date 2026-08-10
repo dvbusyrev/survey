@@ -9,11 +9,13 @@ using MainProject.Infrastructure.Persistence;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
 using Microsoft.AspNetCore.Identity;
+using Npgsql;
 
 namespace MainProject.Application.UseCases.Admin;
 
 public sealed class UserManagementService
 {
+    private const string DuplicateLoginMessage = "Пользователь с таким логином существует.";
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly IClock _clock;
     private static readonly PasswordHasher<string> PasswordHasher = new();
@@ -112,22 +114,35 @@ public sealed class UserManagementService
             };
         }
 
-        var affectedRows = await CreateAsync(new UserWriteModel(
-            organizationId,
-            request.Username.Trim(),
-            request.FullName.Trim(),
-            normalizedRole,
-            PasswordHasher.HashPassword(request.Username.Trim(), request.Password),
-            string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-            dateBegin,
-            dateEnd), cancellationToken);
+        int affectedRows;
+        try
+        {
+            affectedRows = await CreateAsync(new UserWriteModel(
+                organizationId,
+                request.Username.Trim(),
+                request.FullName.Trim(),
+                normalizedRole,
+                PasswordHasher.HashPassword(request.Username.Trim(), request.Password),
+                string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                dateBegin,
+                dateEnd), cancellationToken);
+        }
+        catch (PostgresException ex) when (IsDuplicateLoginViolation(ex))
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = DuplicateLoginMessage,
+                Error = DuplicateLoginMessage
+            };
+        }
 
         return new OperationResult
         {
             Success = affectedRows > 0,
             Message = affectedRows > 0
-                ? $"Добавлен Клиент: {request.Username.Trim()}"
-                : "Не удалось добавить запись в БД"
+                ? "Пользователь успешно добавлен."
+                : "Не удалось создать пользователя."
         };
     }
 
@@ -143,22 +158,35 @@ public sealed class UserManagementService
             };
         }
 
-        var affectedRows = await UpdateAsync(id, new UserWriteModel(
-            organizationId,
-            request.Username.Trim(),
-            request.FullName.Trim(),
-            normalizedRole,
-            passwordHash,
-            string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-            dateBegin,
-            dateEnd), cancellationToken);
+        int affectedRows;
+        try
+        {
+            affectedRows = await UpdateAsync(id, new UserWriteModel(
+                organizationId,
+                request.Username.Trim(),
+                request.FullName.Trim(),
+                normalizedRole,
+                passwordHash,
+                string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                dateBegin,
+                dateEnd), cancellationToken);
+        }
+        catch (PostgresException ex) when (IsDuplicateLoginViolation(ex))
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = DuplicateLoginMessage,
+                Error = DuplicateLoginMessage
+            };
+        }
 
         return new OperationResult
         {
             Success = affectedRows > 0,
             Message = affectedRows > 0
-                ? "Данные пользователя успешно обновлены"
-                : "Клиент не найден или данные не изменились"
+                ? "Данные пользователя успешно обновлены."
+                : "Пользователь не найден или данные не изменились."
         };
     }
 
@@ -170,7 +198,7 @@ public sealed class UserManagementService
             return new OperationResult
             {
                 Success = false,
-                Message = "Пользователь с указанным ID не найден."
+                Message = "Пользователь не найден."
             };
         }
 
@@ -190,8 +218,8 @@ public sealed class UserManagementService
         {
             Success = result.Deleted,
             Message = result.Deleted
-                ? "Пользователь успешно удален"
-                : "Пользователь с указанным ID не найден."
+                ? "Пользователь успешно удалён."
+                : "Пользователь не найден."
         };
     }
 
@@ -454,37 +482,37 @@ public sealed class UserManagementService
 
         if (!TryParseOrganizationId(request.OrganizationId, out organizationId))
         {
-            validationError = "Не указана корректная организация.";
+            validationError = "Выберите организацию.";
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(request.Username))
         {
-            validationError = "Логин обязателен.";
+            validationError = "Введите логин.";
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(request.FullName))
         {
-            validationError = "ФИО обязательно";
+            validationError = "Введите ФИО.";
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(request.Role))
         {
-            validationError = "Роль обязательна.";
+            validationError = "Выберите роль.";
             return false;
         }
 
         if (!AppRoles.IsSupported(normalizedRole))
         {
-            validationError = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}";
+            validationError = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}.";
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(request.DateBegin))
         {
-            validationError = "Дата начала обязательна.";
+            validationError = "Укажите дату начала.";
             return false;
         }
 
@@ -535,7 +563,7 @@ public sealed class UserManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = "Не указана корректная организация.";
+            validationError = "Выберите организацию.";
             return false;
         }
 
@@ -543,7 +571,7 @@ public sealed class UserManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = "Логин обязателен.";
+            validationError = "Введите логин.";
             return false;
         }
 
@@ -551,7 +579,15 @@ public sealed class UserManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = "ФИО обязательно";
+            validationError = "Введите ФИО.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Role))
+        {
+            dateBegin = null;
+            dateEnd = null;
+            validationError = "Выберите роль.";
             return false;
         }
 
@@ -559,7 +595,7 @@ public sealed class UserManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}";
+            validationError = $"Недопустимая роль. Допустимые значения: {string.Join(", ", AppRoles.SupportedRoles)}.";
             return false;
         }
 
@@ -567,7 +603,7 @@ public sealed class UserManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = "Дата начала обязательна.";
+            validationError = "Укажите дату начала.";
             return false;
         }
 
@@ -686,6 +722,13 @@ public sealed class UserManagementService
         }
 
         return true;
+    }
+
+    private static bool IsDuplicateLoginViolation(PostgresException exception)
+    {
+        return exception.SqlState == PostgresErrorCodes.UniqueViolation
+            && (string.Equals(exception.ConstraintName, "app_user_login_key", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(exception.ConstraintName, "app_user_name_user_key", StringComparison.OrdinalIgnoreCase));
     }
 
     private static string ResolveUserDisplayName(UserDeleteCandidate user)

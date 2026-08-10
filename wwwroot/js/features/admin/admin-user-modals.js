@@ -40,7 +40,7 @@ function ensureUserDetailsModal() {
     }
 
     if (typeof window.createSiteModalFrame !== 'function') {
-        throw new Error('Модуль модальных окон не загружен');
+        throw new Error('Модуль модальных окон не загружен.');
     }
 
     userDetailsFrame = window.createSiteModalFrame({
@@ -81,7 +81,7 @@ function openUserDetailsModalFromRow(row) {
         );
         frame.show();
     } catch (error) {
-        showAdminToast(error.message || 'Не удалось открыть пользователя');
+        showAdminToast(error.message || 'Не удалось открыть данные пользователя.');
     }
 }
 
@@ -99,9 +99,11 @@ function mountUserRowViewer(page) {
 function ensureValidDateInput(target, label, options = {}) {
     const error = window.AppDate?.getInputError?.(target, { label, required: options.required }) || '';
     if (!error) {
+        window.AppValidation?.clearFieldError?.(target);
         return true;
     }
 
+    window.AppValidation?.setFieldError?.(target, error);
     showAdminToast(error);
     window.AppDate?.focusInput?.(target);
     return false;
@@ -109,32 +111,23 @@ function ensureValidDateInput(target, label, options = {}) {
 
 function ensureUserEndDateNotPast(dateEnd, target) {
     if (!dateEnd || (window.AppDate?.compare(dateEnd, window.AppDate.todayIso()) ?? -1) >= 0) {
+        window.AppValidation?.clearFieldError?.(target);
         return true;
     }
 
-    showAdminToast('Дата конца не может быть раньше сегодняшней даты.');
+    const message = 'Дата конца не может быть раньше сегодняшней даты.';
+    window.AppValidation?.setFieldError?.(target, message);
+    showAdminToast(message);
     window.AppDate?.focusInput?.(target);
     return false;
 }
 
 function submitFormAdd() {
-    if (!document.getElementById('username').value){
-        showAdminToast('Введите никнейм пользователя!');
-        return;
-    }
-
-        if (!document.getElementById('password').value){
-        showAdminToast('Введите пароль!');
-        return;
-    }
-
-            if (!document.getElementById('userOrganization').value){
-        showAdminToast('Выберите организацию пользователя!');
-        return;
-    }
-
-                if (!document.getElementById('userRole').value){
-        showAdminToast('Выберите роль пользователя!');
+    const modal = document.getElementById('addUserModal');
+    const validation = window.AppValidation?.validateRequiredFields?.(modal);
+    if (validation && !validation.valid) {
+        window.AppValidation?.notifyErrors?.(validation.errors);
+        window.AppValidation?.focusFirstInvalid?.(validation);
         return;
     }
 
@@ -154,7 +147,9 @@ function submitFormAdd() {
     }
 
     if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
-        showAdminToast('Дата конца не может быть раньше даты начала.');
+        const message = 'Дата конца не может быть раньше даты начала.';
+        window.AppValidation?.setFieldError?.('dateEnd', message);
+        showAdminToast(message);
         return;
     }
 
@@ -180,26 +175,26 @@ function submitFormAdd() {
     .then(response => response.json())
     .then(data => {
         if (!data.success) {
-            showAdminToast(data.message || data.error || 'Не удалось добавить пользователя');
+            showAdminToast(data.message || data.error || 'Не удалось создать пользователя.');
             return;
         }
 
         window.AppUi?.setModalVisibility('addUserModal', false);
         if (typeof window.handleAdminMutationSuccess === 'function') {
             window.handleAdminMutationSuccess({
-                message: data.message || 'Пользователь успешно добавлен',
+                message: data.message || 'Пользователь успешно добавлен.',
                 tabName: 'get_users',
                 fallbackUrl: '/users'
             });
             return;
         }
 
-        window.AppUi?.notify?.(data.message || 'Пользователь успешно добавлен', 'success');
+        window.AppUi?.notify?.(data.message || 'Пользователь успешно добавлен.', 'success');
         navigateAdminTab("get_users", "/users");
     })
     .catch(error => {
         console.error("Ошибка:", error);
-        showAdminToast('Ошибка соединения');
+        showAdminToast('Сервер недоступен.');
     });
 }
 
@@ -223,7 +218,14 @@ async function deleteUser(id, fullName) {
     .then(async response => {
         const responseText = await response.text();
         if (!response.ok) {
-            throw new Error(responseText || 'Ошибка при удалении');
+            let responseMessage = responseText;
+            try {
+                const payload = JSON.parse(responseText);
+                responseMessage = payload?.message || payload?.error || responseMessage;
+            } catch (parseError) {
+                responseMessage = responseText;
+            }
+            throw new Error(responseMessage || 'Не удалось удалить пользователя.');
         }
         return responseText;
     })
@@ -243,7 +245,7 @@ async function deleteUser(id, fullName) {
     })
     .catch(error => {
         console.error("Ошибка:", error);
-        showAdminToast(`Произошла ошибка: ${error.message}`);
+        showAdminToast(error.message || 'Не удалось удалить пользователя.');
     });
 }
 
@@ -252,7 +254,7 @@ function deleteUserFromTrigger(trigger) {
     const fullName = trigger?.dataset?.userFullName || '';
 
     if (!Number.isFinite(id) || id <= 0) {
-        showAdminToast('Не найден идентификатор пользователя');
+        showAdminToast('Не удалось определить пользователя.');
         return;
     }
 
@@ -264,7 +266,7 @@ function deleteUserFromModal() {
     const fullName = document.getElementById('deleteUserName')?.textContent?.trim() || '';
 
     if (!Number.isFinite(id) || id <= 0) {
-        showAdminToast('Не найден идентификатор пользователя');
+        showAdminToast('Не удалось определить пользователя.');
         return;
     }
 
@@ -305,7 +307,7 @@ async function loadOrganizations2(selectedOrgId = null) {
         setSingleOption(orgSelect, '');
 
         const response = await fetch('/organizations/data');
-        if (!response.ok) throw new Error('Не удалось загрузить организации');
+        if (!response.ok) throw new Error('Не удалось загрузить организации.');
 
         const organizations = await response.json();
         orgSelect.innerHTML = '';
@@ -322,7 +324,7 @@ async function loadOrganizations2(selectedOrgId = null) {
 
     } catch (error) {
         console.error('Ошибка загрузки организаций:', error);
-        setSingleOption(orgSelect, 'Ошибка загрузки');
+        setSingleOption(orgSelect, 'Организации недоступны');
     }
 }
 
@@ -339,6 +341,7 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
         const dateEndEl = getSafeElement('editDateEnd');
         const passwordEl = getSafeElement('editPassword');
         const modal = getSafeElement('editUserModal');
+        window.AppValidation?.clearAll?.(modal);
 
         // Заполняем поля
         userId.value = id;
@@ -358,7 +361,7 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
 
     } catch (error) {
         console.error('Ошибка при открытии формы:', error);
-        showAdminToast(`Ошибка: ${error.message}`);
+        showAdminToast(error.message || 'Не удалось открыть редактирование пользователя.');
     }
 }
 
@@ -367,7 +370,7 @@ function openEditUserModalFromTrigger(trigger) {
     const organizationId = Number.parseInt(trigger?.dataset?.userOrganizationId || '', 10);
 
     if (!Number.isFinite(userId) || userId <= 0) {
-        showAdminToast('Не найден идентификатор пользователя');
+        showAdminToast('Не удалось определить пользователя.');
         return;
     }
 
@@ -384,21 +387,12 @@ function openEditUserModalFromTrigger(trigger) {
 
 // Функция обновления пользователя
 async function updateUser() {
-        if (!document.getElementById('editUsername').value)
-    {
-        showAdminToast('Введите никнейм пользователя!');
-        return;
-    }
-
-            if (!document.getElementById('editUserOrganization').value)
-    {
-        showAdminToast('Выберите организацию пользователя!');
-        return;
-    }
-
-            if (!document.getElementById('editUserRole').value)
-    {
-        showAdminToast('Выберите роль пользователя!');
+    const requiredValidation = window.AppValidation?.validateRequiredFields?.(
+        document.getElementById('editUserModal')
+    );
+    if (requiredValidation && !requiredValidation.valid) {
+        window.AppValidation?.notifyErrors?.(requiredValidation.errors);
+        window.AppValidation?.focusFirstInvalid?.(requiredValidation);
         return;
     }
 
@@ -419,11 +413,6 @@ async function updateUser() {
             dateEnd: getSafeElement('editDateEnd')
         };
 
-        // Валидация
-        if (!elements.username.value || !elements.organization.value) {
-            throw new Error('Заполните все обязательные поля');
-        }
-
         const dateBeginIso = window.AppDate?.getInputIso(elements.dateBegin) || '';
         const dateEndIso = window.AppDate?.getInputIso(elements.dateEnd) || '';
 
@@ -440,7 +429,10 @@ async function updateUser() {
         }
 
         if (elements.dateBegin.value && elements.dateEnd.value && (window.AppDate?.compare(dateEndIso, dateBeginIso) ?? -1) < 0) {
-            throw new Error('Дата конца не может быть раньше даты начала.');
+            const message = 'Дата конца не может быть раньше даты начала.';
+            window.AppValidation?.setFieldError?.(elements.dateEnd, message);
+            showAdminToast(message);
+            return;
         }
 
         // Формируем данные
@@ -468,20 +460,20 @@ async function updateUser() {
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(result.message || 'Ошибка сервера');
+            throw new Error(result.message || 'Не удалось обновить пользователя.');
         }
 
         window.AppUi?.setModalVisibility(modal, false);
         if (typeof window.handleAdminMutationSuccess === 'function') {
             await window.handleAdminMutationSuccess({
-                message: result.message || 'Пользователь успешно обновлён',
+                message: result.message || 'Пользователь успешно обновлён.',
                 tabName: 'get_users',
                 fallbackUrl: '/users'
             });
             return;
         }
 
-        window.AppUi?.notify?.('Пользователь успешно обновлён', 'success');
+        window.AppUi?.notify?.('Пользователь успешно обновлён.', 'success');
         navigateAdminTab("get_users", "/users");
 
     } catch (error) {
@@ -489,7 +481,7 @@ async function updateUser() {
         const safeErrorMessage = typeof window.normalizeClientErrorMessage === 'function'
             ? window.normalizeClientErrorMessage(error.message)
             : error.message;
-        showAdminToast(`Ошибка: ${safeErrorMessage}`);
+        showAdminToast(safeErrorMessage);
     }
 }
 

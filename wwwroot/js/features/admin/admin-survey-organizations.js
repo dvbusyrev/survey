@@ -137,8 +137,8 @@
                 .then((response) => {
                     if (!response.ok) {
                         throw new Error(window.getResponseErrorMessage
-                            ? window.getResponseErrorMessage(response, 'Ошибка загрузки организаций')
-                            : `Ошибка загрузки организаций: ${response.status}`);
+                            ? window.getResponseErrorMessage(response, 'Не удалось загрузить организации')
+                            : `Не удалось загрузить организации. Сервер вернул ошибку (${response.status}).`);
                     }
                     return response.json();
                 })
@@ -149,7 +149,7 @@
                 })
                 .catch((error) => {
                     console.error('Ошибка загрузки организаций:', error);
-                    showError('Ошибка', `Не удалось загрузить организации: ${error.message}`);
+                    showError('Ошибка', error.message || 'Не удалось загрузить организации.');
                 })
                 .finally(() => {
                     loading.classList.add('u-hidden');
@@ -180,7 +180,7 @@
                 return;
             }
             container.setAttribute('aria-invalid', 'false');
-            container.classList.remove('invalid');
+            window.SurveyAdminValidation?.clearFieldError(container);
             selected.forEach((organization) => {
                 const item = window.AppUi.createElement('div', {
                     className: 'app-chip survey-editor-page__selected-organization-item',

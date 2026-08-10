@@ -15,20 +15,20 @@
             <section class="app-section app-page__section app-page__stack">
                 <div class="app-field-group">
                     <label for="fullName">ФИО</label>
-                    <input type="text" id="fullName" class="app-field" placeholder="Введите ФИО" required>
+                    <input type="text" id="fullName" class="app-field" placeholder="Введите ФИО" required data-required-message="Введите ФИО.">
                 </div>
                 <div class="app-field-group">
                     <label for="username">Логин</label>
                     <div class="app-field-with-icon">
                         <div class="icon-container field-icon-container"><i class="fas fa-user-group"></i></div>
-                        <input type="text" id="username" class="app-field" placeholder="Введите логин" required>
+                        <input type="text" id="username" class="app-field" placeholder="Введите логин" required data-required-message="Введите логин.">
                     </div>
                 </div>
                 <div class="app-field-group">
                     <label for="password">Пароль</label>
                     <div class="app-field-with-icon has-toggle">
                         <div class="icon-container field-icon-container"><i class="fas fa-lock"></i></div>
-                        <input type="text" id="password" class="app-field is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" placeholder="Введите пароль" required>
+                        <input type="text" id="password" class="app-field is-password-masked" data-password-field="true" data-password-visible="false" autocomplete="new-password" inputmode="text" lang="ru" autocapitalize="none" spellcheck="false" placeholder="Введите пароль" required data-required-message="Введите пароль.">
                         <button type="button" class="password-toggle-btn" aria-label="Показать пароль" title="Показать пароль"></button>
                     </div>
                 </div>
@@ -43,7 +43,7 @@
                     <label for="userOrganization">Организация</label>
                     <div class="app-field-with-icon">
                         <div class="icon-container field-icon-container"><i class="fas fa-building"></i></div>
-                        <select id="userOrganization" class="app-field" required>
+                        <select id="userOrganization" class="app-field" required data-required-message="Выберите организацию.">
                             <option value="" selected disabled>Выберите организацию</option>
                             @foreach (var org in organizations)
                             {
@@ -54,7 +54,7 @@
                 </div>
                 <div class="app-field-group">
                     <label for="userRole">Роль</label>
-                    <select id="userRole" class="app-field" required>
+                    <select id="userRole" class="app-field" required data-required-message="Выберите роль.">
                         <option value="" selected disabled>Выберите роль</option>
                         <option value="user">Клиент</option>
                         <option value="admin">Администратор</option>
@@ -62,7 +62,7 @@
                 </div>
                 <div class="app-field-group">
                     <label for="dateBegin">Дата начала</label>
-                    <input type="date" id="dateBegin" class="app-field" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" required>
+                    <input type="date" id="dateBegin" class="app-field" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" required data-required-message="Укажите дату начала.">
                 </div>
                 <div class="app-field-group">
                     <label for="dateEnd">Дата конца</label>
@@ -89,13 +89,13 @@
                 <input type="hidden" id="editUserId">
                 <div class="app-field-group">
                     <label for="editFullName">ФИО</label>
-                    <input type="text" id="editFullName" class="app-field" placeholder="Введите ФИО" required>
+                    <input type="text" id="editFullName" class="app-field" placeholder="Введите ФИО" required data-required-message="Введите ФИО.">
                 </div>
                 <div class="app-field-group">
                     <label for="editUsername">Логин</label>
                     <div class="app-field-with-icon">
                         <div class="icon-container field-icon-container"><i class="fas fa-user-group"></i></div>
-                        <input type="text" id="editUsername" class="app-field" placeholder="Введите логин" required>
+                        <input type="text" id="editUsername" class="app-field" placeholder="Введите логин" required data-required-message="Введите логин.">
                     </div>
                 </div>
                 <div class="app-field-group">
@@ -117,7 +117,7 @@
                     <label for="editUserOrganization">Организация</label>
                     <div class="app-field-with-icon">
                         <div class="icon-container field-icon-container"><i class="fas fa-building"></i></div>
-                        <select id="editUserOrganization" class="app-field" required>
+                        <select id="editUserOrganization" class="app-field" required data-required-message="Выберите организацию.">
                             <option value="" disabled>Выберите организацию</option>
                             @foreach (var org in organizations)
                             {
@@ -128,7 +128,7 @@
                 </div>
                 <div class="app-field-group">
                     <label for="editUserRole">Роль</label>
-                    <select id="editUserRole" class="app-field" required>
+                    <select id="editUserRole" class="app-field" required data-required-message="Выберите роль.">
                         <option value="" disabled>Выберите роль</option>
                         <option value="user">Клиент</option>
                         <option value="admin">Администратор</option>
@@ -136,7 +136,7 @@
                 </div>
                 <div class="app-field-group">
                     <label for="editDateBegin">Дата начала</label>
-                    <input type="date" id="editDateBegin" class="app-field" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" required>
+                    <input type="date" id="editDateBegin" class="app-field" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" required data-required-message="Укажите дату начала.">
                 </div>
                 <div class="app-field-group">
                     <label for="editDateEnd">Дата конца</label>

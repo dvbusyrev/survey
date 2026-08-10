@@ -166,6 +166,8 @@
                     messageElement.className = '';
                 }
 
+                window.AppValidation?.clearAll?.(modal);
+
                 ['fullName', 'username', 'password', 'email_input', 'dateBegin', 'dateEnd'].forEach(function (id) {
                     const el = document.getElementById(id);
                     if (el) el.value = '';

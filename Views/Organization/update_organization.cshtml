@@ -20,7 +20,7 @@
     <section class="app-section app-page__section app-page__stack">
         <div class="app-field-group">
             <label for="name">Наименование</label>
-            <input type="text" class="app-field" id="name" placeholder="Введите наименование" value="@Model?.OrganizationName" required />
+            <input type="text" class="app-field" id="name" placeholder="Введите наименование" value="@Model?.OrganizationName" required data-required-message="Введите название организации." />
         </div>
         <div class="app-field-group">
             <label for="short_name">Краткое название</label>
@@ -34,7 +34,7 @@
         <div class="app-field-group">
             <label for="date_begin">Дата начала</label>
             <input type="date" class="app-field" id="date_begin" name="date_begin" data-date-native="true" data-date-label="Дата начала" lang="ru-RU"
-                   value="@(Model?.DateBegin?.ToString("yyyy-MM-dd"))" required />
+                   value="@(Model?.DateBegin?.ToString("yyyy-MM-dd"))" required data-required-message="Укажите дату начала." />
         </div>
         <div class="app-field-group">
             <label for="date_end">Дата конца</label>

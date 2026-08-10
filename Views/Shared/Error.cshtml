@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = "Ошибка";
     var message = string.IsNullOrWhiteSpace(Model?.Message)
-        ? "Произошла ошибка при обработке запроса."
+        ? "Не удалось обработать запрос."
         : Model.Message;
 }
 

@@ -30,14 +30,17 @@
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     }
 
-    function setEmailInvalidState(id, isInvalid) {
+    function setEmailInvalidState(id, errorMessage) {
         const element = getEmailField(id);
         if (!element) {
             return;
         }
 
-        element.classList.toggle('invalid', Boolean(isInvalid));
-        element.setAttribute('aria-invalid', isInvalid ? 'true' : 'false');
+        if (errorMessage) {
+            window.AppValidation?.setFieldError?.(element, errorMessage);
+        } else {
+            window.AppValidation?.clearFieldError?.(element);
+        }
     }
 
     function clearEmailInvalidStates() {
@@ -134,24 +137,28 @@
         const recipients = splitEmailRecipients(settings.to);
 
         if (recipients.length === 0) {
-            errors.push('Поле «Кому» должно содержать хотя бы одну эл. почту');
-            setEmailInvalidState('email-to', true);
+            const message = 'Укажите хотя бы одну эл. почту получателя.';
+            errors.push(message);
+            setEmailInvalidState('email-to', message);
         } else {
             const invalidRecipients = recipients.filter((email) => !isValidEmailAddress(email));
             if (invalidRecipients.length > 0) {
-                errors.push(`Поле «Кому» содержит некорректную эл. почту: ${invalidRecipients.join(', ')}`);
-                setEmailInvalidState('email-to', true);
+                const message = `Проверьте эл. почту получателя: ${invalidRecipients.join(', ')}.`;
+                errors.push(message);
+                setEmailInvalidState('email-to', message);
             }
         }
 
         if (!settings.subject) {
-            errors.push('Поле «Тема» обязательно');
-            setEmailInvalidState('email-subject', true);
+            const message = 'Введите тему письма.';
+            errors.push(message);
+            setEmailInvalidState('email-subject', message);
         }
 
         if (!settings.content) {
-            errors.push('Поле «Содержание» обязательно');
-            setEmailInvalidState('email-content', true);
+            const message = 'Введите текст письма.';
+            errors.push(message);
+            setEmailInvalidState('email-content', message);
         }
 
         return errors;
@@ -162,31 +169,37 @@
 
         const errors = [];
         if (!settings.smtpHost) {
-            errors.push('Поле «SMTP сервер» обязательно');
-            setEmailInvalidState('email-smtp-host', true);
+            const message = 'Введите SMTP сервер.';
+            errors.push(message);
+            setEmailInvalidState('email-smtp-host', message);
         }
 
         if (!settings.smtpUserName) {
-            errors.push('Поле «Логин SMTP» обязательно');
-            setEmailInvalidState('email-smtp-user-name', true);
+            const message = 'Введите логин SMTP.';
+            errors.push(message);
+            setEmailInvalidState('email-smtp-user-name', message);
         }
 
         if (!Number.isInteger(settings.smtpPort) || settings.smtpPort < 1 || settings.smtpPort > 65535) {
-            errors.push('Поле «Порт SMTP» должно быть числом от 1 до 65535');
-            setEmailInvalidState('email-smtp-port', true);
+            const message = 'Порт SMTP должен быть числом от 1 до 65535.';
+            errors.push(message);
+            setEmailInvalidState('email-smtp-port', message);
         }
 
         if (!settings.fromAddress) {
-            errors.push('Поле «Эл. почта отправителя» обязательно');
-            setEmailInvalidState('email-from-address', true);
+            const message = 'Введите эл. почту отправителя.';
+            errors.push(message);
+            setEmailInvalidState('email-from-address', message);
         } else if (!isValidEmailAddress(settings.fromAddress)) {
-            errors.push('Поле «Эл. почта отправителя» заполнено некорректно');
-            setEmailInvalidState('email-from-address', true);
+            const message = 'Проверьте эл. почту отправителя.';
+            errors.push(message);
+            setEmailInvalidState('email-from-address', message);
         }
 
         if (!settings.fromDisplayName) {
-            errors.push('Поле «Имя отправителя» обязательно');
-            setEmailInvalidState('email-from-display-name', true);
+            const message = 'Введите имя отправителя.';
+            errors.push(message);
+            setEmailInvalidState('email-from-display-name', message);
         }
 
         return errors;
@@ -194,7 +207,7 @@
 
     async function extractEmailApiErrors(response) {
         const fallbackMessage = typeof window.getResponseErrorMessage === 'function'
-            ? window.getResponseErrorMessage(response, 'Ошибка')
+            ? window.getResponseErrorMessage(response, 'Не удалось выполнить операцию с письмом')
             : 'Не удалось выполнить запрос.';
 
         const responseText = await response.text();

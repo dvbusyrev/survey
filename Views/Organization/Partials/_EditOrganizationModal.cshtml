@@ -9,7 +9,7 @@
                 <input type="hidden" id="editOrganizationId">
                 <div class="app-field-group">
                     <label>Название организации</label>
-                    <input type="text" id="organizationName" class="app-field" placeholder="Введите название организации">
+                    <input type="text" id="organizationName" class="app-field" placeholder="Введите название организации" required data-required-message="Введите название организации.">
                 </div>
                 <div class="app-field-group">
                     <label>Краткое название</label>
@@ -24,7 +24,7 @@
                 </div>
                 <div class="app-field-group">
                     <label>Дата начала</label>
-                    <input type="date" id="organizationDateBegin" class="app-field" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" required>
+                    <input type="date" id="organizationDateBegin" class="app-field" data-date-native="true" data-date-label="Дата начала" lang="ru-RU" required data-required-message="Укажите дату начала.">
                 </div>
                 <div class="app-field-group">
                     <label>Дата конца</label>

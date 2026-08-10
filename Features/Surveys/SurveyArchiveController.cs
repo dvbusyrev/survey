@@ -140,7 +140,7 @@ public class SurveyArchiveController : Controller
             var pageModel = await _surveyService.GetSurveyEditPageAsync(id, cancellationToken);
             if (pageModel == null)
             {
-                return NotFound("Анкета не найдена");
+                return NotFound("Анкета не найдена.");
             }
             return await RenderAdminArchivePageAsync(
                 page,
@@ -201,7 +201,7 @@ public class SurveyArchiveController : Controller
 
         if (pageModel == null)
         {
-            return NotFound(new { error = "Клиент не найден" });
+            return NotFound(new { error = "Пользователь не найден." });
         }
 
         var activePageModel = await _surveyService.GetActiveSurveysPageAsync(
@@ -256,7 +256,7 @@ public class SurveyArchiveController : Controller
 
             if (pageModel == null)
             {
-                return NotFound(new { error = "Клиент не найден" });
+                return NotFound(new { error = "Пользователь не найден." });
             }
 
             if (countOnly)
@@ -340,7 +340,7 @@ public class SurveyArchiveController : Controller
             var id = await _surveyService.CopyArchiveSurveyAsync(request, cancellationToken);
             return Ok(new
             {
-                message = "Анкета успешно добавлена",
+                message = "Анкета успешно добавлена.",
                 id
             });
         }

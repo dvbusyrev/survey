@@ -150,7 +150,7 @@ public partial class AnswerService
             return new SurveyAnswersResponse
             {
                 Success = false,
-                Error = "Анкета не найдена"
+                Error = "Анкета не найдена."
             };
         }
 
@@ -164,7 +164,7 @@ public partial class AnswerService
             return new SurveyAnswersResponse
             {
                 Success = false,
-                Error = "Ответы не найдены"
+                Error = "Ответы не найдены."
             };
         }
 
@@ -243,7 +243,7 @@ public partial class AnswerService
                 IsSigned = true,
                 IsValid = null,
                 Status = "Проверка недоступна",
-                ValidationMessage = $"Подпись сохранена, но её не удалось разобрать: {NormalizeExceptionMessage(exception)}"
+                ValidationMessage = "Подпись сохранена, но проверить её не удалось."
             };
         }
 
@@ -314,15 +314,15 @@ public partial class AnswerService
         }
         catch (Exception exception) when (IsUnsupportedSignatureVerification(exception))
         {
-            return (null, "Проверка недоступна", NormalizeExceptionMessage(exception));
+            return (null, "Проверка недоступна", "Алгоритм проверки подписи не поддерживается.");
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
-            return (null, "Проверка недоступна", NormalizeExceptionMessage(exception));
+            return (null, "Проверка недоступна", "Проверить подпись не удалось.");
         }
-        catch (CryptographicException exception)
+        catch (CryptographicException)
         {
-            return (false, "Подпись некорректна", NormalizeExceptionMessage(exception));
+            return (false, "Подпись некорректна", "Подпись не соответствует сохранённому содержимому.");
         }
     }
 
@@ -393,13 +393,6 @@ public partial class AnswerService
     private static string FormatCertificateDate(DateTime? value)
     {
         return value?.ToString("dd.MM.yyyy", CultureInfo.GetCultureInfo("ru-RU")) ?? string.Empty;
-    }
-
-    private static string NormalizeExceptionMessage(Exception exception)
-    {
-        return string.IsNullOrWhiteSpace(exception.Message)
-            ? "причина не указана"
-            : exception.Message.Trim();
     }
 
     private async Task<CheckAnswersPageViewModel?> BuildCheckAnswersPageAsync(
@@ -494,12 +487,12 @@ public partial class AnswerService
     {
         if (answerRecord.IdSurvey <= 0)
         {
-            return CreateValidationFailure("Неверный идентификатор анкеты.");
+            return CreateValidationFailure("Некорректный идентификатор анкеты.");
         }
 
         if (answerRecord.OrganizationId <= 0)
         {
-            return CreateValidationFailure("Неверный идентификатор организации.");
+            return CreateValidationFailure("Некорректный идентификатор организации.");
         }
 
         var survey = await GetSurveyInfoAsync(answerRecord.IdSurvey, cancellationToken);
@@ -569,12 +562,12 @@ public partial class AnswerService
     {
         if (answerRecord.IdSurvey <= 0)
         {
-            return CreateValidationFailure("Неверный идентификатор анкеты.");
+            return CreateValidationFailure("Некорректный идентификатор анкеты.");
         }
 
         if (answerRecord.OrganizationId <= 0)
         {
-            return CreateValidationFailure("Неверный идентификатор организации.");
+            return CreateValidationFailure("Некорректный идентификатор организации.");
         }
 
         var survey = await GetSurveyInfoAsync(answerRecord.IdSurvey, cancellationToken);

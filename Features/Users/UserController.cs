@@ -60,7 +60,7 @@ public class UserController : Controller
             var user = await _userManagementService.GetUserByIdAsync(id, cancellationToken);
             if (user == null)
             {
-                return NotFound("Клиент не найден.");
+                return NotFound("Пользователь не найден.");
             }
 
             return View("update_user", user);

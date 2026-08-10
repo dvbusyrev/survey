@@ -146,7 +146,7 @@ public class OrganizationManagementService
         return new OperationResult
         {
             Success = true,
-            Message = "Организация успешно создана",
+            Message = "Организация успешно создана.",
             EntityId = organizationId,
             ShouldReload = true
         };
@@ -170,7 +170,7 @@ public class OrganizationManagementService
         {
             Success = affectedRows > 0,
             Message = affectedRows > 0
-                ? "Организация успешно обновлена"
+                ? "Организация успешно обновлена."
                 : "Организация не найдена."
         };
     }
@@ -183,7 +183,7 @@ public class OrganizationManagementService
             return new OperationResult
             {
                 Success = false,
-                Message = "Произошла ошибка при удалении организации."
+                Message = "Организация не найдена."
             };
         }
 
@@ -204,8 +204,8 @@ public class OrganizationManagementService
         {
             Success = result.Archived,
             Message = result.Archived
-                ? "Организация успешно удалена"
-                : "Произошла ошибка при удалении организации."
+                ? "Организация успешно удалена."
+                : "Организация не найдена."
         };
     }
 
@@ -269,13 +269,13 @@ public class OrganizationManagementService
                 };
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return new OrganizationSurveyEndDateUpdateResult
             {
                 Success = false,
                 Message = "Не удалось обновить дату конца анкет.",
-                Error = ex.Message
+                Error = "Не удалось обновить дату конца анкет."
             };
         }
 
@@ -771,7 +771,7 @@ public class OrganizationManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = "Название организации обязательно для заполнения.";
+            validationError = "Введите название организации.";
             return false;
         }
 
@@ -779,7 +779,7 @@ public class OrganizationManagementService
         {
             dateBegin = null;
             dateEnd = null;
-            validationError = "Дата начала обязательна.";
+            validationError = "Укажите дату начала.";
             return false;
         }
 

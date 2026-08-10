@@ -89,7 +89,7 @@ public sealed class EmailTemplateService
 
         if (string.IsNullOrWhiteSpace(normalized.SmtpPassword))
         {
-            throw new EmailTemplateValidationException(["Поле \"Новый пароль\" обязательно, если пароль ещё не сохранён"]);
+            throw new EmailTemplateValidationException(["Введите новый пароль: сохранённый пароль отсутствует."]);
         }
 
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -194,7 +194,7 @@ public sealed class EmailTemplateService
     {
         if (settings == null)
         {
-            throw new EmailTemplateValidationException(["Параметры письма не переданы"]);
+            throw new EmailTemplateValidationException(["Параметры письма не переданы."]);
         }
 
         var normalized = new EmailMessageSettings
@@ -208,25 +208,25 @@ public sealed class EmailTemplateService
         var recipients = EmailAddressParser.Split(normalized.To);
         if (recipients.Count == 0)
         {
-            errors.Add("Поле \"Кому\" должно содержать хотя бы одну эл. почту");
+            errors.Add("Укажите хотя бы одну эл. почту получателя.");
         }
         else
         {
             var invalidRecipients = recipients.Where(static email => !EmailAddressParser.IsValid(email)).ToArray();
             if (invalidRecipients.Length > 0)
             {
-                errors.Add($"Поле \"Кому\" содержит некорректную эл. почту: {string.Join(", ", invalidRecipients)}");
+                errors.Add($"Проверьте эл. почту получателя: {string.Join(", ", invalidRecipients)}.");
             }
         }
 
         if (string.IsNullOrWhiteSpace(normalized.Subject))
         {
-            errors.Add("Поле \"Тема\" обязательно");
+            errors.Add("Введите тему письма.");
         }
 
         if (string.IsNullOrWhiteSpace(normalized.Content))
         {
-            errors.Add("Поле \"Содержание\" обязательно");
+            errors.Add("Введите текст письма.");
         }
 
         ThrowIfInvalid(errors);
@@ -239,7 +239,7 @@ public sealed class EmailTemplateService
     {
         if (settings == null)
         {
-            throw new EmailTemplateValidationException(["Настройки отправителя не переданы"]);
+            throw new EmailTemplateValidationException(["Настройки отправителя не переданы."]);
         }
 
         var normalized = new EmailSenderSettings
@@ -256,36 +256,36 @@ public sealed class EmailTemplateService
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(normalized.SmtpHost))
         {
-            errors.Add("Поле \"SMTP сервер\" обязательно");
+            errors.Add("Введите SMTP сервер.");
         }
 
         if (normalized.SmtpPort < 1 || normalized.SmtpPort > 65535)
         {
-            errors.Add("Поле \"Порт SMTP\" должно быть числом от 1 до 65535");
+            errors.Add("Порт SMTP должен быть числом от 1 до 65535.");
         }
 
         if (string.IsNullOrWhiteSpace(normalized.FromAddress))
         {
-            errors.Add("Поле \"Эл. почта отправителя\" обязательно");
+            errors.Add("Введите эл. почту отправителя.");
         }
         else if (!EmailAddressParser.IsValid(normalized.FromAddress))
         {
-            errors.Add("Поле \"Эл. почта отправителя\" заполнено некорректно");
+            errors.Add("Проверьте эл. почту отправителя.");
         }
 
         if (string.IsNullOrWhiteSpace(normalized.SmtpUserName))
         {
-            errors.Add("Поле \"Логин SMTP\" обязательно");
+            errors.Add("Введите логин SMTP.");
         }
 
         if (requirePassword && string.IsNullOrWhiteSpace(normalized.SmtpPassword))
         {
-            errors.Add("Поле \"Пароль SMTP\" обязательно");
+            errors.Add("Введите пароль SMTP.");
         }
 
         if (string.IsNullOrWhiteSpace(normalized.FromDisplayName))
         {
-            errors.Add("Поле \"Имя отправителя\" обязательно");
+            errors.Add("Введите имя отправителя.");
         }
 
         ThrowIfInvalid(errors);

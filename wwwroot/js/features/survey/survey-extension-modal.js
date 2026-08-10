@@ -53,14 +53,6 @@
             return `${year}-${month}-${day}`;
         })();
 
-        const isFormValid = () => {
-            return Boolean(
-                extension.organizationIds.length > 0
-                && extension.extendedUntil
-                && window.AppDate?.compare(extension.extendedUntil, today) > 0
-            );
-        };
-
         const handleChange = (field, value) => {
             extension = {
                 ...extension,
@@ -91,13 +83,35 @@
         };
 
         const handleSubmit = async () => {
-            if (extension.organizationIds.length === 0 || !extension.extendedUntil) {
-                window.AppUi?.notify?.('Пожалуйста, заполните все поля.', 'error');
+            const organizationField = host.querySelector('.admin-extension-selected-organizations');
+            const dateInput = host.querySelector('[data-role="date-input"]');
+            const errors = [];
+
+            if (extension.organizationIds.length === 0) {
+                const message = 'Выберите хотя бы одну организацию.';
+                window.AppValidation?.setFieldError?.(organizationField, message);
+                errors.push(message);
+            } else {
+                window.AppValidation?.clearFieldError?.(organizationField);
+            }
+
+            if (!extension.extendedUntil) {
+                const message = 'Укажите дату конца.';
+                window.AppValidation?.setFieldError?.(dateInput, message);
+                errors.push(message);
+            } else {
+                window.AppValidation?.clearFieldError?.(dateInput);
+            }
+
+            if (errors.length > 0) {
+                window.AppValidation?.notifyErrors?.(errors);
                 return;
             }
 
             if ((window.AppDate?.compare(extension.extendedUntil, today) ?? -1) <= 0) {
-                window.AppUi?.notify?.('Дата конца должна быть в будущем.', 'error');
+                const message = 'Дата конца должна быть в будущем.';
+                window.AppValidation?.setFieldError?.(dateInput, message);
+                window.AppValidation?.notifyErrors?.([message]);
                 return;
             }
 
@@ -136,15 +150,15 @@
                         || responseData?.message
                         || responseText
                         || (window.getResponseErrorMessage
-                            ? window.getResponseErrorMessage(response, 'Ошибка продления')
-                            : `Ошибка продления: ${response.status}`)
+                            ? window.getResponseErrorMessage(response, 'Не удалось продлить доступ')
+                            : `Не удалось продлить доступ. Сервер вернул ошибку (${response.status}).`)
                     );
                 }
 
                 closeModal();
                 if (typeof window.handleAdminMutationSuccess === 'function') {
                     await window.handleAdminMutationSuccess({
-                        message: responseData.message || 'Доступ успешно продлён',
+                        message: responseData.message || 'Доступ успешно продлён.',
                         tabName: typeof window.resolveCurrentAdminTab === 'function'
                             ? window.resolveCurrentAdminTab()
                             : 'get_surveys',
@@ -153,7 +167,7 @@
                     return;
                 }
 
-                window.AppUi?.notify?.(responseData.message || 'Доступ успешно продлён', 'success');
+                window.AppUi?.notify?.(responseData.message || 'Доступ успешно продлён.', 'success');
                 window.location.reload();
             } catch (submitError) {
                 console.error('Ошибка продления анкеты:', submitError);
@@ -206,10 +220,15 @@
                 const organizationDropdown = row.querySelector('[data-role="organization-dropdown"]');
                 const organizationTrigger = row.querySelector('[data-role="organization-trigger"]');
                 const organizationSelection = row.querySelector('[data-role="organization-selection"]');
+                const organizationField = row.querySelector('.admin-extension-selected-organizations');
                 const organizationPanel = row.querySelector('[data-role="organization-panel"]');
                 const organizationOptions = row.querySelector('[data-role="organization-options"]');
                 const dateInput = row.querySelector('[data-role="date-input"]');
                 const selectedOrganizationIds = new Set(extension.organizationIds);
+
+                if (organizationField) {
+                    organizationField.dataset.value = extension.organizationIds.join(',');
+                }
 
                 if (organizationSelection) {
                     const selectedOrganizations = organizations.filter((organization) => (
@@ -299,7 +318,7 @@
             }
 
             if (submitButton) {
-                submitButton.disabled = !isFormValid() || loading;
+                submitButton.disabled = loading;
                 submitButton.textContent = loading ? 'Обработка...' : 'Продлить доступ';
                 submitButton.onclick = handleSubmit;
             }
@@ -328,7 +347,7 @@
                     throw new Error(
                         window.getResponseErrorMessage
                             ? window.getResponseErrorMessage(response, 'Не удалось загрузить организации')
-                            : `Не удалось загрузить организации: ${response.status}`
+                            : `Не удалось загрузить организации. Сервер вернул ошибку (${response.status}).`
                     );
                 }
 
@@ -348,7 +367,7 @@
                     return;
                 }
                 console.error('Ошибка загрузки организаций:', fetchError);
-                error = fetchError.message || 'Не удалось загрузить список организаций';
+                error = fetchError.message || 'Не удалось загрузить список организаций.';
                 window.AppUi.notify(error, 'error', { title: 'Ошибка' });
             } finally {
                 if (disposed || request.signal.aborted) {

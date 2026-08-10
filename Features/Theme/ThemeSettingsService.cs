@@ -200,7 +200,7 @@ public class ThemeSettingsService
     {
         if (settings == null)
         {
-            throw new ThemeSettingsValidationException(["Параметры темы не переданы"]);
+            throw new ThemeSettingsValidationException(["Параметры темы не переданы."]);
         }
 
         var normalized = new ThemeSettings
@@ -249,7 +249,7 @@ public class ThemeSettingsService
     {
         if (!HexColorRegex.IsMatch(value))
         {
-            errors.Add($"Поле «{fieldName}» заполнено некорректно");
+            errors.Add($"Проверьте значение поля «{fieldName}».");
         }
     }
 

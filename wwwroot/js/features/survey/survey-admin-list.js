@@ -391,7 +391,7 @@
     }
 
     function handleSurveyCreateSuccess(result) {
-        window.AppUi?.notify?.(result?.message || 'Анкета успешно создана', 'success');
+        window.AppUi?.notify?.(result?.message || 'Анкета успешно создана.', 'success');
         closeSurveyEditorModal();
         if (!refreshSurveyListPreservingScroll()) {
             window.location.assign('/survey');
@@ -399,7 +399,7 @@
     }
 
     function handleSurveyUpdateSuccess(result) {
-        window.AppUi?.notify?.(result?.message || 'Анкета успешно обновлена', 'success');
+        window.AppUi?.notify?.(result?.message || 'Анкета успешно обновлена.', 'success');
         closeSurveyEditorModal();
         if (!refreshSurveyListPreservingScroll()) {
             window.location.assign('/survey');
@@ -548,7 +548,7 @@
             throw new Error(
                 window.getResponseErrorMessage
                     ? window.getResponseErrorMessage(response, 'Не удалось загрузить прохождение')
-                    : `Не удалось загрузить прохождение: ${response.status}`
+                    : `Не удалось загрузить прохождение. Сервер вернул ошибку (${response.status}).`
             );
         }
 
@@ -691,7 +691,7 @@
             const target = resolveSurveyListTarget();
             if (typeof window.handleAdminMutationSuccess === 'function') {
                 await window.handleAdminMutationSuccess({
-                    message: payload?.message || 'Анкета успешно удалена',
+                    message: payload?.message || 'Анкета успешно удалена.',
                     tabName: target.tabName,
                     fallbackUrl: target.fallbackUrl
                 });

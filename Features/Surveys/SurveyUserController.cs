@@ -163,7 +163,7 @@ public class SurveyUserController : Controller
                 id, page ?? 1, searchTerm, cancellationToken);
             if (pageModel == null)
             {
-                return NotFound(new { error = "Клиент не найден" });
+                return NotFound(new { error = "Пользователь не найден." });
             }
 
             var activeContentModel = BuildActiveContentModel(pageModel, archivedCount: 0);

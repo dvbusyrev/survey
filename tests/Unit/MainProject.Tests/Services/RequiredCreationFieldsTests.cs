@@ -20,7 +20,7 @@ public sealed class RequiredCreationFieldsTests
         var result = await service.CreateUserAsync(CreateUserRequest(role: string.Empty));
 
         Assert.False(result.Success);
-        Assert.Equal("Роль обязательна.", result.Message);
+        Assert.Equal("Выберите роль.", result.Message);
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public sealed class RequiredCreationFieldsTests
         var result = await service.CreateUserAsync(CreateUserRequest(dateBegin: null));
 
         Assert.False(result.Success);
-        Assert.Equal("Дата начала обязательна.", result.Message);
+        Assert.Equal("Укажите дату начала.", result.Message);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class RequiredCreationFieldsTests
         var result = await service.CreateUserAsync(CreateUserRequest(organizationId: string.Empty));
 
         Assert.False(result.Success);
-        Assert.Equal("Не указана корректная организация.", result.Message);
+        Assert.Equal("Выберите организацию.", result.Message);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class RequiredCreationFieldsTests
         });
 
         Assert.False(result.Success);
-        Assert.Equal("Не указана корректная организация.", result.Message);
+        Assert.Equal("Выберите организацию.", result.Message);
     }
 
     [Fact]
@@ -76,7 +76,25 @@ public sealed class RequiredCreationFieldsTests
         });
 
         Assert.False(result.Success);
-        Assert.Equal("Дата начала обязательна.", result.Message);
+        Assert.Equal("Укажите дату начала.", result.Message);
+    }
+
+    [Fact]
+    public async Task UpdateUser_RejectsMissingRole()
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateUserAsync(1, new UserUpdateRequest
+        {
+            Username = "test-user",
+            FullName = "Тестовый пользователь",
+            OrganizationId = "1",
+            Role = string.Empty,
+            DateBegin = "2026-08-10"
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("Выберите роль.", result.Message);
     }
 
     [Fact]
@@ -126,7 +144,72 @@ public sealed class RequiredCreationFieldsTests
         });
 
         Assert.False(result.Success);
-        Assert.Equal("Выберите хотя бы одну организацию", result.Message);
+        Assert.Equal("Выберите хотя бы одну организацию.", result.Message);
+    }
+
+    [Fact]
+    public async Task CreateSurvey_RejectsMissingTitle()
+    {
+        var service = CreateSurveyService();
+        var request = ValidSurveyRequest();
+        request.Title = string.Empty;
+
+        var result = await service.CreateSurveyAsync(request);
+
+        Assert.False(result.Success);
+        Assert.Equal("Введите название анкеты.", result.Message);
+    }
+
+    [Fact]
+    public async Task CreateSurvey_RejectsMissingStartDate()
+    {
+        var service = CreateSurveyService();
+        var request = ValidSurveyRequest();
+        request.StartDate = string.Empty;
+
+        var result = await service.CreateSurveyAsync(request);
+
+        Assert.False(result.Success);
+        Assert.Equal("Укажите дату начала.", result.Message);
+    }
+
+    [Fact]
+    public async Task CreateSurvey_RejectsMissingEndDate()
+    {
+        var service = CreateSurveyService();
+        var request = ValidSurveyRequest();
+        request.EndDate = string.Empty;
+
+        var result = await service.CreateSurveyAsync(request);
+
+        Assert.False(result.Success);
+        Assert.Equal("Укажите дату конца.", result.Message);
+    }
+
+    [Fact]
+    public async Task CreateSurvey_RejectsMissingCriteria()
+    {
+        var service = CreateSurveyService();
+        var request = ValidSurveyRequest();
+        request.Criteria = [];
+
+        var result = await service.CreateSurveyAsync(request);
+
+        Assert.False(result.Success);
+        Assert.Equal("Добавьте хотя бы один критерий оценки.", result.Message);
+    }
+
+    [Fact]
+    public async Task CreateSurvey_RejectsBlankAddedCriterion()
+    {
+        var service = CreateSurveyService();
+        var request = ValidSurveyRequest();
+        request.Criteria = ["Критерий", ""];
+
+        var result = await service.CreateSurveyAsync(request);
+
+        Assert.False(result.Success);
+        Assert.Equal("Заполните все критерии оценки или удалите пустые поля.", result.Message);
     }
 
     [Fact]
@@ -177,7 +260,7 @@ public sealed class RequiredCreationFieldsTests
         });
 
         Assert.False(result.Success);
-        Assert.Equal("Выберите хотя бы одну организацию", result.Message);
+        Assert.Equal("Выберите хотя бы одну организацию.", result.Message);
     }
 
     [Fact]
@@ -210,7 +293,7 @@ public sealed class RequiredCreationFieldsTests
         });
 
         Assert.False(result.Success);
-        Assert.Equal("Необходимо предоставить данные для продления", result.Message);
+        Assert.Equal("Выберите хотя бы одну организацию для продления.", result.Message);
     }
 
     [Fact]
@@ -225,7 +308,7 @@ public sealed class RequiredCreationFieldsTests
         });
 
         Assert.False(result.Success);
-        Assert.Equal("Дата начала обязательна.", result.Message);
+        Assert.Equal("Укажите дату начала.", result.Message);
     }
 
     [Fact]
@@ -240,7 +323,7 @@ public sealed class RequiredCreationFieldsTests
         });
 
         Assert.False(result.Success);
-        Assert.Equal("Дата начала обязательна.", result.Message);
+        Assert.Equal("Укажите дату начала.", result.Message);
     }
 
     [Fact]
@@ -280,6 +363,16 @@ public sealed class RequiredCreationFieldsTests
             _connectionFactory,
             new SurveyRepository(_connectionFactory, _clock),
             _clock);
+
+    private static SurveyAddRequest ValidSurveyRequest()
+        => new()
+        {
+            Title = "Анкета",
+            StartDate = "2026-08-04",
+            EndDate = "2026-08-05",
+            Organizations = [1],
+            Criteria = ["Критерий"]
+        };
 
     private static UserSaveRequest CreateUserRequest(
         string role = "user",

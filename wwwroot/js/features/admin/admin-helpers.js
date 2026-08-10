@@ -287,18 +287,20 @@
             default:
                 return statusText && String(statusText).trim()
                     ? String(statusText).trim()
-                    : `Ошибка сервера (${status})`;
+                    : `Сервер вернул ошибку (${status}).`;
         }
     }
 
     function getResponseErrorMessage(response, prefix) {
-        const resolvedPrefix = prefix || 'Ошибка';
-        return `${resolvedPrefix}: ${getHttpStatusMessage(response?.status, response?.statusText)}`;
+        const resolvedPrefix = String(prefix || 'Не удалось выполнить запрос')
+            .trim()
+            .replace(/[.:]+$/, '');
+        return `${resolvedPrefix}. ${getHttpStatusMessage(response?.status, response?.statusText)}`;
     }
 
     function handleResponse(response) {
         if (!response.ok) {
-            throw new Error(getResponseErrorMessage(response, 'Ошибка запроса'));
+            throw new Error(getResponseErrorMessage(response, 'Не удалось выполнить запрос'));
         }
         return response.json();
     }
@@ -306,7 +308,7 @@
     function handleError(error) {
         console.error('Ошибка:', error);
         window.AppUi?.notify?.(
-            'Произошла ошибка: ' + (error.message || 'Неизвестная ошибка'),
+            error.message || 'Не удалось выполнить операцию.',
             'error'
         );
     }

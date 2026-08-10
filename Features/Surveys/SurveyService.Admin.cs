@@ -149,7 +149,7 @@ public partial class SurveyService
             return new SurveyCommandResult
             {
                 Success = true,
-                Message = "Анкета успешно создана",
+                Message = "Анкета успешно создана.",
                 SurveyId = newSurveyId
             };
         }
@@ -226,7 +226,7 @@ public partial class SurveyService
                 return new SurveyCommandResult
                 {
                     NotFound = true,
-                    Message = "Анкета не найдена"
+                    Message = "Анкета не найдена."
                 };
             }
 
@@ -253,7 +253,7 @@ public partial class SurveyService
             return new SurveyCommandResult
             {
                 Success = true,
-                Message = "Анкета успешно обновлена",
+                Message = "Анкета успешно обновлена.",
                 SurveyId = id
             };
         }
@@ -272,7 +272,7 @@ public partial class SurveyService
         {
             return new SurveyCommandResult
             {
-                Message = "Неверные данные запроса"
+                Message = "Данные периода работы не предоставлены."
             };
         }
 
@@ -288,7 +288,7 @@ public partial class SurveyService
         {
             return new SurveyCommandResult
             {
-                Message = "Дата конца не может быть раньше сегодняшней даты"
+                Message = "Дата конца не может быть раньше сегодняшней даты."
             };
         }
 
@@ -310,8 +310,8 @@ public partial class SurveyService
             {
                 Success = true,
                 Message = affectedSurveyCount == 0
-                    ? "Активные анкеты не найдены"
-                    : "Период работы активных анкет сохранён"
+                    ? "Активные анкеты не найдены."
+                    : "Период работы активных анкет сохранён."
             };
         }
         catch
@@ -330,8 +330,8 @@ public partial class SurveyService
             return new OperationResult
             {
                 Success = false,
-                Message = "Необходимо предоставить данные для продления",
-                Error = "Необходимо предоставить данные для продления"
+                Message = "Выберите хотя бы одну организацию для продления.",
+                Error = "Выберите хотя бы одну организацию для продления."
             };
         }
 
@@ -341,8 +341,8 @@ public partial class SurveyService
             return new OperationResult
             {
                 Success = false,
-                Message = "Ошибки валидации",
-                Error = "Ошибки валидации",
+                Message = "Проверьте данные продления.",
+                Error = "Проверьте данные продления.",
                 Errors = validationErrors
             };
         }
@@ -375,8 +375,8 @@ public partial class SurveyService
                 return new OperationResult
                 {
                     Success = false,
-                    Message = "Анкета не найдена",
-                    Error = "Анкета не найдена"
+                    Message = "Анкета не найдена.",
+                    Error = "Анкета не найдена."
                 };
             }
 
@@ -386,8 +386,8 @@ public partial class SurveyService
             {
                 Success = true,
                 Message = request.Extensions.Count == 1
-                    ? "Доступ к анкете для организации успешно продлён"
-                    : "Доступ к анкете для организаций успешно продлён",
+                    ? "Доступ к анкете для организации успешно продлён."
+                    : "Доступ к анкете для организаций успешно продлён.",
                 EntityId = request.SurveyId
             };
         }
@@ -399,8 +399,8 @@ public partial class SurveyService
             return new OperationResult
             {
                 Success = false,
-                Message = "Ошибка базы данных",
-                Error = ex.Message,
+                Message = "Не удалось продлить доступ к анкете.",
+                Error = "Не удалось продлить доступ к анкете.",
                 Code = ex.SqlState
             };
         }
@@ -412,8 +412,8 @@ public partial class SurveyService
             return new OperationResult
             {
                 Success = false,
-                Message = "Ошибка при обработке запроса",
-                Error = ex.Message
+                Message = "Не удалось продлить доступ к анкете.",
+                Error = "Не удалось продлить доступ к анкете."
             };
         }
     }
@@ -458,7 +458,7 @@ public partial class SurveyService
                 return new SurveyCommandResult
                 {
                     NotFound = true,
-                    Message = "Анкета не найдена"
+                    Message = "Анкета не найдена."
                 };
             }
 
@@ -490,7 +490,7 @@ public partial class SurveyService
             return new SurveyCommandResult
             {
                 Success = true,
-                Message = "Анкета успешно скопирована",
+                Message = "Анкета успешно скопирована.",
                 SurveyId = newSurveyId
             };
         }

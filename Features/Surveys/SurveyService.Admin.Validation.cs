@@ -31,7 +31,7 @@ public partial class SurveyService
 
         if (request == null)
         {
-            validationError = "Неверные данные запроса";
+            validationError = "Данные анкеты не предоставлены.";
             return false;
         }
 
@@ -40,7 +40,7 @@ public partial class SurveyService
 
         if (string.IsNullOrWhiteSpace(title))
         {
-            validationError = "Название анкеты обязательно";
+            validationError = "Введите название анкеты.";
             return false;
         }
 
@@ -82,7 +82,7 @@ public partial class SurveyService
 
         if (request == null)
         {
-            validationError = "Данные анкеты не предоставлены";
+            validationError = "Данные анкеты не предоставлены.";
             return false;
         }
 
@@ -91,7 +91,7 @@ public partial class SurveyService
 
         if (string.IsNullOrWhiteSpace(title))
         {
-            validationError = "Название анкеты обязательно";
+            validationError = "Введите название анкеты.";
             return false;
         }
 
@@ -128,7 +128,7 @@ public partial class SurveyService
 
         if (request == null)
         {
-            validationError = "Неверные данные запроса";
+            validationError = "Данные для копирования анкеты не предоставлены.";
             return false;
         }
 
@@ -146,19 +146,19 @@ public partial class SurveyService
 
         if (request.SurveyId <= 0)
         {
-            errors.Add("Неверный ID анкеты");
+            errors.Add("Анкета не выбрана.");
         }
 
         foreach (var extension in request.Extensions)
         {
             if (extension.OrganizationId <= 0)
             {
-                errors.Add($"Неверный ID организации: {extension.OrganizationId}");
+                errors.Add("Организация не выбрана.");
             }
 
             if (!DateTime.TryParse(extension.ExtendedUntil, out var endDate) || endDate.Date <= _clock.Today.Date)
             {
-                errors.Add($"Неверная дата конца: {extension.ExtendedUntil}");
+                errors.Add("Дата конца должна быть позже сегодняшней даты.");
             }
         }
 
@@ -176,10 +176,22 @@ public partial class SurveyService
         endDate = default;
         validationError = string.Empty;
 
+        if (string.IsNullOrWhiteSpace(rawStartDate))
+        {
+            validationError = "Укажите дату начала.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(rawEndDate))
+        {
+            validationError = "Укажите дату конца.";
+            return false;
+        }
+
         if (!DateTime.TryParse(rawStartDate, out startDate)
             || !DateTime.TryParse(rawEndDate, out endDate))
         {
-            validationError = "Неверный формат даты";
+            validationError = "Некорректный формат даты.";
             return false;
         }
 
@@ -192,13 +204,13 @@ public partial class SurveyService
 
         if (startDate == default || endDate == default)
         {
-            validationError = "Неверный формат даты";
+            validationError = "Некорректный формат даты.";
             return false;
         }
 
         if (endDate <= startDate)
         {
-            validationError = "Дата конца должна быть позже даты начала";
+            validationError = "Дата конца должна быть позже даты начала.";
             return false;
         }
 
@@ -229,7 +241,7 @@ public partial class SurveyService
 
         if (organizationIds.Count == 0)
         {
-            validationError = "Выберите хотя бы одну организацию";
+            validationError = "Выберите хотя бы одну организацию.";
             return false;
         }
 
@@ -242,20 +254,28 @@ public partial class SurveyService
         out IReadOnlyList<SurveyQuestionRow> questionRows,
         out string validationError)
     {
-        questionRows = (rawCriteria ?? Array.Empty<string>())
-            .Where(text => !string.IsNullOrWhiteSpace(text))
+        var criteria = (rawCriteria ?? Array.Empty<string>()).ToList();
+        questionRows = Array.Empty<SurveyQuestionRow>();
+
+        if (criteria.Count == 0)
+        {
+            validationError = "Добавьте хотя бы один критерий оценки.";
+            return false;
+        }
+
+        if (criteria.Any(string.IsNullOrWhiteSpace))
+        {
+            validationError = "Заполните все критерии оценки или удалите пустые поля.";
+            return false;
+        }
+
+        questionRows = criteria
             .Select((text, index) => new SurveyQuestionRow
             {
                 QuestionOrder = index + 1,
                 QuestionText = text.Trim()
             })
             .ToList();
-
-        if (questionRows.Count == 0)
-        {
-            validationError = "Добавьте хотя бы один критерий";
-            return false;
-        }
 
         validationError = string.Empty;
         return true;

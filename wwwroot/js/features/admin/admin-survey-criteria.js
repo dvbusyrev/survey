@@ -1,5 +1,7 @@
 (function () {
     window.createSurveyCriteriaController = function createSurveyCriteriaController({ getElementByRole, showError }) {
+        let lastValidationMessage = '';
+
         function getList() {
             return getElementByRole('criteria-list');
         }
@@ -85,7 +87,7 @@
             if (list && getItems(list).length <= 1) {
                 if (input) {
                     input.value = '';
-                    input.classList.remove('invalid');
+                    window.SurveyAdminValidation?.clearFieldError(input);
                 }
                 refresh(list);
                 return;
@@ -96,8 +98,9 @@
 
         function validate() {
             const items = getItems();
+            lastValidationMessage = '';
             if (items.length === 0) {
-                showError('Ошибка', 'Добавьте хотя бы один критерий оценки.');
+                lastValidationMessage = 'Добавьте хотя бы один критерий оценки.';
                 return false;
             }
             let hasErrors = false;
@@ -106,14 +109,14 @@
                 const input = item.querySelector('.criteriy');
                 if (input?.value.trim()) {
                     hasValue = true;
-                    input.classList.remove('invalid');
+                    window.SurveyAdminValidation?.clearFieldError(input);
                     return;
                 }
                 hasErrors = true;
-                input?.classList.add('invalid');
+                window.SurveyAdminValidation?.setFieldError(input, 'Введите критерий оценки.');
             });
-            if (!hasValue) showError('Ошибка', 'Добавьте хотя бы один критерий оценки.');
-            else if (hasErrors) showError('Ошибка', 'Заполните все критерии оценки или удалите пустые поля.');
+            if (!hasValue) lastValidationMessage = 'Добавьте хотя бы один критерий оценки.';
+            else if (hasErrors) lastValidationMessage = 'Заполните все критерии оценки или удалите пустые поля.';
             return hasValue && !hasErrors;
         }
 
@@ -124,6 +127,13 @@
             (values?.length ? values : ['']).forEach((value) => append(value));
         }
 
-        return { append, remove, validate, replace, values: () => getItems().map((item) => item.querySelector('.criteriy')?.value.trim() || '') };
+        return {
+            append,
+            remove,
+            validate,
+            replace,
+            getValidationMessage: () => lastValidationMessage,
+            values: () => getItems().map((item) => item.querySelector('.criteriy')?.value.trim() || '')
+        };
     };
 })();

@@ -52,13 +52,13 @@ public class AuthController : Controller
     public async Task<IActionResult> Login([FromBody] string[] userData, CancellationToken cancellationToken)
     {
         if (userData == null || userData.Length != 2)
-            return StatusCode(400, "Неверный формат данных");
+            return StatusCode(400, "Некорректные данные для входа.");
 
         string username = userData[0];
         string password = userData[1];
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            return StatusCode(400, "Имя пользователя и пароль не могут быть пустыми");
+            return StatusCode(400, "Введите логин и пароль.");
 
         try
         {

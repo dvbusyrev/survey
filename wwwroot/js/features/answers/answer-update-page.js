@@ -26,10 +26,13 @@
         if (ratingValue >= 5) {
             commentContainer.classList.add('is-hidden');
             commentField.value = '';
+            commentField.required = false;
+            window.AppValidation?.clearFieldError?.(commentField);
             return;
         }
 
         commentContainer.classList.remove('is-hidden');
+        commentField.required = true;
     }
 
     function setRating(questionContainer, ratingValue) {
@@ -43,6 +46,7 @@
         });
 
         updateCommentVisibility(questionContainer, ratingValue);
+        window.AppValidation?.clearFieldError?.(questionContainer.querySelector('.rating-buttons'));
     }
 
     function getPlainTextFromHtml(html) {
@@ -57,6 +61,8 @@
     function collectAnswers() {
         const questionContainers = page.querySelectorAll('.question-container[data-question-id]');
         const answers = [];
+        const errors = [];
+        const invalidFields = [];
 
         for (const questionContainer of questionContainers) {
             const questionId = questionContainer.dataset.questionId || '';
@@ -64,24 +70,36 @@
             const commentField = questionContainer.querySelector('.answers-page__update-comment');
 
             if (!activeButton) {
-                return {
-                    error: 'Выберите оценку для каждого вопроса перед сохранением.'
-                };
+                const message = 'Выберите оценку для каждого вопроса перед сохранением.';
+                const ratings = questionContainer.querySelector('.rating-buttons');
+                window.AppValidation?.setFieldError?.(ratings, message);
+                errors.push(message);
+                invalidFields.push(ratings);
+                continue;
             }
 
             const ratingValue = Number.parseInt(activeButton.dataset.answerRating || '', 10);
             if (!Number.isFinite(ratingValue) || ratingValue < 1 || ratingValue > 5) {
-                return {
-                    error: 'Обнаружена некорректная оценка.'
-                };
+                const message = 'Обнаружена некорректная оценка.';
+                const ratings = questionContainer.querySelector('.rating-buttons');
+                window.AppValidation?.setFieldError?.(ratings, message);
+                errors.push(message);
+                invalidFields.push(ratings);
+                continue;
             }
+
+            window.AppValidation?.clearFieldError?.(questionContainer.querySelector('.rating-buttons'));
 
             const comment = ratingValue === 5 ? '' : commentField?.value?.trim() || '';
             if (ratingValue < 5 && !comment) {
-                return {
-                    error: 'Для каждой оценки ниже 5 требуется комментарий.'
-                };
+                const message = 'Для каждой оценки ниже 5 требуется комментарий.';
+                window.AppValidation?.setFieldError?.(commentField, message);
+                errors.push(message);
+                invalidFields.push(commentField);
+                continue;
             }
+
+            window.AppValidation?.clearFieldError?.(commentField);
 
             answers.push({
                 question_id: questionId,
@@ -90,7 +108,7 @@
             });
         }
 
-        return { answers: answers };
+        return { answers, errors, invalidFields };
     }
 
     async function submitUpdatedAnswers() {
@@ -100,8 +118,9 @@
         }
 
         const payload = collectAnswers();
-        if (payload.error) {
-            showError(payload.error);
+        if (payload.errors.length > 0) {
+            window.AppValidation?.notifyErrors?.(payload.errors);
+            window.AppValidation?.focusFirstInvalid?.(payload);
             return;
         }
 
@@ -132,7 +151,7 @@
 
             if (!response.ok) {
                 const errorMessage = getPlainTextFromHtml(responseBody)
-                    || `Ошибка при сохранении ответа (${response.status})`;
+                    || `Не удалось сохранить ответ. Сервер вернул ошибку (${response.status}).`;
                 throw new Error(errorMessage);
             }
 
@@ -141,7 +160,7 @@
             document.close();
         } catch (error) {
             console.error('Ошибка при обновлении ответа:', error);
-            showError(error instanceof Error ? error.message : 'Не удалось сохранить изменения');
+            showError(error instanceof Error ? error.message : 'Не удалось сохранить изменения.');
         } finally {
             if (saveButton) {
                 saveButton.disabled = false;

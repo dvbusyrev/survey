@@ -139,7 +139,7 @@
   }
   function normalizeCryptoProError(error) {
     const rawMessage = extractErrorMessage(error);
-    const message = rawMessage || "Ошибка при работе с CryptoPro Browser plug-in.";
+    const message = rawMessage || "Не удалось выполнить операцию с CryptoPro Browser plug-in.";
     if (isEmbeddedBrowserEnvironment()) {
       return {
         message: getCryptoProUnavailableMessage(),
@@ -192,7 +192,7 @@
   }
   function notifySignature(message, type = "error", options = {}) {
     const safeMessage = typeof window.normalizeClientErrorMessage === "function" ? window.normalizeClientErrorMessage(message) : message;
-    window.AppUi?.notify?.(safeMessage || "Произошла ошибка.", type, {
+    window.AppUi?.notify?.(safeMessage || "Не удалось выполнить операцию с подписью.", type, {
       title: type === "success" ? "Успешно" : "Ошибка",
       ...options
     });
@@ -234,7 +234,7 @@
           return;
         }
         existing.addEventListener("load", () => resolve(), { once: true });
-        existing.addEventListener("error", () => reject(new Error(`Не удалось загрузить скрипт ${src}`)), { once: true });
+        existing.addEventListener("error", () => reject(new Error(`Не удалось загрузить скрипт ${src}.`)), { once: true });
         return;
       }
       const script = document.createElement("script");
@@ -245,7 +245,7 @@
         script.dataset.loaded = "true";
         resolve();
       };
-      script.onerror = () => reject(new Error(`Не удалось загрузить скрипт ${src}`));
+      script.onerror = () => reject(new Error(`Не удалось загрузить скрипт ${src}.`));
       document.head.appendChild(script);
     });
   }
@@ -338,7 +338,7 @@
     const response = await fetch(`/${route}/${id}/${organizationId}`);
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(error || "Ошибка получения данных");
+      throw new Error(error || "Не удалось получить данные для подписи.");
     }
     const contentType = String(response.headers.get("content-type") || "").toLowerCase();
     if (contentType.includes("application/json")) {
@@ -411,11 +411,11 @@
     try {
       const certificates = await listAllCertificates();
       if (certificates.length === 0) {
-        throw new Error("Нет доступных сертификатов");
+        throw new Error("Нет доступных сертификатов.");
       }
       const selectedCert = await showCertificateSelectionDialog(certificates);
       if (!selectedCert) {
-        throw new Error("Сертификат не выбран");
+        throw new Error("Сертификат не выбран.");
       }
       const signer = await cadesplugin.CreateObjectAsync("CAdESCOM.CPSigner");
       await signer.propset_Certificate(selectedCert.certificate);
@@ -450,12 +450,12 @@
     });
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(error || "Ошибка сервера");
+      throw new Error(error || "Не удалось сохранить подпись.");
     }
   }
   function updateUISuccess(mode = "answer", source = document) {
     applySurveySignedState(source || document, true, mode);
-    notifySignature("Документ успешно подписан", "success");
+    notifySignature("Документ успешно подписан.", "success");
   }
 
   // wwwroot/js/features/survey/user-survey-modal-pages.js
@@ -474,13 +474,13 @@
   window.fetchSurveyFillContentHtml = function fetchSurveyFillContentHtml(surveyId, organizationId) {
     return fetchSurveyModalContent(
       `/survey/${surveyId}/organizations/${organizationId}/fill-content`,
-      "Не удалось загрузить анкету"
+      "Не удалось загрузить анкету."
     );
   };
   window.fetchSurveyAnswersContentHtml = function fetchSurveyAnswersContentHtml(surveyId, organizationId) {
     return fetchSurveyModalContent(
       `/answers/${surveyId}/${organizationId}/content`,
-      "Не удалось загрузить ответы по анкете"
+      "Не удалось загрузить ответы по анкете."
     );
   };
   function downloadBlob(blob, fileName) {
@@ -613,6 +613,39 @@
       }
       return payloadAnswers;
     }
+    function validateCompleteAnswers() {
+      const errors = [];
+      const invalidFields = [];
+      getQuestionNodes().forEach((questionNode) => {
+        const questionId = questionNode.dataset.questionId || "";
+        const answer = answers[questionId] || {};
+        const rating = Number(answer.rating || 0);
+        const ratings = questionNode.querySelector('[data-role="ratings"]');
+        const commentInput = questionNode.querySelector('[data-role="comment-input"]');
+        if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+          const message = "Выберите оценку для каждого вопроса.";
+          window.AppValidation?.setFieldError?.(ratings, message);
+          errors.push(message);
+          invalidFields.push(ratings);
+        } else {
+          window.AppValidation?.clearFieldError?.(ratings);
+        }
+        if (rating > 0 && rating < 5 && !String(answer.comment || "").trim()) {
+          const message = "Для каждой оценки ниже 5 требуется комментарий.";
+          window.AppValidation?.setFieldError?.(commentInput, message);
+          errors.push(message);
+          invalidFields.push(commentInput);
+        } else {
+          window.AppValidation?.clearFieldError?.(commentInput);
+        }
+      });
+      if (errors.length === 0) {
+        return true;
+      }
+      window.AppValidation?.notifyErrors?.(errors);
+      window.AppValidation?.focusFirstInvalid?.({ invalidFields });
+      return false;
+    }
     function updateDraftSignedState(isSigned) {
       if (refs.page) {
         refs.page.dataset.isDraftSigned = isSigned ? "true" : "false";
@@ -638,12 +671,12 @@
           id_survey: surveyId,
           id_organization: organizationId,
           answers: payloadAnswers
-        }, "Ошибка при сохранении черновика");
+        }, "Не удалось сохранить черновик.");
       } catch (error2) {
         if (showErrorOnFailure) {
           throw error2;
         }
-        console.error(error2?.message || "Ошибка при сохранении черновика");
+        console.error(error2?.message || "Не удалось сохранить черновик.");
         return false;
       }
       return true;
@@ -701,7 +734,11 @@
         commentBlock.classList.toggle("u-hidden", !showComment);
       }
       if (commentInput) {
+        commentInput.required = showComment;
         commentInput.value = showComment ? answer.comment || "" : "";
+        if (!showComment) {
+          window.AppValidation?.clearFieldError?.(commentInput);
+        }
       }
     }
     function bindQuestion(questionElement) {
@@ -730,6 +767,9 @@
           updateDraftSignedState(false);
           renderError();
           updateQuestionState(questionId, questionElement);
+          window.AppValidation?.clearFieldError?.(
+            questionElement.querySelector('[data-role="ratings"]')
+          );
           scheduleDraftSave();
         });
       });
@@ -746,6 +786,9 @@
       updateQuestionState(questionId, questionElement);
     }
     async function submitAnswers() {
+      if (!validateCompleteAnswers()) {
+        return;
+      }
       try {
         loading = true;
         error = null;
@@ -760,14 +803,14 @@
           id_survey: surveyId,
           id_organization: organizationId,
           answers: payloadAnswers
-        }, "Ошибка при отправке ответов");
+        }, "Не удалось отправить ответы.");
         onSubmitted?.({
           survey,
           answers: payloadAnswers,
           organizationId
         });
       } catch (err) {
-        error = err?.message || "Не удалось отправить ответы";
+        error = err?.message || "Не удалось отправить ответы.";
         renderError({ notify: true });
       } finally {
         loading = false;
@@ -775,6 +818,9 @@
       }
     }
     async function signDraft() {
+      if (!validateCompleteAnswers()) {
+        return;
+      }
       try {
         error = null;
         renderError();
@@ -789,7 +835,7 @@
           source: refs.page || host
         });
       } catch (err) {
-        error = err?.message || "Не удалось подписать черновик";
+        error = err?.message || "Не удалось подписать черновик.";
         renderError({ notify: true });
       }
     }
@@ -822,7 +868,7 @@
       loadHtml: () => window.fetchSurveyFillContentHtml(getCurrentSurveyId(), organizationId),
       bindPage,
       isDestroyed: () => destroyed,
-      errorMessage: "Не удалось загрузить анкету"
+      errorMessage: "Не удалось загрузить анкету."
     });
     return () => {
       destroyed = true;
@@ -836,11 +882,11 @@
   window.createPdfReport = async function(surveyId, organizationId) {
     try {
       const response = await fetch(`/answers/${surveyId}/${organizationId}/pdf`);
-      if (!response.ok) throw new Error("Ошибка создания PDF");
+      if (!response.ok) throw new Error("Не удалось создать PDF.");
       downloadBlob(await response.blob(), `Анкета_${surveyId}_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.pdf`);
     } catch (error) {
       console.error("Ошибка при создании PDF:", error);
-      showSurveyError("Не удалось создать PDF файл");
+      showSurveyError("Не удалось создать PDF.");
     }
   };
   window.downloadSignedArchive = async function(surveyId, organizationId) {
@@ -848,13 +894,13 @@
       const response = await fetch(`/answers/${surveyId}/${organizationId}/signed-archive`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        const errorMessage = errorData?.error || "Ошибка загрузки архива";
+        const errorMessage = errorData?.error || "Не удалось загрузить архив с подписью.";
         throw new Error(errorMessage);
       }
       downloadBlob(await response.blob(), `Анкета_с_подписью_${surveyId}.zip`);
     } catch (error) {
       console.error("Ошибка при загрузке архива:", error);
-      const errorMessage = error.message || "Не удалось загрузить архив с подписью";
+      const errorMessage = error.message || "Не удалось загрузить архив с подписью.";
       showSurveyError(errorMessage);
       if (error.details) {
         console.error("Детали ошибки:", error.details);
@@ -923,7 +969,7 @@
       loadHtml: () => window.fetchSurveyAnswersContentHtml(getSurveyIdentifier(survey), organizationId),
       bindPage,
       isDestroyed: () => destroyed,
-      errorMessage: "Не удалось загрузить ответы по анкете"
+      errorMessage: "Не удалось загрузить ответы по анкете."
     });
     return () => {
       destroyed = true;

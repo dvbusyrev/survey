@@ -27,7 +27,34 @@ async function expectPastEndDateToast(page) {
     await toast.locator('.site-toast__close').click();
 }
 
+test('обязательные поля входа перечисляются в верхнем уведомлении', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Войти', exact: true }).click();
+
+    const toast = page.locator('.site-toast--error').last();
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('Введите логин.');
+    await expect(toast).toContainText('Введите пароль.');
+    await expect(page.locator('#username')).toHaveClass(/invalid/);
+    await expect(page.locator('#password')).toHaveClass(/invalid/);
+    await expect(page.locator('[data-role="field-error"]')).toHaveCount(0);
+});
+
+test('ошибка входа использует актуальное название логина', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#username').fill('smoke-admin');
+    await page.locator('#password').fill('WrongPassword1!');
+    await page.getByRole('button', { name: 'Войти', exact: true }).click();
+
+    const toast = page.locator('.site-toast--error')
+        .filter({ hasText: 'Неверный логин или пароль.' })
+        .last();
+    await expect(toast).toBeVisible();
+    await expect(toast).not.toContainText('имя пользователя');
+});
+
 test('администратор проходит основные разделы', async ({ page }) => {
+    test.setTimeout(45_000);
     await login(page, 'smoke-admin');
 
     await expect(page.locator('[data-page="surveys-list"]')).toBeVisible();
@@ -37,7 +64,18 @@ test('администратор проходит основные раздел�
     await page.locator('[data-click-call="openAddSurveyModal"]').click();
     await expect(page.locator('#surveyEditorModal')).toBeVisible();
     await expect(page.locator('#surveyEditorModal')).toContainText('Добавление анкеты');
+    await page.locator('[data-role="survey-submit"]').click();
+    const surveyRequiredToast = page.locator('.site-toast--error').last();
+    await expect(surveyRequiredToast).toContainText('Введите название анкеты.');
+    await expect(surveyRequiredToast).toContainText('Укажите дату начала.');
+    await expect(surveyRequiredToast).toContainText('Укажите дату конца.');
+    await expect(surveyRequiredToast).toContainText('Выберите хотя бы одну организацию.');
+    await expect(surveyRequiredToast).toContainText('Добавьте хотя бы один критерий оценки.');
+    await expect(surveyRequiredToast)
+        .toBeVisible();
+    await surveyRequiredToast.locator('.site-toast__close').click();
     await page.locator('#surveyTitle').fill('Анкета с просроченной датой');
+    await expect(page.locator('#surveyTitle')).not.toHaveClass(/invalid/);
     await page.locator('#startDate').fill(localIsoDaysAgo(2));
     await page.locator('#endDate').fill(localIsoDaysAgo(1));
     await page.locator('[data-role="organization-dropdown-trigger"]').click();
@@ -72,6 +110,26 @@ test('администратор проходит основные раздел�
 
     await page.getByRole('button', { name: 'Добавить пользователя', exact: true }).click();
     await expect(page.locator('#addUserModal')).toBeVisible();
+    await page.locator('#addUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    const userRequiredToast = page.locator('.site-toast--error').last();
+    await expect(userRequiredToast).toContainText('Введите ФИО.');
+    await expect(userRequiredToast).toContainText('Введите логин.');
+    await expect(userRequiredToast).toContainText('Введите пароль.');
+    await expect(userRequiredToast).toContainText('Выберите организацию.');
+    await expect(userRequiredToast).toContainText('Укажите дату начала.');
+    await userRequiredToast.locator('.site-toast__close').click();
+    await page.locator('#fullName').fill('Повторный пользователь');
+    await page.locator('#username').fill('smoke-admin');
+    await page.locator('#password').fill('SmokePassword1!');
+    await page.locator('#userOrganization').selectOption({ index: 1 });
+    await page.locator('#userRole').selectOption('user');
+    await page.locator('#dateBegin').fill(localIsoDaysAgo(0));
+    await page.locator('#addUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    const duplicateCreateToast = page.locator('.site-toast--error')
+        .filter({ hasText: 'Пользователь с таким логином существует.' })
+        .last();
+    await expect(duplicateCreateToast).toBeVisible();
+    await duplicateCreateToast.locator('.site-toast__close').click();
     await page.locator('#fullName').fill('Просроченный пользователь');
     await page.locator('#username').fill('expired-user');
     await page.locator('#password').fill('SmokePassword1!');
@@ -83,8 +141,18 @@ test('администратор проходит основные раздел�
     await expectPastEndDateToast(page);
     await page.locator('#addUserModal .modal-close').click();
 
-    await page.locator('[data-click-call="openEditUserModalFromTrigger"]').first().click();
+    await page.locator('[data-role="user-row"][data-user-name="smoke-client"]')
+        .locator('[data-click-call="openEditUserModalFromTrigger"]')
+        .click();
     await expect(page.locator('#editUserModal')).toBeVisible();
+    await page.locator('#editUsername').fill('smoke-admin');
+    await page.locator('#editUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    const duplicateUpdateToast = page.locator('.site-toast--error')
+        .filter({ hasText: 'Пользователь с таким логином существует.' })
+        .last();
+    await expect(duplicateUpdateToast).toBeVisible();
+    await duplicateUpdateToast.locator('.site-toast__close').click();
+    await page.locator('#editUsername').fill('smoke-client');
     await page.locator('#editDateBegin').fill(localIsoDaysAgo(2));
     await page.locator('#editDateEnd').fill(localIsoDaysAgo(1));
     await page.locator('#editUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
@@ -97,6 +165,11 @@ test('администратор проходит основные раздел�
 
     await page.getByRole('button', { name: 'Добавить организацию', exact: true }).click();
     await expect(page.locator('#addOrganizationModal')).toBeVisible();
+    await page.locator('#addOrganizationModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
+    const organizationRequiredToast = page.locator('.site-toast--error').last();
+    await expect(organizationRequiredToast).toContainText('Введите название организации.');
+    await expect(organizationRequiredToast).toContainText('Укажите дату начала.');
+    await organizationRequiredToast.locator('.site-toast__close').click();
     await page.locator('#Name').fill('Просроченная организация');
     await page.locator('#DateBegin').fill(localIsoDaysAgo(2));
     await page.locator('#DateEnd').fill(localIsoDaysAgo(1));
@@ -111,6 +184,23 @@ test('администратор проходит основные раздел�
     await page.locator('#editOrganizationModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
     await expectPastEndDateToast(page);
     await page.locator('#editOrganizationModal .modal-close').click();
+
+    await page.goto('/email');
+    await expect(page.locator('[data-page="mail-compose"]')).toBeVisible();
+    await page.locator('#email-save-button').click();
+    const emailRequiredToast = page.locator('.site-toast--error').last();
+    await expect(emailRequiredToast).toContainText('Укажите хотя бы одну эл. почту получателя.');
+    await expect(emailRequiredToast).toContainText('Введите тему письма.');
+    await expect(emailRequiredToast).toContainText('Введите текст письма.');
+
+    await page.goto('/settings/survey-creation');
+    await expect(page.locator('[data-page="survey-auto-creation"]')).toBeVisible();
+    await page.locator('#surveyAutoCreationReportingOffset').fill('');
+    await page.locator('#surveyAutoCreationActivePeriod').fill('');
+    await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+    const autoCreationRequiredToast = page.locator('.site-toast--error').last();
+    await expect(autoCreationRequiredToast).toContainText('Введите срок подготовки отчёта.');
+    await expect(autoCreationRequiredToast).toContainText('Введите срок доступности анкет.');
 
     await page.goto('/logs');
     await expect(page.locator('[data-page="get_logs"]')).toBeVisible();
@@ -164,6 +254,11 @@ test('клиент проходит доступные анкеты, черно�
     const fillPage = page.locator('[data-role="survey-fill-page"]');
     await expect(fillPage).toBeVisible();
     await expect(page.getByRole('button', { name: 'Подписать', exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Отправить ответы', exact: true }).click();
+    const answerRequiredToast = page.locator('.site-toast--error').last();
+    await expect(answerRequiredToast).toContainText('Выберите оценку для каждого вопроса.');
+    await expect(fillPage.locator('[data-role="ratings"]').first()).toHaveClass(/invalid/);
 
     const firstQuestion = fillPage.locator('[data-role="survey-question"]').first();
     const commentBlock = firstQuestion.locator('[data-role="comment-block"]');

@@ -100,7 +100,7 @@ function surveyEditSaveSelectedOrganization() {
             }
 
             if (!token || !surveyId) {
-                surveyEditNotify('Ошибка безопасности.');
+                surveyEditNotify('Не удалось подтвердить безопасность запроса.');
                 return;
             }
 
@@ -129,7 +129,7 @@ function surveyEditSaveSelectedOrganization() {
             });
 
             if (!response.ok) {
-                let errorMessage = 'Ошибка сервера';
+                let errorMessage = 'Не удалось обновить анкету.';
                 try {
                     const errorData = await response.json();
                     errorMessage = errorData.message || errorData.error || errorMessage;
@@ -148,44 +148,36 @@ function surveyEditSaveSelectedOrganization() {
 
                 if (typeof window.handleAdminMutationSuccess === 'function') {
                     await window.handleAdminMutationSuccess({
-                        message: result.message || 'Анкета успешно обновлена!',
+                        message: result.message || 'Анкета успешно обновлена.',
                         tabName: 'get_surveys',
                         fallbackUrl: '/survey'
                     });
                     return;
                 }
 
-                surveyEditNotify(result.message || 'Анкета успешно обновлена!', 'success');
+                surveyEditNotify(result.message || 'Анкета успешно обновлена.', 'success');
                 window.location.reload();
             } else {
-                throw new Error(result.message || 'Неизвестная ошибка');
+                throw new Error(result.message || 'Не удалось обновить анкету.');
             }
 
         } catch (error) {
             console.error('Ошибка при обновлении анкеты:', error);
 
-            let userMessage = error.message;
+            let userMessage = window.normalizeClientErrorMessage?.(
+                error.message,
+                'Не удалось обновить анкету.'
+            ) || 'Не удалось обновить анкету.';
 
             if (error.message.includes('jsonb') && error.message.includes('text')) {
                 userMessage = 'Ошибка формата данных.';
             } else if (error.message.includes('date')) {
-                userMessage = 'Ошибка в датах. Проверьте правильность введенных дат.';
+                userMessage = 'Проверьте правильность введённых дат.';
             } else if (error.message.includes('validation')) {
-                userMessage = 'Ошибка валидации данных: ' + error.message;
+                userMessage = 'Проверьте данные анкеты.';
             }
 
             surveyEditNotify(userMessage);
-
-            const showDetails = await window.siteConfirm('Показать технические подробности ошибки?', {
-                title: 'Подробности ошибки',
-                confirmText: 'Показать',
-                cancelText: 'Закрыть'
-            });
-
-            if (showDetails) {
-                console.error('Техническая информация:', error.stack || error.message);
-                window.AppUi?.notify?.('Подробности ошибки выведены в консоль браузера.', 'info');
-            }
         }
     }
 
@@ -194,18 +186,18 @@ function surveyEditSaveSelectedOrganization() {
         const errors = [];
 
         const requiredFields = [
-            { element: document.getElementById('surveyTitle'), message: 'Введите название анкеты' },
-            { element: document.getElementById('startDate'), message: 'Введите дату начала' },
-            { element: document.getElementById('endDate'), message: 'Введите дату конца' }
+            { element: document.getElementById('surveyTitle'), message: 'Введите название анкеты.' },
+            { element: document.getElementById('startDate'), message: 'Укажите дату начала.' },
+            { element: document.getElementById('endDate'), message: 'Укажите дату конца.' }
         ];
 
         requiredFields.forEach(field => {
             if (!field.element.value.trim()) {
-                field.element.classList.add('invalid');
+                window.SurveyAdminValidation?.setFieldError(field.element, field.message);
                 errors.push(field.message);
                 isValid = false;
             } else {
-                field.element.classList.remove('invalid');
+                window.SurveyAdminValidation?.clearFieldError(field.element);
             }
         });
 
@@ -215,16 +207,26 @@ function surveyEditSaveSelectedOrganization() {
         const startDateIso = window.AppDate?.getInputIso(startDate) || '';
         const endDateIso = window.AppDate?.getInputIso(endDate) || '';
 
-        if ((startDate.value && !startDateIso) || (endDate.value && !endDateIso)) {
-            errors.push('Используйте формат даты ДД.ММ.ГГГГ');
+        if (startDate.value && !startDateIso) {
+            const message = 'Введите дату начала в формате ДД.ММ.ГГГГ.';
+            window.SurveyAdminValidation?.setFieldError(startDate, `${message}.`);
+            errors.push(message);
+            isValid = false;
+        }
+        if (endDate.value && !endDateIso) {
+            const message = 'Введите дату конца в формате ДД.ММ.ГГГГ.';
+            window.SurveyAdminValidation?.setFieldError(endDate, `${message}.`);
+            errors.push(message);
             isValid = false;
         } else if (endDateIso && window.AppDate?.compare(endDateIso, window.AppDate.todayIso()) < 0) {
-            endDate.classList.add('invalid');
-            errors.push('Дата конца не может быть раньше сегодняшней даты.');
+            const message = 'Дата конца не может быть раньше сегодняшней даты.';
+            window.SurveyAdminValidation?.setFieldError(endDate, message);
+            errors.push(message);
             isValid = false;
         } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
-            endDate.classList.add('invalid');
-            errors.push('Дата конца должна быть позже даты начала');
+            const message = 'Дата конца должна быть позже даты начала.';
+            window.SurveyAdminValidation?.setFieldError(endDate, `${message}.`);
+            errors.push(message);
             isValid = false;
         }
 
@@ -233,22 +235,22 @@ function surveyEditSaveSelectedOrganization() {
             : surveyEditSelectedOrganization;
         if (selectedOrganizations.length === 0) {
             const organizationField = document.querySelector('[data-role="selected-organizations-container"]');
-            organizationField?.setAttribute('aria-invalid', 'true');
-            organizationField?.classList.add('invalid');
-            errors.push('Выберите организацию');
+            window.SurveyAdminValidation?.setFieldError(organizationField, 'Выберите хотя бы одну организацию.');
+            errors.push('Выберите хотя бы одну организацию.');
             isValid = false;
         } else {
             const organizationField = document.querySelector('[data-role="selected-organizations-container"]');
-            organizationField?.setAttribute('aria-invalid', 'false');
-            organizationField?.classList.remove('invalid');
+            window.SurveyAdminValidation?.clearFieldError(organizationField);
         }
 
         if (typeof window.validateSurveyCriteriaFields === 'function' && !window.validateSurveyCriteriaFields()) {
+            errors.push('Заполните критерии оценки.');
             isValid = false;
         }
 
         if (errors.length > 0) {
-            surveyEditNotify([...new Set(errors)].join(' • '));
+            const uniqueErrors = [...new Set(errors)];
+            surveyEditNotify(uniqueErrors.join(' • '));
         }
 
         return isValid;
@@ -258,22 +260,43 @@ function surveyEditSaveSelectedOrganization() {
         // СКРИПТЫ ДЛЯ ВКЛАДКИ КОПИРОВАНИЯ АНКЕТЫ
 
             function copySurvey(id) {
-                const startDate = window.AppDate?.getInputIso('startDate') || '';
-                const endDate = window.AppDate?.getInputIso('endDate') || '';
+                const startDateInput = document.getElementById('startDate');
+                const endDateInput = document.getElementById('endDate');
+                const startDate = window.AppDate?.getInputIso(startDateInput) || '';
+                const endDate = window.AppDate?.getInputIso(endDateInput) || '';
                 const token = window.AppHttp?.getAntiforgeryToken() || '';
 
                 if (!startDate || !endDate) {
-                    window.AppUi?.notify?.('Пожалуйста, заполните все обязательные поля', 'error');
+                    const errors = [];
+                    if (!startDate) {
+                        const message = startDateInput?.value
+                            ? 'Укажите корректную дату начала.'
+                            : 'Укажите дату начала.';
+                        window.AppValidation?.setFieldError?.(startDateInput, message);
+                        errors.push(message);
+                    }
+                    if (!endDate) {
+                        const message = endDateInput?.value
+                            ? 'Укажите корректную дату конца.'
+                            : 'Укажите дату конца.';
+                        window.AppValidation?.setFieldError?.(endDateInput, message);
+                        errors.push(message);
+                    }
+                    window.AppValidation?.notifyErrors?.(errors);
                     return;
                 }
 
                 if ((window.AppDate?.compare(endDate, window.AppDate.todayIso()) ?? -1) < 0) {
-                    window.AppUi?.notify?.('Дата конца не может быть раньше сегодняшней даты.', 'error');
+                    const message = 'Дата конца не может быть раньше сегодняшней даты.';
+                    window.AppValidation?.setFieldError?.(endDateInput, message);
+                    window.AppValidation?.notifyErrors?.([message]);
                     return;
                 }
 
                 if ((window.AppDate?.compare(endDate, startDate) ?? -1) <= 0) {
-                    window.AppUi?.notify?.('Дата конца должна быть позже даты начала', 'error');
+                    const message = 'Дата конца должна быть позже даты начала.';
+                    window.AppValidation?.setFieldError?.(endDateInput, message);
+                    window.AppValidation?.notifyErrors?.([message]);
                     return;
                 }
 
@@ -293,7 +316,7 @@ function surveyEditSaveSelectedOrganization() {
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(err => {
-                            throw new Error(err.message || 'Ошибка сервера');
+                            throw new Error(err.message || 'Не удалось скопировать анкету.');
                         });
                     }
                     return response.json();
@@ -304,16 +327,16 @@ function surveyEditSaveSelectedOrganization() {
                     if (data.success) {
                         if (typeof window.handleAdminMutationSuccess === 'function') {
                             return window.handleAdminMutationSuccess({
-                                message: data.message || 'Анкета успешно скопирована!',
+                                message: data.message || 'Анкета успешно скопирована.',
                                 tabName: 'get_surveys',
                                 fallbackUrl: '/survey'
                             });
                         }
 
-                        surveyEditNotify('Анкета успешно скопирована!', 'success');
+                        surveyEditNotify('Анкета успешно скопирована.', 'success');
                         window.location.reload();
                     } else {
-                        throw new Error(data.message || 'Ошибка при копировании анкеты');
+                        throw new Error(data.message || 'Не удалось скопировать анкету.');
                     }
                 })
                 .catch(error => {

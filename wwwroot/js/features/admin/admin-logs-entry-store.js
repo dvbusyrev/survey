@@ -105,7 +105,7 @@
                 .then(async (response) => {
                     if (!response.ok) {
                         const payload = await response.json().catch(() => ({}));
-                        throw new Error(payload.message || 'Не удалось загрузить событие');
+                        throw new Error(payload.message || 'Не удалось загрузить событие.');
                     }
 
                     return response.json();

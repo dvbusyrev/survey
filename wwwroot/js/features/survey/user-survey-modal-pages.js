@@ -29,14 +29,14 @@ window.downloadAnswerDocument = function downloadAnswerDocument(surveyId, organi
 window.fetchSurveyFillContentHtml = function fetchSurveyFillContentHtml(surveyId, organizationId) {
     return fetchSurveyModalContent(
         `/survey/${surveyId}/organizations/${organizationId}/fill-content`,
-        'Не удалось загрузить анкету'
+        'Не удалось загрузить анкету.'
     );
 };
 
 window.fetchSurveyAnswersContentHtml = function fetchSurveyAnswersContentHtml(surveyId, organizationId) {
     return fetchSurveyModalContent(
         `/answers/${surveyId}/${organizationId}/content`,
-        'Не удалось загрузить ответы по анкете'
+        'Не удалось загрузить ответы по анкете.'
     );
 };
 
@@ -206,6 +206,45 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
         return payloadAnswers;
     }
 
+    function validateCompleteAnswers() {
+        const errors = [];
+        const invalidFields = [];
+
+        getQuestionNodes().forEach((questionNode) => {
+            const questionId = questionNode.dataset.questionId || '';
+            const answer = answers[questionId] || {};
+            const rating = Number(answer.rating || 0);
+            const ratings = questionNode.querySelector('[data-role="ratings"]');
+            const commentInput = questionNode.querySelector('[data-role="comment-input"]');
+
+            if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+                const message = 'Выберите оценку для каждого вопроса.';
+                window.AppValidation?.setFieldError?.(ratings, message);
+                errors.push(message);
+                invalidFields.push(ratings);
+            } else {
+                window.AppValidation?.clearFieldError?.(ratings);
+            }
+
+            if (rating > 0 && rating < 5 && !String(answer.comment || '').trim()) {
+                const message = 'Для каждой оценки ниже 5 требуется комментарий.';
+                window.AppValidation?.setFieldError?.(commentInput, message);
+                errors.push(message);
+                invalidFields.push(commentInput);
+            } else {
+                window.AppValidation?.clearFieldError?.(commentInput);
+            }
+        });
+
+        if (errors.length === 0) {
+            return true;
+        }
+
+        window.AppValidation?.notifyErrors?.(errors);
+        window.AppValidation?.focusFirstInvalid?.({ invalidFields });
+        return false;
+    }
+
     function updateDraftSignedState(isSigned) {
         if (refs.page) {
             refs.page.dataset.isDraftSigned = isSigned ? 'true' : 'false';
@@ -236,13 +275,13 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
                 id_survey: surveyId,
                 id_organization: organizationId,
                 answers: payloadAnswers
-            }, 'Ошибка при сохранении черновика');
+            }, 'Не удалось сохранить черновик.');
         } catch (error) {
             if (showErrorOnFailure) {
                 throw error;
             }
 
-            console.error(error?.message || 'Ошибка при сохранении черновика');
+            console.error(error?.message || 'Не удалось сохранить черновик.');
             return false;
         }
 
@@ -313,7 +352,11 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
         }
 
         if (commentInput) {
+            commentInput.required = showComment;
             commentInput.value = showComment ? answer.comment || '' : '';
+            if (!showComment) {
+                window.AppValidation?.clearFieldError?.(commentInput);
+            }
         }
     }
 
@@ -345,6 +388,9 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
                 updateDraftSignedState(false);
                 renderError();
                 updateQuestionState(questionId, questionElement);
+                window.AppValidation?.clearFieldError?.(
+                    questionElement.querySelector('[data-role="ratings"]')
+                );
                 scheduleDraftSave();
             });
         });
@@ -364,6 +410,10 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
     }
 
     async function submitAnswers() {
+        if (!validateCompleteAnswers()) {
+            return;
+        }
+
         try {
             loading = true;
             error = null;
@@ -380,14 +430,14 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
                 id_survey: surveyId,
                 id_organization: organizationId,
                 answers: payloadAnswers
-            }, 'Ошибка при отправке ответов');
+            }, 'Не удалось отправить ответы.');
             onSubmitted?.({
                 survey,
                 answers: payloadAnswers,
                 organizationId
             });
         } catch (err) {
-            error = err?.message || 'Не удалось отправить ответы';
+            error = err?.message || 'Не удалось отправить ответы.';
             renderError({ notify: true });
         } finally {
             loading = false;
@@ -396,6 +446,10 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
     }
 
     async function signDraft() {
+        if (!validateCompleteAnswers()) {
+            return;
+        }
+
         try {
             error = null;
             renderError();
@@ -411,7 +465,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
                 source: refs.page || host
             });
         } catch (err) {
-            error = err?.message || 'Не удалось подписать черновик';
+            error = err?.message || 'Не удалось подписать черновик.';
             renderError({ notify: true });
         }
     }
@@ -448,7 +502,7 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
         loadHtml: () => window.fetchSurveyFillContentHtml(getCurrentSurveyId(), organizationId),
         bindPage,
         isDestroyed: () => destroyed,
-        errorMessage: 'Не удалось загрузить анкету'
+        errorMessage: 'Не удалось загрузить анкету.'
     });
 
     return () => {
@@ -464,12 +518,12 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
 window.createPdfReport = async function(surveyId, organizationId) {
     try {
         const response = await fetch(`/answers/${surveyId}/${organizationId}/pdf`);
-        if (!response.ok) throw new Error('Ошибка создания PDF');
+        if (!response.ok) throw new Error('Не удалось создать PDF.');
 
         downloadBlob(await response.blob(), `Анкета_${surveyId}_${new Date().toISOString().slice(0,10)}.pdf`);
     } catch (error) {
         console.error('Ошибка при создании PDF:', error);
-        showSurveyError('Не удалось создать PDF файл');
+        showSurveyError('Не удалось создать PDF.');
     }
 }
 
@@ -479,7 +533,7 @@ window.downloadSignedArchive = async function(surveyId, organizationId) {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
-            const errorMessage = errorData?.error || 'Ошибка загрузки архива';
+            const errorMessage = errorData?.error || 'Не удалось загрузить архив с подписью.';
             throw new Error(errorMessage);
         }
 
@@ -487,7 +541,7 @@ window.downloadSignedArchive = async function(surveyId, organizationId) {
     } catch (error) {
         console.error('Ошибка при загрузке архива:', error);
 
-        const errorMessage = error.message || 'Не удалось загрузить архив с подписью';
+        const errorMessage = error.message || 'Не удалось загрузить архив с подписью.';
         showSurveyError(errorMessage);
 
         if (error.details) {
@@ -571,7 +625,7 @@ window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, or
         loadHtml: () => window.fetchSurveyAnswersContentHtml(getSurveyIdentifier(survey), organizationId),
         bindPage,
         isDestroyed: () => destroyed,
-        errorMessage: 'Не удалось загрузить ответы по анкете'
+        errorMessage: 'Не удалось загрузить ответы по анкете.'
     });
 
     return () => {

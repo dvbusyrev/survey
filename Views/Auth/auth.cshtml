@@ -66,7 +66,7 @@
     <template id="auth-login-template">
         <div class="content">
             <div class="inner-container modal-content auth-modal-content">
-                <form id="loginForm" class="auth-modal-form">
+                <form id="loginForm" class="auth-modal-form" novalidate>
                     <header class="modal-header auth-modal-header">
                         <h1 class="modal-title auth-modal-title">Анкетирование</h1>
                     </header>
@@ -76,7 +76,7 @@
                             <label for="username">Логин</label>
                             <div class="app-field-with-icon">
                                 <div class="icon-container field-icon-container"><i class="fas fa-user"></i></div>
-                                <input type="text" class="app-field" id="username" name="username" required placeholder="Введите логин" />
+                                <input type="text" class="app-field" id="username" name="username" required data-required-message="Введите логин." placeholder="Введите логин" />
                             </div>
                         </div>
 
@@ -90,6 +90,7 @@
                                     id="password"
                                     name="password"
                                     required
+                                    data-required-message="Введите пароль."
                                     autoComplete="current-password"
                                     autoCapitalize="none"
                                     autoCorrect="off"
@@ -127,6 +128,7 @@
     </template>
 
     <script src="~/js/core/notifications.js" asp-append-version="true"></script>
+    <script src="~/js/core/app-validation.js" asp-append-version="true"></script>
     <script src="~/js/core/app-page-lifecycle.js" asp-append-version="true"></script>
     <script src="~/js/core/antiforgery.js" asp-append-version="true"></script>
     <script type="module" src="~/js/entries/auth-page.js" asp-append-version="true"></script>

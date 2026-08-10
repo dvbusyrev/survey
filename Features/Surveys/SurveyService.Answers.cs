@@ -51,7 +51,7 @@ public partial class SurveyService
             return new
             {
                 success = false,
-                error = "Анкета не найдена"
+                error = "Анкета не найдена."
             };
         }
 

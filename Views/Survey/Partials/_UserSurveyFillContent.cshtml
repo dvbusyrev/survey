@@ -53,7 +53,11 @@
                      data-question-id="@question.Id">
                 <div class="answers-modal__field-label">Вопрос</div>
                 <div class="app-field answers-modal__info-text" data-role="question-title">@question.Text</div>
-                <div class="rating-buttons" data-role="ratings">
+                <div class="rating-buttons"
+                     data-role="ratings"
+                     role="group"
+                     aria-label="Оценка"
+                     aria-required="true">
                     @for (var rating = 1; rating <= 5; rating += 1)
                     {
                         <button type="button"
@@ -68,6 +72,7 @@
                     <label class="comment-label">Ваш комментарий</label>
                     <textarea class="app-field"
                               data-role="comment-input"
+                              data-required-message="Введите комментарий для оценки ниже 5."
                               placeholder="Введите комментарий">@savedComment</textarea>
                 </div>
             </section>

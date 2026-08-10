@@ -58,7 +58,7 @@ public class AnswerSigningController : Controller
         {
             if (string.IsNullOrWhiteSpace(request.Signature))
             {
-                return BadRequest("Signature не может быть пустым.");
+                return BadRequest("Подпись не может быть пустой.");
             }
 
             if (!await _answerService.SaveSignatureAsync(id, idOrganization, request, cancellationToken))
@@ -122,7 +122,7 @@ public class AnswerSigningController : Controller
         {
             if (string.IsNullOrWhiteSpace(request.Signature))
             {
-                return BadRequest("Signature не может быть пустым.");
+                return BadRequest("Подпись не может быть пустой.");
             }
 
             if (!await _answerService.SaveDraftSignatureAsync(id, idOrganization, request, cancellationToken))

@@ -52,7 +52,7 @@ public class AnswerWorkflowController : Controller
                 {
                     return isAjaxRequest
                         ? NotFound(new OperationResponse { Error = result.Error })
-                        : NotFound(result.Error ?? "Анкета не найдена");
+                        : NotFound(result.Error ?? "Анкета не найдена.");
                 }
 
                 return isAjaxRequest
@@ -221,7 +221,7 @@ public class AnswerWorkflowController : Controller
             var model = await _answerService.GetUpdateAnswerPageAsync(idSurvey, idOrganization, cancellationToken);
             if (model == null)
             {
-                return NotFound("Ответы не найдены");
+                return NotFound("Ответы не найдены.");
             }
 
             return View("~/Views/Answer/update_answer.cshtml", model);

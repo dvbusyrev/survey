@@ -78,7 +78,7 @@ public class LogController : Controller
                 idLog, sourceTable, page, LogsPageSize, sortBy, sortDirection, cancellationToken);
             if (log == null)
             {
-                return NotFound(new { message = "Событие не найдено" });
+                return NotFound(new { message = "Событие не найдено." });
             }
 
             return Json(BuildLogDetailsResponse(log));

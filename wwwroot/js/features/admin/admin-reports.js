@@ -125,7 +125,7 @@ async function downloadReport(url, defaultFileName, options = {}) {
         return true;
     } catch (error) {
         console.error('Ошибка при скачивании файла:', error);
-        showReportFailure(reportTitle, error.message || 'Произошла ошибка при скачивании отчёта.');
+        showReportFailure(reportTitle, error.message || 'Не удалось скачать отчёт.');
         return false;
     } finally {
         removeReportLoader(loader);

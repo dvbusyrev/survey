@@ -427,7 +427,7 @@ function createSurveyUserListModalController({
             }
 
             modalState.prefetchedHtml = null;
-            setError(error?.message || 'Не удалось открыть анкету');
+            setError(error?.message || 'Не удалось открыть анкету.');
         }
     }
 
@@ -727,7 +727,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
             }
             if (state.activeTab === tab) {
                 setLoading(false);
-                setError(error?.message || 'Ошибка загрузки данных анкет');
+                setError(error?.message || 'Не удалось загрузить анкеты.');
             } else {
                 console.error('Ошибка фонового обновления списка анкет:', error);
             }

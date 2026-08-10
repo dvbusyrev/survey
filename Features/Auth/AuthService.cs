@@ -34,7 +34,7 @@ public class AuthService
             {
                 Success = false,
                 StatusCode = StatusCodes.Status401Unauthorized,
-                ErrorMessage = "Неверное имя пользователя или пароль"
+                ErrorMessage = "Неверный логин или пароль."
             };
         }
 
@@ -45,7 +45,7 @@ public class AuthService
             {
                 Success = false,
                 StatusCode = StatusCodes.Status500InternalServerError,
-                ErrorMessage = "Для пользователя задана неподдерживаемая роль"
+                ErrorMessage = "Для пользователя задана неподдерживаемая роль."
             };
         }
 
@@ -56,7 +56,7 @@ public class AuthService
             {
                 Success = false,
                 StatusCode = StatusCodes.Status401Unauthorized,
-                ErrorMessage = "Неверное имя пользователя или пароль"
+                ErrorMessage = "Неверный логин или пароль."
             };
         }
 

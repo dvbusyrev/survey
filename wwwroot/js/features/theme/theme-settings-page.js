@@ -315,7 +315,7 @@
         THEME_COLOR_FIELDS.forEach((field) => {
             const value = settings[field.property];
             if (!colorRegex.test(String(value || ''))) {
-                errors.push(`Поле «${field.label}» заполнено некорректно`);
+                errors.push(`Проверьте значение поля «${field.label}».`);
                 setThemeInvalidState(field.id, true);
             }
         });
@@ -323,14 +323,14 @@
         if (!Number.isInteger(settings.backgroundImageOpacity)
             || settings.backgroundImageOpacity < 0
             || settings.backgroundImageOpacity > 100) {
-            errors.push(`Поле «${THEME_IMAGE_FIELDS.opacity.label}» должно быть числом от 0 до 100`);
+            errors.push(`${THEME_IMAGE_FIELDS.opacity.label} должна быть числом от 0 до 100.`);
             setThemeInvalidState(THEME_IMAGE_FIELDS.opacity.id, true);
         }
 
         THEME_PERCENT_FIELDS.forEach((field) => {
             const value = settings[field.property];
             if (!Number.isInteger(value) || value < 0 || value > 100) {
-                errors.push('Значения яркости должны быть от 0 до 100');
+                errors.push('Значения яркости должны быть от 0 до 100.');
                 setThemeInvalidState(field.id, true);
             }
         });
@@ -338,7 +338,7 @@
         const imageValue = String(settings.backgroundImageDataUrl || '');
         if (imageValue) {
             if (!THEME_ALLOWED_IMAGE_PREFIXES.some((prefix) => imageValue.startsWith(prefix))) {
-                errors.push('Фоновое изображение должно быть PNG, JPEG или WebP');
+                errors.push('Фоновое изображение должно быть в формате PNG, JPEG или WebP.');
                 setThemeInvalidState('theme-background-image-file', true);
             }
         }
@@ -350,7 +350,7 @@
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result || ''));
-            reader.onerror = () => reject(new Error('Не удалось прочитать изображение'));
+            reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'));
             reader.readAsDataURL(file);
         });
     }
@@ -369,7 +369,7 @@
             syncThemeImageName();
             applyThemeDraftState();
         } catch (error) {
-            showThemeToast(error.message || 'Не удалось загрузить изображение', 'error', 'Изображение не загружено', { duration: 0 });
+            showThemeToast(error.message || 'Не удалось загрузить изображение.', 'error', 'Изображение не загружено', { duration: 0 });
         } finally {
             input.value = '';
         }
@@ -451,14 +451,14 @@
             persistThemeSettings(settings);
             applyThemeSettings(settings);
             showThemeToast(
-                payload?.message || 'Настройки темы сохранены',
+                payload?.message || 'Настройки темы сохранены.',
                 'success',
                 'Настройки сохранены'
             );
             return true;
         } catch (error) {
             showThemeToast(
-                error.message || 'Не удалось сохранить настройки темы',
+                error.message || 'Не удалось сохранить настройки темы.',
                 'error',
                 'Сохранение не выполнено',
                 { duration: 0 }
@@ -471,8 +471,8 @@
 
     async function extractThemeApiErrors(response) {
         const fallbackMessage = typeof window.getResponseErrorMessage === 'function'
-            ? window.getResponseErrorMessage(response, 'Ошибка')
-            : 'Не удалось выполнить запрос';
+            ? window.getResponseErrorMessage(response, 'Не удалось сохранить настройки темы')
+            : 'Не удалось выполнить запрос.';
         const responseText = await response.text();
         if (!responseText) {
             return [fallbackMessage];

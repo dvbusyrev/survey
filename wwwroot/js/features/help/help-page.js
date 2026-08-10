@@ -45,7 +45,7 @@
             const responseText = await response.text();
 
             if (!response.ok) {
-                throw new Error(getResponseMessage(responseText, 'Ошибка загрузки файла'));
+                throw new Error(getResponseMessage(responseText, 'Не удалось загрузить файл.'));
             }
 
             const payload = responseText ? JSON.parse(responseText) : {};
@@ -55,9 +55,9 @@
                 displayField.classList.remove('app-field-placeholder');
             }
 
-            showHelpMessage(payload.message || 'Файл успешно загружен', 'success');
+            showHelpMessage(payload.message || 'Файл успешно загружен.', 'success');
         } catch (error) {
-            showHelpMessage(error instanceof Error ? error.message : 'Ошибка загрузки файла', 'error');
+            showHelpMessage(error instanceof Error ? error.message : 'Не удалось загрузить файл.', 'error');
         } finally {
             fileInput.value = '';
         }

@@ -9,14 +9,18 @@ namespace MainProject.Tests.Services;
 public sealed class EmailTemplateServiceTests
 {
     [Theory]
-    [InlineData("smtp-user", "Поле \"Логин SMTP\" обязательно")]
-    [InlineData("from-address", "Поле \"Эл. почта отправителя\" обязательно")]
-    [InlineData("display-name", "Поле \"Имя отправителя\" обязательно")]
+    [InlineData("smtp-host", "Введите SMTP сервер.")]
+    [InlineData("smtp-user", "Введите логин SMTP.")]
+    [InlineData("from-address", "Введите эл. почту отправителя.")]
+    [InlineData("display-name", "Введите имя отправителя.")]
     public async Task SaveSender_RejectsMissingRequiredField(string field, string expectedError)
     {
         var settings = CreateValidSettings();
         switch (field)
         {
+            case "smtp-host":
+                settings.SmtpHost = string.Empty;
+                break;
             case "smtp-user":
                 settings.SmtpUserName = string.Empty;
                 break;

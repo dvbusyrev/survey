@@ -45,7 +45,7 @@ function extractErrorMessage(error) {
 
 function normalizeCryptoProError(error) {
     const rawMessage = extractErrorMessage(error);
-    const message = rawMessage || 'Ошибка при работе с CryptoPro Browser plug-in.';
+    const message = rawMessage || 'Не удалось выполнить операцию с CryptoPro Browser plug-in.';
 
     if (isEmbeddedBrowserEnvironment()) {
         return {
@@ -111,7 +111,7 @@ function notifySignature(message, type = 'error', options = {}) {
         ? window.normalizeClientErrorMessage(message)
         : message;
 
-    window.AppUi?.notify?.(safeMessage || 'Произошла ошибка.', type, {
+    window.AppUi?.notify?.(safeMessage || 'Не удалось выполнить операцию с подписью.', type, {
         title: type === 'success' ? 'Успешно' : 'Ошибка',
         ...options
     });
@@ -159,7 +159,7 @@ function loadScriptOnce(src) {
                 return;
             }
             existing.addEventListener('load', () => resolve(), { once: true });
-            existing.addEventListener('error', () => reject(new Error(`Не удалось загрузить скрипт ${src}`)), { once: true });
+            existing.addEventListener('error', () => reject(new Error(`Не удалось загрузить скрипт ${src}.`)), { once: true });
             return;
         }
 
@@ -171,7 +171,7 @@ function loadScriptOnce(src) {
             script.dataset.loaded = 'true';
             resolve();
         };
-        script.onerror = () => reject(new Error(`Не удалось загрузить скрипт ${src}`));
+        script.onerror = () => reject(new Error(`Не удалось загрузить скрипт ${src}.`));
         document.head.appendChild(script);
     });
 }
@@ -288,7 +288,7 @@ async function getDataForSignature(id, organizationId, mode = 'answer') {
     const response = await fetch(`/${route}/${id}/${organizationId}`);
     if (!response.ok) {
         const error = await response.text();
-        throw new Error(error || 'Ошибка получения данных');
+        throw new Error(error || 'Не удалось получить данные для подписи.');
     }
 
     const contentType = String(response.headers.get('content-type') || '').toLowerCase();
@@ -378,14 +378,14 @@ async function createDigitalSignature(data) {
         const certificates = await listAllCertificates();
 
         if (certificates.length === 0) {
-            throw new Error('Нет доступных сертификатов');
+            throw new Error('Нет доступных сертификатов.');
         }
 
 
         const selectedCert = await showCertificateSelectionDialog(certificates);
 
         if (!selectedCert) {
-            throw new Error('Сертификат не выбран');
+            throw new Error('Сертификат не выбран.');
         }
 
         const signer = await cadesplugin.CreateObjectAsync("CAdESCOM.CPSigner");
@@ -432,12 +432,12 @@ async function sendSignatureToServer(id, organizationId, signature, dataToSign, 
 
     if (!response.ok) {
         const error = await response.text();
-        throw new Error(error || 'Ошибка сервера');
+        throw new Error(error || 'Не удалось сохранить подпись.');
     }
 }
 
 
 function updateUISuccess(mode = 'answer', source = document) {
     applySurveySignedState(source || document, true, mode);
-    notifySignature('Документ успешно подписан', 'success');
+    notifySignature('Документ успешно подписан.', 'success');
 }

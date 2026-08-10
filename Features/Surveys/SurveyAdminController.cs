@@ -223,7 +223,7 @@ public class SurveyAdminController : Controller
         var surveyId = request?.SurveyId ?? id ?? 0;
         if (surveyId <= 0)
         {
-            return BadRequest(new { success = false, message = "Неверный идентификатор анкеты" });
+            return BadRequest(new { success = false, message = "Некорректный идентификатор анкеты." });
         }
 
         try
@@ -231,13 +231,13 @@ public class SurveyAdminController : Controller
             var surveys = await _surveyAdminService.DeleteSurveyAsync(surveyId, cancellationToken);
             if (surveys == null)
             {
-                return NotFound(new { success = false, message = "Анкета не найдена" });
+                return NotFound(new { success = false, message = "Анкета не найдена." });
             }
 
             return Ok(new
             {
                 success = true,
-                message = "Анкета успешно удалена",
+                message = "Анкета успешно удалена.",
                 surveys
             });
         }
@@ -256,7 +256,7 @@ public class SurveyAdminController : Controller
             var pageModel = await _surveyAdminService.GetSurveyEditPageAsync(id, cancellationToken);
             if (pageModel == null)
             {
-                return NotFound("Анкета не найдена");
+                return NotFound("Анкета не найдена.");
             }
 
             return View("~/Views/Survey/get_surveys.cshtml", await BuildSurveyListPageAsync(editSurveyPage: pageModel, cancellationToken: cancellationToken));
@@ -305,7 +305,7 @@ public class SurveyAdminController : Controller
             var survey = await _surveyAdminService.GetSurveyForCopyAsync(id, cancellationToken);
             if (survey == null)
             {
-                return NotFound("Анкета не найдена");
+                return NotFound("Анкета не найдена.");
             }
 
             return View("~/Views/Survey/copy_survey.cshtml", survey);

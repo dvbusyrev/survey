@@ -43,6 +43,11 @@
     gap: var(--app-button-container-gap, var(--app-gap-md));
 }
 
+.rating-buttons.invalid {
+  outline: 2px solid var(--danger);
+  outline-offset: 4px;
+}
+
 .comment-container,
 .user-survey-question__comment {
     display: grid;

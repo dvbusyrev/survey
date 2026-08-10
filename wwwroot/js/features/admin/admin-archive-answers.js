@@ -283,7 +283,7 @@ window.AdminArchives = (function () {
       if (!response.ok) {
         let errorMessage = response.status === 404
           ? 'Ответы по выбранной архивной анкете не найдены.'
-          : `Ошибка сервера: ${response.status}`;
+          : `Не удалось загрузить ответы. Сервер вернул ошибку (${response.status}).`;
 
         try {
           const errorData = await response.json();
@@ -297,7 +297,7 @@ window.AdminArchives = (function () {
 
       const data = await response.json();
       if (!data.success || !data.survey || !data.answers) {
-        throw new Error(data.error || 'Неверный формат данных от сервера');
+        throw new Error(data.error || 'Сервер вернул некорректные данные.');
       }
 
       renderAnswers(data, isArchive, container, title);
@@ -305,8 +305,8 @@ window.AdminArchives = (function () {
     } catch (error) {
       console.error('Ошибка:', error);
       const message = typeof window.normalizeClientErrorMessage === 'function'
-        ? window.normalizeClientErrorMessage(error.message || 'Неизвестная ошибка')
-        : (error.message || 'Неизвестная ошибка');
+        ? window.normalizeClientErrorMessage(error.message || 'Не удалось загрузить ответы.')
+        : (error.message || 'Не удалось загрузить ответы.');
 
       window.AppUi.notify(message, 'error', { title: 'Ошибка загрузки ответов' });
     }

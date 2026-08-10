@@ -38,7 +38,12 @@
 }
 
 .app-field-group:has(:required) > label::after,
-.app-field-group:has([aria-required="true"]) > label::after {
+.app-field-group:has([aria-required="true"]) > label::after,
+.reports-page__field:has(:required) > label::after,
+[data-validation-group]:has(:required) > label::after,
+[data-validation-group]:has([aria-required="true"]) > label::after,
+[data-validation-group]:has(:required) > [data-validation-label]::after,
+[data-validation-group]:has([aria-required="true"]) > [data-validation-label]::after {
   content: " *";
 }
 

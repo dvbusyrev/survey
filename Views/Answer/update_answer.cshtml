@@ -37,7 +37,10 @@
 
                     <div class="question-container" id="quest_@questionId" data-question-id="@questionId">
                         <h3>@questionText</h3>
-                        <div class="rating-buttons">
+                        <div class="rating-buttons"
+                             role="group"
+                             aria-label="Оценка"
+                             aria-required="true">
                             @for (var score = 1; score <= 5; score++)
                             {
                                 var isActive = rating == score;
@@ -51,7 +54,10 @@
                         </div>
                         <br />
                         <div class="comment-container @(rating == 5 ? "is-hidden" : string.Empty)">
-                            <textarea class="answers-page__update-comment" placeholder="Введите комментарий" rows="3">@comment</textarea>
+                            <textarea class="answers-page__update-comment"
+                                      data-required-message="Введите комментарий для оценки ниже 5."
+                                      placeholder="Введите комментарий"
+                                      rows="3">@comment</textarea>
                         </div>
                         <br />
                     </div>

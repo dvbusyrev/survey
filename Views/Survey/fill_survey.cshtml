@@ -79,7 +79,11 @@
                                      data-role="survey-question"
                                      data-question-id="@questionId">
                                 <h3 class="survey-editor-page__section-title" data-role="question-title">@questionText</h3>
-                                <div class="rating-buttons" data-role="ratings">
+                                <div class="rating-buttons"
+                                     data-role="ratings"
+                                     role="group"
+                                     aria-label="Оценка"
+                                     aria-required="true">
                                     @for (var rating = 1; rating <= 5; rating += 1)
                                     {
                                         <button type="button"
@@ -94,6 +98,7 @@
                                     <label class="comment-label">Ваш комментарий</label>
                                     <textarea class="app-field"
                                               data-role="comment-input"
+                                              data-required-message="Введите комментарий для оценки ниже 5."
                                               placeholder="Введите комментарий"></textarea>
                                 </div>
                             </section>

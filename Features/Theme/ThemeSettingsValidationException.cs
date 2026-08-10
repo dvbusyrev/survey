@@ -3,7 +3,7 @@ namespace MainProject.Application.UseCases.Admin;
 public sealed class ThemeSettingsValidationException : Exception
 {
     public ThemeSettingsValidationException(IReadOnlyList<string> errors)
-        : base(errors.FirstOrDefault() ?? "Параметры темы заполнены некорректно")
+        : base(errors.FirstOrDefault() ?? "Проверьте параметры темы.")
     {
         Errors = errors;
     }
