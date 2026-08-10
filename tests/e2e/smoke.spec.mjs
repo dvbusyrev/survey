@@ -73,6 +73,34 @@ test('архивный пользователь и пользователь ар
     }
 });
 
+test('общий каркас виден до загрузки скриптов интерфейса', async ({ page }) => {
+    await login(page, 'smoke-admin');
+    await page.route(/\/js\/ui\/app-(header|navigation|footer)\.js(?:\?.*)?$/, async (route) => {
+        await route.abort();
+    });
+
+    await page.goto('/users', { waitUntil: 'domcontentloaded' });
+
+    const shell = page.locator('[data-app-shell="admin"]');
+    const content = page.locator('#content_admin');
+    await expect(shell).toHaveCount(1);
+    await expect(page.locator('#chrome-header .app-header')).toBeVisible();
+    await expect(page.locator('#chrome-navigation .admin-nav')).toBeVisible();
+    await expect(content).toBeVisible();
+    await expect(content).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(page.locator('#chrome-footer footer')).toBeVisible();
+
+    const beforeLoad = await content.boundingBox();
+    await page.waitForLoadState('load');
+    const afterLoad = await content.boundingBox();
+    expect(beforeLoad).not.toBeNull();
+    expect(afterLoad).not.toBeNull();
+    expect(Math.abs(afterLoad.x - beforeLoad.x)).toBeLessThan(1);
+    expect(Math.abs(afterLoad.y - beforeLoad.y)).toBeLessThan(1);
+    expect(Math.abs(afterLoad.width - beforeLoad.width)).toBeLessThan(1);
+    expect(Math.abs(afterLoad.height - beforeLoad.height)).toBeLessThan(1);
+});
+
 test('администратор проходит основные разделы', async ({ page }) => {
     test.setTimeout(45_000);
     await login(page, 'smoke-admin');
@@ -425,6 +453,11 @@ test('клиент видит ошибку, если срок анкеты ис�
 test('клиент проходит доступные анкеты, черновик, отправку, архив и справку', async ({ page }) => {
     test.setTimeout(45_000);
     await login(page, 'smoke-client');
+
+    await expect(page.locator('[data-app-shell="client"]')).toHaveCount(1);
+    await expect(page.locator('#chrome-header .app-header--client')).toBeVisible();
+    await expect(page.locator('#chrome-navigation')).toHaveCount(0);
+    await expect(page.locator('#content_admin')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 
     const surveyRow = page.locator('[data-role="user-survey-row"][data-row-action="fill"]');
     await expect(surveyRow).toHaveCount(1);

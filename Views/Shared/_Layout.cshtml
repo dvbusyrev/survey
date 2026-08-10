@@ -16,6 +16,11 @@
     }
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+        if (window.matchMedia('(min-width: 901px) and (max-width: 1220px)').matches) {
+            document.documentElement.classList.add('app-compact-shell');
+        }
+    </script>
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
     <title>Анкетирование</title>
     @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
@@ -65,7 +70,12 @@
         var layoutOrganizationName = chromeContext.OrganizationName;
         var layoutUserName = chromeContext.UserName;
         var layoutDisplayName = chromeContext.DisplayName;
-        var rendersOwnAppChrome = ViewData["RendersAppChrome"] is true;
+        var layoutActiveTab = MainProject.Web.ViewModels.AppNavigationRouteResolver.Resolve(Context.Request.Path.Value);
+        var layoutNavigationModel = new MainProject.Web.ViewModels.AppNavigationViewModel
+        {
+            UserRole = layoutUserRole,
+            ActiveTab = layoutActiveTab
+        };
     }
     <div id="global-antiforgery-token" hidden aria-hidden="true">
         @Html.AntiForgeryToken()
@@ -78,24 +88,31 @@
              data-display-name="@layoutDisplayName"
              data-user-name="@layoutUserName"
              data-organization-name="@layoutOrganizationName"
+             data-active-tab="@layoutActiveTab"
              hidden></div>
         @await Html.PartialAsync("~/Views/Shared/_NavigationTemplates.cshtml")
         @await Html.PartialAsync("~/Views/Shared/_AppChromeScripts.cshtml")
     }
-    @if (isAuthenticated && !rendersOwnAppChrome)
+    @if (isAuthenticated)
     {
-        <div class="page-container">
-            <div id="chrome-header"></div>
+        <div class="page-container app-shell" data-app-shell="@(layoutUserRole == AppRoles.Admin ? "admin" : "client")">
+            <div id="chrome-header" class="app-shell__header">
+                @await Html.PartialAsync("~/Views/Shared/_AppHeader.cshtml", chromeContext)
+            </div>
             <div class="admin-container @(layoutUserRole == AppRoles.Admin ? string.Empty : "app-client-container")">
                 @if (layoutUserRole == AppRoles.Admin)
                 {
-                    <div id="chrome-navigation"></div>
+                    <div id="chrome-navigation" class="app-shell__navigation">
+                        @await Html.PartialAsync("~/Views/Shared/_AppNavigation.cshtml", layoutNavigationModel)
+                    </div>
                 }
-                <div id="content_admin">
+                <main id="content_admin" class="app-shell__content">
                     @RenderBody()
-                </div>
+                </main>
             </div>
-            <div id="chrome-footer"></div>
+            <div id="chrome-footer" class="app-shell__footer">
+                @await Html.PartialAsync("~/Views/Shared/_AppFooter.cshtml")
+            </div>
         </div>
     }
     else
@@ -186,7 +203,10 @@
 
                 window.mountHeader(headerHost, { userRole, userId, displayName, userName, organizationName });
                 if (isAdmin && navHost && typeof window.mountNavigation === 'function') {
-                    window.mountNavigation(navHost, { activeTab: getActiveTab(), userRole });
+                    window.mountNavigation(navHost, {
+                        activeTab: (contextNode && contextNode.dataset.activeTab) || getActiveTab(),
+                        userRole
+                    });
                 }
                 window.mountFooter(footerHost);
                 if (typeof window.reapplyCurrentThemeSettings === 'function') {

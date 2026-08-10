@@ -11,7 +11,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: none;
-  scrollbar-gutter: auto;
+  scrollbar-gutter: stable;
 }
 
 .content-wrapper {

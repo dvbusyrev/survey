@@ -4,7 +4,6 @@
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Прохождение анкеты";
-    ViewData["RendersAppChrome"] = true;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
@@ -55,12 +54,7 @@
     <link rel="stylesheet" href="~/css/pages/survey-user.css" asp-append-version="true" />
 }
 
-<div class="page-container">
-    <div id="chrome-header"></div>
-    <div class="admin-container">
-        <div id="chrome-navigation"></div>
-        <div id="content_admin">
-            <div class="app-page app-page--narrow survey-editor-page" id="default_content" data-page="survey-fill-standalone">
+<div class="app-page app-page--narrow survey-editor-page" id="default_content" data-page="survey-fill-standalone">
                 <header class="app-page__intro">
                     <h1 class="app-page__title">Заполнение анкеты</h1>
                     <p class="app-page__description">Пожалуйста, оцените каждый вопрос по шкале от 1 до 5.</p>
@@ -109,10 +103,6 @@
                             <span data-role="submit-label">Отправить ответы</span>
                         </button>
                     </div>
-            </div>
-        </div>
-    </div>
-    <div id="chrome-footer"></div>
 </div>
 
 <script type="application/json" id="survey-fill-bootstrap">@Html.Raw(surveyFillBootstrapJson)</script>

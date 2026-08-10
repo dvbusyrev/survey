@@ -1,0 +1,39 @@
+@model MainProject.Application.DTO.UserChromeContext
+@using MainProject.Infrastructure.Security
+@{
+    var isAdmin = AppRoles.Normalize(Model?.UserRole) == AppRoles.Admin;
+    var organizationName = string.IsNullOrWhiteSpace(Model?.OrganizationName)
+        ? (isAdmin ? "Администратор" : "Клиент")
+        : Model.OrganizationName.Trim();
+    var userName = string.IsNullOrWhiteSpace(Model?.UserName)
+        ? AppRoles.GetDisplayName(Model?.UserRole)
+        : Model.UserName.Trim();
+    var displayName = isAdmin ? userName : organizationName;
+}
+<header class="app-header @(isAdmin ? string.Empty : "app-header--client")" data-app-shell-element="header">
+    <div class="header-left">
+        <button class="header-menu-toggle"
+                type="button"
+                aria-label="Открыть навигацию"
+                aria-expanded="false"
+                aria-controls="chrome-navigation">
+            <i class="fas fa-bars" aria-hidden="true"></i>
+        </button>
+        <img src="/images/favicon.svg" alt="Логотип" draggable="false" />
+    </div>
+    <h1 class="header-title">Анкетирование</h1>
+    <div class="header-right">
+        <div class="header-user-info">
+            @if (isAdmin)
+            {
+                <p class="header-mode-label">@organizationName</p>
+            }
+            else
+            {
+                <p class="header-mode-label" hidden></p>
+            }
+            <p class="header-user-name" title="@displayName">@displayName</p>
+        </div>
+        <button class="logout-button" type="button">Выйти</button>
+    </div>
+</header>

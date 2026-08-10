@@ -4,7 +4,6 @@
 @using MainProject.Infrastructure.Security
 @{
     ViewData["Title"] = "Активные анкеты";
-    ViewData["RendersAppChrome"] = true;
     var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
     var nameOrganization = User.FindFirst("organization_name")?.Value ?? "";
     var nameUser = User.FindFirst(ClaimTypes.Name)?.Value ?? "";
@@ -54,22 +53,14 @@
 }
 else
 {
-    <div class="page-container">
-        <div id="chrome-header"></div>
-        <div class="admin-container app-client-container">
-            <div id="content_admin">
-                <div class="app-page"
-                     id="default_content"
-                     data-page="user-surveys"
-                     data-filter-hide-count-summary="true">
-                    @await Html.PartialAsync("~/Views/Survey/Partials/_UserSurveyPageContent.cshtml", pageContentModel)
-                </div>
-            </div>
-        </div>
-        <div data-role="fill-modal-host"></div>
-        <div data-role="answers-modal-host"></div>
-        <div id="chrome-footer"></div>
+    <div class="app-page"
+         id="default_content"
+         data-page="user-surveys"
+         data-filter-hide-count-summary="true">
+        @await Html.PartialAsync("~/Views/Survey/Partials/_UserSurveyPageContent.cshtml", pageContentModel)
     </div>
+    <div data-role="fill-modal-host"></div>
+    <div data-role="answers-modal-host"></div>
     <script type="application/json" id="survey-user-list-bootstrap">@Html.Raw(surveyListBootstrapJson)</script>
 }
 

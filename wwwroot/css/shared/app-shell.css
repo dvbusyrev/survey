@@ -574,44 +574,52 @@ nav ul li.submenu-open > .submenu-list {
   }
 }
 
-body.compact-nav-mode .app-header {
+body.compact-nav-mode .app-header,
+html.app-compact-shell .app-header {
   --header-side-slot: auto;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 6px;
   padding-inline: 8px;
 }
 
-body.compact-nav-mode .header-menu-toggle {
+body.compact-nav-mode .header-menu-toggle,
+html.app-compact-shell .header-menu-toggle {
   display: inline-flex;
 }
 
-body.compact-nav-mode .app-header h1 {
+body.compact-nav-mode .app-header h1,
+html.app-compact-shell .app-header h1 {
   width: 100%;
   font-size: 0.9rem;
 }
 
-body.compact-nav-mode .header-right {
+body.compact-nav-mode .header-right,
+html.app-compact-shell .header-right {
   flex: 0 1 auto;
   width: auto;
   max-width: min(38vw, 12rem);
   gap: 5px;
 }
 
-body.compact-nav-mode .header-mode-label {
+body.compact-nav-mode .header-mode-label,
+html.app-compact-shell .header-mode-label {
   font-size: 0.45rem;
 }
 
-body.compact-nav-mode .header-user-name {
+body.compact-nav-mode .header-user-name,
+html.app-compact-shell .header-user-name {
   font-size: 0.54rem;
 }
 
-body.compact-nav-mode .logout-button {
+body.compact-nav-mode .logout-button,
+html.app-compact-shell .logout-button {
   min-height: var(--app-button-min-height);
   padding: var(--app-button-padding);
   font-size: var(--app-button-font-size);
 }
 
-body.compact-nav-mode nav {
+body.compact-nav-mode nav,
+html.app-compact-shell nav {
   position: relative;
   flex: 0 0 auto;
   width: min(15rem, calc(100vw - (var(--page-gap) * 2)));
@@ -624,11 +632,13 @@ body.compact-nav-mode nav {
   transform: translate3d(calc(-100% - var(--page-gap)), 0, 0);
 }
 
-body.mobile-nav-open.compact-nav-mode #chrome-navigation nav {
+body.mobile-nav-open.compact-nav-mode #chrome-navigation nav,
+html.app-compact-shell body.mobile-nav-open #chrome-navigation nav {
   transform: translate3d(0, 0, 0);
 }
 
-body.compact-nav-mode .submenu-list {
+body.compact-nav-mode .submenu-list,
+html.app-compact-shell .submenu-list {
   position: static;
   display: none;
   min-width: 0;
@@ -639,7 +649,8 @@ body.compact-nav-mode .submenu-list {
   box-shadow: none;
 }
 
-body.compact-nav-mode .submenu-list li a {
+body.compact-nav-mode .submenu-list li a,
+html.app-compact-shell .submenu-list li a {
   padding-top: 0.65rem;
   padding-bottom: 0.65rem;
   padding-left: 2.25rem;
@@ -647,7 +658,8 @@ body.compact-nav-mode .submenu-list li a {
   white-space: normal;
 }
 
-body.compact-nav-mode .nav-item.submenu-open > .submenu-list {
+body.compact-nav-mode .nav-item.submenu-open > .submenu-list,
+html.app-compact-shell .nav-item.submenu-open > .submenu-list {
   display: block;
 }
 

@@ -25,8 +25,11 @@
     if (!host || !template?.content?.firstElementChild) {
       return null;
     }
-    host.innerHTML = "";
-    const header = template.content.firstElementChild.cloneNode(true);
+    const existingHeader = host.querySelector(":scope > .app-header");
+    const header = existingHeader || template.content.firstElementChild.cloneNode(true);
+    if (!existingHeader) {
+      host.replaceChildren(header);
+    }
     header.classList.toggle("app-header--client", !isAdmin);
     const modeLabel = header.querySelector(".header-mode-label");
     const role = header.querySelector(".header-user-name");
@@ -41,7 +44,8 @@
       role.setAttribute("title", normalizedDisplayName);
       role.hidden = false;
     }
-    if (logoutButton) {
+    if (logoutButton && logoutButton.dataset.logoutBound !== "true") {
+      logoutButton.dataset.logoutBound = "true";
       logoutButton.addEventListener("click", () => {
         fetch("/auth/logout", { method: "POST" }).then((response) => {
           if (response.ok) {
@@ -55,9 +59,10 @@
     if (menuToggle && !isAdmin) {
       menuToggle.hidden = true;
     }
-    host.appendChild(header);
     return () => {
-      host.innerHTML = "";
+      if (!existingHeader) {
+        header.remove();
+      }
     };
   }
   window.mountHeader = function mountHeader(host, props) {
@@ -76,6 +81,7 @@
     const NAV_SUBMENU_SUPPRESS_STORAGE_KEY = "app-nav-submenu-suppressed";
     const MOBILE_NAV_OPEN_CLASS = "mobile-nav-open";
     const COMPACT_NAVIGATION_CLASS = "compact-nav-mode";
+    const PREPAINT_COMPACT_NAVIGATION_CLASS = "app-compact-shell";
     const NAVIGATION_LAYOUT_SYNC_CLASS = "nav-layout-sync";
     const MOBILE_NAV_MEDIA_QUERY = "(max-width: 900px)";
     const COMPACT_NAVIGATION_BREAKPOINT_PX = 1220;
@@ -147,6 +153,7 @@
           syncNavigationLayoutWithoutAnimation();
         }
         document.body.classList.remove(COMPACT_NAVIGATION_CLASS);
+        document.documentElement.classList.remove(PREPAINT_COMPACT_NAVIGATION_CLASS);
         syncMobileNavigationToggleButtons();
         return;
       }
@@ -158,6 +165,7 @@
         syncNavigationLayoutWithoutAnimation();
       }
       document.body.classList.toggle(COMPACT_NAVIGATION_CLASS, shouldCompact);
+      document.documentElement.classList.remove(PREPAINT_COMPACT_NAVIGATION_CLASS);
       if (!shouldCompact && isMobileNavigationOpen()) {
         closeMobileNavigation();
       }
@@ -250,9 +258,14 @@
         return null;
       }
       evaluateNavigationLayout();
-      host.innerHTML = "";
-      const nav = template.content.firstElementChild.cloneNode(true);
-      host.appendChild(nav);
+      const expectedRole = isAdmin ? "admin" : "user";
+      const existingNav = host.querySelector(":scope > .admin-nav");
+      const canHydrateExistingNav = existingNav && existingNav.dataset.navigationRole === expectedRole && existingNav.dataset.navigationMounted !== "true";
+      const nav = canHydrateExistingNav ? existingNav : template.content.firstElementChild.cloneNode(true);
+      if (!canHydrateExistingNav) {
+        host.replaceChildren(nav);
+      }
+      nav.dataset.navigationMounted = "true";
       syncMobileNavigationToggleButtons();
       const closeSubmenus = () => closeNavigationSubmenus(nav);
       const closeMobileNavIfNeeded = () => {
@@ -421,10 +434,15 @@
     if (!host || !template?.content?.firstElementChild) {
       return null;
     }
-    host.innerHTML = "";
-    host.appendChild(template.content.firstElementChild.cloneNode(true));
+    const existingFooter = host.querySelector(":scope > footer");
+    if (existingFooter) {
+      return () => {
+      };
+    }
+    const footer = template.content.firstElementChild.cloneNode(true);
+    host.appendChild(footer);
     return () => {
-      host.innerHTML = "";
+      footer.remove();
     };
   }
   window.mountFooter = function mountFooter(host) {

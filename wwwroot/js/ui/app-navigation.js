@@ -8,6 +8,7 @@ window.__appNavigationLoaded = true;
 const NAV_SUBMENU_SUPPRESS_STORAGE_KEY = 'app-nav-submenu-suppressed';
 const MOBILE_NAV_OPEN_CLASS = 'mobile-nav-open';
 const COMPACT_NAVIGATION_CLASS = 'compact-nav-mode';
+const PREPAINT_COMPACT_NAVIGATION_CLASS = 'app-compact-shell';
 const NAVIGATION_LAYOUT_SYNC_CLASS = 'nav-layout-sync';
 const MOBILE_NAV_MEDIA_QUERY = '(max-width: 900px)';
 const COMPACT_NAVIGATION_BREAKPOINT_PX = 1220;
@@ -99,6 +100,7 @@ function evaluateNavigationLayout() {
             syncNavigationLayoutWithoutAnimation();
         }
         document.body.classList.remove(COMPACT_NAVIGATION_CLASS);
+        document.documentElement.classList.remove(PREPAINT_COMPACT_NAVIGATION_CLASS);
         syncMobileNavigationToggleButtons();
         return;
     }
@@ -113,6 +115,7 @@ function evaluateNavigationLayout() {
     }
 
     document.body.classList.toggle(COMPACT_NAVIGATION_CLASS, shouldCompact);
+    document.documentElement.classList.remove(PREPAINT_COMPACT_NAVIGATION_CLASS);
 
     if (!shouldCompact && isMobileNavigationOpen()) {
         closeMobileNavigation();
@@ -231,9 +234,18 @@ function renderNavigation(host, { activeTab, userRole }) {
     }
 
     evaluateNavigationLayout();
-    host.innerHTML = '';
-    const nav = template.content.firstElementChild.cloneNode(true);
-    host.appendChild(nav);
+    const expectedRole = isAdmin ? 'admin' : 'user';
+    const existingNav = host.querySelector(':scope > .admin-nav');
+    const canHydrateExistingNav = existingNav
+        && existingNav.dataset.navigationRole === expectedRole
+        && existingNav.dataset.navigationMounted !== 'true';
+    const nav = canHydrateExistingNav
+        ? existingNav
+        : template.content.firstElementChild.cloneNode(true);
+    if (!canHydrateExistingNav) {
+        host.replaceChildren(nav);
+    }
+    nav.dataset.navigationMounted = 'true';
     syncMobileNavigationToggleButtons();
 
     const closeSubmenus = () => closeNavigationSubmenus(nav);

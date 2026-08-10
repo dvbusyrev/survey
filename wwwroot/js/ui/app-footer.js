@@ -4,10 +4,15 @@ function renderFooter(host) {
         return null;
     }
 
-    host.innerHTML = '';
-    host.appendChild(template.content.firstElementChild.cloneNode(true));
+    const existingFooter = host.querySelector(':scope > footer');
+    if (existingFooter) {
+        return () => {};
+    }
+
+    const footer = template.content.firstElementChild.cloneNode(true);
+    host.appendChild(footer);
     return () => {
-        host.innerHTML = '';
+        footer.remove();
     };
 }
 

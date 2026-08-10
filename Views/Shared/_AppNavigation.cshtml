@@ -1,0 +1,81 @@
+@model MainProject.Web.ViewModels.AppNavigationViewModel
+@{
+    var activeTab = Model?.ActiveTab ?? string.Empty;
+    var isAdmin = Model?.IsAdmin == true;
+    var surveySectionActive = isAdmin
+        ? new[] { "get_surveys", "add_survey", "list_answers_users", "archived_surveys" }.Contains(activeTab)
+        : new[] { "active", "archived", "answers_tab", "archived_surveys_for_user" }.Contains(activeTab);
+    var organizationSectionActive = new[] { "get_organization", "organization_surveys", "add_organization", "archive_list_organizations" }.Contains(activeTab);
+    var emailSectionActive = new[] { "email", "email_new" }.Contains(activeTab);
+    var settingsSectionActive = new[] { "email_settings", "theme_settings", "survey_auto_creation" }.Contains(activeTab);
+    string ActiveClass(bool condition) => condition ? " active" : string.Empty;
+}
+<nav class="admin-nav" data-app-shell-element="navigation" data-navigation-role="@(isAdmin ? "admin" : "user")">
+    <ul class="nav-list">
+        @if (isAdmin)
+        {
+            <li class="nav-item statistic@(ActiveClass(activeTab == "open_statistics"))" data-tab="open_statistics" data-nav-class="statistic">
+                <a href="/statistics" class="nav-link"><i class="fas fa-chart-line"></i>Статистика</a>
+            </li>
+            <li class="nav-item surveys has-submenu@(ActiveClass(surveySectionActive))" data-tab="get_surveys" data-nav-class="surveys">
+                <a href="/survey" class="nav-link"><i class="fas fa-clipboard-list"></i>Анкеты</a>
+                <ul class="submenu-list">
+                    <li class="submenu-item survey-list@(ActiveClass(activeTab == "get_surveys"))" data-tab="get_surveys"><a href="/survey" class="submenu-link"><i class="fas fa-list-ul"></i>Активные анкеты</a></li>
+                    <li class="submenu-item survey-add@(ActiveClass(activeTab == "add_survey"))" data-tab="add_survey"><a href="/survey/create" class="submenu-link"><i class="fas fa-plus"></i>Добавить анкету</a></li>
+                    <li class="submenu-item survey-answers@(ActiveClass(activeTab == "list_answers_users"))" data-tab="list_answers_users"><a href="/survey/answer" class="submenu-link"><i class="fas fa-list-check"></i>Журнал ответов</a></li>
+                    <li class="submenu-item survey-archive@(ActiveClass(activeTab == "archived_surveys"))" data-tab="archived_surveys"><a href="/survey/archive" class="submenu-link"><i class="fas fa-archive-docs"></i>Архивные анкеты</a></li>
+                </ul>
+            </li>
+            <li class="nav-item users has-submenu@(ActiveClass(new[] { "get_users", "add_user", "archived_users" }.Contains(activeTab)))" data-tab="get_users" data-nav-class="users">
+                <a href="/users" class="nav-link"><i class="fas fa-users"></i>Пользователи</a>
+                <ul class="submenu-list">
+                    <li class="submenu-item user-list@(ActiveClass(activeTab == "get_users"))" data-tab="get_users"><a href="/users" class="submenu-link"><i class="fas fa-list-ul"></i>Список пользователей</a></li>
+                    <li class="submenu-item user-add@(ActiveClass(activeTab == "add_user"))" data-tab="add_user"><a href="/users/create" class="submenu-link"><i class="fas fa-plus"></i>Добавить пользователя</a></li>
+                    <li class="submenu-item user-archive@(ActiveClass(activeTab == "archived_users"))" data-tab="archived_users"><a href="/users/archive" class="submenu-link"><i class="fas fa-archive-docs"></i>Архивные пользователи</a></li>
+                </ul>
+            </li>
+            <li class="nav-item organizations has-submenu@(ActiveClass(organizationSectionActive))" data-tab="get_organization" data-nav-class="organizations">
+                <a href="/organizations" class="nav-link"><i class="fas fa-building"></i>Организации</a>
+                <ul class="submenu-list">
+                    <li class="submenu-item org-list@(ActiveClass(activeTab == "get_organization"))" data-tab="get_organization"><a href="/organizations" class="submenu-link"><i class="fas fa-list-ul"></i>Список организаций</a></li>
+                    <li class="submenu-item org-surveys@(ActiveClass(activeTab == "organization_surveys"))" data-tab="organization_surveys"><a href="/organizations/survey" class="submenu-link"><i class="fas fa-clipboard-list"></i>Продление анкет</a></li>
+                    <li class="submenu-item org-add@(ActiveClass(activeTab == "add_organization"))" data-tab="add_organization"><a href="/organizations/create" class="submenu-link"><i class="fas fa-plus"></i>Добавить организацию</a></li>
+                    <li class="submenu-item org-archive@(ActiveClass(activeTab == "archive_list_organizations"))" data-tab="archive_list_organizations"><a href="/organizations/archive" class="submenu-link"><i class="fas fa-archive-docs"></i>Архивные организации</a></li>
+                </ul>
+            </li>
+            <li class="nav-item email@(ActiveClass(emailSectionActive))" data-tab="email_new" data-nav-class="email">
+                <a href="/email" class="nav-link"><i class="fas fa-envelope"></i>Эл. почта</a>
+            </li>
+            <li class="nav-item reports@(ActiveClass(activeTab == "reports"))" data-tab="reports" data-nav-class="reports">
+                <a href="/reports" class="nav-link"><i class="fas fa-file-alt"></i>Отчёты</a>
+            </li>
+            <li class="nav-item logs@(ActiveClass(activeTab == "get_logs"))" data-tab="get_logs" data-nav-class="logs">
+                <a href="/logs" class="nav-link"><i class="fas fa-scroll"></i>Журнал событий</a>
+            </li>
+            <li class="nav-item settings has-submenu@(ActiveClass(settingsSectionActive))" data-tab="settings" data-nav-class="settings" data-disable-direct-nav="true">
+                <a href="#" class="nav-link"><i class="fas fa-cog"></i>Настройки</a>
+                <ul class="submenu-list">
+                    <li class="submenu-item mail-settings@(ActiveClass(activeTab == "email_settings"))" data-tab="email_settings"><a href="/settings/email" class="submenu-link"><i class="fas fa-envelope"></i>Настройка отправителя</a></li>
+                    <li class="submenu-item theme-settings@(ActiveClass(activeTab == "theme_settings"))" data-tab="theme_settings"><a href="/settings/theme" class="submenu-link"><i class="fas fa-palette"></i>Настройка темы</a></li>
+                    <li class="submenu-item survey-auto-creation@(ActiveClass(activeTab == "survey_auto_creation"))" data-tab="survey_auto_creation"><a href="/settings/survey-creation" class="submenu-link"><i class="fas fa-clipboard-list"></i>Автосоздание анкет</a></li>
+                </ul>
+            </li>
+            <li class="nav-item help@(ActiveClass(activeTab == "help"))" data-tab="help" data-nav-class="help">
+                <a href="/help" class="nav-link"><i class="fas fa-question-circle"></i>Справка</a>
+            </li>
+        }
+        else
+        {
+            <li class="nav-item surveys has-submenu@(ActiveClass(surveySectionActive))" data-tab="active" data-nav-class="surveys">
+                <a href="/survey" class="nav-link"><i class="fas fa-clipboard-list"></i>Анкеты</a>
+                <ul class="submenu-list">
+                    <li class="submenu-item survey-list@(ActiveClass(activeTab == "active"))" data-tab="active"><a href="/survey" class="submenu-link"><i class="fas fa-list-ul"></i>Активные анкеты</a></li>
+                    <li class="submenu-item survey-archive@(ActiveClass(activeTab is "archived" or "archived_surveys_for_user"))" data-tab="archived_surveys_for_user"><a href="/archive" class="submenu-link"><i class="fas fa-archive-docs"></i>Архив анкет</a></li>
+                </ul>
+            </li>
+            <li class="nav-item help@(ActiveClass(activeTab == "help"))" data-tab="help" data-nav-class="help">
+                <a href="/help" class="nav-link"><i class="fas fa-question-circle"></i>Справка</a>
+            </li>
+        }
+    </ul>
+</nav>

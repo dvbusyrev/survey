@@ -35,8 +35,11 @@ function renderHeader(host, { userRole, displayName, userName, organizationName 
         return null;
     }
 
-    host.innerHTML = '';
-    const header = template.content.firstElementChild.cloneNode(true);
+    const existingHeader = host.querySelector(':scope > .app-header');
+    const header = existingHeader || template.content.firstElementChild.cloneNode(true);
+    if (!existingHeader) {
+        host.replaceChildren(header);
+    }
     header.classList.toggle('app-header--client', !isAdmin);
     const modeLabel = header.querySelector('.header-mode-label');
     const role = header.querySelector('.header-user-name');
@@ -52,7 +55,8 @@ function renderHeader(host, { userRole, displayName, userName, organizationName 
         role.setAttribute('title', normalizedDisplayName);
         role.hidden = false;
     }
-    if (logoutButton) {
+    if (logoutButton && logoutButton.dataset.logoutBound !== 'true') {
+        logoutButton.dataset.logoutBound = 'true';
         logoutButton.addEventListener('click', () => {
             fetch('/auth/logout', { method: 'POST' })
                 .then(response => {
@@ -69,9 +73,10 @@ function renderHeader(host, { userRole, displayName, userName, organizationName 
         menuToggle.hidden = true;
     }
 
-    host.appendChild(header);
     return () => {
-        host.innerHTML = '';
+        if (!existingHeader) {
+            header.remove();
+        }
     };
 }
 
