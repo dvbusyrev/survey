@@ -166,3 +166,23 @@ test('клиент проходит доступные анкеты, черно�
     await expect(page.locator('[data-role="survey-user-content"][data-active-tab="help"]')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Скачать инструкцию', exact: true })).toBeVisible();
 });
+
+test('клиент скачивает установленную инструкцию', async ({ page }) => {
+    await login(page, 'smoke-client');
+    await page.goto('/help');
+    await expect(page.getByRole('link', { name: 'Скачать инструкцию', exact: true })).toBeVisible();
+
+    const helpDownloadResponse = await page.evaluate(async () => {
+        const response = await fetch('/help/download/user-guide');
+        const body = await response.arrayBuffer();
+        return {
+            status: response.status,
+            contentType: response.headers.get('content-type') || '',
+            bodyLength: body.byteLength
+        };
+    });
+    expect(helpDownloadResponse.status).toBe(200);
+    expect(helpDownloadResponse.contentType).toContain(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    expect(helpDownloadResponse.bodyLength).toBeGreaterThan(0);
+});

@@ -19,14 +19,21 @@ public class HelpController : Controller
     private const string AdminGuideDownloadFileName = "АИС Анкетирование. Инструкция администратора.docx";
     private const string UserGuideDownloadFileName = "АИС Анкетирование. Инструкция пользователя.docx";
 
-    private readonly string _uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
+    private readonly string _uploadFolder;
     private readonly SurveyService _surveyUserService;
     private readonly ICurrentUserService _currentUserService;
 
-    public HelpController(SurveyService surveyUserService, ICurrentUserService currentUserService)
+    public HelpController(
+        SurveyService surveyUserService,
+        ICurrentUserService currentUserService,
+        IWebHostEnvironment environment)
     {
         _surveyUserService = surveyUserService;
         _currentUserService = currentUserService;
+        var webRootPath = string.IsNullOrWhiteSpace(environment.WebRootPath)
+            ? Path.Combine(environment.ContentRootPath, "wwwroot")
+            : environment.WebRootPath;
+        _uploadFolder = Path.Combine(webRootPath, "help_files");
     }
 
     [HttpGet("help/files/{type}")]
@@ -65,7 +72,6 @@ public class HelpController : Controller
 
     private string? ResolveHelpDocumentPath(string type)
     {
-        var helpDirectory = Path.Combine(Directory.GetCurrentDirectory(), "Web", "wwwroot", "help_files");
         var normalizedType = NormalizeHelpDocumentType(type) ?? type?.Trim().ToLowerInvariant();
         var aliases = normalizedType switch
         {
@@ -89,7 +95,7 @@ public class HelpController : Controller
 
         foreach (var fileName in aliases)
         {
-            var fullPath = Path.Combine(helpDirectory, fileName);
+            var fullPath = Path.Combine(_uploadFolder, fileName);
             if (System.IO.File.Exists(fullPath))
             {
                 return fullPath;
