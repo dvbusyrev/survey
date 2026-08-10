@@ -338,6 +338,7 @@
 
 .survey-details-modal__body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--app-modal-field-gap);
 }
 
@@ -351,7 +352,15 @@
 }
 
 .survey-details-modal__table-wrap {
+  min-width: 0;
   margin-top: 0;
+  overflow: visible;
+}
+
+.survey-details-modal__table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 .survey-editor-page__selected-organizations-list {

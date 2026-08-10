@@ -238,6 +238,54 @@ test('администратор проходит основные раздел�
     await expect(page.getByText('Как выглядит', { exact: true })).toBeVisible();
 });
 
+test('длинная таблица критериев прокручивается вместе с модальным окном', async ({ page }) => {
+    await page.setViewportSize({ width: 947, height: 975 });
+    await login(page, 'smoke-admin');
+    await page.route(/\/survey\/\d+\/details$/, async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                name: 'Анкета с длинным списком критериев',
+                description: 'Проверка прокрутки окна просмотра анкеты',
+                dateBegin: localDisplayDaysAgo(0),
+                dateEnd: localDisplayDaysAgo(-14),
+                organizations: ['Smoke org'],
+                criteria: Array.from({ length: 24 }, (_, index) => `Критерий ${index + 1}`)
+            })
+        });
+    });
+
+    await page.locator('.surveys-table tbody tr[data-survey-id]').first().locator('td').first().click();
+    const modal = page.locator('.survey-details-modal.modal--visible');
+    const modalBody = modal.locator('.survey-details-modal__body');
+    const tableWrap = modal.locator('.survey-details-modal__table-wrap');
+    await expect(modal).toBeVisible();
+
+    const scrollState = await modal.evaluate((modalElement) => {
+        const body = modalElement.querySelector('.survey-details-modal__body');
+        const wrap = modalElement.querySelector('.survey-details-modal__table-wrap');
+        return {
+            bodyClientHeight: body.clientHeight,
+            bodyScrollHeight: body.scrollHeight,
+            bodyOverflowY: getComputedStyle(body).overflowY,
+            wrapClientHeight: wrap.clientHeight,
+            wrapScrollHeight: wrap.scrollHeight,
+            wrapOverflowY: getComputedStyle(wrap).overflowY
+        };
+    });
+
+    expect(scrollState.bodyOverflowY).toBe('auto');
+    expect(scrollState.bodyScrollHeight).toBeGreaterThan(scrollState.bodyClientHeight);
+    expect(scrollState.wrapOverflowY).toBe('visible');
+    expect(scrollState.wrapScrollHeight).toBe(scrollState.wrapClientHeight);
+
+    await modalBody.evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+    });
+    await expect(tableWrap.locator('tbody tr').last()).toBeInViewport();
+});
+
 test('клиент видит ошибку, если срок анкеты истёк перед отправкой', async ({ page }) => {
     await login(page, 'smoke-client');
 
