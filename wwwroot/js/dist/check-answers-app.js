@@ -58,8 +58,9 @@
     ]);
     signButtons.forEach((signButton) => {
       if (signButton instanceof HTMLButtonElement) {
-        signButton.disabled = isSigned;
-        signButton.textContent = isSigned ? "Подписано" : "Подписать";
+        const canSign = page.dataset.canSign !== "false";
+        signButton.disabled = isDraftMode ? !canSign : isSigned || !canSign;
+        signButton.textContent = isDraftMode && isSigned ? "Переподписать" : isSigned ? "Подписано" : canSign ? "Подписать" : "Подписание недоступно";
       }
     });
   }
@@ -724,9 +725,9 @@
       const isDraftSigned = refs.page?.dataset.isDraftSigned === "true" || host.querySelector('[data-role="survey-fill-page"]')?.dataset.isDraftSigned === "true";
       const signButton = createSurveyModalFooterButton({
         role: "draft-sign-button",
-        text: isDraftSigned ? "Подписано" : "Подписать",
+        text: isDraftSigned ? "Переподписать" : "Подписать",
         variant: "primary",
-        disabled: isDraftSigned
+        disabled: false
       });
       const cancelButton = createSurveyModalFooterButton({
         role: "cancel-btn",
@@ -786,10 +787,15 @@
         button.addEventListener("click", () => {
           error = null;
           const rating = Number(button.dataset.rating || 0);
+          const previousAnswer = answers[questionId] || {};
+          const comment = rating < 5 ? previousAnswer.comment || "" : "";
+          if (previousAnswer.rating === rating && String(previousAnswer.comment || "") === String(comment)) {
+            return;
+          }
           answers[questionId] = {
-            ...answers[questionId],
+            ...previousAnswer,
             rating,
-            comment: rating < 5 ? answers[questionId]?.comment || "" : ""
+            comment
           };
           updateDraftSignedState(false);
           renderError();
@@ -802,9 +808,13 @@
       });
       commentInput?.addEventListener("input", (event) => {
         error = null;
+        const comment = event.target.value;
+        if (String(answers[questionId]?.comment || "") === String(comment)) {
+          return;
+        }
         answers[questionId] = {
           ...answers[questionId],
-          comment: event.target.value
+          comment
         };
         updateDraftSignedState(false);
         renderError();
@@ -853,6 +863,10 @@
         error = null;
         renderError();
         buildPayloadAnswers({ requireComplete: true });
+        if (draftSaveTimer) {
+          window.clearTimeout(draftSaveTimer);
+          draftSaveTimer = 0;
+        }
         await saveDraft({ showErrorOnFailure: true });
         const surveyId = getCurrentSurveyId();
         if (surveyId <= 0 || organizationId <= 0) {
@@ -945,11 +959,12 @@
         return {};
       }
       const isSigned = page?.dataset.isSigned === "true";
+      const canSign = page?.dataset.canSign !== "false";
       const signButton = createSurveyModalFooterButton({
         role: "sign-button",
-        text: isSigned ? "Подписано" : "Подписать",
+        text: isSigned ? "Подписано" : canSign ? "Подписать" : "Подписание недоступно",
         variant: "primary",
-        disabled: isSigned
+        disabled: isSigned || !canSign
       });
       const downloadButton = createSurveyModalFooterButton({
         role: "download-btn",

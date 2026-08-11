@@ -21,7 +21,7 @@ public class AnswerSigningController : Controller
     [HttpGet("signatures/{id}/{idOrganization}")]
     public async Task<IActionResult> GetSigningData(int id, int idOrganization, CancellationToken cancellationToken = default)
     {
-        var accessResult = await EnsureAnswerRecordAccessAsync(id, idOrganization, cancellationToken);
+        var accessResult = await EnsureAnswerSigningAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -34,6 +34,10 @@ public class AnswerSigningController : Controller
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
             return this.SafeError(ex, "Анкета уже подписана.", "Повторное получение данных подписи", StatusCodes.Status409Conflict);
+        }
+        catch (MainProject.Application.UseCases.Answers.AnswerSigningClosedException ex)
+        {
+            return this.SafeError(ex, AnswerSigningClosedException.UserMessage, "Подписание после окончания срока", StatusCodes.Status409Conflict);
         }
         catch (Exception ex)
         {
@@ -48,7 +52,7 @@ public class AnswerSigningController : Controller
         [FromBody] AnswerSignatureSaveRequest request,
         CancellationToken cancellationToken = default)
     {
-        var accessResult = await EnsureAnswerRecordAccessAsync(id, idOrganization, cancellationToken);
+        var accessResult = await EnsureAnswerSigningAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -76,6 +80,10 @@ public class AnswerSigningController : Controller
         {
             return this.SafeError(ex, "Анкета уже подписана.", "Повторное сохранение подписи", StatusCodes.Status409Conflict);
         }
+        catch (MainProject.Application.UseCases.Answers.AnswerSigningClosedException ex)
+        {
+            return this.SafeError(ex, AnswerSigningClosedException.UserMessage, "Подписание после окончания срока", StatusCodes.Status409Conflict);
+        }
         catch (ArgumentException ex)
         {
             return this.SafeError(ex, "Некорректные данные подписи.", "Некорректные данные подписи", StatusCodes.Status400BadRequest);
@@ -89,7 +97,7 @@ public class AnswerSigningController : Controller
     [HttpGet("draft-signatures/{id}/{idOrganization}")]
     public async Task<IActionResult> GetDraftSigningData(int id, int idOrganization, CancellationToken cancellationToken = default)
     {
-        var accessResult = await EnsureAnswerSubmissionAccessAsync(id, idOrganization, cancellationToken);
+        var accessResult = await EnsureAnswerSigningAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -102,6 +110,10 @@ public class AnswerSigningController : Controller
         catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
         {
             return this.SafeError(ex, "Черновик уже подписан.", "Повторное получение данных подписи черновика", StatusCodes.Status409Conflict);
+        }
+        catch (MainProject.Application.UseCases.Answers.AnswerSigningClosedException ex)
+        {
+            return this.SafeError(ex, AnswerSigningClosedException.UserMessage, "Подписание черновика после окончания срока", StatusCodes.Status409Conflict);
         }
         catch (Exception ex)
         {
@@ -116,7 +128,7 @@ public class AnswerSigningController : Controller
         [FromBody] AnswerSignatureSaveRequest request,
         CancellationToken cancellationToken = default)
     {
-        var accessResult = await EnsureAnswerSubmissionAccessAsync(id, idOrganization, cancellationToken);
+        var accessResult = await EnsureAnswerSigningAccessAsync(id, idOrganization, cancellationToken);
         if (accessResult != null)
         {
             return accessResult;
@@ -144,6 +156,10 @@ public class AnswerSigningController : Controller
         {
             return this.SafeError(ex, "Черновик уже подписан.", "Повторное сохранение подписи черновика", StatusCodes.Status409Conflict);
         }
+        catch (MainProject.Application.UseCases.Answers.AnswerSigningClosedException ex)
+        {
+            return this.SafeError(ex, AnswerSigningClosedException.UserMessage, "Подписание черновика после окончания срока", StatusCodes.Status409Conflict);
+        }
         catch (ArgumentException ex)
         {
             return this.SafeError(ex, "Некорректные данные подписи.", "Некорректные данные подписи черновика", StatusCodes.Status400BadRequest);
@@ -154,7 +170,7 @@ public class AnswerSigningController : Controller
         }
     }
 
-    private async Task<IActionResult?> EnsureAnswerRecordAccessAsync(
+    private async Task<IActionResult?> EnsureAnswerSigningAccessAsync(
         int surveyId,
         int requestedOrganizationId,
         CancellationToken cancellationToken)
@@ -164,27 +180,17 @@ public class AnswerSigningController : Controller
             return Challenge();
         }
 
-        if (!await _answerService.CanAccessAnswerRecordAsync(surveyId, requestedOrganizationId, cancellationToken))
+        if (!await _answerService.CanAccessOrganizationAsync(requestedOrganizationId, cancellationToken))
         {
             return Forbid();
         }
 
-        return null;
-    }
-
-    private async Task<IActionResult?> EnsureAnswerSubmissionAccessAsync(
-        int surveyId,
-        int requestedOrganizationId,
-        CancellationToken cancellationToken)
-    {
-        if (!_answerService.IsAuthenticated)
+        if (!await _answerService.CanSignAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
         {
-            return Challenge();
-        }
-
-        if (!await _answerService.CanSubmitAnswerAsync(surveyId, requestedOrganizationId, cancellationToken))
-        {
-            return Forbid();
+            return StatusCode(StatusCodes.Status409Conflict, new OperationResponse
+            {
+                Error = AnswerSigningClosedException.UserMessage
+            });
         }
 
         return null;

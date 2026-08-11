@@ -8,4 +8,5 @@ public sealed class CheckAnswersPageViewModel
     public Survey Survey { get; init; } = new();
     public IReadOnlyList<AnswerPayloadItem> Answers { get; init; } = Array.Empty<AnswerPayloadItem>();
     public int IdOrganization { get; init; }
+    public bool CanSign { get; init; }
 }

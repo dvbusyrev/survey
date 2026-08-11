@@ -12,7 +12,11 @@
     <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 }
 
-<div class="app-page app-page--narrow answers-page__check" id="default_content" data-page="answers-check" data-is-signed="@(isSigned ? "true" : "false")">
+<div class="app-page app-page--narrow answers-page__check"
+     id="default_content"
+     data-page="answers-check"
+     data-is-signed="@(isSigned ? "true" : "false")"
+     data-can-sign="@(Model.CanSign ? "true" : "false")">
     @await Html.PartialAsync(
         "~/Views/Shared/_PageIntro.cshtml",
         new MainProject.Web.ViewModels.PageIntroModel
@@ -76,8 +80,8 @@
                         data-role-sign-button="true"
                         data-click-call="CSP"
                         data-click-args='[@survey.IdSurvey, @idOrganization]'
-                        disabled="@(isSigned ? "disabled" : null)">
-                    @(isSigned ? "Подписано" : "Подписать")
+                        disabled="@(isSigned || !Model.CanSign ? "disabled" : null)">
+                    @(isSigned ? "Подписано" : Model.CanSign ? "Подписать" : "Подписание недоступно")
                 </button>
                 <button type="button" class="app-button app-button--primary answers-page__action-button"
                         data-role="download-btn"

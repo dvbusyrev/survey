@@ -310,9 +310,9 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
             || host.querySelector('[data-role="survey-fill-page"]')?.dataset.isDraftSigned === 'true';
         const signButton = createSurveyModalFooterButton({
             role: 'draft-sign-button',
-            text: isDraftSigned ? 'Подписано' : 'Подписать',
+            text: isDraftSigned ? 'Переподписать' : 'Подписать',
             variant: 'primary',
-            disabled: isDraftSigned
+            disabled: false
         });
         const cancelButton = createSurveyModalFooterButton({
             role: 'cancel-btn',
@@ -382,10 +382,17 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
             button.addEventListener('click', () => {
                 error = null;
                 const rating = Number(button.dataset.rating || 0);
+                const previousAnswer = answers[questionId] || {};
+                const comment = rating < 5 ? previousAnswer.comment || '' : '';
+                if (previousAnswer.rating === rating
+                    && String(previousAnswer.comment || '') === String(comment)) {
+                    return;
+                }
+
                 answers[questionId] = {
-                    ...answers[questionId],
+                    ...previousAnswer,
                     rating,
-                    comment: rating < 5 ? answers[questionId]?.comment || '' : ''
+                    comment
                 };
                 updateDraftSignedState(false);
                 renderError();
@@ -399,9 +406,14 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
 
         commentInput?.addEventListener('input', (event) => {
             error = null;
+            const comment = event.target.value;
+            if (String(answers[questionId]?.comment || '') === String(comment)) {
+                return;
+            }
+
             answers[questionId] = {
                 ...answers[questionId],
-                comment: event.target.value
+                comment
             };
             updateDraftSignedState(false);
             renderError();
@@ -457,6 +469,10 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
             error = null;
             renderError();
             buildPayloadAnswers({ requireComplete: true });
+            if (draftSaveTimer) {
+                window.clearTimeout(draftSaveTimer);
+                draftSaveTimer = 0;
+            }
             await saveDraft({ showErrorOnFailure: true });
             const surveyId = getCurrentSurveyId();
             if (surveyId <= 0 || organizationId <= 0) {
@@ -567,11 +583,12 @@ window.mountCheckAnswersPage = function mountCheckAnswersPage(host, { survey, or
         }
 
         const isSigned = page?.dataset.isSigned === 'true';
+        const canSign = page?.dataset.canSign !== 'false';
         const signButton = createSurveyModalFooterButton({
             role: 'sign-button',
-            text: isSigned ? 'Подписано' : 'Подписать',
+            text: isSigned ? 'Подписано' : canSign ? 'Подписать' : 'Подписание недоступно',
             variant: 'primary',
-            disabled: isSigned
+            disabled: isSigned || !canSign
         });
         const downloadButton = createSurveyModalFooterButton({
             role: 'download-btn',

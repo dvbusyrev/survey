@@ -11,5 +11,8 @@ public sealed class SurveyAnswersSurveyViewModel
     [JsonPropertyName("is_archive")]
     public bool IsArchive { get; init; }
 
+    [JsonPropertyName("can_sign")]
+    public bool CanSign { get; init; }
+
     public string? Csp { get; init; }
 }

@@ -96,6 +96,11 @@ public partial class AnswerService
             throw new AnswerSubmissionClosedException();
         }
 
+        if (result.AlreadySubmitted)
+        {
+            throw new AnswerAlreadySubmittedException();
+        }
+
         if (result.AlreadySigned)
         {
             throw new AnswerAlreadySignedException();
@@ -104,21 +109,7 @@ public partial class AnswerService
         return result.AnswerId;
     }
 
-    private async Task<bool> UpdateAnswerRecordAsync(
-        AnswerRecord answerRecord,
-        int userId,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await _answerRepository.UpdateAnswerAsync(answerRecord, userId, cancellationToken);
-        if (result.AlreadySigned)
-        {
-            throw new AnswerAlreadySignedException();
-        }
-
-        return result.Found;
-    }
-
-    private Task<bool> UpdateSignatureAsync(
+    private Task<AnswerStorageResult> UpdateSignatureAsync(
         int surveyId,
         int organizationId,
         string signature,
@@ -127,10 +118,13 @@ public partial class AnswerService
         CancellationToken cancellationToken = default)
         => _answerRepository.TrySaveAnswerSignatureAsync(surveyId, organizationId, signature, signedContent, userId, cancellationToken);
 
-    private Task<bool> SaveDraftRecordAsync(AnswerRecord answerRecord, int userId, CancellationToken cancellationToken = default)
+    private Task<AnswerStorageResult> SaveDraftRecordAsync(
+        AnswerRecord answerRecord,
+        int userId,
+        CancellationToken cancellationToken = default)
         => _answerRepository.SaveDraftAsync(answerRecord, userId, cancellationToken);
 
-    private Task<bool> UpdateDraftSignatureAsync(
+    private Task<AnswerStorageResult> UpdateDraftSignatureAsync(
         int surveyId,
         int organizationId,
         string signature,

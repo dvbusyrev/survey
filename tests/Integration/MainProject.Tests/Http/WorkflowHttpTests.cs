@@ -201,6 +201,60 @@ public sealed class WorkflowHttpTests
     }
 
     [Fact]
+    public async Task RepeatedAnswerSubmission_ReturnsConflictWithoutExposingUpdatePath()
+    {
+        await using var factory = new WorkflowApplicationFactory();
+        factory.Answers.ThrowAlreadySubmittedOnInsert = true;
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        var antiforgery = await GetAntiforgeryTokenAsync(client, WorkflowIdentityRole);
+
+        using var repeatedSubmission = CreateJsonRequest(HttpMethod.Post, "/answers/create", CreateAnswerRecord());
+        AddUserAndAntiforgeryHeaders(repeatedSubmission, antiforgery);
+        repeatedSubmission.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        using var repeatedResponse = await client.SendAsync(repeatedSubmission);
+        var repeatedPayload = await repeatedResponse.Content.ReadFromJsonAsync<OperationResponse>();
+
+        using var updateRequest = CreateJsonRequest(HttpMethod.Post, "/answers/update", CreateAnswerRecord());
+        AddUserAndAntiforgeryHeaders(updateRequest, antiforgery);
+        using var updateResponse = await client.SendAsync(updateRequest);
+        var updatePayload = await updateResponse.Content.ReadFromJsonAsync<OperationResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, repeatedResponse.StatusCode);
+        Assert.Equal(AnswerAlreadySubmittedException.UserMessage, repeatedPayload?.Error);
+        Assert.Equal(HttpStatusCode.Conflict, updateResponse.StatusCode);
+        Assert.Equal(AnswerAlreadySubmittedException.UserMessage, updatePayload?.Error);
+    }
+
+    [Fact]
+    public async Task SigningAfterSurveyExpiry_ReturnsConflictBeforeSignatureServiceRuns()
+    {
+        await using var factory = new WorkflowApplicationFactory();
+        factory.Answers.AllowSigning = false;
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        var antiforgery = await GetAntiforgeryTokenAsync(client, WorkflowIdentityRole);
+        using var request = CreateJsonRequest(
+            HttpMethod.Post,
+            "/signatures/7/10",
+            new AnswerSignatureSaveRequest { Signature = Convert.ToBase64String("signature"u8.ToArray()) });
+        AddUserAndAntiforgeryHeaders(request, antiforgery);
+
+        using var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadFromJsonAsync<OperationResponse>();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(AnswerSigningClosedException.UserMessage, payload?.Error);
+        Assert.Equal(0, factory.Answers.SaveAnswerSignatureCalls);
+    }
+
+    [Fact]
     public async Task WorkflowPosts_RequireAntiforgeryToken()
     {
         await using var factory = new WorkflowApplicationFactory();
@@ -507,10 +561,13 @@ public sealed class WorkflowHttpTests
     {
         public bool AllowOrganizationAccess { get; set; } = true;
         public bool AllowSubmission { get; set; } = true;
+        public bool AllowSigning { get; set; } = true;
         public int InsertAnswerCalls { get; private set; }
         public int SaveDraftCalls { get; private set; }
         public int SaveDraftSignatureCalls { get; private set; }
+        public int SaveAnswerSignatureCalls { get; private set; }
         public bool ThrowSubmissionClosedOnInsert { get; set; }
+        public bool ThrowAlreadySubmittedOnInsert { get; set; }
         public bool ThrowOnInsert { get; set; }
         public bool ThrowOnSaveDraft { get; set; }
         public bool ThrowOnSaveDraftSignature { get; set; }
@@ -522,6 +579,7 @@ public sealed class WorkflowHttpTests
         public override Task<int?> GetCurrentUserOrganizationIdAsync(CancellationToken cancellationToken = default) => Task.FromResult<int?>(10);
         public override Task<bool> CanAccessOrganizationAsync(int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(AllowOrganizationAccess);
         public override Task<bool> CanSubmitAnswerAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(AllowSubmission);
+        public override Task<bool> CanSignAnswerAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(AllowSigning);
         public override Task<bool> CanAccessAnswerRecordAsync(int surveyId, int requestedOrganizationId, CancellationToken cancellationToken = default) => Task.FromResult(true);
 
         public override Task<AnswerMutationResult> InsertAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
@@ -532,6 +590,11 @@ public sealed class WorkflowHttpTests
                 throw new AnswerSubmissionClosedException();
             }
 
+            if (ThrowAlreadySubmittedOnInsert)
+            {
+                throw new AnswerAlreadySubmittedException();
+            }
+
             if (ThrowOnInsert)
             {
                 throw new InvalidOperationException("database password must never leave the server");
@@ -539,9 +602,6 @@ public sealed class WorkflowHttpTests
 
             return Task.FromResult(new AnswerMutationResult { Success = true });
         }
-
-        public override Task<AnswerMutationResult> UpdateAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AnswerMutationResult { Success = true });
 
         public override Task<AnswerMutationResult> SaveDraftAnswerAsync(AnswerRecord answerRecord, CancellationToken cancellationToken = default)
         {
@@ -557,12 +617,6 @@ public sealed class WorkflowHttpTests
         public override Task<AnswerRecord?> GetDraftAnswerAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
             Task.FromResult<AnswerRecord?>(null);
 
-        public override Task<MainProject.Web.ViewModels.UpdateAnswerPageViewModel?> GetUpdateAnswerPageAsync(
-            int surveyId,
-            int organizationId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<MainProject.Web.ViewModels.UpdateAnswerPageViewModel?>(null);
-
         public override Task<SurveyAnswersResponse> GetAnswersResponseAsync(
             int surveyId,
             int organizationId,
@@ -574,8 +628,11 @@ public sealed class WorkflowHttpTests
         public override Task<AnswerSigningPayload> GetSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AnswerSigningPayload());
 
-        public override Task<bool> SaveSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(true);
+        public override Task<bool> SaveSignatureAsync(int surveyId, int organizationId, AnswerSignatureSaveRequest request, CancellationToken cancellationToken = default)
+        {
+            SaveAnswerSignatureCalls++;
+            return Task.FromResult(true);
+        }
 
         public override Task<AnswerSigningPayload> GetDraftSigningDataAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AnswerSigningPayload());

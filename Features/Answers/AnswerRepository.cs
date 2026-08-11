@@ -482,9 +482,9 @@ public sealed class AnswerRepository
             };
         }
 
-        var existingSignature = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+        var existingAnswerId = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
             """
-            SELECT csp
+            SELECT id_answer
             FROM public.answer
             WHERE id_organization_survey = @AssignmentId
             FOR UPDATE;
@@ -492,13 +492,14 @@ public sealed class AnswerRepository
             new { AssignmentId = assignmentId.Value },
             transaction,
             cancellationToken: cancellationToken));
-        if (!string.IsNullOrWhiteSpace(existingSignature))
+        if (existingAnswerId.HasValue)
         {
             await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult
             {
                 Found = true,
-                AlreadySigned = true
+                AlreadySubmitted = true,
+                AnswerId = existingAnswerId.Value
             };
         }
 
@@ -516,10 +517,6 @@ public sealed class AnswerRepository
                 @Signature,
                 @SignedContent
             )
-            ON CONFLICT (id_organization_survey) DO UPDATE
-            SET completion_date = EXCLUDED.completion_date,
-                csp = EXCLUDED.csp,
-                signed_content = EXCLUDED.signed_content
             RETURNING id_answer;
             """,
             new
@@ -547,13 +544,15 @@ public sealed class AnswerRepository
         };
     }
 
-    public async Task<AnswerStorageResult> UpdateAnswerAsync(
+    public async Task<AnswerStorageResult> SaveDraftAsync(
         AnswerRecord answerRecord,
         int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var items = await BuildNormalizedAnswerItemsAsync(
+            connection, transaction, answerRecord.IdSurvey, answerRecord.Answers, cancellationToken);
         var assignmentId = await _surveyRepository.GetAssignmentIdForUpdateAsync(
             connection,
             transaction,
@@ -566,7 +565,118 @@ public sealed class AnswerRepository
             return new AnswerStorageResult();
         }
 
-        var existingAnswer = await connection.QueryFirstOrDefaultAsync<ExistingAnswerRow>(new CommandDefinition(
+        if (!await _surveyRepository.IsAssignmentActiveAsync(
+                connection, transaction, assignmentId.Value, cancellationToken))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AnswerStorageResult
+            {
+                Found = true,
+                SubmissionClosed = true
+            };
+        }
+
+        var existingDraft = await connection.QueryFirstOrDefaultAsync<ExistingAnswerRow>(new CommandDefinition(
+            """
+            SELECT id_answer_draft AS AnswerId, csp AS Csp
+            FROM public.answer_draft
+            WHERE id_organization_survey = @AssignmentId
+            FOR UPDATE;
+            """,
+            new { AssignmentId = assignmentId.Value },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        var draftId = existingDraft?.AnswerId
+            ?? await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                """
+                INSERT INTO public.answer_draft (id_organization_survey, draft_date)
+                VALUES (@AssignmentId, @DraftDate)
+                RETURNING id_answer_draft;
+                """,
+                new
+                {
+                    AssignmentId = assignmentId.Value,
+                    DraftDate = _clock.Now
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+
+        var answersChanged = true;
+        if (existingDraft != null)
+        {
+            var storedItems = (await connection.QueryAsync<AnswerItemRow>(new CommandDefinition(
+                """
+                SELECT question_order AS QuestionOrder,
+                       question_text AS QuestionText,
+                       rating AS Rating,
+                       comment AS Comment
+                FROM public.answer_draft_item
+                WHERE id_answer_draft = @DraftId
+                ORDER BY question_order;
+                """,
+                new { DraftId = draftId },
+                transaction,
+                cancellationToken: cancellationToken))).AsList();
+            answersChanged = !AreAnswerItemsEquivalent(storedItems, items);
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                UPDATE public.answer_draft
+                SET draft_date = @DraftDate,
+                    csp = CASE WHEN @AnswersChanged THEN NULL ELSE csp END,
+                    signed_content = CASE WHEN @AnswersChanged THEN NULL ELSE signed_content END
+                WHERE id_answer_draft = @DraftId;
+                """,
+                new { DraftId = draftId, DraftDate = _clock.Now, AnswersChanged = answersChanged },
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        await RecordDraftParticipationAsync(
+            connection, transaction, draftId, userId, "saved", cancellationToken);
+        if (existingDraft == null || answersChanged)
+        {
+            await ReplaceDraftItemsAsync(connection, transaction, draftId, items, cancellationToken);
+        }
+        await transaction.CommitAsync(cancellationToken);
+        return new AnswerStorageResult
+        {
+            Found = true,
+            AnswerId = draftId
+        };
+    }
+
+    public async Task<AnswerStorageResult> TrySaveAnswerSignatureAsync(
+        int surveyId,
+        int organizationId,
+        string signature,
+        byte[]? signedContent,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var assignmentId = await _surveyRepository.GetAssignmentIdForUpdateAsync(
+            connection, transaction, surveyId, organizationId, cancellationToken);
+        if (!assignmentId.HasValue)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AnswerStorageResult();
+        }
+
+        if (!await _surveyRepository.IsAssignmentActiveAsync(
+                connection, transaction, assignmentId.Value, cancellationToken))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AnswerStorageResult
+            {
+                Found = true,
+                SubmissionClosed = true
+            };
+        }
+
+        var answer = await connection.QueryFirstOrDefaultAsync<ExistingAnswerRow>(new CommandDefinition(
             """
             SELECT id_answer AS AnswerId, csp AS Csp
             FROM public.answer
@@ -576,217 +686,118 @@ public sealed class AnswerRepository
             new { AssignmentId = assignmentId.Value },
             transaction,
             cancellationToken: cancellationToken));
-        if (existingAnswer == null)
+        if (answer == null)
         {
             await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult();
         }
 
-        if (!string.IsNullOrWhiteSpace(existingAnswer.Csp))
+        if (!string.IsNullOrWhiteSpace(answer.Csp))
         {
             await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult
             {
                 Found = true,
-                AlreadySigned = true
+                AlreadySigned = true,
+                AnswerId = answer.AnswerId
             };
         }
 
-        var items = await BuildNormalizedAnswerItemsAsync(
-            connection, transaction, answerRecord.IdSurvey, answerRecord.Answers, cancellationToken);
-        var updated = await connection.ExecuteAsync(new CommandDefinition(
+        await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.answer
-            SET completion_date = @CompletionDate,
-                csp = NULL,
-                signed_content = NULL
+            SET csp = @Signature,
+                signed_content = @SignedContent
             WHERE id_answer = @AnswerId;
             """,
             new
             {
-                AnswerId = existingAnswer.AnswerId,
-                CompletionDate = _clock.Now
+                AnswerId = answer.AnswerId,
+                Signature = signature,
+                SignedContent = signedContent
             },
             transaction,
             cancellationToken: cancellationToken));
-        if (updated == 0)
+
+        await RecordAnswerParticipationAsync(
+            connection, transaction, answer.AnswerId, userId, "signed", cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new AnswerStorageResult
+        {
+            Found = true,
+            AnswerId = answer.AnswerId
+        };
+    }
+
+    public async Task<AnswerStorageResult> TrySaveDraftSignatureAsync(
+        int surveyId,
+        int organizationId,
+        string signature,
+        byte[]? signedContent,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var assignmentId = await _surveyRepository.GetAssignmentIdForUpdateAsync(
+            connection, transaction, surveyId, organizationId, cancellationToken);
+        if (!assignmentId.HasValue)
         {
             await transaction.RollbackAsync(cancellationToken);
             return new AnswerStorageResult();
         }
 
-        await RecordAnswerParticipationAsync(
-            connection, transaction, existingAnswer.AnswerId, userId, "edited", cancellationToken);
-        await ReplaceAnswerItemsAsync(connection, transaction, existingAnswer.AnswerId, items, cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-
-        return new AnswerStorageResult
-        {
-            Found = true,
-            AnswerId = existingAnswer.AnswerId
-        };
-    }
-
-    public async Task<bool> SaveDraftAsync(
-        AnswerRecord answerRecord,
-        int userId,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var items = await BuildNormalizedAnswerItemsAsync(
-            connection, transaction, answerRecord.IdSurvey, answerRecord.Answers, cancellationToken);
-        var assignmentId = await _surveyRepository.GetAssignmentIdForUpdateAsync(
-            connection,
-            transaction,
-            answerRecord.IdSurvey,
-            answerRecord.OrganizationId,
-            cancellationToken);
-        if (!assignmentId.HasValue)
+        if (!await _surveyRepository.IsAssignmentActiveAsync(
+                connection, transaction, assignmentId.Value, cancellationToken))
         {
             await transaction.RollbackAsync(cancellationToken);
-            return false;
+            return new AnswerStorageResult
+            {
+                Found = true,
+                SubmissionClosed = true
+            };
         }
 
-        var draftId = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+        var draft = await connection.QueryFirstOrDefaultAsync<ExistingAnswerRow>(new CommandDefinition(
             """
-            INSERT INTO public.answer_draft (
-                id_organization_survey,
-                draft_date,
-                csp,
-                signed_content
-            )
-            VALUES (
-                @AssignmentId,
-                @DraftDate,
-                NULL,
-                NULL
-            )
-            ON CONFLICT (id_organization_survey) DO UPDATE
-            SET draft_date = EXCLUDED.draft_date,
-                csp = NULL,
-                signed_content = NULL
-            RETURNING id_answer_draft;
+            SELECT id_answer_draft AS AnswerId, csp AS Csp
+            FROM public.answer_draft
+            WHERE id_organization_survey = @AssignmentId
+            FOR UPDATE;
+            """,
+            new { AssignmentId = assignmentId.Value },
+            transaction,
+            cancellationToken: cancellationToken));
+        if (draft == null)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new AnswerStorageResult();
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE public.answer_draft
+            SET csp = @Signature,
+                signed_content = @SignedContent
+            WHERE id_answer_draft = @DraftId;
             """,
             new
             {
-                AssignmentId = assignmentId.Value,
-                DraftDate = _clock.Now
+                DraftId = draft.AnswerId,
+                Signature = signature,
+                SignedContent = signedContent
             },
             transaction,
             cancellationToken: cancellationToken));
 
         await RecordDraftParticipationAsync(
-            connection, transaction, draftId, userId, "saved", cancellationToken);
-        await ReplaceDraftItemsAsync(connection, transaction, draftId, items, cancellationToken);
+            connection, transaction, draft.AnswerId, userId, "signed", cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return true;
-    }
-
-    public async Task<bool> TrySaveAnswerSignatureAsync(
-        int surveyId,
-        int organizationId,
-        string signature,
-        byte[]? signedContent,
-        int userId,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
-            """
-            UPDATE public.answer answer
-            SET csp = @Signature,
-                signed_content = @SignedContent
-            FROM public.organization_survey assignment
-            WHERE assignment.id_organization_survey = answer.id_organization_survey
-              AND assignment.id_organization = @OrganizationId
-              AND assignment.id_survey = @SurveyId
-              AND COALESCE(BTRIM(answer.csp), '') = '';
-            """,
-            new
-            {
-                SurveyId = surveyId,
-                OrganizationId = organizationId,
-                Signature = signature,
-                SignedContent = signedContent
-            },
-            transaction,
-            cancellationToken: cancellationToken));
-
-        if (affected > 0)
+        return new AnswerStorageResult
         {
-            var answerId = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-                """
-                SELECT answer.id_answer
-                FROM public.answer answer
-                INNER JOIN public.organization_survey assignment
-                    ON assignment.id_organization_survey = answer.id_organization_survey
-                WHERE assignment.id_organization = @OrganizationId
-                  AND assignment.id_survey = @SurveyId;
-                """,
-                new { SurveyId = surveyId, OrganizationId = organizationId },
-                transaction,
-                cancellationToken: cancellationToken));
-            await RecordAnswerParticipationAsync(
-                connection, transaction, answerId, userId, "signed", cancellationToken);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
-        return affected > 0;
-    }
-
-    public async Task<bool> TrySaveDraftSignatureAsync(
-        int surveyId,
-        int organizationId,
-        string signature,
-        byte[]? signedContent,
-        int userId,
-        CancellationToken cancellationToken = default)
-    {
-        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var affected = await connection.ExecuteAsync(new CommandDefinition(
-            """
-            UPDATE public.answer_draft draft
-            SET csp = @Signature,
-                signed_content = @SignedContent
-            FROM public.organization_survey assignment
-            WHERE assignment.id_organization_survey = draft.id_organization_survey
-              AND assignment.id_organization = @OrganizationId
-              AND assignment.id_survey = @SurveyId
-              AND COALESCE(BTRIM(draft.csp), '') = '';
-            """,
-            new
-            {
-                SurveyId = surveyId,
-                OrganizationId = organizationId,
-                Signature = signature,
-                SignedContent = signedContent
-            },
-            transaction,
-            cancellationToken: cancellationToken));
-
-        if (affected > 0)
-        {
-            var draftId = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-                """
-                SELECT draft.id_answer_draft
-                FROM public.answer_draft draft
-                INNER JOIN public.organization_survey assignment
-                    ON assignment.id_organization_survey = draft.id_organization_survey
-                WHERE assignment.id_organization = @OrganizationId
-                  AND assignment.id_survey = @SurveyId;
-                """,
-                new { SurveyId = surveyId, OrganizationId = organizationId },
-                transaction,
-                cancellationToken: cancellationToken));
-            await RecordDraftParticipationAsync(
-                connection, transaction, draftId, userId, "signed", cancellationToken);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
-        return affected > 0;
+            Found = true,
+            AnswerId = draft.AnswerId
+        };
     }
 
     public async Task DeleteDraftAsync(int surveyId, int organizationId, CancellationToken cancellationToken = default)
@@ -995,6 +1006,31 @@ public sealed class AnswerRepository
                 transaction,
                 cancellationToken: cancellationToken));
         }
+    }
+
+    private static bool AreAnswerItemsEquivalent(
+        IReadOnlyList<AnswerItemRow> storedItems,
+        IReadOnlyList<AnswerItemRow> incomingItems)
+    {
+        if (storedItems.Count != incomingItems.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < storedItems.Count; index += 1)
+        {
+            var stored = storedItems[index];
+            var incoming = incomingItems[index];
+            if (stored.QuestionOrder != incoming.QuestionOrder
+                || stored.Rating != incoming.Rating
+                || !string.Equals(stored.QuestionText, incoming.QuestionText, StringComparison.Ordinal)
+                || !string.Equals(stored.Comment ?? string.Empty, incoming.Comment ?? string.Empty, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static Task RecordAnswerParticipationAsync(

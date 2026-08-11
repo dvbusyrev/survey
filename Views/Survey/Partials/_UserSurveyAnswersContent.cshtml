@@ -5,6 +5,7 @@
     var survey = pageModel.Survey ?? new MainProject.Application.DTO.SurveyAnswersSurveyViewModel();
     var answerGroups = pageModel.Answers ?? Array.Empty<MainProject.Application.DTO.SurveyAnswerResultViewModel>();
     var isSigned = !string.IsNullOrWhiteSpace(survey.Csp) || answerGroups.Any(answer => answer.IsSigned);
+    var canSign = survey.CanSign && !isSigned;
     var firstAnswerGroup = answerGroups.FirstOrDefault();
     var signatureInfo = answerGroups
         .Select(answer => answer.SignatureInfo)
@@ -21,6 +22,7 @@
 
 <div class="app-page app-page--narrow survey-editor-page"
      data-role="survey-answers-page"
+     data-can-sign="@(survey.CanSign ? "true" : "false")"
      data-survey-id="@survey.Id"
      data-organization-id="@pageModel.OrganizationId"
      data-is-signed="@(isSigned ? "true" : "false")">
@@ -115,8 +117,8 @@
             <button type="button"
                     class="app-button app-button--primary"
                     data-role="sign-button"
-                    disabled="@(isSigned ? "disabled" : null)">
-                @(isSigned ? "Подписано" : "Подписать")
+                    disabled="@(!canSign ? "disabled" : null)">
+                @(isSigned ? "Подписано" : survey.CanSign ? "Подписать" : "Подписание недоступно")
             </button>
         </div>
         <button type="button" class="app-button app-button--secondary" data-role="download-btn">Скачать ответы</button>

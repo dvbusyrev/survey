@@ -56,8 +56,14 @@ public partial class AnswerService
             return validationResult;
         }
 
-        var saved = await SaveDraftRecordAsync(answerRecord, GetRequiredCurrentUserId(), cancellationToken);
-        if (!saved)
+        var storageResult = await SaveDraftRecordAsync(
+            answerRecord, GetRequiredCurrentUserId(), cancellationToken);
+        if (storageResult.SubmissionClosed)
+        {
+            throw new AnswerSubmissionClosedException();
+        }
+
+        if (!storageResult.Found)
         {
             return new AnswerMutationResult
             {
@@ -77,65 +83,6 @@ public partial class AnswerService
         int organizationId,
         CancellationToken cancellationToken = default) =>
         GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
-
-    public virtual async Task<AnswerMutationResult> UpdateAnswerAsync(
-        AnswerRecord answerRecord,
-        CancellationToken cancellationToken = default)
-    {
-        NormalizeAnswerComments(answerRecord);
-
-        var validationResult = await ValidateAnswerSubmissionAsync(answerRecord, cancellationToken);
-        if (!validationResult.Success)
-        {
-            return validationResult;
-        }
-
-        var updated = await UpdateAnswerRecordAsync(answerRecord, GetRequiredCurrentUserId(), cancellationToken);
-        if (!updated)
-        {
-            return new AnswerMutationResult
-            {
-                NotFound = true,
-                Error = "Запись для обновления не найдена."
-            };
-        }
-
-        var model = await BuildCheckAnswersPageAsync(
-            answerRecord.IdSurvey, answerRecord.OrganizationId, cancellationToken);
-        if (model == null)
-        {
-            return new AnswerMutationResult
-            {
-                NotFound = true,
-                Error = "Анкета не найдена."
-            };
-        }
-
-        return new AnswerMutationResult
-        {
-            Success = true,
-            Model = model
-        };
-    }
-
-    public virtual async Task<UpdateAnswerPageViewModel?> GetUpdateAnswerPageAsync(
-        int surveyId,
-        int organizationId,
-        CancellationToken cancellationToken = default)
-    {
-        var answerRecord = await GetAnswerRecordAsync(surveyId, organizationId, cancellationToken);
-        if (answerRecord == null || answerRecord.Answers.Count == 0)
-        {
-            return null;
-        }
-
-        return new UpdateAnswerPageViewModel
-        {
-            SurveyId = surveyId,
-            OrganizationId = organizationId,
-            Answers = answerRecord.Answers
-        };
-    }
 
     public virtual async Task<SurveyAnswersResponse> GetAnswersResponseAsync(
         int surveyId,
@@ -188,6 +135,8 @@ public partial class AnswerService
                 SignatureInfo = BuildSignatureInfo(answer)
             })
             .ToList();
+        var canSign = organizationId > 0
+            && await IsSurveyAssignedToOrganizationAsync(surveyId, organizationId, cancellationToken);
 
         return new SurveyAnswersResponse
         {
@@ -198,6 +147,7 @@ public partial class AnswerService
                 Name = surveyInfo.NameSurvey ?? string.Empty,
                 Description = surveyInfo.Description,
                 IsArchive = string.Equals(type, "archive", StringComparison.OrdinalIgnoreCase),
+                CanSign = canSign,
                 Csp = answerRecords.FirstOrDefault(answer => !string.IsNullOrWhiteSpace(answer.Csp))?.Csp
             },
             Answers = mappedAnswers
@@ -407,11 +357,15 @@ public partial class AnswerService
             return null;
         }
 
+        survey.Csp = answerRecord.Csp;
+
         return new CheckAnswersPageViewModel
         {
             Survey = survey,
             Answers = answerRecord.Answers,
-            IdOrganization = organizationId
+            IdOrganization = organizationId,
+            CanSign = await IsSurveyAssignedToOrganizationAsync(
+                surveyId, organizationId, cancellationToken)
         };
     }
 

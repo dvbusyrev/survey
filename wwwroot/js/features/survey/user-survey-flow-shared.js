@@ -71,8 +71,13 @@ export function applySurveySignedState(source, isSigned, mode = 'answer') {
 
     signButtons.forEach((signButton) => {
         if (signButton instanceof HTMLButtonElement) {
-            signButton.disabled = isSigned;
-            signButton.textContent = isSigned ? 'Подписано' : 'Подписать';
+            const canSign = page.dataset.canSign !== 'false';
+            signButton.disabled = isDraftMode ? !canSign : isSigned || !canSign;
+            signButton.textContent = isDraftMode && isSigned
+                ? 'Переподписать'
+                : isSigned
+                    ? 'Подписано'
+                    : canSign ? 'Подписать' : 'Подписание недоступно';
         }
     });
 }

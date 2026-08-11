@@ -82,9 +82,8 @@
     <div class="button-container" data-role="body-actions">
         <button type="button"
                 class="app-button app-button--primary"
-                data-role="draft-sign-button"
-                disabled="@(isDraftSigned ? "disabled" : null)">
-            @(isDraftSigned ? "Подписано" : "Подписать")
+                data-role="draft-sign-button">
+            @(isDraftSigned ? "Переподписать" : "Подписать")
         </button>
         <button type="button" class="app-button app-button--secondary" data-role="cancel-btn">Отмена</button>
         <button type="button" class="app-button app-button--primary" data-role="submit">

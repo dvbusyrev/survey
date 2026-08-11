@@ -45,6 +45,20 @@ public partial class AnswerService
             surveyId, requestedOrganizationId, cancellationToken);
     }
 
+    public virtual async Task<bool> CanSignAnswerAsync(
+        int surveyId,
+        int requestedOrganizationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await CanAccessOrganizationAsync(requestedOrganizationId, cancellationToken))
+        {
+            return false;
+        }
+
+        return await IsSurveyAssignedToOrganizationAsync(
+            surveyId, requestedOrganizationId, cancellationToken);
+    }
+
     public virtual async Task<bool> CanAccessAnswerRecordAsync(
         int surveyId,
         int requestedOrganizationId,

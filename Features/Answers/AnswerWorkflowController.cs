@@ -77,6 +77,12 @@ public class AnswerWorkflowController : Controller
                 ? this.SafeError(ex, "Анкета уже подписана.", "Повторное сохранение ответа", StatusCodes.Status409Conflict)
                 : this.SafeErrorView(ex, "Анкета уже подписана.", "Повторное сохранение ответа");
         }
+        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySubmittedException ex)
+        {
+            return isAjaxRequest
+                ? this.SafeError(ex, AnswerAlreadySubmittedException.UserMessage, "Повторная отправка ответа", StatusCodes.Status409Conflict)
+                : this.SafeErrorView(ex, AnswerAlreadySubmittedException.UserMessage, "Повторная отправка ответа");
+        }
         catch (MainProject.Application.UseCases.Answers.AnswerSubmissionClosedException)
         {
             return StatusCode(StatusCodes.Status409Conflict, new OperationResponse
@@ -124,6 +130,13 @@ public class AnswerWorkflowController : Controller
             {
                 Success = true,
                 Message = "Черновик сохранён."
+            });
+        }
+        catch (MainProject.Application.UseCases.Answers.AnswerSubmissionClosedException)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new OperationResponse
+            {
+                Error = AnswerSubmissionClosedException.UserMessage
             });
         }
         catch (Exception ex)
@@ -216,20 +229,10 @@ public class AnswerWorkflowController : Controller
             return accessResult;
         }
 
-        try
+        return StatusCode(StatusCodes.Status409Conflict, new OperationResponse
         {
-            var model = await _answerService.GetUpdateAnswerPageAsync(idSurvey, idOrganization, cancellationToken);
-            if (model == null)
-            {
-                return NotFound("Ответы не найдены.");
-            }
-
-            return View("~/Views/Answer/update_answer.cshtml", model);
-        }
-        catch (Exception ex)
-        {
-            return this.SafeError(ex, "Не удалось открыть редактирование ответа.", "Ошибка при загрузке страницы редактирования ответа");
-        }
+            Error = AnswerAlreadySubmittedException.UserMessage
+        });
     }
 
     [HttpPost("answers/update")]
@@ -249,29 +252,10 @@ public class AnswerWorkflowController : Controller
             return accessResult;
         }
 
-        try
+        return StatusCode(StatusCodes.Status409Conflict, new OperationResponse
         {
-            var result = await _answerService.UpdateAnswerAsync(answerData, cancellationToken);
-            if (!result.Success)
-            {
-                if (result.NotFound)
-                {
-                    return NotFound(result.Error ?? "Запись для обновления не найдена.");
-                }
-
-                return BadRequest(result.Error ?? "Некорректные данные ответа.");
-            }
-
-            return View("~/Views/Answer/check_answers.cshtml", result.Model);
-        }
-        catch (MainProject.Application.UseCases.Answers.AnswerAlreadySignedException ex)
-        {
-            return this.SafeError(ex, "Анкета уже подписана.", "Повторное обновление ответа", StatusCodes.Status409Conflict);
-        }
-        catch (Exception ex)
-        {
-            return this.SafeErrorView(ex, "Не удалось обновить ответ.", "Ошибка при обновлении ответа");
-        }
+            Error = AnswerAlreadySubmittedException.UserMessage
+        });
     }
 
     private async Task<IActionResult?> EnsureAnswerSubmissionAccessAsync(

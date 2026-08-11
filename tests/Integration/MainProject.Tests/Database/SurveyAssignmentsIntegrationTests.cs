@@ -1576,6 +1576,204 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task RepeatedSubmission_DoesNotReplaceUnsignedAnswer()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 4))).Success);
+
+        var exception = await Assert.ThrowsAsync<AnswerAlreadySubmittedException>(() =>
+            workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 5)));
+
+        await using var connection = _fixture.CreateConnection();
+        var storedItems = (await connection.QueryAsync<StoredAnswerItem>(
+            """
+            SELECT item.question_order AS QuestionOrder,
+                   item.rating AS Rating,
+                   item.comment AS Comment
+            FROM public.answer_item item
+            INNER JOIN public.answer answer ON answer.id_answer = item.id_answer
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = answer.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+            ORDER BY item.question_order;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId })).ToArray();
+        var answerCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.answer answer
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = answer.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId });
+
+        Assert.Equal(AnswerAlreadySubmittedException.UserMessage, exception.Message);
+        Assert.Equal(1, answerCount);
+        Assert.Equal(4, storedItems[0].Rating);
+        Assert.Equal("Нужен комментарий", storedItems[0].Comment);
+        Assert.Equal(5, storedItems[1].Rating);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SignedDraft_UnchangedAutosavePreservesSignature()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        var original = BuildAnswerRecord(surveyId, organizationId, 4);
+        Assert.True((await workflow.SaveDraftAnswerAsync(original)).Success);
+
+        var signature = Convert.ToBase64String(Encoding.UTF8.GetBytes("signed-draft"));
+        Assert.True(await workflow.SaveDraftSignatureAsync(surveyId, organizationId, new AnswerSignatureSaveRequest
+        {
+            Signature = signature
+        }));
+
+        Assert.True((await workflow.SaveDraftAnswerAsync(original)).Success);
+
+        await using var connection = _fixture.CreateConnection();
+        var storedDraft = await connection.QuerySingleAsync<SignedDraftState>(
+            """
+            SELECT draft.csp AS Signature,
+                   item.rating AS Rating,
+                   item.comment AS Comment
+            FROM public.answer_draft draft
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = draft.id_organization_survey
+            INNER JOIN public.answer_draft_item item
+                ON item.id_answer_draft = draft.id_answer_draft
+               AND item.question_order = 1
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId });
+
+        Assert.Equal(signature, storedDraft.Signature);
+        Assert.Equal(4, storedDraft.Rating);
+        Assert.Equal("Нужен комментарий", storedDraft.Comment);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SignedDraft_ChangedAutosaveClearsSignatureAndSavesAnswers()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        Assert.True((await workflow.SaveDraftAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 4))).Success);
+
+        Assert.True(await workflow.SaveDraftSignatureAsync(surveyId, organizationId, new AnswerSignatureSaveRequest
+        {
+            Signature = Convert.ToBase64String(Encoding.UTF8.GetBytes("signed-draft"))
+        }));
+        Assert.True((await workflow.SaveDraftAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 5))).Success);
+
+        await using var connection = _fixture.CreateConnection();
+        var storedDraft = await connection.QuerySingleAsync<SignedDraftState>(
+            """
+            SELECT draft.csp AS Signature,
+                   item.rating AS Rating,
+                   item.comment AS Comment
+            FROM public.answer_draft draft
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = draft.id_organization_survey
+            INNER JOIN public.answer_draft_item item
+                ON item.id_answer_draft = draft.id_answer_draft
+               AND item.question_order = 1
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId });
+
+        Assert.Null(storedDraft.Signature);
+        Assert.Equal(5, storedDraft.Rating);
+        Assert.Null(storedDraft.Comment);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SignedDraft_CanBeSignedAgainBeforeSubmission()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        Assert.True((await workflow.SaveDraftAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 4))).Success);
+
+        var firstSignature = Convert.ToBase64String(Encoding.UTF8.GetBytes("first-signature"));
+        var secondSignature = Convert.ToBase64String(Encoding.UTF8.GetBytes("second-signature"));
+        Assert.True(await workflow.SaveDraftSignatureAsync(surveyId, organizationId, new AnswerSignatureSaveRequest
+        {
+            Signature = firstSignature
+        }));
+        Assert.True(await workflow.SaveDraftSignatureAsync(surveyId, organizationId, new AnswerSignatureSaveRequest
+        {
+            Signature = secondSignature
+        }));
+
+        await using var connection = _fixture.CreateConnection();
+        var storedSignature = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT draft.csp
+            FROM public.answer_draft draft
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = draft.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId });
+
+        Assert.Equal(secondSignature, storedSignature);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AnswerAndDraftSignatures_CannotBeSavedAfterAssignmentExpires()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationIds[0], 5))).Success);
+        Assert.True((await workflow.SaveDraftAnswerAsync(BuildAnswerRecord(surveyId, organizationIds[1], 4))).Success);
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.organization_survey
+                SET date_end = CURRENT_DATE - 1
+                WHERE id_survey = @SurveyId;
+                """,
+                new { SurveyId = surveyId });
+        }
+
+        var signatureRequest = new AnswerSignatureSaveRequest
+        {
+            Signature = Convert.ToBase64String(Encoding.UTF8.GetBytes("late-signature"))
+        };
+        await Assert.ThrowsAsync<AnswerSigningClosedException>(() =>
+            workflow.SaveSignatureAsync(surveyId, organizationIds[0], signatureRequest));
+        await Assert.ThrowsAsync<AnswerSigningClosedException>(() =>
+            workflow.SaveDraftSignatureAsync(surveyId, organizationIds[1], signatureRequest));
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var savedSignatureCount = await verificationConnection.ExecuteScalarAsync<int>(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM public.answer WHERE COALESCE(BTRIM(csp), '') <> '')
+              + (SELECT COUNT(*) FROM public.answer_draft WHERE COALESCE(BTRIM(csp), '') <> '');
+            """);
+
+        Assert.Equal(0, savedSignatureCount);
+    }
+
+    [RequiresPostgresFact]
     public async Task Signature_CanBeSavedOnlyOnce()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
@@ -2379,6 +2577,20 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         {
             return false;
         }
+    }
+
+    private sealed class StoredAnswerItem
+    {
+        public int QuestionOrder { get; init; }
+        public int? Rating { get; init; }
+        public string? Comment { get; init; }
+    }
+
+    private sealed class SignedDraftState
+    {
+        public string? Signature { get; init; }
+        public int? Rating { get; init; }
+        public string? Comment { get; init; }
     }
 
     private sealed class FixedClock(DateTime today) : IClock

@@ -11,6 +11,7 @@ public partial class AnswerService
         int organizationId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureAnswerSigningOpenAsync(surveyId, organizationId, cancellationToken);
         var survey = await GetSurveyInfoAsync(surveyId, cancellationToken)
             ?? throw new InvalidOperationException("Анкета для подписи не найдена.");
         var answerRecords = (await GetAnswerRecordsAsync(
@@ -64,19 +65,19 @@ public partial class AnswerService
             throw new AnswerAlreadySignedException();
         }
 
-        if (await UpdateSignatureAsync(
-                surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken))
+        var storageResult = await UpdateSignatureAsync(
+            surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken);
+        if (storageResult.SubmissionClosed)
         {
-            return true;
+            throw new AnswerSigningClosedException();
         }
 
-        var updatedAnswerRecord = await GetAnswerRecordAsync(surveyId, organizationId, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(updatedAnswerRecord?.Csp))
+        if (storageResult.AlreadySigned)
         {
             throw new AnswerAlreadySignedException();
         }
 
-        return false;
+        return storageResult.Found;
     }
 
     public virtual async Task<AnswerSigningPayload> GetDraftSigningDataAsync(
@@ -84,17 +85,13 @@ public partial class AnswerService
         int organizationId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureAnswerSigningOpenAsync(surveyId, organizationId, cancellationToken);
         var survey = await GetSurveyInfoAsync(surveyId, cancellationToken)
             ?? throw new InvalidOperationException("Анкета для подписи не найдена.");
         var draftRecord = await GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
         if (draftRecord == null || draftRecord.Answers.Count == 0)
         {
             throw new InvalidOperationException("Черновик не содержит ответов для подписи.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(draftRecord.Csp))
-        {
-            throw new AnswerAlreadySignedException();
         }
 
         draftRecord.CompletionDate ??= _clock.Now;
@@ -132,24 +129,25 @@ public partial class AnswerService
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(draftRecord.Csp))
+        var storageResult = await UpdateDraftSignatureAsync(
+            surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken);
+        if (storageResult.SubmissionClosed)
         {
-            throw new AnswerAlreadySignedException();
+            throw new AnswerSigningClosedException();
         }
 
-        if (await UpdateDraftSignatureAsync(
-                surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken))
-        {
-            return true;
-        }
+        return storageResult.Found;
+    }
 
-        var updatedDraftRecord = await GetDraftRecordAsync(surveyId, organizationId, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(updatedDraftRecord?.Csp))
+    private async Task EnsureAnswerSigningOpenAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken)
+    {
+        if (!await IsSurveyAssignedToOrganizationAsync(surveyId, organizationId, cancellationToken))
         {
-            throw new AnswerAlreadySignedException();
+            throw new AnswerSigningClosedException();
         }
-
-        return false;
     }
 
     private static string NormalizeBase64Payload(string? payload)

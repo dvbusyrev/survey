@@ -5,6 +5,7 @@ public sealed class AnswerStorageResult
     public bool Found { get; init; }
     public bool SubmissionClosed { get; init; }
     public bool AlreadySigned { get; init; }
+    public bool AlreadySubmitted { get; init; }
     public int AnswerId { get; init; }
 }
 
