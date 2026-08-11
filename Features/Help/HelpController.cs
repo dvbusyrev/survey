@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.Contracts;
 using MainProject.Application.UseCases.Surveys;
@@ -127,6 +129,25 @@ public class HelpController : Controller
         return NormalizeHelpDocumentType(type) == AdminGuideType
             ? AdminGuideDownloadFileName
             : UserGuideDownloadFileName;
+    }
+
+    private static bool IsValidDocx(Stream stream)
+    {
+        try
+        {
+            stream.Position = 0;
+            using var document = WordprocessingDocument.Open(stream, false);
+            return document.DocumentType == WordprocessingDocumentType.Document
+                && document.MainDocumentPart?.Document?.Body is not null;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return false;
+        }
+        finally
+        {
+            stream.Position = 0;
+        }
     }
 
     private string GetMetadataPath(string type)
@@ -269,6 +290,13 @@ public class HelpController : Controller
             return BadRequest("Можно загрузить только файл DOCX.");
         }
 
+        await using var uploadedContent = new MemoryStream();
+        await file.CopyToAsync(uploadedContent);
+        if (!IsValidDocx(uploadedContent))
+        {
+            return BadRequest("Файл не является корректным документом DOCX.");
+        }
+
         if (!Directory.Exists(_uploadFolder))
         {
             Directory.CreateDirectory(_uploadFolder);
@@ -283,9 +311,9 @@ public class HelpController : Controller
         var fileName = GetStorageFileName(documentType);
         string filePath = Path.Combine(_uploadFolder, fileName);
 
-        using (var stream = new FileStream(filePath, FileMode.Create))
+        await using (var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            await file.CopyToAsync(stream);
+            await uploadedContent.CopyToAsync(stream);
         }
 
         var metadata = new HelpInstructionFileMetadata(originalFileName, DateTimeOffset.Now);
