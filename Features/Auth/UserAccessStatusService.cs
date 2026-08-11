@@ -33,7 +33,9 @@ public sealed class UserAccessStatusService : IUserAccessStatusService
                 INNER JOIN public.organization o
                     ON o.id_organization = u.id_organization
                 WHERE u.id_user = @UserId
+                  AND (u.date_begin IS NULL OR u.date_begin <= @Today)
                   AND (u.date_end IS NULL OR u.date_end >= @Today)
+                  AND (o.date_begin IS NULL OR o.date_begin <= @Today)
                   AND (o.date_end IS NULL OR o.date_end >= @Today)
             );
             """,

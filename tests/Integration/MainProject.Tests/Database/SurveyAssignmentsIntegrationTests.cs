@@ -1446,6 +1446,63 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task Auth_RejectsUserBeforeUserOrOrganizationStartDate()
+    {
+        await using var connection = _fixture.CreateConnection();
+        var today = _clock.Today.Date;
+        var activeOrganizationId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.organization (organization_name, organization_short_name, date_begin)
+            VALUES ('Действующая организация будущего пользователя', 'Действующая', @DateBegin)
+            RETURNING id_organization;
+            """,
+            new { DateBegin = today.AddDays(-10) });
+        var futureOrganizationId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.organization (organization_name, organization_short_name, date_begin)
+            VALUES ('Будущая организация входа', 'Будущая', @DateBegin)
+            RETURNING id_organization;
+            """,
+            new { DateBegin = today.AddDays(1) });
+
+        const string password = "not-started-password";
+        const string futureUserLogin = "future-auth-user";
+        const string futureOrganizationUserLogin = "future-organization-auth-user";
+        var passwordHasher = new PasswordHasher<string>();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin)
+            VALUES
+                (@ActiveOrganizationId, @FutureUserLogin, 'Будущий пользователь', 'user', @FutureUserPassword, @FutureDateBegin),
+                (@FutureOrganizationId, @FutureOrganizationUserLogin, 'Пользователь будущей организации', 'user', @FutureOrganizationUserPassword, @ActiveDateBegin);
+            """,
+            new
+            {
+                ActiveOrganizationId = activeOrganizationId,
+                FutureOrganizationId = futureOrganizationId,
+                FutureUserLogin = futureUserLogin,
+                FutureOrganizationUserLogin = futureOrganizationUserLogin,
+                FutureUserPassword = passwordHasher.HashPassword(futureUserLogin, password),
+                FutureOrganizationUserPassword = passwordHasher.HashPassword(futureOrganizationUserLogin, password),
+                FutureDateBegin = today.AddDays(1),
+                ActiveDateBegin = today.AddDays(-10)
+            });
+
+        var accessStatusService = new UserAccessStatusService(_connectionFactory, _clock);
+        var authService = new AuthService(_connectionFactory, accessStatusService);
+
+        var futureUserResult = await authService.AuthenticateAsync(futureUserLogin, password);
+        var futureOrganizationUserResult = await authService.AuthenticateAsync(futureOrganizationUserLogin, password);
+
+        Assert.False(futureUserResult.Success);
+        Assert.Equal(StatusCodes.Status403Forbidden, futureUserResult.StatusCode);
+        Assert.Equal(AuthService.BlockedUserMessage, futureUserResult.ErrorMessage);
+        Assert.False(futureOrganizationUserResult.Success);
+        Assert.Equal(StatusCodes.Status403Forbidden, futureOrganizationUserResult.StatusCode);
+        Assert.Equal(AuthService.BlockedUserMessage, futureOrganizationUserResult.ErrorMessage);
+    }
+
+    [RequiresPostgresFact]
     public async Task AnswerAndReportReadRepositories_ReturnSubmittedAnswersAndReportSources()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
