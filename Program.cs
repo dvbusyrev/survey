@@ -69,7 +69,7 @@ builder.Services
         options.LoginPath = "/";
         options.LogoutPath = "/auth/logout";
         options.AccessDeniedPath = "/";
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
@@ -101,25 +101,14 @@ builder.Services.AddHostedService<SurveyAutoCreationHostedService>();
 builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
-var dataProtectionBuilder = builder.Services
+var dataProtectionKeysDirectory = DataProtectionKeyStorage.Prepare(
+    builder.Configuration["DataProtection:KeysPath"],
+    builder.Environment.ContentRootPath,
+    builder.Environment.EnvironmentName);
+builder.Services
     .AddDataProtection()
-    .SetApplicationName("AIS.Anketirovanie");
-var configuredDataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
-if (!string.IsNullOrWhiteSpace(configuredDataProtectionKeysPath))
-{
-    var dataProtectionKeysPath = Path.IsPathRooted(configuredDataProtectionKeysPath)
-        ? configuredDataProtectionKeysPath
-        : Path.Combine(builder.Environment.ContentRootPath, configuredDataProtectionKeysPath);
-    Directory.CreateDirectory(dataProtectionKeysPath);
-    if (!OperatingSystem.IsWindows())
-    {
-        File.SetUnixFileMode(
-            dataProtectionKeysPath,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    }
-
-    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
-}
+    .SetApplicationName("AIS.Anketirovanie")
+    .PersistKeysToFileSystem(dataProtectionKeysDirectory);
 
 builder.Services.AddSingleton<SmtpPasswordProtector>();
 builder.Services.AddScoped<AuthService>();
@@ -169,6 +158,10 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 });
 
 var app = builder.Build();
+
+app.Logger.LogInformation(
+    "Data Protection keys are stored in {DataProtectionKeysPath}",
+    dataProtectionKeysDirectory.FullName);
 
 app.Use(async (context, next) =>
 {

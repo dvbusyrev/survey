@@ -53,13 +53,55 @@ public sealed class WorkflowHttpTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(AppRoles.Admin, payload.RootElement.GetProperty("role").GetString());
-        var authCookie = response.Headers.GetValues("Set-Cookie")
-            .Single(value => value.StartsWith(".AIS.Anketirovanie.Auth=", StringComparison.Ordinal))
-            .Split(';', 2)[0];
+        var authCookieHeader = response.Headers.GetValues("Set-Cookie")
+            .Single(value => value.StartsWith(".AIS.Anketirovanie.Auth=", StringComparison.Ordinal));
+        Assert.Contains("expires=", authCookieHeader, StringComparison.OrdinalIgnoreCase);
+        var authCookie = authCookieHeader.Split(';', 2)[0];
 
         using var authenticatedRequest = new HttpRequestMessage(HttpMethod.Get, "/");
         authenticatedRequest.Headers.TryAddWithoutValidation("Cookie", authCookie);
         using var authenticatedVisit = await client.SendAsync(authenticatedRequest);
+        Assert.Equal(HttpStatusCode.Redirect, authenticatedVisit.StatusCode);
+        Assert.Equal("/survey", authenticatedVisit.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task AuthenticatedVisitor_RemainsSignedInAfterApplicationRestart()
+    {
+        string authCookie;
+        await using (var initialFactory = new LoginApplicationFactory())
+        using (var initialClient = initialFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
+        }))
+        {
+            var antiforgery = await GetAntiforgeryTokenAsync(initialClient);
+            using var loginRequest = new HttpRequestMessage(HttpMethod.Post, "/auth/login")
+            {
+                Content = JsonContent.Create(new[] { "smoke-admin", "SmokePass1!" })
+            };
+            AddAntiforgeryHeaders(loginRequest, antiforgery);
+            using var loginResponse = await initialClient.SendAsync(loginRequest);
+            loginResponse.EnsureSuccessStatusCode();
+
+            authCookie = loginResponse.Headers.GetValues("Set-Cookie")
+                .Single(value => value.StartsWith(".AIS.Anketirovanie.Auth=", StringComparison.Ordinal))
+                .Split(';', 2)[0];
+        }
+
+        await using var restartedFactory = new LoginApplicationFactory();
+        using var restartedClient = restartedFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = false,
+            BaseAddress = new Uri("https://localhost")
+        });
+        using var authenticatedRequest = new HttpRequestMessage(HttpMethod.Get, "/");
+        authenticatedRequest.Headers.TryAddWithoutValidation("Cookie", authCookie);
+        using var authenticatedVisit = await restartedClient.SendAsync(authenticatedRequest);
+
         Assert.Equal(HttpStatusCode.Redirect, authenticatedVisit.StatusCode);
         Assert.Equal("/survey", authenticatedVisit.Headers.Location?.OriginalString);
     }
