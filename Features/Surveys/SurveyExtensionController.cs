@@ -128,4 +128,41 @@ public class SurveyExtensionController : Controller
                 $"Ошибка при изменении периода продления анкеты {surveyId} для организации {organizationId}");
         }
     }
+
+    [HttpPost("survey/{surveyId:int}/extensions/{organizationId:int}/delete")]
+    public async Task<IActionResult> DeleteExtension(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _surveyAdminService.DeleteExtensionAsync(
+                surveyId,
+                organizationId,
+                cancellationToken);
+
+            if (result.Success)
+            {
+                return Ok(new { success = true, message = result.Message });
+            }
+
+            var error = new { success = false, message = result.Message };
+            if (string.Equals(result.Code, "extension_not_found", StringComparison.Ordinal))
+            {
+                return NotFound(error);
+            }
+
+            return string.Equals(result.Code, "extension_in_use", StringComparison.Ordinal)
+                ? Conflict(error)
+                : BadRequest(error);
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(
+                ex,
+                "Не удалось удалить продление.",
+                $"Ошибка при удалении продления анкеты {surveyId} для организации {organizationId}");
+        }
+    }
 }

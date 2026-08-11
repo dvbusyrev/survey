@@ -551,6 +551,122 @@ public partial class SurveyService
         }
     }
 
+    public virtual async Task<OperationResult> DeleteExtensionAsync(
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (surveyId <= 0 || organizationId <= 0)
+        {
+            return new OperationResult
+            {
+                Message = "Продлённое назначение не найдено.",
+                Code = "extension_not_found"
+            };
+        }
+
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var extension = await connection.QueryFirstOrDefaultAsync<SurveyExtensionDeletionCandidate>(
+                new CommandDefinition(
+                    """
+                    SELECT
+                        assignment.id_organization_survey AS AssignmentId,
+                        survey.name_survey AS SurveyName,
+                        COALESCE(
+                            NULLIF(TRIM(organization.organization_short_name), ''),
+                            NULLIF(TRIM(organization.organization_name), ''),
+                            'Организация #' || assignment.id_organization::text
+                        ) AS OrganizationName,
+                        EXISTS (
+                            SELECT 1
+                            FROM public.answer answer
+                            WHERE answer.id_organization_survey = assignment.id_organization_survey
+                        ) AS HasAnswer
+                    FROM public.organization_survey assignment
+                    INNER JOIN public.survey survey
+                        ON survey.id_survey = assignment.id_survey
+                    INNER JOIN public.organization organization
+                        ON organization.id_organization = assignment.id_organization
+                    WHERE assignment.id_survey = @SurveyId
+                      AND assignment.id_organization = @OrganizationId
+                      AND (
+                            assignment.date_begin IS DISTINCT FROM survey.date_begin
+                            OR assignment.date_end IS DISTINCT FROM survey.date_end
+                        )
+                    FOR UPDATE OF assignment;
+                    """,
+                    new { SurveyId = surveyId, OrganizationId = organizationId },
+                    transaction,
+                    cancellationToken: cancellationToken));
+
+            if (extension == null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = "Продлённое назначение не найдено.",
+                    Code = "extension_not_found"
+                };
+            }
+
+            if (extension.HasAnswer)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = BuildExtensionDeleteBlockedMessage(extension),
+                    Code = "extension_in_use"
+                };
+            }
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM public.answer_draft WHERE id_organization_survey = @AssignmentId;",
+                new { extension.AssignmentId },
+                transaction,
+                cancellationToken: cancellationToken));
+            var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM public.organization_survey WHERE id_organization_survey = @AssignmentId;",
+                new { extension.AssignmentId },
+                transaction,
+                cancellationToken: cancellationToken));
+            if (affectedRows != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = "Продлённое назначение не найдено.",
+                    Code = "extension_not_found"
+                };
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return new OperationResult
+            {
+                Success = true,
+                Message = "Продление успешно удалено.",
+                EntityId = surveyId
+            };
+        }
+        catch (PostgresException ex) when (ex.SqlState is PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.RestrictViolation)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new OperationResult
+            {
+                Message = "Нельзя удалить продление: по нему есть сохранённые данные.",
+                Code = "extension_in_use"
+            };
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     public async Task<Survey?> GetSurveyForCopyAsync(int id, CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -771,7 +887,22 @@ public partial class SurveyService
         return message;
     }
 
+    private static string BuildExtensionDeleteBlockedMessage(SurveyExtensionDeletionCandidate extension)
+    {
+        var surveyName = string.IsNullOrWhiteSpace(extension.SurveyName)
+            ? "Без названия"
+            : extension.SurveyName.Trim();
+        return $"Нельзя удалить продление анкеты \"{surveyName}\" для организации " +
+            $"\"{extension.OrganizationName}\": по нему есть ответы.";
+    }
+
     private sealed record SurveyDeletionCandidate(int SurveyId, string? SurveyName);
 
     private sealed record SurveyDeletionUsage(int AssignmentId, string OrganizationName, bool HasAnswer);
+
+    private sealed record SurveyExtensionDeletionCandidate(
+        int AssignmentId,
+        string? SurveyName,
+        string OrganizationName,
+        bool HasAnswer);
 }

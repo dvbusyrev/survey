@@ -145,16 +145,36 @@
                                     <span class="icon-tooltip">Редактировать</span>
                                 </button>
                             }
-                            <button type="button"
-                                    class="icon-container"
-                                    data-survey-id="@survey.IdSurvey"
-                                    data-survey-name="@(survey.NameSurvey ?? string.Empty)"
-                                    data-click-call="deleteSurveyFromTrigger"
-                                    data-click-pass-element="true"
-                                    aria-label="Удалить">
-                                <span aria-hidden="true"><i class="fas fa-trash"></i></span>
-                                <span class="icon-tooltip">Удалить</span>
-                            </button>
+                            @if (survey.IsExtension)
+                            {
+                                <button type="button"
+                                        class="icon-container"
+                                        data-survey-id="@survey.IdSurvey"
+                                        data-survey-name="@(survey.OriginalNameSurvey ?? string.Empty)"
+                                        data-organization-id="@survey.ExtensionOrganizationId"
+                                        data-organization-name="@(survey.OrganizationNames?.FirstOrDefault() ?? string.Empty)"
+                                        data-date-begin="@survey.DateBegin.ToString("yyyy-MM-dd")"
+                                        data-date-end="@FormatIsoDate(survey.DateEnd)"
+                                        data-click-call="deleteSurveyExtensionFromTrigger"
+                                        data-click-pass-element="true"
+                                        aria-label="Удалить продление">
+                                    <span aria-hidden="true"><i class="fas fa-trash"></i></span>
+                                    <span class="icon-tooltip">Удалить продление</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        class="icon-container"
+                                        data-survey-id="@survey.IdSurvey"
+                                        data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                        data-click-call="deleteSurveyFromTrigger"
+                                        data-click-pass-element="true"
+                                        aria-label="Удалить">
+                                    <span aria-hidden="true"><i class="fas fa-trash"></i></span>
+                                    <span class="icon-tooltip">Удалить</span>
+                                </button>
+                            }
                         </div>
                     </td>
                 </tr>

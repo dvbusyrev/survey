@@ -942,6 +942,66 @@
         }
     }
 
+    async function deleteSurveyExtensionFromTrigger(trigger) {
+        if (surveyDeletePending) {
+            return;
+        }
+
+        surveyDeletePending = true;
+        try {
+            const extension = readExtensionPeriodData(trigger);
+            const organizationSuffix = extension.organizationName
+                ? ` для организации "${extension.organizationName}"`
+                : '';
+            const isConfirmed = await window.siteConfirm(
+                `Удалить продление анкеты "${extension.surveyName || 'Без названия'}"${organizationSuffix}?`,
+                {
+                    title: 'Удаление продления',
+                    confirmText: 'Удалить',
+                    cancelText: 'Отмена'
+                }
+            );
+
+            if (!isConfirmed) {
+                return;
+            }
+
+            const response = await fetch(
+                `/survey/${extension.surveyId}/extensions/${extension.organizationId}/delete`,
+                { method: 'POST' }
+            );
+            const responseText = await response.text();
+            let payload = null;
+
+            try {
+                payload = responseText ? JSON.parse(responseText) : null;
+            } catch (parseError) {
+                console.warn('Не удалось разобрать ответ удаления продления:', parseError);
+            }
+
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.message || responseText || 'Не удалось удалить продление.');
+            }
+
+            const target = resolveSurveyListTarget();
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: payload.message || 'Продление успешно удалено.',
+                    tabName: target.tabName,
+                    fallbackUrl: target.fallbackUrl
+                });
+                return;
+            }
+
+            window.AppUi?.notify?.(payload.message || 'Продление успешно удалено.', 'success');
+            window.location.assign(target.fallbackUrl);
+        } catch (error) {
+            window.AppUi?.notify?.(error.message || 'Не удалось удалить продление.', 'error');
+        } finally {
+            surveyDeletePending = false;
+        }
+    }
+
     function handleSurveyEditorHidden(event) {
         if (event.target?.id !== 'surveyEditorModal') {
             return;
@@ -1044,6 +1104,7 @@
     window.openSurveyCompletionModalFromTrigger = openSurveyCompletionModalFromTrigger;
     window.openSurveySignaturesModalFromTrigger = openSurveyCompletionModalFromTrigger;
     window.deleteSurveyFromTrigger = deleteSurveyFromTrigger;
+    window.deleteSurveyExtensionFromTrigger = deleteSurveyExtensionFromTrigger;
     window.openAddSurveyModal = openAddSurveyModal;
     window.openCopySurveyModalById = openCopySurveyModalById;
     window.openCopySurveyModalFromTrigger = openCopySurveyModalFromTrigger;

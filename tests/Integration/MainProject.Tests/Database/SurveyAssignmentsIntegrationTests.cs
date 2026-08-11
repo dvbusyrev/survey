@@ -928,6 +928,105 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task ExtensionDeletion_RemovesOnlySelectedExtensionAndPreservesSurvey()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+        var deletionResult = await service.DeleteExtensionAsync(
+            survey.SurveyId.Value,
+            organizationIds[0]);
+
+        await using var connection = _fixture.CreateConnection();
+        var surveyCount = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM public.survey WHERE id_survey = @SurveyId;",
+            new { SurveyId = survey.SurveyId });
+        var assignments = (await connection.QueryAsync<AssignmentDateRow>(
+            """
+            SELECT id_organization AS OrganizationId, date_begin AS DateBegin, date_end AS DateEnd
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+            ORDER BY id_organization;
+            """,
+            new { SurveyId = survey.SurveyId })).ToArray();
+        var activePage = await service.GetSurveysPageAsync(1, null, null, null);
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.True(deletionResult.Success, deletionResult.Message);
+        Assert.Equal("Продление успешно удалено.", deletionResult.Message);
+        Assert.Equal(1, surveyCount);
+        var remainingAssignment = Assert.Single(assignments);
+        Assert.Equal(organizationIds[1], remainingAssignment.OrganizationId);
+        Assert.Equal(DateTime.Today.AddDays(-1), remainingAssignment.DateBegin);
+        Assert.Equal(DateTime.Today.AddDays(14), remainingAssignment.DateEnd);
+        Assert.Contains(
+            activePage.SurveyRows,
+            row => row.IdSurvey == survey.SurveyId
+                && !row.IsExtension
+                && row.OrganizationIds.SequenceEqual([organizationIds[1]]));
+        Assert.DoesNotContain(
+            activePage.SurveyRows,
+            row => row.IdSurvey == survey.SurveyId && row.IsExtension);
+    }
+
+    [RequiresPostgresFact]
+    public async Task ExtensionDeletion_IsRejectedWhenAssignmentHasAnswer()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var userId = await CreateUserAsync(organizationIds[0], "extension-deletion-client");
+        var survey = await CreateSurveyAsync(organizationIds);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+        var answerResult = await CreateAnswerService(userId).InsertAnswerAsync(
+            BuildAnswerRecord(survey.SurveyId.Value, organizationIds[0], 4));
+        var deletionResult = await service.DeleteExtensionAsync(
+            survey.SurveyId.Value,
+            organizationIds[0]);
+
+        await using var connection = _fixture.CreateConnection();
+        var assignmentCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.True(answerResult.Success, answerResult.Error);
+        Assert.False(deletionResult.Success);
+        Assert.Equal("extension_in_use", deletionResult.Code);
+        Assert.Contains("по нему есть ответы", deletionResult.Message, StringComparison.Ordinal);
+        Assert.Equal(1, assignmentCount);
+    }
+
+    [RequiresPostgresFact]
     public async Task AdminLists_MoveBaseSurveyAndExtensionIndependently()
     {
         var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
