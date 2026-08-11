@@ -340,14 +340,14 @@
             try {
                 loading = true;
                 render();
-                const response = await fetch('/organizations/data', {
+                const response = await fetch(`/survey/${survey?.id_survey}/assigned-organizations`, {
                     signal: request.signal
                 });
                 if (!response.ok) {
                     throw new Error(
                         window.getResponseErrorMessage
-                            ? window.getResponseErrorMessage(response, 'Не удалось загрузить организации')
-                            : `Не удалось загрузить организации. Сервер вернул ошибку (${response.status}).`
+                            ? window.getResponseErrorMessage(response, 'Не удалось загрузить назначенные организации')
+                            : `Не удалось загрузить назначенные организации. Сервер вернул ошибку (${response.status}).`
                     );
                 }
 
@@ -367,7 +367,7 @@
                     return;
                 }
                 console.error('Ошибка загрузки организаций:', fetchError);
-                error = fetchError.message || 'Не удалось загрузить список организаций.';
+                error = fetchError.message || 'Не удалось загрузить назначенные организации.';
                 window.AppUi.notify(error, 'error', { title: 'Ошибка' });
             } finally {
                 if (disposed || request.signal.aborted) {

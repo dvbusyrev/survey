@@ -45,6 +45,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 036_protect_referenced_records_from_deletion.sql", script);
         Assert.Contains(@"\ir 037_store_answer_participants.sql", script);
         Assert.Contains(@"\ir 038_repair_answer_participants.sql", script);
+        Assert.Contains(@"\ir 039_restore_survey_base_schedule.sql", script);
         Assert.Contains("date_update", script);
         Assert.Contains("user_update", script);
     }
@@ -482,6 +483,26 @@ public sealed class DatabaseMigrationTests
         Assert.DoesNotContain("FROM public.answer_l", script);
         Assert.DoesNotContain("FROM public.app_user_l", script);
         Assert.Contains("VALUES ('038', 'repair_answer_participants')", script);
+    }
+
+    [Fact]
+    public void SurveyBaseScheduleMigration_RestoresSurveyDatesAndBaseScheduleView()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "039_restore_survey_base_schedule.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS date_begin date", script);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS date_end date", script);
+        Assert.Contains("ALTER TABLE public.survey_l", script);
+        Assert.Contains("MIN(assignment.date_begin) AS date_begin", script);
+        Assert.Contains("ELSE MIN(assignment.date_end)", script);
+        Assert.Contains("CREATE OR REPLACE VIEW public.survey_schedule AS", script);
+        Assert.Contains("survey.date_begin", script);
+        Assert.Contains("survey.date_end", script);
+        Assert.Contains("VALUES ('039', 'restore_survey_base_schedule')", script);
     }
 
     private static string GetRepositoryRoot()

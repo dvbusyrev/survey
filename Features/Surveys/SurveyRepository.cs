@@ -35,8 +35,8 @@ public sealed class SurveyRepository
             SELECT
                 survey.id_survey AS IdSurvey,
                 survey.name_survey AS NameSurvey,
-                schedule.date_begin AS DateBegin,
-                schedule.date_end AS DateEnd,
+                survey.date_begin AS DateBegin,
+                survey.date_end AS DateEnd,
                 COALESCE(
                     (
                         SELECT string_agg(
@@ -51,15 +51,29 @@ public sealed class SurveyRepository
                     'Не указано'
                 ) AS OrganizationName
             FROM public.survey survey
-            LEFT JOIN public.survey_schedule schedule
-                ON schedule.id_survey = survey.id_survey
             WHERE EXISTS (
-                SELECT 1
-                FROM public.organization_survey assignment
-                WHERE assignment.id_survey = survey.id_survey
-                  AND (assignment.date_begin IS NULL OR assignment.date_begin <= @Today)
-                  AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
-            )
+                    SELECT 1
+                    FROM public.organization_survey assignment
+                    WHERE assignment.id_survey = survey.id_survey
+                )
+              AND (
+                    (
+                        survey.date_begin IS NOT NULL
+                        AND survey.date_begin <= @Today
+                        AND (survey.date_end IS NULL OR survey.date_end >= @Today)
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public.organization_survey assignment
+                        WHERE assignment.id_survey = survey.id_survey
+                          AND (
+                              assignment.date_begin IS DISTINCT FROM survey.date_begin
+                              OR assignment.date_end IS DISTINCT FROM survey.date_end
+                          )
+                          AND assignment.date_begin <= @Today
+                          AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
+                    )
+                )
             ORDER BY survey.id_survey DESC;
             """,
             new { Today = _clock.Today.Date },
@@ -77,12 +91,10 @@ public sealed class SurveyRepository
             SELECT
                 survey.id_survey AS IdSurvey,
                 survey.name_survey AS NameSurvey,
-                COALESCE(schedule.date_begin, @Today) AS DateBegin,
-                schedule.date_end AS DateEnd,
+                COALESCE(survey.date_begin, @Today) AS DateBegin,
+                survey.date_end AS DateEnd,
                 survey.description AS Description
             FROM public.survey survey
-            LEFT JOIN public.survey_schedule schedule
-                ON schedule.id_survey = survey.id_survey
             WHERE survey.id_survey = @SurveyId;
             """,
             new { SurveyId = surveyId, Today = _clock.Today.Date },
@@ -146,23 +158,60 @@ public sealed class SurveyRepository
     {
         return connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
-            WITH active_survey AS (
-                SELECT DISTINCT id_survey
-                FROM public.organization_survey
-                WHERE (date_begin IS NULL OR date_begin <= @Today)
-                  AND (date_end IS NULL OR date_end >= @Today)
+            WITH active_survey_ids AS (
+                SELECT survey.id_survey
+                FROM public.survey survey
+                WHERE survey.date_begin IS NOT NULL
+                  AND survey.date_begin <= @Today
+                  AND (survey.date_end IS NULL OR survey.date_end >= @Today)
+
+                UNION
+
+                SELECT assignment.id_survey
+                FROM public.organization_survey assignment
+                INNER JOIN public.survey survey
+                    ON survey.id_survey = assignment.id_survey
+                WHERE (
+                        assignment.date_begin IS DISTINCT FROM survey.date_begin
+                        OR assignment.date_end IS DISTINCT FROM survey.date_end
+                    )
+                  AND assignment.date_begin <= @Today
+                  AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
             ),
-            updated AS (
+            active_survey AS MATERIALIZED (
+                SELECT
+                    survey.id_survey,
+                    survey.date_begin,
+                    survey.date_end
+                FROM public.survey survey
+                INNER JOIN active_survey_ids active
+                    ON active.id_survey = survey.id_survey
+            ),
+            updated_assignments AS (
                 UPDATE public.organization_survey assignment
                 SET
-                    date_begin = @DateBegin,
-                    date_end = @DateEnd
+                    date_begin = @DateBegin::date,
+                    date_end = CASE
+                        WHEN assignment.date_begin IS NOT DISTINCT FROM active.date_begin
+                         AND assignment.date_end IS NOT DISTINCT FROM active.date_end
+                            THEN @DateEnd::date
+                        ELSE assignment.date_end
+                    END
                 FROM active_survey active
                 WHERE assignment.id_survey = active.id_survey
                 RETURNING assignment.id_survey
+            ),
+            updated_surveys AS (
+                UPDATE public.survey survey
+                SET
+                    date_begin = @DateBegin::date,
+                    date_end = @DateEnd::date
+                FROM active_survey active
+                WHERE survey.id_survey = active.id_survey
+                RETURNING survey.id_survey
             )
-            SELECT COUNT(DISTINCT id_survey)
-            FROM updated;
+            SELECT COUNT(*)
+            FROM updated_surveys;
             """,
             new
             {
@@ -182,8 +231,8 @@ public sealed class SurveyRepository
             """
             SELECT
                 survey.id_survey AS IdSurvey,
-                schedule.date_begin AS DateBegin,
-                schedule.date_end AS DateEnd,
+                survey.date_begin AS DateBegin,
+                survey.date_end AS DateEnd,
                 survey.name_survey AS NameSurvey,
                 COALESCE(
                     (
@@ -201,19 +250,32 @@ public sealed class SurveyRepository
                 ) AS OrganizationName,
                 survey.description AS Description
             FROM public.survey survey
-            LEFT JOIN public.survey_schedule schedule
-                ON schedule.id_survey = survey.id_survey
             WHERE EXISTS (
                     SELECT 1
                     FROM public.organization_survey assignment
                     WHERE assignment.id_survey = survey.id_survey
                 )
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey active_assignment
-                    WHERE active_assignment.id_survey = survey.id_survey
-                      AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
-                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
+              AND (
+                    (
+                        survey.date_begin IS NOT NULL
+                        AND (
+                            survey.date_begin > @Today
+                            OR (survey.date_end IS NOT NULL AND survey.date_end < @Today)
+                        )
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public.organization_survey assignment
+                        WHERE assignment.id_survey = survey.id_survey
+                          AND (
+                              assignment.date_begin IS DISTINCT FROM survey.date_begin
+                              OR assignment.date_end IS DISTINCT FROM survey.date_end
+                          )
+                          AND (
+                              assignment.date_begin > @Today
+                              OR (assignment.date_end IS NOT NULL AND assignment.date_end < @Today)
+                          )
+                    )
                 )
             ORDER BY survey.id_survey DESC;
             """,
@@ -233,25 +295,38 @@ public sealed class SurveyRepository
                 """
                 SELECT
                     survey.id_survey AS IdSurvey,
-                    schedule.date_begin AS DateBegin,
-                    schedule.date_end AS DateEnd,
+                    survey.date_begin AS DateBegin,
+                    survey.date_end AS DateEnd,
                     survey.name_survey AS NameSurvey,
                     survey.description AS Description
                 FROM public.survey survey
-                LEFT JOIN public.survey_schedule schedule
-                    ON schedule.id_survey = survey.id_survey
                 WHERE survey.id_survey = @SurveyId
                   AND EXISTS (
-                      SELECT 1
-                      FROM public.organization_survey assignment
-                      WHERE assignment.id_survey = survey.id_survey
+                        SELECT 1
+                        FROM public.organization_survey assignment
+                        WHERE assignment.id_survey = survey.id_survey
                   )
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM public.organization_survey active_assignment
-                      WHERE active_assignment.id_survey = survey.id_survey
-                        AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
-                        AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
+                  AND (
+                        (
+                            survey.date_begin IS NOT NULL
+                            AND (
+                                survey.date_begin > @Today
+                                OR (survey.date_end IS NOT NULL AND survey.date_end < @Today)
+                            )
+                        )
+                        OR EXISTS (
+                            SELECT 1
+                            FROM public.organization_survey assignment
+                            WHERE assignment.id_survey = survey.id_survey
+                              AND (
+                                  assignment.date_begin IS DISTINCT FROM survey.date_begin
+                                  OR assignment.date_end IS DISTINCT FROM survey.date_end
+                              )
+                              AND (
+                                  assignment.date_begin > @Today
+                                  OR (assignment.date_end IS NOT NULL AND assignment.date_end < @Today)
+                              )
+                        )
                   );
                 """,
                 new { SurveyId = surveyId, Today = _clock.Today.Date },
@@ -301,10 +376,13 @@ public sealed class SurveyRepository
             SELECT
                 id_survey AS IdSurvey,
                 name_survey AS NameSurvey,
+                group_name_survey AS OriginalNameSurvey,
                 date_begin AS DateBegin,
                 date_end AS DateEnd,
                 organization_ids AS OrganizationIds,
-                organization_names AS OrganizationNames
+                organization_names AS OrganizationNames,
+                row_rank = 1 AS IsExtension,
+                NULLIF(row_organization_id, 0) AS ExtensionOrganizationId
             FROM survey_rows
             WHERE {ActiveSurveyFilterPredicate}
             ORDER BY {BuildOrderBy(sortBy, sortDirection)}
@@ -320,15 +398,15 @@ public sealed class SurveyRepository
         CancellationToken cancellationToken = default)
     {
         var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
-            """
+            $"""
+            {ActiveSurveyRowsCte}
             SELECT DISTINCT
                 o.id_organization AS Id,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS Name
-            FROM public.organization_survey os
+            FROM survey_rows survey_row
+            CROSS JOIN LATERAL unnest(survey_row.organization_ids) AS organization_ids(id_organization)
             INNER JOIN public.organization o
-                ON o.id_organization = os.id_organization
-            WHERE (os.date_begin IS NULL OR os.date_begin <= @Today)
-              AND (os.date_end IS NULL OR os.date_end >= @Today);
+                ON o.id_organization = organization_ids.id_organization;
             """,
             new { Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
@@ -372,10 +450,13 @@ public sealed class SurveyRepository
             SELECT
                 id_survey AS IdSurvey,
                 name_survey AS NameSurvey,
+                group_name_survey AS OriginalNameSurvey,
                 date_begin AS DateBegin,
                 date_end AS DateEnd,
                 organization_ids AS OrganizationIds,
-                organization_names AS OrganizationNames
+                organization_names AS OrganizationNames,
+                row_rank = 1 AS IsExtension,
+                NULLIF(row_organization_id, 0) AS ExtensionOrganizationId
             FROM survey_rows
             WHERE {ArchivedSurveyFilterPredicate}
             ORDER BY {BuildOrderBy(sortBy, sortDirection)}
@@ -391,25 +472,15 @@ public sealed class SurveyRepository
         CancellationToken cancellationToken = default)
     {
         var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
-            """
+            $"""
+            {ArchivedSurveyRowsCte}
             SELECT DISTINCT
                 o.id_organization AS Id,
                 COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS Name
-            FROM public.organization_survey os
+            FROM survey_rows survey_row
+            CROSS JOIN LATERAL unnest(survey_row.organization_ids) AS organization_ids(id_organization)
             INNER JOIN public.organization o
-                ON o.id_organization = os.id_organization
-            WHERE EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey existing_assignment
-                    WHERE existing_assignment.id_survey = os.id_survey
-                )
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey active_assignment
-                    WHERE active_assignment.id_survey = os.id_survey
-                      AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
-                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
-                );
+                ON o.id_organization = organization_ids.id_organization;
             """,
             new { Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
@@ -423,10 +494,12 @@ public sealed class SurveyRepository
         var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             $"""
             {ArchivedSurveyRowsCte}
-            SELECT
-                id_survey AS Id,
-                name_survey AS Name
-            FROM survey_rows;
+            SELECT DISTINCT
+                survey_row.id_survey AS Id,
+                survey.name_survey AS Name
+            FROM survey_rows survey_row
+            INNER JOIN public.survey survey
+                ON survey.id_survey = survey_row.id_survey;
             """,
             new { Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
@@ -666,6 +739,61 @@ public sealed class SurveyRepository
             cancellationToken);
     }
 
+    public async Task ReplaceSurveyOrganizationsPreservingSchedulesAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int surveyId,
+        IEnumerable<int> organizationIds,
+        DateTime dateBegin,
+        DateTime? dateEnd,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedOrganizationIds = NormalizeOrganizationIds(organizationIds);
+
+        if (normalizedOrganizationIds.Length == 0)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM public.organization_survey WHERE id_survey = @SurveyId;",
+                new { SurveyId = surveyId },
+                transaction,
+                cancellationToken: cancellationToken));
+            return;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            DELETE FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND NOT (id_organization = ANY(@OrganizationIds));
+            """,
+            new
+            {
+                SurveyId = surveyId,
+                OrganizationIds = normalizedOrganizationIds
+            },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        foreach (var organizationId in normalizedOrganizationIds)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
+                VALUES (@OrganizationId, @SurveyId, @DateBegin, @DateEnd)
+                ON CONFLICT (id_organization, id_survey) DO NOTHING;
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    SurveyId = surveyId,
+                    DateBegin = dateBegin.Date,
+                    DateEnd = dateEnd?.Date
+                },
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+    }
+
     public async Task UpsertSurveyAssignmentsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -735,20 +863,8 @@ public sealed class SurveyRepository
                     SELECT 1
                     FROM public.survey survey_copy
                     WHERE survey_copy.name_survey = @SurveyName
-                      AND (
-                          EXISTS (
-                              SELECT 1
-                              FROM public.organization_survey assignment
-                              WHERE assignment.id_survey = survey_copy.id_survey
-                                AND assignment.date_begin = @DateBegin
-                                AND assignment.date_end IS NOT DISTINCT FROM @DateEnd::date
-                          )
-                          OR NOT EXISTS (
-                              SELECT 1
-                              FROM public.organization_survey assignment
-                              WHERE assignment.id_survey = survey_copy.id_survey
-                          )
-                      )
+                      AND survey_copy.date_begin = @DateBegin
+                      AND survey_copy.date_end IS NOT DISTINCT FROM @DateEnd::date
                 );
                 """,
                 new
@@ -761,7 +877,7 @@ public sealed class SurveyRepository
                 cancellationToken: cancellationToken));
     }
 
-    public Task<int> UpsertSurveyEndDateAsync(
+    public Task<int> UpdateAssignedSurveyEndDateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
@@ -771,27 +887,72 @@ public sealed class SurveyRepository
     {
         return connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO public.organization_survey (
-                id_organization,
-                id_survey,
-                date_begin,
-                date_end
-            )
-            SELECT
-                @OrganizationId,
-                survey.id_survey,
-                @DateBegin::date,
-                @DateEnd::date
-            FROM public.survey survey
-            WHERE survey.id_survey = @SurveyId
-            ON CONFLICT (id_organization, id_survey) DO UPDATE
-            SET date_end = EXCLUDED.date_end;
+            UPDATE public.organization_survey
+            SET date_end = @DateEnd::date
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
             """,
             new
             {
                 SurveyId = surveyId,
                 OrganizationId = organizationId,
-                DateBegin = _clock.Today.Date,
+                DateEnd = dateEnd.Date
+            },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    public Task<DateTime?> GetExtensionDateBeginForUpdateAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
+    {
+        return connection.ExecuteScalarAsync<DateTime?>(new CommandDefinition(
+            """
+            SELECT assignment.date_begin
+            FROM public.organization_survey assignment
+            INNER JOIN public.survey survey
+                ON survey.id_survey = assignment.id_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+              AND (
+                    assignment.date_begin IS DISTINCT FROM survey.date_begin
+                    OR assignment.date_end IS DISTINCT FROM survey.date_end
+                )
+            FOR UPDATE OF assignment;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    public Task<int> UpdateExtensionEndDateAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int surveyId,
+        int organizationId,
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default)
+    {
+        return connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE public.organization_survey assignment
+            SET date_end = @DateEnd
+            FROM public.survey survey
+            WHERE survey.id_survey = assignment.id_survey
+              AND assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+              AND (
+                    assignment.date_begin IS DISTINCT FROM survey.date_begin
+                    OR assignment.date_end IS DISTINCT FROM survey.date_end
+                );
+            """,
+            new
+            {
+                SurveyId = surveyId,
+                OrganizationId = organizationId,
                 DateEnd = dateEnd.Date
             },
             transaction,
@@ -879,15 +1040,15 @@ public sealed class SurveyRepository
 
         return sortBy switch
         {
-            "name" => $"name_survey {direction}, id_survey DESC",
-            "dateBegin" => $"date_begin {direction} NULLS LAST, id_survey DESC",
-            "dateEnd" => $"date_end {direction} NULLS LAST, id_survey DESC",
-            _ => "id_survey DESC"
+            "name" => $"group_name_survey {direction}, id_survey DESC, row_rank, row_organization_id",
+            "dateBegin" => $"group_date_begin {direction} NULLS LAST, id_survey DESC, row_rank, row_organization_id",
+            "dateEnd" => $"group_date_end {direction} NULLS LAST, id_survey DESC, row_rank, row_organization_id",
+            _ => "group_name_survey ASC, id_survey DESC, row_rank, row_organization_id"
         };
     }
 
     private const string ActiveSurveyFilterPredicate =
-        "(@HasOrganizationFilter = false OR active_organization_ids && @OrganizationIds)";
+        "(@HasOrganizationFilter = false OR organization_ids && @OrganizationIds)";
 
     private const string ArchivedSurveyFilterPredicate = """
         (@HasOrganizationFilter = false OR organization_ids && @OrganizationIds)
@@ -905,103 +1066,164 @@ public sealed class SurveyRepository
         """;
 
     private const string ActiveSurveyRowsCte = """
-        WITH survey_rows AS (
+        WITH base_survey_rows AS (
             SELECT
                 s.id_survey,
                 s.name_survey,
-                ss.date_begin,
-                ss.date_end,
+                s.date_begin,
+                s.date_end,
                 COALESCE(
                     ARRAY(
-                        SELECT DISTINCT active_os.id_organization
-                        FROM public.organization_survey active_os
-                        WHERE active_os.id_survey = s.id_survey
-                          AND active_os.id_organization IS NOT NULL
-                          AND (active_os.date_begin IS NULL OR active_os.date_begin <= @Today)
-                          AND (active_os.date_end IS NULL OR active_os.date_end >= @Today)
-                        ORDER BY active_os.id_organization
-                    ),
-                    ARRAY[]::integer[]
-                ) AS active_organization_ids,
-                COALESCE(
-                    ARRAY(
-                        SELECT DISTINCT os2.id_organization
-                        FROM public.organization_survey os2
-                        WHERE os2.id_survey = s.id_survey
-                          AND os2.id_organization IS NOT NULL
-                        ORDER BY os2.id_organization
+                        SELECT DISTINCT assignment.id_organization
+                        FROM public.organization_survey assignment
+                        WHERE assignment.id_survey = s.id_survey
+                          AND assignment.date_begin IS NOT DISTINCT FROM s.date_begin
+                          AND assignment.date_end IS NOT DISTINCT FROM s.date_end
+                        ORDER BY assignment.id_organization
                     ),
                     ARRAY[]::integer[]
                 ) AS organization_ids,
                 COALESCE(
                     ARRAY(
-                        SELECT DISTINCT COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
-                        FROM public.organization_survey os2
-                        INNER JOIN public.organization o2
-                            ON o2.id_organization = os2.id_organization
-                        WHERE os2.id_survey = s.id_survey
-                          AND COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name) IS NOT NULL
-                        ORDER BY COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
+                        SELECT DISTINCT COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)
+                        FROM public.organization_survey assignment
+                        INNER JOIN public.organization o
+                            ON o.id_organization = assignment.id_organization
+                        WHERE assignment.id_survey = s.id_survey
+                          AND assignment.date_begin IS NOT DISTINCT FROM s.date_begin
+                          AND assignment.date_end IS NOT DISTINCT FROM s.date_end
+                        ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)
                     ),
                     ARRAY[]::text[]
-                ) AS organization_names
+                ) AS organization_names,
+                s.name_survey AS group_name_survey,
+                s.date_begin AS group_date_begin,
+                s.date_end AS group_date_end,
+                0 AS row_rank,
+                0 AS row_organization_id
             FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-            WHERE EXISTS (
-                SELECT 1
-                FROM public.organization_survey active_assignment
-                WHERE active_assignment.id_survey = s.id_survey
-                  AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
-                  AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
-            )
+            WHERE s.date_begin IS NOT NULL
+              AND s.date_begin <= @Today
+              AND (s.date_end IS NULL OR s.date_end >= @Today)
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey assignment
+                    WHERE assignment.id_survey = s.id_survey
+                )
+        ),
+        extension_survey_rows AS (
+            SELECT
+                s.id_survey,
+                s.name_survey || ': продление для ' ||
+                    COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS name_survey,
+                assignment.date_begin,
+                assignment.date_end,
+                ARRAY[assignment.id_organization]::integer[] AS organization_ids,
+                ARRAY[COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)]::text[] AS organization_names,
+                s.name_survey AS group_name_survey,
+                s.date_begin AS group_date_begin,
+                s.date_end AS group_date_end,
+                1 AS row_rank,
+                assignment.id_organization AS row_organization_id
+            FROM public.organization_survey assignment
+            INNER JOIN public.survey s
+                ON s.id_survey = assignment.id_survey
+            INNER JOIN public.organization o
+                ON o.id_organization = assignment.id_organization
+            WHERE (
+                    assignment.date_begin IS DISTINCT FROM s.date_begin
+                    OR assignment.date_end IS DISTINCT FROM s.date_end
+                )
+              AND assignment.date_begin <= @Today
+              AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
+        ),
+        survey_rows AS (
+            SELECT * FROM base_survey_rows
+            UNION ALL
+            SELECT * FROM extension_survey_rows
         )
         """;
 
     private const string ArchivedSurveyRowsCte = """
-        WITH survey_rows AS (
+        WITH base_survey_rows AS (
             SELECT
                 s.id_survey,
                 s.name_survey,
-                ss.date_begin,
-                ss.date_end,
+                s.date_begin,
+                s.date_end,
                 COALESCE(
                     ARRAY(
-                        SELECT DISTINCT os2.id_organization
-                        FROM public.organization_survey os2
-                        WHERE os2.id_survey = s.id_survey
-                          AND os2.id_organization IS NOT NULL
-                        ORDER BY os2.id_organization
+                        SELECT DISTINCT assignment.id_organization
+                        FROM public.organization_survey assignment
+                        WHERE assignment.id_survey = s.id_survey
+                          AND assignment.date_begin IS NOT DISTINCT FROM s.date_begin
+                          AND assignment.date_end IS NOT DISTINCT FROM s.date_end
+                        ORDER BY assignment.id_organization
                     ),
                     ARRAY[]::integer[]
                 ) AS organization_ids,
                 COALESCE(
                     ARRAY(
-                        SELECT DISTINCT COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
-                        FROM public.organization_survey os2
-                        INNER JOIN public.organization o2
-                            ON o2.id_organization = os2.id_organization
-                        WHERE os2.id_survey = s.id_survey
-                          AND COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name) IS NOT NULL
-                        ORDER BY COALESCE(NULLIF(o2.organization_short_name, ''), o2.organization_name)
+                        SELECT DISTINCT COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)
+                        FROM public.organization_survey assignment
+                        INNER JOIN public.organization o
+                            ON o.id_organization = assignment.id_organization
+                        WHERE assignment.id_survey = s.id_survey
+                          AND assignment.date_begin IS NOT DISTINCT FROM s.date_begin
+                          AND assignment.date_end IS NOT DISTINCT FROM s.date_end
+                        ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)
                     ),
                     ARRAY[]::text[]
-                ) AS organization_names
+                ) AS organization_names,
+                s.name_survey AS group_name_survey,
+                s.date_begin AS group_date_begin,
+                s.date_end AS group_date_end,
+                0 AS row_rank,
+                0 AS row_organization_id
             FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
-            WHERE EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey existing_assignment
-                    WHERE existing_assignment.id_survey = s.id_survey
+            WHERE s.date_begin IS NOT NULL
+              AND (
+                    s.date_begin > @Today
+                    OR (s.date_end IS NOT NULL AND s.date_end < @Today)
                 )
-              AND NOT EXISTS (
+              AND EXISTS (
                     SELECT 1
-                    FROM public.organization_survey active_assignment
-                    WHERE active_assignment.id_survey = s.id_survey
-                      AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
-                      AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
+                    FROM public.organization_survey assignment
+                    WHERE assignment.id_survey = s.id_survey
                 )
+        ),
+        extension_survey_rows AS (
+            SELECT
+                s.id_survey,
+                s.name_survey || ': продление для ' ||
+                    COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name) AS name_survey,
+                assignment.date_begin,
+                assignment.date_end,
+                ARRAY[assignment.id_organization]::integer[] AS organization_ids,
+                ARRAY[COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)]::text[] AS organization_names,
+                s.name_survey AS group_name_survey,
+                s.date_begin AS group_date_begin,
+                s.date_end AS group_date_end,
+                1 AS row_rank,
+                assignment.id_organization AS row_organization_id
+            FROM public.organization_survey assignment
+            INNER JOIN public.survey s
+                ON s.id_survey = assignment.id_survey
+            INNER JOIN public.organization o
+                ON o.id_organization = assignment.id_organization
+            WHERE (
+                    assignment.date_begin IS DISTINCT FROM s.date_begin
+                    OR assignment.date_end IS DISTINCT FROM s.date_end
+                )
+              AND (
+                    assignment.date_begin > @Today
+                    OR (assignment.date_end IS NOT NULL AND assignment.date_end < @Today)
+                )
+        ),
+        survey_rows AS (
+            SELECT * FROM base_survey_rows
+            UNION ALL
+            SELECT * FROM extension_survey_rows
         )
         """;
 
@@ -1037,8 +1259,8 @@ public sealed class SurveyRepository
                 s.id_survey,
                 s.name_survey,
                 s.description,
-                COALESCE(assignment.date_begin, schedule.date_begin) AS date_begin,
-                COALESCE(assignment.date_end, schedule.date_end) AS date_end,
+                assignment.date_begin,
+                assignment.date_end,
                 answer.completion_date,
                 answer.csp,
                 answer.id_answer,
@@ -1048,8 +1270,6 @@ public sealed class SurveyRepository
                 ON assignment.id_survey = s.id_survey
             LEFT JOIN public.answer answer
                 ON answer.id_organization_survey = assignment.id_organization_survey
-            LEFT JOIN public.survey_schedule schedule
-                ON schedule.id_survey = s.id_survey
             WHERE assignment.id_organization = @OrganizationId
               AND (
                     answer.id_answer IS NOT NULL
@@ -1064,14 +1284,22 @@ public sealed class SurveyRepository
         NpgsqlTransaction transaction,
         string name,
         string? description,
+        DateTime? dateBegin,
+        DateTime? dateEnd,
         CancellationToken cancellationToken = default) =>
         connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
-            INSERT INTO public.survey (name_survey, description)
-            VALUES (@Name, @Description)
+            INSERT INTO public.survey (name_survey, description, date_begin, date_end)
+            VALUES (@Name, @Description, @DateBegin, @DateEnd)
             RETURNING id_survey;
             """,
-            new { Name = name, Description = description },
+            new
+            {
+                Name = name,
+                Description = description,
+                DateBegin = dateBegin?.Date,
+                DateEnd = dateEnd?.Date
+            },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -1081,14 +1309,53 @@ public sealed class SurveyRepository
         int surveyId,
         string name,
         string? description,
+        DateTime dateBegin,
+        DateTime? dateEnd,
         CancellationToken cancellationToken = default) =>
-        connection.ExecuteAsync(new CommandDefinition(
+        connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
-            UPDATE public.survey
-            SET name_survey = @Name, description = @Description
-            WHERE id_survey = @SurveyId;
+            WITH current_survey AS MATERIALIZED (
+                SELECT id_survey, date_begin, date_end
+                FROM public.survey
+                WHERE id_survey = @SurveyId
+                FOR UPDATE
+            ),
+            updated_assignments AS (
+                UPDATE public.organization_survey assignment
+                SET
+                    date_begin = @DateBegin::date,
+                    date_end = CASE
+                        WHEN assignment.date_begin IS NOT DISTINCT FROM current.date_begin
+                         AND assignment.date_end IS NOT DISTINCT FROM current.date_end
+                            THEN @DateEnd::date
+                        ELSE assignment.date_end
+                    END
+                FROM current_survey current
+                WHERE assignment.id_survey = current.id_survey
+                RETURNING assignment.id_organization_survey
+            ),
+            updated_survey AS (
+                UPDATE public.survey survey
+                SET
+                    name_survey = @Name,
+                    description = @Description,
+                    date_begin = @DateBegin::date,
+                    date_end = @DateEnd::date
+                FROM current_survey current
+                WHERE survey.id_survey = current.id_survey
+                RETURNING survey.id_survey
+            )
+            SELECT COUNT(*)
+            FROM updated_survey;
             """,
-            new { SurveyId = surveyId, Name = name, Description = description },
+            new
+            {
+                SurveyId = surveyId,
+                Name = name,
+                Description = description,
+                DateBegin = dateBegin.Date,
+                DateEnd = dateEnd?.Date
+            },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -1116,7 +1383,9 @@ public sealed class SurveyRepository
             SELECT
                 id_survey AS IdSurvey,
                 name_survey AS NameSurvey,
-                description AS Description
+                description AS Description,
+                date_begin AS DateBegin,
+                date_end AS DateEnd
             FROM public.survey
             WHERE id_survey = @SurveyId;
             """,

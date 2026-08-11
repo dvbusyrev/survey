@@ -61,11 +61,24 @@
                     data-hover-label="Смотреть"
                     data-survey-id="@survey.IdSurvey"
                     data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                    data-survey-original-name="@(survey.OriginalNameSurvey ?? string.Empty)"
                     data-survey-date-begin="@survey.DateBegin.ToString("yyyy-MM-dd")"
                     data-survey-date-end="@FormatIsoDate(survey.DateEnd)"
+                    data-is-extension="@survey.IsExtension.ToString().ToLowerInvariant()"
+                    data-extension-organization-id="@survey.ExtensionOrganizationId"
                     data-survey-organizations="@organizationNamesJson">
-                    <td>
-                        @survey.NameSurvey
+                    <td class="survey-table__name-cell">
+                        @if (survey.IsExtension)
+                        {
+                            <span class="survey-table__extension-name" data-role="survey-extension-name">
+                                <span class="survey-table__extension-branch" aria-hidden="true">↳</span>
+                                <span class="survey-table__extension-text">@survey.NameSurvey</span>
+                            </span>
+                        }
+                        else
+                        {
+                            @survey.NameSurvey
+                        }
                     </td>
                     <td class="table-col--date">
                         @survey.DateBegin.ToString("dd.MM.yyyy")
@@ -75,29 +88,29 @@
                     </td>
                     <td class="action-icons table-col--actions">
                         <div class="action-icons__content">
-                            <a class="icon-container"
-                               href="/survey/@survey.IdSurvey/signatures"
-                               data-survey-id="@survey.IdSurvey"
-                               data-survey-name="@(survey.NameSurvey ?? string.Empty)"
-                               data-click-call="openSurveyCompletionModalFromTrigger"
-                               data-click-pass-element="true"
-                               data-fallback-url="/survey/@survey.IdSurvey/signatures"
-                               aria-label="Проверить прохождение">
-                                <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
-                                <span class="icon-tooltip">Проверить прохождение</span>
-                            </a>
-                            <button type="button"
-                                    class="icon-container"
-                                    data-survey-id="@survey.IdSurvey"
-                                    data-survey-name="@(survey.NameSurvey ?? string.Empty)"
-                                    data-click-call="openSurveyExtensionModalFromTrigger"
-                                    data-click-pass-element="true"
-                                    aria-label="Продлить доступ">
-                                <span aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
-                                <span class="icon-tooltip">Продлить доступ</span>
-                            </button>
-                            @if (isArchive)
+                            @if (!survey.IsExtension)
                             {
+                                <a class="icon-container"
+                                   href="/survey/@survey.IdSurvey/signatures"
+                                   data-survey-id="@survey.IdSurvey"
+                                   data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                   data-click-call="openSurveyCompletionModalFromTrigger"
+                                   data-click-pass-element="true"
+                                   data-fallback-url="/survey/@survey.IdSurvey/signatures"
+                                   aria-label="Проверить прохождение">
+                                    <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
+                                    <span class="icon-tooltip">Проверить прохождение</span>
+                                </a>
+                                <button type="button"
+                                        class="icon-container"
+                                        data-survey-id="@survey.IdSurvey"
+                                        data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                        data-click-call="openSurveyExtensionModalFromTrigger"
+                                        data-click-pass-element="true"
+                                        aria-label="Продлить доступ">
+                                    <span aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
+                                    <span class="icon-tooltip">Продлить доступ</span>
+                                </button>
                                 <button type="button"
                                         class="icon-container"
                                         data-survey-id="@survey.IdSurvey"
@@ -109,7 +122,7 @@
                                     <span class="icon-tooltip">Копировать</span>
                                 </button>
                                 <a class="icon-container"
-                                   href="/survey/archive/@survey.IdSurvey/edit"
+                                   href="@(isArchive ? $"/survey/archive/{survey.IdSurvey}/edit" : $"/survey/{survey.IdSurvey}/edit")"
                                    aria-label="Редактировать">
                                     <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
                                     <span class="icon-tooltip">Редактировать</span>
@@ -118,21 +131,19 @@
                             else
                             {
                                 <button type="button"
-                                   class="icon-container"
-                                   data-survey-id="@survey.IdSurvey"
-                                   data-survey-name="@(survey.NameSurvey ?? string.Empty)"
-                                   data-click-call="openCopySurveyModalFromTrigger"
-                                   data-click-pass-element="true"
-                                   aria-label="Копировать">
-                                    <span aria-hidden="true"><i class="fas fa-copy"></i></span>
-                                    <span class="icon-tooltip">Копировать</span>
-                                </button>
-                                <a class="icon-container"
-                                   href="/survey/@survey.IdSurvey/edit"
-                                   aria-label="Редактировать">
+                                        class="icon-container"
+                                        data-survey-id="@survey.IdSurvey"
+                                        data-survey-name="@(survey.OriginalNameSurvey ?? string.Empty)"
+                                        data-organization-id="@survey.ExtensionOrganizationId"
+                                        data-organization-name="@(survey.OrganizationNames?.FirstOrDefault() ?? string.Empty)"
+                                        data-date-begin="@survey.DateBegin.ToString("yyyy-MM-dd")"
+                                        data-date-end="@FormatIsoDate(survey.DateEnd)"
+                                        data-click-call="openSurveyExtensionPeriodModalFromTrigger"
+                                        data-click-pass-element="true"
+                                        aria-label="Редактировать">
                                     <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
                                     <span class="icon-tooltip">Редактировать</span>
-                                </a>
+                                </button>
                             }
                             <button type="button"
                                     class="icon-container"

@@ -336,6 +336,29 @@
   cursor: pointer;
 }
 
+.survey-table__name-cell {
+  min-width: 0;
+}
+
+.survey-table__extension-name {
+  display: inline-grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.25rem;
+  max-width: 100%;
+  padding-inline-start: 1rem;
+}
+
+.survey-table__extension-branch {
+  line-height: inherit;
+  text-align: center;
+}
+
+.survey-table__extension-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .survey-details-modal__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

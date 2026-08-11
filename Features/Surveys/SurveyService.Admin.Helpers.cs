@@ -17,10 +17,13 @@ public partial class SurveyService
         {
             IdSurvey = row.IdSurvey,
             NameSurvey = row.NameSurvey ?? string.Empty,
+            OriginalNameSurvey = row.OriginalNameSurvey ?? row.NameSurvey ?? string.Empty,
             DateBegin = row.DateBegin,
             DateEnd = row.DateEnd,
             OrganizationIds = row.OrganizationIds ?? Array.Empty<int>(),
-            OrganizationNames = row.OrganizationNames ?? Array.Empty<string>()
+            OrganizationNames = row.OrganizationNames ?? Array.Empty<string>(),
+            IsExtension = row.IsExtension,
+            ExtensionOrganizationId = row.ExtensionOrganizationId
         };
     }
 

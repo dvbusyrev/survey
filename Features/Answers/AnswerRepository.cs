@@ -71,11 +71,9 @@ public sealed class AnswerRepository
                 s.id_survey,
                 s.name_survey,
                 s.description,
-                ss.date_begin,
-                ss.date_end
+                s.date_begin,
+                s.date_end
             FROM public.survey s
-            LEFT JOIN public.survey_schedule ss
-                ON ss.id_survey = s.id_survey
             WHERE s.id_survey = @SurveyId;
             """,
             new { SurveyId = surveyId },

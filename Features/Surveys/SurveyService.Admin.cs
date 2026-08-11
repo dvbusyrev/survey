@@ -126,7 +126,13 @@ public partial class SurveyService
         try
         {
             var newSurveyId = await _surveyRepository.CreateSurveyAsync(
-                connection, transaction, title, description, cancellationToken);
+                connection,
+                transaction,
+                title,
+                description,
+                startDate,
+                endDate,
+                cancellationToken);
 
             await _surveyRepository.ReplaceSurveyQuestionsAsync(
                 connection,
@@ -187,6 +193,22 @@ public partial class SurveyService
         };
     }
 
+    public async Task<IReadOnlyList<OrganizationSelectionItem>> GetAssignedOrganizationsForExtensionAsync(
+        int surveyId,
+        CancellationToken cancellationToken = default)
+    {
+        if (surveyId <= 0)
+        {
+            return Array.Empty<OrganizationSelectionItem>();
+        }
+
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return await _surveyRepository.GetSelectedOrganizationsForSurveyAsync(
+            connection,
+            surveyId,
+            cancellationToken);
+    }
+
     public async Task<SurveyCommandResult> UpdateSurveyAsync(
         int id,
         SurveyUpdateRequest? model,
@@ -219,6 +241,8 @@ public partial class SurveyService
                 id,
                 title,
                 description,
+                startDate,
+                endDate,
                 cancellationToken);
 
             if (affectedRows == 0)
@@ -241,7 +265,7 @@ public partial class SurveyService
                     Text = question.QuestionText
                 }).ToArray(),
                 cancellationToken);
-            await _surveyRepository.ReplaceSurveyAssignmentsAsync(
+            await _surveyRepository.ReplaceSurveyOrganizationsPreservingSchedulesAsync(
                 connection,
                 transaction,
                 id,
@@ -349,18 +373,39 @@ public partial class SurveyService
         }
 
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var extensions = request.Extensions
+            .GroupBy(item => item.OrganizationId)
+            .Select(group => group.Last())
+            .ToArray();
+        var assignedOrganizationIds = (await _surveyRepository.GetSelectedOrganizationsForSurveyAsync(
+                connection,
+                request.SurveyId,
+                cancellationToken))
+            .Select(organization => organization.Id)
+            .ToHashSet();
+
+        if (extensions.Any(extension => !assignedOrganizationIds.Contains(extension.OrganizationId)))
+        {
+            const string message = "Продлить анкету можно только для уже назначенных организаций.";
+            return new OperationResult
+            {
+                Success = false,
+                Message = message,
+                Error = message,
+                Errors = [message]
+            };
+        }
+
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         try
         {
             var affectedAssignments = 0;
-            foreach (var extension in request.Extensions
-                         .GroupBy(item => item.OrganizationId)
-                         .Select(group => group.Last()))
+            foreach (var extension in extensions)
             {
                 var endDate = DateTime.Parse(extension.ExtendedUntil).Date;
 
-                affectedAssignments += await _surveyRepository.UpsertSurveyEndDateAsync(
+                affectedAssignments += await _surveyRepository.UpdateAssignedSurveyEndDateAsync(
                     connection,
                     transaction,
                     request.SurveyId,
@@ -369,15 +414,15 @@ public partial class SurveyService
                     cancellationToken);
             }
 
-            if (affectedAssignments == 0)
+            if (affectedAssignments != extensions.Length)
             {
                 await transaction.RollbackAsync(cancellationToken);
 
                 return new OperationResult
                 {
                     Success = false,
-                    Message = "Анкета не найдена.",
-                    Error = "Анкета не найдена."
+                    Message = "Назначение анкеты для организации не найдено.",
+                    Error = "Назначение анкеты для организации не найдено."
                 };
             }
 
@@ -386,7 +431,7 @@ public partial class SurveyService
             return new OperationResult
             {
                 Success = true,
-                Message = request.Extensions.Count == 1
+                Message = extensions.Length == 1
                     ? "Доступ к анкете для организации успешно продлён."
                     : "Доступ к анкете для организаций успешно продлён.",
                 EntityId = request.SurveyId
@@ -416,6 +461,93 @@ public partial class SurveyService
                 Message = "Не удалось продлить доступ к анкете.",
                 Error = "Не удалось продлить доступ к анкете."
             };
+        }
+    }
+
+    public async Task<OperationResult> UpdateExtensionPeriodAsync(
+        int surveyId,
+        int organizationId,
+        SurveyAssignmentPeriodRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (surveyId <= 0 || organizationId <= 0)
+        {
+            return new OperationResult
+            {
+                Message = "Продлённое назначение не найдено.",
+                Code = "extension_not_found"
+            };
+        }
+
+        if (request == null)
+        {
+            return new OperationResult { Message = "Данные периода не предоставлены." };
+        }
+
+        if (request.DateEnd == default)
+        {
+            return new OperationResult { Message = "Укажите дату конца." };
+        }
+
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var dateBegin = await _surveyRepository.GetExtensionDateBeginForUpdateAsync(
+                connection,
+                transaction,
+                surveyId,
+                organizationId,
+                cancellationToken);
+
+            if (!dateBegin.HasValue)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = "Продлённое назначение не найдено.",
+                    Code = "extension_not_found"
+                };
+            }
+
+            if (!TryValidateDateRange(dateBegin.Value, request.DateEnd, out var validationError)
+                || !TryValidateEndDateNotPast(request.DateEnd, out validationError))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult { Message = validationError };
+            }
+
+            var affectedRows = await _surveyRepository.UpdateExtensionEndDateAsync(
+                connection,
+                transaction,
+                surveyId,
+                organizationId,
+                request.DateEnd,
+                cancellationToken);
+
+            if (affectedRows == 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = "Продлённое назначение не найдено.",
+                    Code = "extension_not_found"
+                };
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return new OperationResult
+            {
+                Success = true,
+                Message = "Дата конца продления успешно изменена.",
+                EntityId = surveyId
+            };
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
         }
     }
 
@@ -468,6 +600,8 @@ public partial class SurveyService
                 transaction,
                 originalSurvey.NameSurvey,
                 originalSurvey.Description,
+                startDate,
+                endDate,
                 cancellationToken);
 
             await _surveyRepository.CopySurveyQuestionsAsync(connection, transaction, id, newSurveyId, cancellationToken);

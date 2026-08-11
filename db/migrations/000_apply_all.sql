@@ -50,3 +50,4 @@ COMMIT;
 \ir 036_protect_referenced_records_from_deletion.sql
 \ir 037_store_answer_participants.sql
 \ir 038_repair_answer_participants.sql
+\ir 039_restore_survey_base_schedule.sql

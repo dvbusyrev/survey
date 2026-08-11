@@ -106,5 +106,7 @@ Migration sources:
 - `035_disallow_comments_for_top_rating` removes comments from top-rated answers and prevents them from being stored again
 - `036_protect_referenced_records_from_deletion` prevents deleting organizations, surveys, and assignments that are still connected to current business records
 - `037_store_answer_participants` stores answer and draft participation as business data so deletion rules never depend on audit tables
+- `038_repair_answer_participants` restores missing answer participants from current answer metadata without reading audit tables
+- `039_restore_survey_base_schedule` restores the base survey period and keeps organization-specific extensions separate from it
 
 `db/bootstrap/001_base_schema.sql` is not an independently executable migration. It is the canonical base schema imported only by `001_unified_schema.sql` when a database has no migration history. Keep schema snapshots and bootstrap files outside `db/migrations` so the migration runner cannot treat them as standalone steps.

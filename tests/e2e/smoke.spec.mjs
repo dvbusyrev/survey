@@ -106,6 +106,98 @@ test('администратор проходит основные раздел�
     await login(page, 'smoke-admin');
 
     await expect(page.locator('[data-page="surveys-list"]')).toBeVisible();
+    const initialSurveyRows = page.locator('[data-role="admin-survey-row"]');
+    await expect(initialSurveyRows).toHaveCount(2);
+    await expect(initialSurveyRows.nth(0)).toHaveAttribute('data-is-extension', 'false');
+    await expect(initialSurveyRows.nth(1)).toHaveAttribute('data-is-extension', 'true');
+    const activeExtensionRow = initialSurveyRows.filter({ hasText: 'Smoke survey: продление для Smoke org' });
+    await expect(activeExtensionRow).toBeVisible();
+    await expect(activeExtensionRow).toHaveAttribute('data-is-extension', 'true');
+    await expect(activeExtensionRow.locator('[data-role="survey-extension-name"]'))
+        .toHaveText(/^\s*↳\s*Smoke survey: продление для Smoke org\s*$/);
+    await expect(activeExtensionRow.getByRole('link', { name: 'Проверить прохождение', exact: true })).toHaveCount(0);
+    await expect(activeExtensionRow.getByRole('button', { name: 'Продлить доступ', exact: true })).toHaveCount(0);
+    await expect(activeExtensionRow.getByRole('button', { name: 'Копировать', exact: true })).toHaveCount(0);
+    await expect(activeExtensionRow.getByRole('button', { name: 'Редактировать', exact: true })).toHaveCount(1);
+    await expect(initialSurveyRows.filter({ hasText: localDisplayDaysAgo(-30) })).toBeVisible();
+
+    await initialSurveyRows.nth(0).getByRole('button', { name: 'Продлить доступ', exact: true }).click();
+    const extensionCreateModal = page.locator('#surveyExtensionModal');
+    await expect(extensionCreateModal).toBeVisible();
+    await extensionCreateModal.locator('[data-role="organization-trigger"]').click();
+    await expect(extensionCreateModal.locator('[data-role="organization-options"]')).toContainText('Smoke org');
+    await expect(extensionCreateModal.locator('[data-role="organization-options"]')).not.toContainText('Smoke unrelated org');
+    await extensionCreateModal.getByRole('button', { name: 'Отмена', exact: true }).click();
+    await expect(extensionCreateModal).toBeHidden();
+
+    await activeExtensionRow.locator('.survey-table__name-cell').click();
+    const extensionDetailsModal = page.locator('#surveyDetailsModal');
+    await expect(extensionDetailsModal).toBeVisible();
+    await expect(extensionDetailsModal.getByRole('heading', { name: 'Просмотр продления', exact: true })).toBeVisible();
+    await expect(extensionDetailsModal).toContainText('Smoke survey');
+    await expect(extensionDetailsModal).not.toContainText('Smoke survey: продление для Smoke org');
+    await expect(extensionDetailsModal).toContainText(localDisplayDaysAgo(1));
+    await expect(extensionDetailsModal).toContainText(localDisplayDaysAgo(-30));
+    await expect(extensionDetailsModal).toContainText('Smoke org');
+    await expect(extensionDetailsModal.getByText('Организация', { exact: true })).toBeVisible();
+    await expect(extensionDetailsModal.getByText('Организации', { exact: true })).toHaveCount(0);
+    await expect(extensionDetailsModal.locator('.survey-details-modal__organizations')).toHaveText('Smoke org');
+    await expect(extensionDetailsModal.locator('.survey-details-modal__organizations .app-chip')).toHaveCount(0);
+    await extensionDetailsModal.getByRole('button', { name: 'Закрыть', exact: true }).click();
+    await expect(extensionDetailsModal).toBeHidden();
+
+    await activeExtensionRow.getByRole('button', { name: 'Редактировать', exact: true }).click();
+    const extensionPeriodModal = page.locator('#surveyExtensionPeriodModal');
+    await expect(extensionPeriodModal).toBeVisible();
+    await expect(extensionPeriodModal).toContainText('Редактирование продления');
+    await expect(extensionPeriodModal).toContainText('Smoke survey');
+    await expect(extensionPeriodModal).not.toContainText('Smoke survey: продление для Smoke org');
+    await expect(extensionPeriodModal).toContainText('Smoke org');
+    await expect(extensionPeriodModal.locator('#extensionPeriodDateBegin')).toHaveCount(0);
+    await extensionPeriodModal.locator('#extensionPeriodDateEnd').fill(localIsoDaysAgo(-35));
+    const extensionUpdateResponsePromise = page.waitForResponse((response) => (
+        response.request().method() === 'POST'
+        && /\/survey\/\d+\/extensions\/\d+\/period$/.test(new URL(response.url()).pathname)
+    ));
+    await extensionPeriodModal.getByRole('button', { name: 'Сохранить', exact: true }).click();
+    const extensionUpdateResponse = await extensionUpdateResponsePromise;
+    expect(extensionUpdateResponse.status()).toBe(200);
+    await expect(page.locator('.site-toast--success').filter({ hasText: 'Дата конца продления успешно изменена.' }).last()).toBeVisible();
+    await expect(page.locator('[data-role="admin-survey-row"]')
+        .filter({ hasText: 'Smoke survey: продление для Smoke org' })
+        .filter({ hasText: localDisplayDaysAgo(-35) }))
+        .toBeVisible();
+
+    await page.goto('/survey/archive');
+    const initialArchivedSurveyRows = page.locator('[data-role="admin-survey-row"]');
+    await expect(initialArchivedSurveyRows).toHaveCount(2);
+    await expect(initialArchivedSurveyRows.nth(0)).toHaveAttribute('data-is-extension', 'false');
+    await expect(initialArchivedSurveyRows.nth(1)).toHaveAttribute('data-is-extension', 'true');
+    const archivedExtensionRow = initialArchivedSurveyRows.filter({
+        hasText: 'Smoke archived extension survey: продление для Smoke archived org'
+    });
+    await expect(archivedExtensionRow).toBeVisible();
+    await expect(archivedExtensionRow.locator('[data-role="survey-extension-name"]'))
+        .toHaveText(/^\s*↳\s*Smoke archived extension survey: продление для Smoke archived org\s*$/);
+    await expect(archivedExtensionRow.getByRole('link', { name: 'Проверить прохождение', exact: true })).toHaveCount(0);
+    await expect(archivedExtensionRow.getByRole('button', { name: 'Продлить доступ', exact: true })).toHaveCount(0);
+    await expect(archivedExtensionRow.getByRole('button', { name: 'Копировать', exact: true })).toHaveCount(0);
+    await expect(initialArchivedSurveyRows.filter({ hasText: localDisplayDaysAgo(30) })).toBeVisible();
+
+    await archivedExtensionRow.locator('.survey-table__name-cell').click();
+    await expect(extensionDetailsModal).toBeVisible();
+    await expect(extensionDetailsModal.getByRole('heading', { name: 'Просмотр продления', exact: true })).toBeVisible();
+    await expect(extensionDetailsModal).toContainText('Smoke archived extension survey');
+    await expect(extensionDetailsModal)
+        .not.toContainText('Smoke archived extension survey: продление для Smoke archived org');
+    await expect(extensionDetailsModal).toContainText(localDisplayDaysAgo(60));
+    await expect(extensionDetailsModal).toContainText(localDisplayDaysAgo(30));
+    await expect(extensionDetailsModal).toContainText('Smoke archived org');
+    await extensionDetailsModal.getByRole('button', { name: 'Закрыть', exact: true }).click();
+    await expect(extensionDetailsModal).toBeHidden();
+
+    await page.goto('/surveys');
+    await expect(page.locator('[data-page="surveys-list"]')).toBeVisible();
     await page.locator('[data-role="survey-organization-filter-trigger"]').click();
     await expect(page.locator('[data-role="survey-organization-filter-popover"]')).not.toHaveClass(/is-hidden/);
     await page.locator('[data-role="survey-organization-filter-option"]').first().check();

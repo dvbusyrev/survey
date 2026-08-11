@@ -22,6 +22,9 @@ INSERT INTO public.organization (organization_name, organization_short_name, dat
 VALUES ('Smoke organization', 'Smoke org', CURRENT_DATE)
 RETURNING id_organization AS smoke_organization_id \\gset
 
+INSERT INTO public.organization (organization_name, organization_short_name, date_begin)
+VALUES ('Smoke unrelated organization', 'Smoke unrelated org', CURRENT_DATE);
+
 INSERT INTO public.app_user (id_organization, login, full_name, role, password, email, date_begin)
 VALUES
     (:smoke_organization_id, 'smoke-admin', 'Smoke administrator', 'admin', '${passwordHash}', 'admin@example.test', CURRENT_DATE),
@@ -39,12 +42,29 @@ INSERT INTO public.app_user (id_organization, login, full_name, role, password, 
 VALUES
     (:smoke_archived_organization_id, 'smoke-archived-org-user', 'Smoke archived organization user', 'user', '${passwordHash}', 'archived-org-user@example.test', CURRENT_DATE - 10);
 
-INSERT INTO public.survey (name_survey, description)
-VALUES ('Smoke survey', 'Survey used only by browser smoke tests')
+INSERT INTO public.survey (name_survey, description, date_begin, date_end)
+VALUES ('Smoke survey', 'Survey used only by browser smoke tests', CURRENT_DATE - 1, CURRENT_DATE + 14)
 RETURNING id_survey AS smoke_survey_id \\gset
 
 INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
-VALUES (:smoke_organization_id, :smoke_survey_id, CURRENT_DATE - 1, CURRENT_DATE + 14);
+VALUES (:smoke_organization_id, :smoke_survey_id, CURRENT_DATE - 1, CURRENT_DATE + 30);
+
+INSERT INTO public.survey (name_survey, description, date_begin, date_end)
+VALUES (
+    'Smoke archived extension survey',
+    'Archived survey with a separate organization extension',
+    CURRENT_DATE - 60,
+    CURRENT_DATE - 40
+)
+RETURNING id_survey AS smoke_archived_extension_survey_id \\gset
+
+INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
+VALUES (
+    :smoke_archived_organization_id,
+    :smoke_archived_extension_survey_id,
+    CURRENT_DATE - 60,
+    CURRENT_DATE - 30
+);
 
 INSERT INTO public.survey_question (id_survey, question_order, question_text)
 VALUES (:smoke_survey_id, 1, 'Smoke question');

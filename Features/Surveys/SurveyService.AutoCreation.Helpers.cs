@@ -158,6 +158,8 @@ public partial class SurveyService
             transaction,
             originalSurvey.NameSurvey,
             originalSurvey.Description,
+            startDate,
+            endDate,
             cancellationToken);
         await _surveyRepository.CopySurveyQuestionsAsync(
             connection,

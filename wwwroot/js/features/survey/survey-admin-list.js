@@ -6,6 +6,11 @@
     let extensionCleanup = null;
     let extensionSubmitButton = null;
     let extensionCancelButton = null;
+    let extensionPeriodFrame = null;
+    let extensionPeriodHost = null;
+    let extensionPeriodSubmitButton = null;
+    let extensionPeriodCancelButton = null;
+    let extensionPeriodSubmitting = false;
     let signaturesModal = null;
     let signaturesFrame = null;
     let signaturesHost = null;
@@ -277,7 +282,7 @@
         return window.AppUi.createFieldGroup({ label, field });
     }
 
-    function createOrganizationField(organizations) {
+    function createOrganizationField(organizations, label = 'Организации') {
         const values = Array.isArray(organizations)
             ? organizations.map((value) => String(value || '').trim()).filter(Boolean)
             : [];
@@ -286,8 +291,12 @@
         });
 
         if (values.length === 0) {
-            field.textContent = 'Организации не выбраны';
+            field.textContent = label === 'Организация'
+                ? 'Организация не выбрана'
+                : 'Организации не выбраны';
             field.classList.add('app-field-placeholder');
+        } else if (label === 'Организация') {
+            field.textContent = values[0];
         } else {
             values.forEach((name) => {
                 field.appendChild(window.AppUi.createElement('span', {
@@ -297,7 +306,7 @@
             });
         }
 
-        return window.AppUi.createFieldGroup({ label: 'Организации', field });
+        return window.AppUi.createFieldGroup({ label, field });
     }
 
     function createCriteriaTable(criteria) {
@@ -326,13 +335,13 @@
         return tableWrap;
     }
 
-    function renderSurveyDetails(details) {
+    function renderSurveyDetails(details, organizationLabel = 'Организации') {
         detailsHost.replaceChildren(
             createDetailsField('Название анкеты', details?.name),
             createDetailsField('Описание', details?.description),
             createDetailsField('Дата начала', details?.dateBegin),
             createDetailsField('Дата конца', details?.dateEnd),
-            createOrganizationField(details?.organizations),
+            createOrganizationField(details?.organizations, organizationLabel),
             createCriteriaTable(details?.criteria)
         );
     }
@@ -363,7 +372,19 @@
             }
 
             ensureDetailsModal();
-            renderSurveyDetails(details);
+            detailsFrame?.setTitle?.(survey.is_extension ? 'Просмотр продления' : 'Просмотр анкеты');
+            renderSurveyDetails(survey.is_extension
+                ? {
+                    ...details,
+                    name: survey.original_name || details?.name,
+                    dateBegin: window.AppDate?.toDisplay?.(survey.date_begin) || survey.date_begin,
+                    dateEnd: survey.date_end
+                        ? window.AppDate?.toDisplay?.(survey.date_end) || survey.date_end
+                        : 'Не указана',
+                    organizations: survey.organizations
+                }
+                : details,
+                survey.is_extension ? 'Организация' : 'Организации');
             detailsFrame?.show?.();
         } catch (error) {
             if (requestToken === detailsRequestToken) {
@@ -418,9 +439,26 @@
             throw new Error('Не найден идентификатор анкеты.');
         }
 
+        let organizations = [];
+        try {
+            const parsedOrganizations = JSON.parse(trigger?.dataset?.surveyOrganizations || '[]');
+            if (Array.isArray(parsedOrganizations)) {
+                organizations = parsedOrganizations
+                    .map((name) => String(name || '').trim())
+                    .filter(Boolean);
+            }
+        } catch (error) {
+            organizations = [];
+        }
+
         return {
             id_survey: surveyId,
-            name_survey: trigger?.dataset?.surveyName || ''
+            name_survey: trigger?.dataset?.surveyName || '',
+            original_name: trigger?.dataset?.surveyOriginalName || '',
+            date_begin: trigger?.dataset?.surveyDateBegin || '',
+            date_end: trigger?.dataset?.surveyDateEnd || '',
+            organizations,
+            is_extension: trigger?.dataset?.isExtension === 'true'
         };
     }
 
@@ -657,6 +695,193 @@
         }
     }
 
+    function closeSurveyExtensionPeriodModal() {
+        extensionPeriodSubmitting = false;
+        extensionPeriodHost?.replaceChildren();
+        extensionPeriodFrame?.hide?.();
+    }
+
+    function createExtensionPeriodDateField(id, label, value, minimumDate = '') {
+        const input = window.AppUi.createField({
+            tagName: 'input',
+            id,
+            type: 'date',
+            required: true,
+            dataset: {
+                dateNative: 'true',
+                dateLabel: label,
+                ...(minimumDate ? { dateMin: minimumDate } : {})
+            },
+            attrs: {
+                lang: 'ru-RU',
+                required: true,
+                ...(minimumDate ? { min: minimumDate } : {})
+            }
+        });
+
+        input.value = value || '';
+        return {
+            input,
+            group: window.AppUi.createFieldGroup({
+                label,
+                labelFor: id,
+                field: input
+            })
+        };
+    }
+
+    function ensureSurveyExtensionPeriodModal() {
+        if (extensionPeriodFrame && extensionPeriodHost) {
+            return;
+        }
+
+        extensionPeriodFrame = createSurveyModalFrame({
+            id: 'surveyExtensionPeriodModal',
+            className: 'admin-extension-modal',
+            title: 'Редактирование продления',
+            bodyClassName: 'admin-extension-modal__body',
+            onClose: closeSurveyExtensionPeriodModal
+        });
+        extensionPeriodHost = extensionPeriodFrame.body;
+        extensionPeriodCancelButton = window.AppUi.createButton({
+            variant: 'secondary',
+            text: 'Отмена'
+        });
+        extensionPeriodSubmitButton = window.AppUi.createButton({
+            variant: 'primary',
+            text: 'Сохранить'
+        });
+        extensionPeriodCancelButton.addEventListener('click', closeSurveyExtensionPeriodModal);
+        extensionPeriodFrame.footer.appendChild(extensionPeriodCancelButton);
+        extensionPeriodFrame.footer.appendChild(extensionPeriodSubmitButton);
+    }
+
+    function readExtensionPeriodData(trigger) {
+        const surveyId = Number.parseInt(trigger?.dataset?.surveyId || '', 10);
+        const organizationId = Number.parseInt(trigger?.dataset?.organizationId || '', 10);
+        if (!Number.isFinite(surveyId) || surveyId <= 0 || !Number.isFinite(organizationId) || organizationId <= 0) {
+            throw new Error('Продлённое назначение не найдено.');
+        }
+
+        return {
+            surveyId,
+            organizationId,
+            surveyName: trigger?.dataset?.surveyName || '',
+            organizationName: trigger?.dataset?.organizationName || '',
+            dateBegin: trigger?.dataset?.dateBegin || '',
+            dateEnd: trigger?.dataset?.dateEnd || ''
+        };
+    }
+
+    async function saveSurveyExtensionPeriod(extension, dateEndInput) {
+        if (extensionPeriodSubmitting) {
+            return;
+        }
+
+        const dateEnd = window.AppDate?.getInputIso?.(dateEndInput) || dateEndInput.value;
+        const errors = [];
+
+        if (!dateEnd) {
+            errors.push('Укажите дату конца.');
+        }
+        if (extension.dateBegin && dateEnd
+            && (window.AppDate?.compare?.(dateEnd, extension.dateBegin) ?? 0) <= 0) {
+            errors.push('Дата конца должна быть позже даты начала.');
+        }
+
+        const today = window.AppDate?.todayIso?.() || new Date().toISOString().split('T')[0];
+        if (dateEnd && (window.AppDate?.compare?.(dateEnd, today) ?? 0) < 0) {
+            errors.push('Дата конца не может быть раньше сегодняшней даты.');
+        }
+
+        if (errors.length > 0) {
+            window.AppValidation?.notifyErrors?.([...new Set(errors)]);
+            return;
+        }
+
+        extensionPeriodSubmitting = true;
+        extensionPeriodSubmitButton.disabled = true;
+        extensionPeriodSubmitButton.textContent = 'Сохранение...';
+
+        try {
+            const response = await fetch(
+                `/survey/${extension.surveyId}/extensions/${extension.organizationId}/period`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': window.AppHttp?.getAntiforgeryToken() || ''
+                    },
+                    body: JSON.stringify({ dateEnd })
+                }
+            );
+            const responseText = await response.text();
+            let payload = null;
+
+            try {
+                payload = responseText ? JSON.parse(responseText) : null;
+            } catch (parseError) {
+                console.warn('Не удалось разобрать ответ изменения периода продления:', parseError);
+            }
+
+            if (!response.ok || !payload?.success) {
+                throw new Error(payload?.message || responseText || 'Не удалось изменить период продления.');
+            }
+
+            closeSurveyExtensionPeriodModal();
+            const target = resolveSurveyListTarget();
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: payload.message || 'Дата конца продления успешно изменена.',
+                    tabName: target.tabName,
+                    fallbackUrl: target.fallbackUrl
+                });
+                return;
+            }
+
+            window.AppUi?.notify?.(payload.message || 'Дата конца продления успешно изменена.', 'success');
+            window.location.assign(target.fallbackUrl);
+        } catch (error) {
+            window.AppUi?.notify?.(error.message || 'Не удалось изменить период продления.', 'error');
+        } finally {
+            extensionPeriodSubmitting = false;
+            extensionPeriodSubmitButton.disabled = false;
+            extensionPeriodSubmitButton.textContent = 'Сохранить';
+        }
+    }
+
+    function openSurveyExtensionPeriodModalFromTrigger(trigger) {
+        try {
+            const extension = readExtensionPeriodData(trigger);
+            ensureSurveyExtensionPeriodModal();
+            extensionPeriodHost.replaceChildren();
+
+            const dateEndField = createExtensionPeriodDateField(
+                'extensionPeriodDateEnd',
+                'Дата конца',
+                extension.dateEnd,
+                window.AppDate?.todayIso?.() || ''
+            );
+
+            extensionPeriodHost.appendChild(createSurveyNameField(extension.surveyName));
+            extensionPeriodHost.appendChild(window.AppUi.createFieldGroup({
+                label: 'Организация',
+                field: window.AppUi.createField({ text: extension.organizationName })
+            }));
+            extensionPeriodHost.appendChild(dateEndField.group);
+
+            window.AppDate?.enhanceDateInputs?.(extensionPeriodHost);
+            window.AppDate?.setInputValue?.(dateEndField.input, extension.dateEnd);
+            extensionPeriodSubmitButton.onclick = () => saveSurveyExtensionPeriod(
+                extension,
+                dateEndField.input
+            );
+            extensionPeriodFrame?.show?.();
+        } catch (error) {
+            window.AppUi?.notify?.(error.message || 'Не удалось открыть редактирование продления.', 'error');
+        }
+    }
+
     async function deleteSurveyFromTrigger(trigger) {
         if (surveyDeletePending) {
             return;
@@ -815,6 +1040,7 @@
     }
 
     window.openSurveyExtensionModalFromTrigger = openSurveyExtensionModalFromTrigger;
+    window.openSurveyExtensionPeriodModalFromTrigger = openSurveyExtensionPeriodModalFromTrigger;
     window.openSurveyCompletionModalFromTrigger = openSurveyCompletionModalFromTrigger;
     window.openSurveySignaturesModalFromTrigger = openSurveyCompletionModalFromTrigger;
     window.deleteSurveyFromTrigger = deleteSurveyFromTrigger;

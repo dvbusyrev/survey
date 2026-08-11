@@ -2,8 +2,8 @@ namespace MainProject.Web.ViewModels;
 
 public static class SurveyArchiveSortFields
 {
-    public const string Default = "id";
     public const string Name = "name";
+    public const string Default = Name;
     public const string DateBegin = "dateBegin";
     public const string DateEnd = "dateEnd";
 }
@@ -16,7 +16,7 @@ public sealed class SurveyArchivePageViewModel : ServerSortablePageViewModelBase
 
     protected override string BasePath => "/surveys/archive";
     protected override string DefaultSortField => SurveyArchiveSortFields.Default;
-    protected override string DefaultSortDirection => "desc";
+    protected override string DefaultSortDirection => "asc";
     protected override string PaginationAriaLabel => "Навигация по страницам архива анкет";
     protected override string ScrollAnchorId => "surveys-table-top";
 

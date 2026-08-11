@@ -19,6 +19,24 @@ public class SurveyExtensionController : Controller
         _logger = logger;
     }
 
+    [HttpGet("survey/{surveyId:int}/assigned-organizations")]
+    public async Task<IActionResult> GetAssignedOrganizations(int surveyId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await _surveyAdminService.GetAssignedOrganizationsForExtensionAsync(
+                surveyId,
+                cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(
+                ex,
+                "Не удалось загрузить назначенные организации.",
+                $"Ошибка получения организаций анкеты {surveyId} для продления");
+        }
+    }
+
     [HttpPost]
     [Route("survey-extensions")]
     [Route("survey_extensions")]
@@ -74,6 +92,40 @@ public class SurveyExtensionController : Controller
         catch (Exception ex)
         {
             return this.SafeError(ex, "Не удалось продлить анкету.", "Критическая ошибка при продлении анкеты");
+        }
+    }
+
+    [HttpPost("survey/{surveyId:int}/extensions/{organizationId:int}/period")]
+    public async Task<IActionResult> UpdateExtensionPeriod(
+        int surveyId,
+        int organizationId,
+        [FromBody] SurveyAssignmentPeriodRequest? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _surveyAdminService.UpdateExtensionPeriodAsync(
+                surveyId,
+                organizationId,
+                request,
+                cancellationToken);
+
+            if (result.Success)
+            {
+                return Ok(new { success = true, message = result.Message });
+            }
+
+            var error = new { success = false, message = result.Message };
+            return string.Equals(result.Code, "extension_not_found", StringComparison.Ordinal)
+                ? NotFound(error)
+                : BadRequest(error);
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(
+                ex,
+                "Не удалось изменить период продления.",
+                $"Ошибка при изменении периода продления анкеты {surveyId} для организации {organizationId}");
         }
     }
 }
