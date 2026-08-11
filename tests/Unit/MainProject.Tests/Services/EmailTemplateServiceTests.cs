@@ -2,6 +2,8 @@ using MainProject.Application.DTO.Email;
 using MainProject.Application.UseCases.Admin;
 using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.Persistence;
+using MainProject.Infrastructure.Security;
+using Microsoft.AspNetCore.DataProtection;
 using Npgsql;
 
 namespace MainProject.Tests.Services;
@@ -34,7 +36,8 @@ public sealed class EmailTemplateServiceTests
 
         var service = new EmailTemplateService(
             new UnexpectedConnectionFactory(),
-            new SmtpEmailSender());
+            new SmtpEmailSender(),
+            new SmtpPasswordProtector(new EphemeralDataProtectionProvider()));
 
         var exception = await Assert.ThrowsAsync<EmailTemplateValidationException>(
             () => service.SaveSenderAsync(settings));

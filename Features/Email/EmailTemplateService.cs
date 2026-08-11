@@ -2,6 +2,8 @@ using Dapper;
 using MainProject.Application.DTO.Email;
 using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.Persistence;
+using MainProject.Infrastructure.Security;
+using System.Security.Cryptography;
 
 namespace MainProject.Application.UseCases.Admin;
 
@@ -9,13 +11,16 @@ public sealed class EmailTemplateService
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly SmtpEmailSender _emailSender;
+    private readonly SmtpPasswordProtector _smtpPasswordProtector;
 
     public EmailTemplateService(
         IDbConnectionFactory connectionFactory,
-        SmtpEmailSender emailSender)
+        SmtpEmailSender emailSender,
+        SmtpPasswordProtector smtpPasswordProtector)
     {
         _connectionFactory = connectionFactory;
         _emailSender = emailSender;
+        _smtpPasswordProtector = smtpPasswordProtector;
     }
 
     public async Task<EmailMessageSettings> GetMessageAsync(CancellationToken cancellationToken = default)
@@ -84,13 +89,23 @@ public sealed class EmailTemplateService
         if (string.IsNullOrWhiteSpace(normalized.SmtpPassword))
         {
             var stored = await LoadStoredSenderAsync(cancellationToken);
-            normalized.SmtpPassword = ReadStoredPassword(stored?.SmtpPassword);
+            try
+            {
+                normalized.SmtpPassword = _smtpPasswordProtector.Unprotect(stored?.SmtpPassword);
+            }
+            catch (CryptographicException)
+            {
+                throw new EmailTemplateValidationException(
+                    ["Не удалось расшифровать сохранённый пароль SMTP. Введите новый пароль."]);
+            }
         }
 
         if (string.IsNullOrWhiteSpace(normalized.SmtpPassword))
         {
             throw new EmailTemplateValidationException(["Введите новый пароль: сохранённый пароль отсутствует."]);
         }
+
+        var protectedPassword = _smtpPasswordProtector.Protect(normalized.SmtpPassword);
 
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(
@@ -132,7 +147,7 @@ public sealed class EmailTemplateService
                 normalized.SmtpPort,
                 normalized.SmtpEnableSsl,
                 normalized.SmtpUserName,
-                normalized.SmtpPassword,
+                SmtpPassword = protectedPassword,
                 normalized.FromAddress,
                 normalized.FromDisplayName
             },
@@ -145,9 +160,20 @@ public sealed class EmailTemplateService
     {
         var message = NormalizeAndValidateMessage(settings);
         var storedSender = await LoadStoredSenderAsync(cancellationToken);
-        var sender = NormalizeAndValidateSender(storedSender == null
-            ? new EmailSenderSettings()
-            : MapStoredSender(storedSender, includePassword: true));
+        EmailSenderSettings sender;
+        try
+        {
+            sender = NormalizeAndValidateSender(storedSender == null
+                ? new EmailSenderSettings()
+                : MapStoredSender(storedSender, includePassword: true));
+        }
+        catch (CryptographicException exception)
+        {
+            throw new InvalidOperationException(
+                "Не удалось расшифровать сохранённый пароль SMTP. Сохраните новый пароль в настройках отправителя.",
+                exception);
+        }
+
         return await _emailSender.SendAsync(message, sender, cancellationToken);
     }
 
@@ -171,7 +197,7 @@ public sealed class EmailTemplateService
             cancellationToken: cancellationToken));
     }
 
-    private static EmailSenderSettings MapStoredSender(
+    private EmailSenderSettings MapStoredSender(
         StoredEmailSenderSettings stored,
         bool includePassword)
         => new()
@@ -180,15 +206,10 @@ public sealed class EmailTemplateService
             SmtpPort = stored.SmtpPort > 0 ? stored.SmtpPort : 587,
             SmtpEnableSsl = stored.SmtpEnableSsl,
             SmtpUserName = stored.SmtpUserName ?? string.Empty,
-            SmtpPassword = includePassword ? ReadStoredPassword(stored.SmtpPassword) : string.Empty,
+            SmtpPassword = includePassword ? _smtpPasswordProtector.Unprotect(stored.SmtpPassword) : string.Empty,
             FromAddress = stored.FromAddress ?? string.Empty,
             FromDisplayName = stored.FromDisplayName ?? string.Empty
         };
-
-    private static string ReadStoredPassword(string? password)
-        => string.IsNullOrWhiteSpace(password) || password.StartsWith("CfDJ8", StringComparison.Ordinal)
-            ? string.Empty
-            : password;
 
     private static EmailMessageSettings NormalizeAndValidateMessage(EmailMessageSettings? settings)
     {

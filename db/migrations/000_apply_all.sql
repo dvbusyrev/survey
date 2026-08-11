@@ -51,3 +51,4 @@ COMMIT;
 \ir 037_store_answer_participants.sql
 \ir 038_repair_answer_participants.sql
 \ir 039_restore_survey_base_schedule.sql
+\ir 040_protect_smtp_password_storage.sql

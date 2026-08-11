@@ -18,6 +18,7 @@ using MainProject.Web.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json.Linq;
 using Npgsql;
@@ -65,6 +66,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains("037", versions);
         Assert.Contains("038", versions);
         Assert.Contains("039", versions);
+        Assert.Contains("040", versions);
         Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT to_regclass('public.week_day')::text;"));
         var auditColumnsWithoutGenerator = (await connection.QueryAsync<string>(
             """
@@ -389,9 +391,11 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     {
         var organizationService = new OrganizationManagementService(_connectionFactory, _clock);
         var userService = new UserManagementService(_connectionFactory, _clock);
+        var smtpPasswordProtector = new SmtpPasswordProtector(new EphemeralDataProtectionProvider());
         var emailService = new EmailTemplateService(
             _connectionFactory,
-            new SmtpEmailSender());
+            new SmtpEmailSender(),
+            smtpPasswordProtector);
         var themeService = new ThemeSettingsService(
             _connectionFactory,
             NullLogger<ThemeSettingsService>.Instance);
@@ -470,6 +474,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         await using var connection = _fixture.CreateConnection();
         var storedEmailConfig = await connection.QuerySingleAsync<(int IdConfig, string SmtpPassword)>(
             "SELECT id_config AS IdConfig, smtp_password AS SmtpPassword FROM public.email_config;");
+        var storedAuditPasswords = (await connection.QueryAsync<string?>(
+            "SELECT smtp_password FROM public.email_config_l;")).ToArray();
         await connection.ExecuteAsync(
             "UPDATE public.email_config SET smtp_password = 'CfDJ8LegacyPassword';");
         var senderWithLegacyPassword = await emailService.GetSenderAsync();
@@ -494,7 +500,11 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal("smtp.example.test", emailSender.SmtpHost);
         Assert.Empty(emailSender.SmtpPassword);
         Assert.Equal(7, storedEmailConfig.IdConfig);
-        Assert.Equal("smtp-password", storedEmailConfig.SmtpPassword);
+        Assert.StartsWith(SmtpPasswordProtector.ProtectedValuePrefix, storedEmailConfig.SmtpPassword);
+        Assert.Equal("smtp-password", smtpPasswordProtector.Unprotect(storedEmailConfig.SmtpPassword));
+        Assert.All(
+            storedAuditPasswords,
+            password => Assert.True(string.IsNullOrEmpty(password) || password == "[REDACTED]"));
         Assert.Empty(senderWithLegacyPassword.SmtpPassword);
         Assert.Equal("#B2A8FF", theme.BackgroundColor);
         Assert.True(deletion.Success);

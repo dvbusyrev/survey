@@ -13,6 +13,7 @@ using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.External.Calendar;
+using MainProject.Infrastructure.Security;
 using MainProject.Infrastructure.Time;
 using MainProject.Application.UseCases;
 using MainProject.Application.UseCases.Admin;
@@ -100,15 +101,34 @@ builder.Services.AddHostedService<SurveyAutoCreationHostedService>();
 builder.Services.AddScoped<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services.AddScoped<LogController>();
 builder.Services.AddHttpContextAccessor();
-builder.Services
+var dataProtectionBuilder = builder.Services
     .AddDataProtection()
     .SetApplicationName("AIS.Anketirovanie");
+var configuredDataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(configuredDataProtectionKeysPath))
+{
+    var dataProtectionKeysPath = Path.IsPathRooted(configuredDataProtectionKeysPath)
+        ? configuredDataProtectionKeysPath
+        : Path.Combine(builder.Environment.ContentRootPath, configuredDataProtectionKeysPath);
+    Directory.CreateDirectory(dataProtectionKeysPath);
+    if (!OperatingSystem.IsWindows())
+    {
+        File.SetUnixFileMode(
+            dataProtectionKeysPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
+
+builder.Services.AddSingleton<SmtpPasswordProtector>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<IUserAccessStatusService, UserAccessStatusService>();
 builder.Services.AddScoped<ApplicationCookieAuthenticationEvents>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<UserChromeContextService>();
 builder.Services.AddScoped<EmailTemplateService>();
+builder.Services.AddHostedService<SmtpPasswordMigrationHostedService>();
 builder.Services.AddScoped<ThemeSettingsService>();
 builder.Services.AddScoped<AuditLogRepository>();
 builder.Services.AddScoped<AuditLogService>();

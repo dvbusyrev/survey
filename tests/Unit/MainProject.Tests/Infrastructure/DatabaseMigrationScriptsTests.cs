@@ -41,6 +41,8 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 036_protect_referenced_records_from_deletion.sql", script);
         Assert.Contains(@"\ir 037_store_answer_participants.sql", script);
         Assert.Contains(@"\ir 038_repair_answer_participants.sql", script);
+        Assert.Contains(@"\ir 039_restore_survey_base_schedule.sql", script);
+        Assert.Contains(@"\ir 040_protect_smtp_password_storage.sql", script);
     }
 
     [Fact]
@@ -516,6 +518,22 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains("background_image_content_type text", script);
         Assert.Contains("ALTER TABLE public.theme_config_l", script);
         Assert.Contains("VALUES ('027', 'store_theme_background_image_blob')", script);
+    }
+
+    [Fact]
+    public void SmtpPasswordProtectionMigration_RedactsAuditStorage()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "040_protect_smtp_password_storage.sql"));
+
+        Assert.Contains("UPDATE public.email_config_l", script);
+        Assert.Contains("smtp_password = '[REDACTED]'", script);
+        Assert.Contains("TG_TABLE_NAME = 'email_config'", script);
+        Assert.Contains("jsonb_set", script);
+        Assert.Contains("VALUES ('040', 'protect_smtp_password_storage')", script);
     }
 
     private static string GetRepositoryRoot()
