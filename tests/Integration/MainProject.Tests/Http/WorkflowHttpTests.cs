@@ -37,7 +37,8 @@ public sealed class WorkflowHttpTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
-            HandleCookies = true
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
         });
 
         var antiforgery = await GetAntiforgeryTokenAsync(client);
@@ -70,7 +71,8 @@ public sealed class WorkflowHttpTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
-            HandleCookies = true
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
         });
 
         var antiforgery = await GetAntiforgeryTokenAsync(client);
@@ -99,7 +101,8 @@ public sealed class WorkflowHttpTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
-            HandleCookies = true
+            HandleCookies = true,
+            BaseAddress = new Uri("https://localhost")
         });
 
         var antiforgery = await GetAntiforgeryTokenAsync(client);
