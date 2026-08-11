@@ -79,6 +79,7 @@
         organizations.updateDisplay();
         organizations.close();
         setModalVisible('loadingOverlay', false);
+        window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
     }
 
     function normalizeCopyTemplate(rawTemplate) {
@@ -104,6 +105,7 @@
         if (description) description.value = template.description;
         window.AppDate?.setInputValue?.('startDate', template.startDate);
         window.AppDate?.setInputValue?.('endDate', template.endDate);
+        window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
         criteria.replace(template.criteria);
         organizations.setSelected(template.organizations);
         organizations.updateDisplay();
@@ -129,8 +131,8 @@
             isValid = false;
         });
         safeGetElement('surveyDescription')?.classList.remove('invalid');
-        const startDate = window.AppDate?.getInputIso('startDate') || '';
-        const endDate = window.AppDate?.getInputIso('endDate') || '';
+        const startDate = window.AppDate?.toIso(safeGetValue('startDate')) || '';
+        const endDate = window.AppDate?.toIso(safeGetValue('endDate')) || '';
         if (safeGetValue('startDate') && !startDate) {
             const message = 'Введите дату начала в формате ДД.ММ.ГГГГ.';
             window.SurveyAdminValidation?.setFieldError(safeGetElement('startDate'), message);
@@ -142,15 +144,11 @@
             window.SurveyAdminValidation?.setFieldError(safeGetElement('endDate'), message);
             errors.push(message);
             isValid = false;
-        } else if (endDate && window.AppDate?.compare(endDate, window.AppDate.todayIso()) < 0) {
-            const message = 'Дата конца не может быть раньше сегодняшней даты.';
-            window.SurveyAdminValidation?.setFieldError(safeGetElement('endDate'), message);
-            errors.push(message);
-            isValid = false;
-        } else if (startDate && endDate && window.AppDate?.compare(endDate, startDate) <= 0) {
-            const message = 'Дата конца должна быть позже даты начала.';
-            window.SurveyAdminValidation?.setFieldError(safeGetElement('endDate'), message);
-            errors.push(message);
+        }
+        const periodError = window.AppDate?.getPeriodError?.('startDate', 'endDate');
+        if (periodError) {
+            window.SurveyAdminValidation?.setFieldError(periodError.target, periodError.message);
+            errors.push(periodError.message);
             isValid = false;
         }
         const organizationField = getElementByRole('selected-organizations-container');
@@ -279,4 +277,6 @@
         safeGetElement,
         safeGetValue
     });
+
+    window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
 })();

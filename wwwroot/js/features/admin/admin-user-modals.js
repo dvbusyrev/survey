@@ -109,16 +109,15 @@ function ensureValidDateInput(target, label, options = {}) {
     return false;
 }
 
-function ensureUserEndDateNotPast(dateEnd, target) {
-    if (!dateEnd || (window.AppDate?.compare(dateEnd, window.AppDate.todayIso()) ?? -1) >= 0) {
-        window.AppValidation?.clearFieldError?.(target);
+function ensureUserPeriodValid(startTarget, endTarget) {
+    const error = window.AppDate?.getPeriodError?.(startTarget, endTarget);
+    if (!error) {
         return true;
     }
 
-    const message = 'Дата конца не может быть раньше сегодняшней даты.';
-    window.AppValidation?.setFieldError?.(target, message);
-    showAdminToast(message);
-    window.AppDate?.focusInput?.(target);
+    window.AppValidation?.setFieldError?.(error.target, error.message);
+    showAdminToast(error.message);
+    window.AppDate?.focusInput?.(error.target);
     return false;
 }
 
@@ -131,8 +130,9 @@ function submitFormAdd() {
         return;
     }
 
-    const dateBegin = window.AppDate?.getInputIso('dateBegin') || '';
-    const dateEnd = window.AppDate?.getInputIso('dateEnd') || '';
+    if (!ensureUserPeriodValid('dateBegin', 'dateEnd')) {
+        return;
+    }
 
     if (!ensureValidDateInput('dateBegin', 'Дата начала', { required: true })) {
         return;
@@ -142,16 +142,8 @@ function submitFormAdd() {
         return;
     }
 
-    if (!ensureUserEndDateNotPast(dateEnd, 'dateEnd')) {
-        return;
-    }
-
-    if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
-        const message = 'Дата конца не может быть раньше даты начала.';
-        window.AppValidation?.setFieldError?.('dateEnd', message);
-        showAdminToast(message);
-        return;
-    }
+    const dateBegin = window.AppDate?.getInputIso('dateBegin') || '';
+    const dateEnd = window.AppDate?.getInputIso('dateEnd') || '';
 
     const formData = {
         username: document.getElementById('username')?.value || '',
@@ -352,6 +344,7 @@ async function openEditUserModal(id, fullName, username, email, orgId, role, dat
         roleEl.value = role || 'user';
         window.AppDate?.setInputValue(dateBeginEl, dateBegin || '');
         window.AppDate?.setInputValue(dateEndEl, dateEnd || '');
+        window.AppDate?.bindPeriodBounds?.(dateBeginEl, dateEndEl);
         passwordEl.value = '';
 
         // Загружаем организации
@@ -414,8 +407,9 @@ async function updateUser() {
             dateEnd: getSafeElement('editDateEnd')
         };
 
-        const dateBeginIso = window.AppDate?.getInputIso(elements.dateBegin) || '';
-        const dateEndIso = window.AppDate?.getInputIso(elements.dateEnd) || '';
+        if (!ensureUserPeriodValid(elements.dateBegin, elements.dateEnd)) {
+            return;
+        }
 
         if (!ensureValidDateInput(elements.dateBegin, 'Дата начала', { required: true })) {
             return;
@@ -425,16 +419,8 @@ async function updateUser() {
             return;
         }
 
-        if (!ensureUserEndDateNotPast(dateEndIso, elements.dateEnd)) {
-            return;
-        }
-
-        if (elements.dateBegin.value && elements.dateEnd.value && (window.AppDate?.compare(dateEndIso, dateBeginIso) ?? -1) < 0) {
-            const message = 'Дата конца не может быть раньше даты начала.';
-            window.AppValidation?.setFieldError?.(elements.dateEnd, message);
-            showAdminToast(message);
-            return;
-        }
+        const dateBeginIso = window.AppDate?.getInputIso(elements.dateBegin) || '';
+        const dateEndIso = window.AppDate?.getInputIso(elements.dateEnd) || '';
 
         // Формируем данные
         const formData = {
@@ -501,5 +487,8 @@ if (window.AppPageLifecycle?.register) {
     document.querySelectorAll('.app-page[data-page="users-list"], .app-page[data-page="users-archive"]')
         .forEach(mountUserRowViewer);
 }
+
+window.AppDate?.bindPeriodBounds?.('dateBegin', 'dateEnd');
+window.AppDate?.bindPeriodBounds?.('editDateBegin', 'editDateEnd');
 
 document.dispatchEvent(new CustomEvent('admin:user-modal-ready'));

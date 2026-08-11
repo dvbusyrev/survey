@@ -576,14 +576,19 @@ public sealed class UserManagementService
             return false;
         }
 
+        if (!TryValidateStartDateNotFuture(dateBegin, out validationError))
+        {
+            return false;
+        }
+
         if (!TryValidateEndDateNotPast(dateEnd, out validationError))
         {
             return false;
         }
 
-        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value < dateBegin.Value)
+        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value.Date <= dateBegin.Value.Date)
         {
-            validationError = "Дата конца не может быть раньше даты начала.";
+            validationError = "Дата конца должна быть позже даты начала.";
             return false;
         }
 
@@ -667,14 +672,19 @@ public sealed class UserManagementService
             return false;
         }
 
+        if (!TryValidateStartDateNotFuture(dateBegin, out validationError))
+        {
+            return false;
+        }
+
         if (!TryValidateEndDateNotPast(dateEnd, out validationError))
         {
             return false;
         }
 
-        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value < dateBegin.Value)
+        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value.Date <= dateBegin.Value.Date)
         {
-            validationError = "Дата конца не может быть раньше даты начала.";
+            validationError = "Дата конца должна быть позже даты начала.";
             return false;
         }
 
@@ -697,6 +707,18 @@ public sealed class UserManagementService
         if (dateEnd.HasValue && dateEnd.Value.Date < _clock.Today.Date)
         {
             validationError = "Дата конца не может быть раньше сегодняшней даты.";
+            return false;
+        }
+
+        validationError = string.Empty;
+        return true;
+    }
+
+    private bool TryValidateStartDateNotFuture(DateTime? dateBegin, out string validationError)
+    {
+        if (dateBegin.HasValue && dateBegin.Value.Date > _clock.Today.Date)
+        {
+            validationError = "Дата начала не может быть позже сегодняшней даты.";
             return false;
         }
 

@@ -309,6 +309,14 @@ public partial class SurveyService
             };
         }
 
+        if (!TryValidateStartDateNotFuture(request.DateBegin, out validationError))
+        {
+            return new SurveyCommandResult
+            {
+                Message = validationError
+            };
+        }
+
         if (request.DateEnd.Date < _clock.Today.Date)
         {
             return new SurveyCommandResult

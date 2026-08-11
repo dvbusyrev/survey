@@ -204,8 +204,8 @@ function surveyEditSaveSelectedOrganization() {
         const startDate = document.getElementById('startDate');
         const endDate = document.getElementById('endDate');
 
-        const startDateIso = window.AppDate?.getInputIso(startDate) || '';
-        const endDateIso = window.AppDate?.getInputIso(endDate) || '';
+        const startDateIso = window.AppDate?.toIso(startDate.value) || '';
+        const endDateIso = window.AppDate?.toIso(endDate.value) || '';
 
         if (startDate.value && !startDateIso) {
             const message = 'Введите дату начала в формате ДД.ММ.ГГГГ.';
@@ -218,15 +218,12 @@ function surveyEditSaveSelectedOrganization() {
             window.SurveyAdminValidation?.setFieldError(endDate, message);
             errors.push(message);
             isValid = false;
-        } else if (endDateIso && window.AppDate?.compare(endDateIso, window.AppDate.todayIso()) < 0) {
-            const message = 'Дата конца не может быть раньше сегодняшней даты.';
-            window.SurveyAdminValidation?.setFieldError(endDate, message);
-            errors.push(message);
-            isValid = false;
-        } else if (startDateIso && endDateIso && window.AppDate?.compare(endDateIso, startDateIso) <= 0) {
-            const message = 'Дата конца должна быть позже даты начала.';
-            window.SurveyAdminValidation?.setFieldError(endDate, message);
-            errors.push(message);
+        }
+
+        const periodError = window.AppDate?.getPeriodError?.(startDate, endDate);
+        if (periodError) {
+            window.SurveyAdminValidation?.setFieldError(periodError.target, periodError.message);
+            errors.push(periodError.message);
             isValid = false;
         }
 
@@ -262,8 +259,8 @@ function surveyEditSaveSelectedOrganization() {
             function copySurvey(id) {
                 const startDateInput = document.getElementById('startDate');
                 const endDateInput = document.getElementById('endDate');
-                const startDate = window.AppDate?.getInputIso(startDateInput) || '';
-                const endDate = window.AppDate?.getInputIso(endDateInput) || '';
+                const startDate = window.AppDate?.toIso(startDateInput?.value) || '';
+                const endDate = window.AppDate?.toIso(endDateInput?.value) || '';
                 const token = window.AppHttp?.getAntiforgeryToken() || '';
 
                 if (!startDate || !endDate) {
@@ -286,17 +283,10 @@ function surveyEditSaveSelectedOrganization() {
                     return;
                 }
 
-                if ((window.AppDate?.compare(endDate, window.AppDate.todayIso()) ?? -1) < 0) {
-                    const message = 'Дата конца не может быть раньше сегодняшней даты.';
-                    window.AppValidation?.setFieldError?.(endDateInput, message);
-                    window.AppValidation?.notifyErrors?.([message]);
-                    return;
-                }
-
-                if ((window.AppDate?.compare(endDate, startDate) ?? -1) <= 0) {
-                    const message = 'Дата конца должна быть позже даты начала.';
-                    window.AppValidation?.setFieldError?.(endDateInput, message);
-                    window.AppValidation?.notifyErrors?.([message]);
+                const periodError = window.AppDate?.getPeriodError?.(startDateInput, endDateInput);
+                if (periodError) {
+                    window.AppValidation?.setFieldError?.(periodError.target, periodError.message);
+                    window.AppValidation?.notifyErrors?.([periodError.message]);
                     return;
                 }
 
@@ -354,3 +344,4 @@ window.surveyEditAddCriteria = surveyEditAddCriteria;
 window.surveyEditUpdate = surveyEditUpdate;
 window.surveyEditValidateForm = surveyEditValidateForm;
 window.copySurvey = copySurvey;
+window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');

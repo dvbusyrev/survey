@@ -730,6 +730,20 @@
         };
     }
 
+    function getExtensionEndMinimum(dateBegin) {
+        const today = window.AppDate?.todayIso?.() || '';
+        const startDate = window.AppDate?.parseDate?.(dateBegin);
+        if (!startDate) {
+            return today;
+        }
+
+        startDate.setDate(startDate.getDate() + 1);
+        const dayAfterStart = window.AppDate?.toIso?.(startDate) || '';
+        return dayAfterStart && (window.AppDate?.compare?.(dayAfterStart, today) ?? -1) > 0
+            ? dayAfterStart
+            : today;
+    }
+
     function ensureSurveyExtensionPeriodModal() {
         if (extensionPeriodFrame && extensionPeriodHost) {
             return;
@@ -860,7 +874,7 @@
                 'extensionPeriodDateEnd',
                 'Дата конца',
                 extension.dateEnd,
-                window.AppDate?.todayIso?.() || ''
+                getExtensionEndMinimum(extension.dateBegin)
             );
 
             extensionPeriodHost.appendChild(createSurveyNameField(extension.surveyName));

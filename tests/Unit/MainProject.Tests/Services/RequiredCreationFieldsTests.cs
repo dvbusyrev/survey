@@ -129,6 +129,40 @@ public sealed class RequiredCreationFieldsTests
         Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
     }
 
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task CreateUser_RejectsInvalidPeriod(string dateBegin, string dateEnd, string expectedMessage)
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.CreateUserAsync(CreateUserRequest(dateBegin: dateBegin, dateEnd: dateEnd));
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
+    }
+
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task UpdateUser_RejectsInvalidPeriod(string dateBegin, string dateEnd, string expectedMessage)
+    {
+        var service = new UserManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateUserAsync(1, new UserUpdateRequest
+        {
+            Username = "test-user",
+            FullName = "Тестовый пользователь",
+            OrganizationId = "1",
+            Role = "user",
+            DateBegin = dateBegin,
+            DateEnd = dateEnd
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
+    }
+
     [Fact]
     public async Task CreateSurvey_RejectsMissingOrganizations()
     {
@@ -245,6 +279,43 @@ public sealed class RequiredCreationFieldsTests
         Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
     }
 
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task CreateSurvey_RejectsInvalidPeriod(string startDate, string endDate, string expectedMessage)
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.CreateSurveyAsync(new SurveyAddRequest
+        {
+            Title = "Анкета",
+            StartDate = startDate,
+            EndDate = endDate,
+            Organizations = [1],
+            Criteria = ["Критерий"]
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
+    }
+
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task CopySurvey_RejectsInvalidPeriod(string startDate, string endDate, string expectedMessage)
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.CopySurveyAsync(1, new SurveyCopyRequest
+        {
+            StartDate = startDate,
+            EndDate = endDate
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
+    }
+
     [Fact]
     public async Task UpdateSurvey_RejectsMissingOrganizations()
     {
@@ -279,6 +350,43 @@ public sealed class RequiredCreationFieldsTests
 
         Assert.False(result.Success);
         Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task UpdateSurvey_RejectsInvalidPeriod(string startDate, string endDate, string expectedMessage)
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.UpdateSurveyAsync(1, new SurveyUpdateRequest
+        {
+            Title = "Анкета",
+            StartDate = DateTime.Parse(startDate),
+            EndDate = DateTime.Parse(endDate),
+            Organizations = [1],
+            Criteria = ["Критерий"]
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
+    }
+
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task UpdateActiveSurveyWorkPeriod_RejectsInvalidPeriod(string startDate, string endDate, string expectedMessage)
+    {
+        var service = CreateSurveyService();
+
+        var result = await service.UpdateActiveSurveysWorkPeriodAsync(new SurveyWorkPeriodRequest
+        {
+            DateBegin = DateTime.Parse(startDate),
+            DateEnd = DateTime.Parse(endDate)
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
     }
 
     [Fact]
@@ -356,6 +464,42 @@ public sealed class RequiredCreationFieldsTests
 
         Assert.False(result.Success);
         Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
+    }
+
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task CreateOrganization_RejectsInvalidPeriod(string dateBegin, string dateEnd, string expectedMessage)
+    {
+        var service = new OrganizationManagementService(_connectionFactory, _clock);
+
+        var result = await service.CreateOrganizationAsync(new OrganizationSaveRequest
+        {
+            Name = "Организация",
+            DateBegin = dateBegin,
+            DateEnd = dateEnd
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
+    }
+
+    [Theory]
+    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
+    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
+    public async Task UpdateOrganization_RejectsInvalidPeriod(string dateBegin, string dateEnd, string expectedMessage)
+    {
+        var service = new OrganizationManagementService(_connectionFactory, _clock);
+
+        var result = await service.UpdateOrganizationAsync(1, new OrganizationSaveRequest
+        {
+            Name = "Организация",
+            DateBegin = dateBegin,
+            DateEnd = dateEnd
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(expectedMessage, result.Message);
     }
 
     private SurveyService CreateSurveyService()

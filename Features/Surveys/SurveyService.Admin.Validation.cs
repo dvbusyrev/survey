@@ -49,6 +49,11 @@ public partial class SurveyService
             return false;
         }
 
+        if (!TryValidateStartDateNotFuture(startDate, out validationError))
+        {
+            return false;
+        }
+
         if (!TryValidateEndDateNotPast(endDate, out validationError))
         {
             return false;
@@ -103,6 +108,11 @@ public partial class SurveyService
         startDate = request.StartDate;
         endDate = request.EndDate;
 
+        if (!TryValidateStartDateNotFuture(startDate, out validationError))
+        {
+            return false;
+        }
+
         if (!TryValidateEndDateNotPast(endDate, out validationError))
         {
             return false;
@@ -133,6 +143,11 @@ public partial class SurveyService
         }
 
         if (!TryParseDateRange(request.StartDate, request.EndDate, out startDate, out endDate, out validationError))
+        {
+            return false;
+        }
+
+        if (!TryValidateStartDateNotFuture(startDate, out validationError))
         {
             return false;
         }
@@ -222,6 +237,18 @@ public partial class SurveyService
         if (endDate.Date < _clock.Today.Date)
         {
             validationError = "Дата конца не может быть раньше сегодняшней даты.";
+            return false;
+        }
+
+        validationError = string.Empty;
+        return true;
+    }
+
+    private bool TryValidateStartDateNotFuture(DateTime startDate, out string validationError)
+    {
+        if (startDate.Date > _clock.Today.Date)
+        {
+            validationError = "Дата начала не может быть позже сегодняшней даты.";
             return false;
         }
 

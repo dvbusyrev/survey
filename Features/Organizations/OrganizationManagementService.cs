@@ -747,15 +747,21 @@ public class OrganizationManagementService
             return false;
         }
 
+        if (dateBegin.HasValue && dateBegin.Value.Date > _clock.Today.Date)
+        {
+            validationError = "Дата начала не может быть позже сегодняшней даты.";
+            return false;
+        }
+
         if (dateEnd.HasValue && dateEnd.Value.Date < _clock.Today.Date)
         {
             validationError = "Дата конца не может быть раньше сегодняшней даты.";
             return false;
         }
 
-        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value < dateBegin.Value)
+        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value.Date <= dateBegin.Value.Date)
         {
-            validationError = "Дата конца не может быть раньше даты начала.";
+            validationError = "Дата конца должна быть позже даты начала.";
             return false;
         }
 

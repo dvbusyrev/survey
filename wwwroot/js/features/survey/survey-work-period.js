@@ -224,9 +224,25 @@
         return Boolean(
             state.rangeStart
             && state.rangeEnd
+            && compareIso(state.rangeStart, getTodayIso()) <= 0
             && compareIso(state.rangeEnd, state.rangeStart) > 0
             && compareIso(state.rangeEnd, getTodayIso()) >= 0
         );
+    }
+
+    function canSelectDate(state, isoValue) {
+        const today = getTodayIso();
+
+        if (!state.rangeStart || state.rangeEnd) {
+            return compareIso(isoValue, today) <= 0;
+        }
+
+        const comparison = compareIso(isoValue, state.rangeStart);
+        if (comparison > 0) {
+            return compareIso(isoValue, today) >= 0;
+        }
+
+        return comparison < 0 && compareIso(state.rangeStart, today) >= 0;
     }
 
     function getDisplayState(state) {
@@ -251,6 +267,7 @@
         dayButton.dataset.role = 'survey-work-period-day';
         dayButton.dataset.dateIso = isoValue;
         dayButton.textContent = date ? String(date.getDate()) : '';
+        dayButton.disabled = !canSelectDate(instance.state, isoValue);
 
         if (date && toIso(new Date()) === isoValue) {
             dayButton.classList.add('is-today');
@@ -319,7 +336,7 @@
 
     function handleDateSelection(instance, isoValue) {
         const { state } = instance;
-        if (!parseIso(isoValue)) {
+        if (!parseIso(isoValue) || !canSelectDate(state, isoValue)) {
             return;
         }
 
@@ -360,9 +377,14 @@
     async function saveWorkPeriod(instance) {
         const { state } = instance;
         if (!isValidSelection(state)) {
-            const message = state.rangeEnd && compareIso(state.rangeEnd, getTodayIso()) < 0
-                ? 'Дата конца не может быть раньше сегодняшней даты.'
-                : 'Выберите дату начала и дату конца периода.';
+            let message = 'Выберите дату начала и дату конца периода.';
+            if (state.rangeStart && compareIso(state.rangeStart, getTodayIso()) > 0) {
+                message = 'Дата начала не может быть позже сегодняшней даты.';
+            } else if (state.rangeEnd && compareIso(state.rangeEnd, getTodayIso()) < 0) {
+                message = 'Дата конца не может быть раньше сегодняшней даты.';
+            } else if (state.rangeStart && state.rangeEnd && compareIso(state.rangeEnd, state.rangeStart) <= 0) {
+                message = 'Дата конца должна быть позже даты начала.';
+            }
             showToast(message, 'error');
             return;
         }

@@ -102,6 +102,16 @@
         return createIsoString(date.getFullYear(), date.getMonth() + 1, date.getDate());
     }
 
+    function shiftIsoDate(isoValue, dayOffset) {
+        const date = parseDate(isoValue);
+        if (!date || !Number.isInteger(dayOffset)) {
+            return '';
+        }
+
+        date.setDate(date.getDate() + dayOffset);
+        return dateToIso(date);
+    }
+
     function createGlobalDateBounds() {
         const today = new Date();
         return {
@@ -982,6 +992,142 @@
         return true;
     }
 
+    function setInputBounds(target, bounds = {}) {
+        const input = resolveInput(target);
+        if (!input) {
+            return false;
+        }
+
+        const applyBound = (name) => {
+            if (!Object.prototype.hasOwnProperty.call(bounds, name)) {
+                return;
+            }
+
+            const value = toIso(bounds[name]);
+            const datasetName = name === 'min' ? 'dateMin' : 'dateMax';
+            if (value) {
+                input.dataset[datasetName] = value;
+                input.setAttribute(name, value);
+                return;
+            }
+
+            delete input.dataset[datasetName];
+            input.removeAttribute(name);
+        };
+
+        applyBound('min');
+        applyBound('max');
+
+        const effectiveBounds = resolveEffectiveBounds(input);
+        if (input._appDatePickerProxy) {
+            input._appDatePickerProxy.min = effectiveBounds.min;
+            input._appDatePickerProxy.max = effectiveBounds.max;
+        }
+
+        updateInputValidationState(input);
+        if (activeCalendarInput === input) {
+            renderCalendar(input);
+        }
+
+        return true;
+    }
+
+    function getPeriodError(startTarget, endTarget) {
+        const startInput = resolveInput(startTarget);
+        const endInput = resolveInput(endTarget);
+        const startDate = toIso(startInput?.value);
+        const endDate = toIso(endInput?.value);
+        const today = todayIso();
+
+        if (startDate && compare(startDate, today) > 0) {
+            return {
+                target: startInput,
+                message: 'Дата начала не может быть позже сегодняшней даты.'
+            };
+        }
+
+        if (endDate && compare(endDate, today) < 0) {
+            return {
+                target: endInput,
+                message: 'Дата конца не может быть раньше сегодняшней даты.'
+            };
+        }
+
+        if (startDate && endDate && compare(endDate, startDate) <= 0) {
+            return {
+                target: endInput,
+                message: 'Дата конца должна быть позже даты начала.'
+            };
+        }
+
+        return null;
+    }
+
+    function bindPeriodBounds(startTarget, endTarget) {
+        const startInput = resolveInput(startTarget);
+        const endInput = resolveInput(endTarget);
+        if (!startInput || !endInput) {
+            return null;
+        }
+
+        const existingBinding = startInput._appDatePeriodBinding;
+        if (existingBinding?.endInput === endInput) {
+            existingBinding.sync();
+            return existingBinding;
+        }
+
+        existingBinding?.destroy?.();
+
+        const sync = () => {
+            const today = todayIso();
+            const startDate = toIso(startInput.value);
+            const dayAfterStart = startDate ? shiftIsoDate(startDate, 1) : '';
+            const endMin = dayAfterStart && compare(dayAfterStart, today) > 0
+                ? dayAfterStart
+                : today;
+
+            setInputBounds(startInput, { max: today });
+            setInputBounds(endInput, { min: endMin });
+        };
+
+        const form = startInput.closest('form');
+        let syncTimer = null;
+        const scheduleSync = () => {
+            if (syncTimer !== null) {
+                window.clearTimeout(syncTimer);
+            }
+
+            syncTimer = window.setTimeout(() => {
+                syncTimer = null;
+                sync();
+            }, 0);
+        };
+        const handleReset = scheduleSync;
+        startInput.addEventListener('input', scheduleSync);
+        startInput.addEventListener('change', scheduleSync);
+        form?.addEventListener('reset', handleReset);
+
+        const binding = {
+            endInput,
+            sync,
+            destroy() {
+                if (syncTimer !== null) {
+                    window.clearTimeout(syncTimer);
+                }
+                startInput.removeEventListener('input', scheduleSync);
+                startInput.removeEventListener('change', scheduleSync);
+                form?.removeEventListener('reset', handleReset);
+                if (startInput._appDatePeriodBinding === binding) {
+                    delete startInput._appDatePeriodBinding;
+                }
+            }
+        };
+
+        startInput._appDatePeriodBinding = binding;
+        sync();
+        return binding;
+    }
+
     function getInputIso(target) {
         const input = resolveInput(target);
         if (!input) {
@@ -1200,14 +1346,17 @@
     }
 
     window.AppDate = {
+        bindPeriodBounds,
         compare,
         enhanceDateInputs,
         focusInput,
         getBounds: () => ({ ...GLOBAL_DATE_BOUNDS }),
         getInputError,
         getInputIso,
+        getPeriodError,
         isInputValid,
         parseDate,
+        setInputBounds,
         setInputValue,
         toDisplay,
         toIso,

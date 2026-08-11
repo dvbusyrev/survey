@@ -30,16 +30,15 @@
         return false;
     }
 
-    function ensureEndDateNotPast(dateEnd, target) {
-        if (!dateEnd || (window.AppDate?.compare(dateEnd, window.AppDate.todayIso()) ?? -1) >= 0) {
-            window.AppValidation?.clearFieldError?.(target);
+    function ensureOrganizationPeriodValid(startTarget, endTarget) {
+        const error = window.AppDate?.getPeriodError?.(startTarget, endTarget);
+        if (!error) {
             return true;
         }
 
-        const message = 'Дата конца не может быть раньше сегодняшней даты.';
-        window.AppValidation?.setFieldError?.(target, message);
-        showOrganizationToast(message);
-        window.AppDate?.focusInput?.(target);
+        window.AppValidation?.setFieldError?.(error.target, error.message);
+        showOrganizationToast(error.message);
+        window.AppDate?.focusInput?.(error.target);
         return false;
     }
 
@@ -179,6 +178,10 @@
             return;
         }
 
+        if (!ensureOrganizationPeriodValid('DateBegin', 'DateEnd')) {
+            return;
+        }
+
         if (!ensureValidDateInput('DateBegin', 'Дата начала', { required: true })) {
             return;
         }
@@ -194,18 +197,6 @@
             DateBegin: window.AppDate?.getInputIso('DateBegin') || '',
             DateEnd: window.AppDate?.getInputIso('DateEnd') || ''
         };
-
-        if (!ensureEndDateNotPast(payload.DateEnd, 'DateEnd')) {
-            return;
-        }
-
-        if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
-            const message = 'Дата конца не может быть раньше даты начала.';
-            window.AppValidation?.setFieldError?.('DateEnd', message);
-            showOrganizationToast(message);
-            window.AppDate?.focusInput?.('DateEnd');
-            return;
-        }
 
         try {
             const response = await fetch('/organizations/create', {
@@ -247,6 +238,7 @@
         byId('organizationEmail').value = email || '';
         window.AppDate?.setInputValue('organizationDateBegin', dateBegin || '');
         window.AppDate?.setInputValue('organizationDateEnd', dateEnd || '');
+        window.AppDate?.bindPeriodBounds?.('organizationDateBegin', 'organizationDateEnd');
 
         const modal = byId('editOrganizationModal');
         if (modal) {
@@ -289,6 +281,10 @@
             return;
         }
 
+        if (!ensureOrganizationPeriodValid('organizationDateBegin', 'organizationDateEnd')) {
+            return;
+        }
+
         if (!ensureValidDateInput('organizationDateBegin', 'Дата начала', { required: true })) {
             return;
         }
@@ -299,18 +295,6 @@
 
         const dateBegin = window.AppDate?.getInputIso('organizationDateBegin') || '';
         const dateEnd = window.AppDate?.getInputIso('organizationDateEnd') || '';
-
-        if (!ensureEndDateNotPast(dateEnd, 'organizationDateEnd')) {
-            return;
-        }
-
-        if (dateBegin && dateEnd && (window.AppDate?.compare(dateEnd, dateBegin) ?? -1) < 0) {
-            const message = 'Дата конца не может быть раньше даты начала.';
-            window.AppValidation?.setFieldError?.('organizationDateEnd', message);
-            window.AppUi?.notify?.(message, 'error');
-            window.AppDate?.focusInput?.('organizationDateEnd');
-            return;
-        }
 
         const payload = {
             Name: name,
@@ -348,6 +332,10 @@
             return;
         }
 
+        if (!ensureOrganizationPeriodValid('date_begin', 'date_end')) {
+            return;
+        }
+
         if (!ensureValidDateInput('date_begin', 'Дата начала', { required: true })) {
             return;
         }
@@ -363,18 +351,6 @@
             DateBegin: window.AppDate?.getInputIso('date_begin') || '',
             DateEnd: window.AppDate?.getInputIso('date_end') || ''
         };
-
-        if (!ensureEndDateNotPast(payload.DateEnd, 'date_end')) {
-            return;
-        }
-
-        if (payload.DateBegin && payload.DateEnd && (window.AppDate?.compare(payload.DateEnd, payload.DateBegin) ?? -1) < 0) {
-            const message = 'Дата конца не может быть раньше даты начала.';
-            window.AppValidation?.setFieldError?.('date_end', message);
-            window.AppUi?.notify?.(message, 'error');
-            window.AppDate?.focusInput?.('date_end');
-            return;
-        }
 
         try {
             const successMessage = await submitOrganizationUpdate(id, payload);
@@ -453,4 +429,8 @@
         document.querySelectorAll('.app-page[data-page="organization-list"], .app-page[data-page="organization-archive"]')
             .forEach(mountOrganizationRowViewer);
     }
+
+    window.AppDate?.bindPeriodBounds?.('DateBegin', 'DateEnd');
+    window.AppDate?.bindPeriodBounds?.('organizationDateBegin', 'organizationDateEnd');
+    window.AppDate?.bindPeriodBounds?.('date_begin', 'date_end');
 })();
