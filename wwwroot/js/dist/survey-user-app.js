@@ -2999,7 +2999,10 @@
       if (!entry) {
         return;
       }
-      onTabChange?.(entry.tab, { historyMode: "none" });
+      onTabChange?.(entry.tab, {
+        historyMode: "none",
+        reloadFromLocation: entry.tab === "archived"
+      });
     }
     function mount() {
       window.addEventListener("popstate", handlePopState);
@@ -3421,6 +3424,18 @@
       state.yearFilter = "";
       if (options.historyMode !== "none") {
         historyController.sync(normalizedTab, options.historyMode || "push");
+      }
+      if (normalizedTab === "archived" && options.reloadFromLocation) {
+        const params = new URLSearchParams(window.location.search);
+        const requestedPage = Number.parseInt(params.get("page") || "1", 10);
+        loadTabSnapshot("archived", {
+          page: Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
+          searchTerm: params.get("searchTerm") || "",
+          signedOnly: params.get("signedOnly") === "true",
+          filterQuery: window.location.search,
+          applyToCurrent: true
+        });
+        return;
       }
       const cachedSnapshot = getCachedTabSnapshot(normalizedTab);
       if (cachedSnapshot) {

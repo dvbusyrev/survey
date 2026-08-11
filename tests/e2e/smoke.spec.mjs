@@ -108,6 +108,15 @@ test('администратор проходит основные раздел�
     await expect(page.locator('[data-page="surveys-list"]')).toBeVisible();
     await page.locator('[data-role="survey-organization-filter-trigger"]').click();
     await expect(page.locator('[data-role="survey-organization-filter-popover"]')).not.toHaveClass(/is-hidden/);
+    await page.locator('[data-role="survey-organization-filter-option"]').first().check();
+    await page.locator('[data-role="survey-organization-filter-close"]').click();
+    await expect(page).toHaveURL(/organizationIds=\d+/);
+    await expect(page.locator('[data-role="survey-organization-filter-label"]')).toHaveText('Организации: 1');
+
+    await page.locator('[data-role="survey-organization-filter-trigger"]').click();
+    await page.locator('[data-role="survey-organization-filter-clear"]').click();
+    await page.locator('[data-role="survey-organization-filter-close"]').click();
+    await expect(page).not.toHaveURL(/organizationIds=/);
 
     await page.locator('[data-click-call="openAddSurveyModal"]').click();
     await expect(page.locator('#surveyEditorModal')).toBeVisible();
@@ -506,6 +515,30 @@ test('клиент проходит доступные анкеты, черно�
     await expect(page.locator('[data-role="survey-user-content"][data-active-tab="archived"]')).toBeVisible();
     const archivedSurveyRow = page.locator('[data-role="user-survey-row"][data-row-action="view"]');
     await expect(archivedSurveyRow).toHaveCount(1);
+
+    await page.locator('[data-role="survey-name-filter-trigger"]').click();
+    await page.locator('[data-role="survey-name-filter-option"]').first().check();
+    await page.locator('[data-role="survey-name-filter-close"]').click();
+    await expect(page).toHaveURL(/surveyIds=\d+/);
+    await expect(page.locator('[data-role="survey-name-filter-label"]')).toHaveText('Анкеты: 1');
+
+    const currentMonthIndex = new Date().getMonth();
+    const currentMonth = `${new Date().getFullYear()}-${String(currentMonthIndex + 1).padStart(2, '0')}`;
+    await page.locator('[data-role="survey-date-filter-trigger"]').click();
+    await page.locator(`[data-role="survey-date-filter-month"][data-month-index="${currentMonthIndex}"]`).click();
+    await page.locator('[data-role="survey-date-filter-close"]').click();
+    await expect(page).toHaveURL(new RegExp(`month=${currentMonth}`));
+    await expect(archivedSurveyRow).toHaveCount(1);
+
+    await page.goBack();
+    await expect(page).not.toHaveURL(/month=/);
+    await expect(page).toHaveURL(/surveyIds=\d+/);
+    await expect(page.locator('[data-role="survey-date-filter-label"]')).toHaveText('Фильтр по периоду');
+
+    await page.goForward();
+    await expect(page).toHaveURL(new RegExp(`month=${currentMonth}`));
+    await expect(archivedSurveyRow).toHaveCount(1);
+
     await archivedSurveyRow.click();
     await expect(page.locator('[data-role="survey-answers-page"]')).toBeVisible();
 

@@ -327,13 +327,8 @@ public sealed class SurveyRepository
             FROM public.organization_survey os
             INNER JOIN public.organization o
                 ON o.id_organization = os.id_organization
-            WHERE EXISTS (
-                SELECT 1
-                FROM public.organization_survey active_assignment
-                WHERE active_assignment.id_survey = os.id_survey
-                  AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
-                  AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
-            );
+            WHERE (os.date_begin IS NULL OR os.date_begin <= @Today)
+              AND (os.date_end IS NULL OR os.date_end >= @Today);
             """,
             new { Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
@@ -502,13 +497,13 @@ public sealed class SurveyRepository
         parameters.Add("HasSearch", !string.IsNullOrWhiteSpace(searchTerm));
         parameters.Add("SearchPattern", $"%{searchTerm}%");
         parameters.Add("PageSize", pageSize);
-        parameters.Add("Offset", offset);
         parameters.Add("Today", _clock.Today.Date);
 
         var totalCount = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT COUNT(*) {ActiveUserSurveyBaseSql}",
             parameters,
             cancellationToken: cancellationToken));
+        parameters.Add("Offset", NormalizePageOffset(totalCount, pageSize, offset));
         var surveys = (await connection.QueryAsync<Survey>(new CommandDefinition(
             $"""
             SELECT
@@ -550,7 +545,6 @@ public sealed class SurveyRepository
         parameters.Add("OrganizationId", organizationId);
         parameters.Add("SearchPattern", string.IsNullOrWhiteSpace(searchTerm) ? null : $"%{searchTerm}%");
         parameters.Add("SurveyIds", surveyIds.ToArray());
-        parameters.Add("Offset", offset);
         parameters.Add("PageSize", pageSize);
         parameters.Add("Today", _clock.Today.Date);
 
@@ -573,13 +567,13 @@ public sealed class SurveyRepository
         {
             if (completionDateFrom.HasValue)
             {
-                filters.Add("archived.date_begin::date >= @CompletionDateFrom");
+                filters.Add("archived.completion_date::date >= @CompletionDateFrom");
                 parameters.Add("CompletionDateFrom", completionDateFrom.Value);
             }
 
             if (completionDateTo.HasValue)
             {
-                filters.Add("archived.date_end IS NOT NULL AND archived.date_end::date <= @CompletionDateTo");
+                filters.Add("archived.completion_date::date <= @CompletionDateTo");
                 parameters.Add("CompletionDateTo", completionDateTo.Value);
             }
         }
@@ -596,6 +590,7 @@ public sealed class SurveyRepository
             $"SELECT COUNT(*) {UserArchiveBaseSql} {whereClause}",
             parameters,
             cancellationToken: cancellationToken));
+        parameters.Add("Offset", NormalizePageOffset(totalCount, pageSize, offset));
         var surveys = await connection.QueryAsync<Survey>(new CommandDefinition(
             $"""
             SELECT
@@ -848,6 +843,16 @@ public sealed class SurveyRepository
             .OrderBy(static id => id)
             .ToArray();
 
+    private static int NormalizePageOffset(int totalCount, int pageSize, int requestedOffset)
+    {
+        var normalizedPageSize = Math.Max(pageSize, 1);
+        var totalPages = totalCount <= 0
+            ? 1
+            : (int)Math.Ceiling((double)totalCount / normalizedPageSize);
+        var maxOffset = (totalPages - 1) * normalizedPageSize;
+        return Math.Min(Math.Max(requestedOffset, 0), maxOffset);
+    }
+
     private DynamicParameters BuildArchivedParameters(
         IReadOnlyCollection<int> organizationIds,
         IReadOnlyCollection<int> surveyIds,
@@ -882,7 +887,7 @@ public sealed class SurveyRepository
     }
 
     private const string ActiveSurveyFilterPredicate =
-        "(@HasOrganizationFilter = false OR organization_ids && @OrganizationIds)";
+        "(@HasOrganizationFilter = false OR active_organization_ids && @OrganizationIds)";
 
     private const string ArchivedSurveyFilterPredicate = """
         (@HasOrganizationFilter = false OR organization_ids && @OrganizationIds)
@@ -906,6 +911,18 @@ public sealed class SurveyRepository
                 s.name_survey,
                 ss.date_begin,
                 ss.date_end,
+                COALESCE(
+                    ARRAY(
+                        SELECT DISTINCT active_os.id_organization
+                        FROM public.organization_survey active_os
+                        WHERE active_os.id_survey = s.id_survey
+                          AND active_os.id_organization IS NOT NULL
+                          AND (active_os.date_begin IS NULL OR active_os.date_begin <= @Today)
+                          AND (active_os.date_end IS NULL OR active_os.date_end >= @Today)
+                        ORDER BY active_os.id_organization
+                    ),
+                    ARRAY[]::integer[]
+                ) AS active_organization_ids,
                 COALESCE(
                     ARRAY(
                         SELECT DISTINCT os2.id_organization

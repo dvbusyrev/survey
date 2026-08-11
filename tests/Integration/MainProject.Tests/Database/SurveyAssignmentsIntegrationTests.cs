@@ -856,6 +856,134 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task AdminActiveSurveyFilter_UsesActiveAssignmentForSelectedOrganization()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var sharedSurvey = await CreateSurveyAsync(organizationIds);
+        var secondOrganizationSurvey = await CreateSurveyAsync([organizationIds[1]]);
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.organization_survey
+                SET date_end = CURRENT_DATE - 1
+                WHERE id_survey = @SurveyId
+                  AND id_organization = @OrganizationId;
+                """,
+                new
+                {
+                    SurveyId = sharedSurvey.SurveyId,
+                    OrganizationId = organizationIds[1]
+                });
+        }
+
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var firstOrganizationPage = await service.GetSurveysPageAsync(
+            1,
+            sortBy: null,
+            sortDirection: null,
+            organizationIds: organizationIds[0].ToString());
+        var secondOrganizationPage = await service.GetSurveysPageAsync(
+            1,
+            sortBy: null,
+            sortDirection: null,
+            organizationIds: organizationIds[1].ToString());
+        var bothOrganizationsPage = await service.GetSurveysPageAsync(
+            1,
+            sortBy: null,
+            sortDirection: null,
+            organizationIds: $"{organizationIds[0]},{organizationIds[1]}");
+
+        Assert.Contains(firstOrganizationPage.SurveyRows, row => row.IdSurvey == sharedSurvey.SurveyId);
+        Assert.DoesNotContain(secondOrganizationPage.SurveyRows, row => row.IdSurvey == sharedSurvey.SurveyId);
+        Assert.Contains(secondOrganizationPage.SurveyRows, row => row.IdSurvey == secondOrganizationSurvey.SurveyId);
+        Assert.Contains(bothOrganizationsPage.SurveyRows, row => row.IdSurvey == sharedSurvey.SurveyId);
+        Assert.Contains(bothOrganizationsPage.SurveyRows, row => row.IdSurvey == secondOrganizationSurvey.SurveyId);
+        Assert.Equal(new[] { organizationIds[1] }, secondOrganizationPage.FilterState.SelectedOrganizationIds);
+        Assert.All(
+            organizationIds,
+            organizationId => Assert.Contains(
+                secondOrganizationPage.FilterState.OrganizationOptions,
+                option => option.Id == organizationId));
+    }
+
+    [RequiresPostgresFact]
+    public async Task AdminArchiveFilters_WorkSeparatelyAndInCombination()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var marchSurvey = await CreateSurveyAsync([organizationIds[0]]);
+        var aprilSurvey = await CreateSurveyAsync([organizationIds[1]]);
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.organization_survey
+                SET
+                    date_begin = CASE id_survey
+                        WHEN @MarchSurveyId THEN DATE '2024-03-10'
+                        ELSE DATE '2024-04-10'
+                    END,
+                    date_end = CASE id_survey
+                        WHEN @MarchSurveyId THEN DATE '2024-03-20'
+                        ELSE DATE '2024-04-20'
+                    END
+                WHERE id_survey = ANY(@SurveyIds);
+                """,
+                new
+                {
+                    MarchSurveyId = marchSurvey.SurveyId,
+                    SurveyIds = new[] { marchSurvey.SurveyId!.Value, aprilSurvey.SurveyId!.Value }
+                });
+        }
+
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var organizationPage = await service.GetAdminArchivedSurveysPageAsync(
+            1, null, null, organizationIds[0].ToString(), null, null, null, null, null);
+        var surveyPage = await service.GetAdminArchivedSurveysPageAsync(
+            1, null, null, null, aprilSurvey.SurveyId.ToString(), null, null, null, null);
+        var yearPage = await service.GetAdminArchivedSurveysPageAsync(
+            1, null, null, null, null, "2024", null, null, null);
+        var monthPage = await service.GetAdminArchivedSurveysPageAsync(
+            1, null, null, null, null, null, "2024-03", null, null);
+        var rangePage = await service.GetAdminArchivedSurveysPageAsync(
+            1, null, null, null, null, null, null, "2024-04-01", "2024-04-30");
+        var combinedPage = await service.GetAdminArchivedSurveysPageAsync(
+            1,
+            null,
+            null,
+            organizationIds[0].ToString(),
+            marchSurvey.SurveyId.ToString(),
+            null,
+            "2024-03",
+            null,
+            null);
+        var mismatchedPage = await service.GetAdminArchivedSurveysPageAsync(
+            1,
+            null,
+            null,
+            organizationIds[0].ToString(),
+            aprilSurvey.SurveyId.ToString(),
+            null,
+            null,
+            null,
+            null);
+
+        Assert.Equal(marchSurvey.SurveyId, Assert.Single(organizationPage.SurveyRows).IdSurvey);
+        Assert.Equal(aprilSurvey.SurveyId, Assert.Single(surveyPage.SurveyRows).IdSurvey);
+        Assert.Equal(2, yearPage.TotalCount);
+        Assert.Equal(marchSurvey.SurveyId, Assert.Single(monthPage.SurveyRows).IdSurvey);
+        Assert.Equal(aprilSurvey.SurveyId, Assert.Single(rangePage.SurveyRows).IdSurvey);
+        Assert.Equal(marchSurvey.SurveyId, Assert.Single(combinedPage.SurveyRows).IdSurvey);
+        Assert.Empty(mismatchedPage.SurveyRows);
+        Assert.Equal(2024, yearPage.FilterState.Year);
+        Assert.Equal("2024-03", monthPage.FilterState.Month);
+        Assert.Equal("2024-04-01", rangePage.FilterState.DateFrom);
+        Assert.Equal("2024-04-30", rangePage.FilterState.DateTo);
+    }
+
+    [RequiresPostgresFact]
     public async Task SubmitAnswer_WhenAssignmentExpiredAfterOpening_DoesNotPersistAnswer()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
@@ -905,9 +1033,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             _clock,
             _answerRepository);
 
-        var beforeSubmission = await surveyUserService.GetActiveSurveysPageAsync(userId, 1, "Интеграционная");
+        var beforeSubmission = await surveyUserService.GetActiveSurveysPageAsync(userId, 99, "Интеграционная");
 
         Assert.NotNull(beforeSubmission);
+        Assert.Equal(1, beforeSubmission!.CurrentPage);
         Assert.Contains(beforeSubmission!.AccessibleSurveys, item => item.IdSurvey == survey.SurveyId);
 
         var workflow = CreateAnswerService();
@@ -1172,6 +1301,106 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         Assert.NotNull(archive);
         Assert.Contains(archive!.ArchivedSurveys, item => item.IdSurvey == survey.SurveyId);
+    }
+
+    [RequiresPostgresFact]
+    public async Task UserArchive_DateFiltersAlwaysUseAnswerCompletionDate()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var workflow = CreateAnswerService();
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
+
+        var userId = await CreateUserAsync(organizationIds[0], "archive-date-filter-client");
+        var completionDate = new DateTime(2024, 3, 15);
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.answer AS answer
+                SET
+                    completion_date = @CompletionDate,
+                    csp = 'integration-signature'
+                FROM public.organization_survey AS assignment
+                WHERE answer.id_organization_survey = assignment.id_organization_survey
+                  AND assignment.id_survey = @SurveyId
+                  AND assignment.id_organization = @OrganizationId;
+                """,
+                new
+                {
+                    CompletionDate = completionDate,
+                    SurveyId = survey.SurveyId,
+                    OrganizationId = organizationIds[0]
+                });
+        }
+
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var exactDateArchive = await service.GetUserArchivePageAsync(
+            userId,
+            1,
+            searchTerm: null,
+            date: "2024-03-15",
+            dateFrom: null,
+            dateTo: null,
+            signedOnly: false);
+        var monthArchive = await service.GetUserArchivePageAsync(
+            userId,
+            1,
+            searchTerm: null,
+            date: null,
+            dateFrom: null,
+            dateTo: null,
+            signedOnly: false,
+            month: "2024-03");
+        var yearArchive = await service.GetUserArchivePageAsync(
+            userId,
+            1,
+            searchTerm: null,
+            date: null,
+            dateFrom: null,
+            dateTo: null,
+            signedOnly: false,
+            year: "2024");
+        var rangeArchive = await service.GetUserArchivePageAsync(
+            userId,
+            1,
+            searchTerm: null,
+            date: null,
+            dateFrom: "2024-03-10",
+            dateTo: "2024-03-20",
+            signedOnly: false);
+        var assignmentPeriodArchive = await service.GetUserArchivePageAsync(
+            userId,
+            1,
+            searchTerm: null,
+            date: null,
+            dateFrom: DateTime.Today.AddDays(-2).ToString("yyyy-MM-dd"),
+            dateTo: DateTime.Today.AddDays(15).ToString("yyyy-MM-dd"),
+            signedOnly: false);
+        var combinedArchive = await service.GetUserArchivePageAsync(
+            userId,
+            99,
+            searchTerm: "Интеграционная",
+            date: null,
+            dateFrom: null,
+            dateTo: null,
+            signedOnly: true,
+            surveyIds: survey.SurveyId.ToString(),
+            month: "2024-03");
+
+        Assert.All(
+            new[] { exactDateArchive, monthArchive, yearArchive, rangeArchive },
+            archive => Assert.Contains(archive!.ArchivedSurveys, item => item.IdSurvey == survey.SurveyId));
+        Assert.DoesNotContain(
+            assignmentPeriodArchive!.ArchivedSurveys,
+            item => item.IdSurvey == survey.SurveyId);
+        Assert.NotNull(combinedArchive);
+        Assert.Equal(1, combinedArchive!.CurrentPage);
+        Assert.Equal(1, combinedArchive.TotalPages);
+        Assert.Equal(1, combinedArchive.TotalCount);
+        Assert.Contains(combinedArchive.ArchivedSurveys, item => item.IdSurvey == survey.SurveyId);
+        Assert.Equal(new[] { survey.SurveyId!.Value }, combinedArchive.FilterState.SelectedSurveyIds);
+        Assert.Equal("2024-03", combinedArchive.FilterState.Month);
     }
 
     [RequiresPostgresFact]

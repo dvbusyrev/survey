@@ -1,5 +1,6 @@
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
+using MainProject.Application.Support;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Domain.Entities;
 using MainProject.Web.ViewModels;
@@ -54,17 +55,15 @@ public partial class SurveyService
             survey.OrganizationId = userOrganizationId.Value;
         }
 
-        var totalPages = pageData.TotalCount == 0
-            ? 1
-            : (int)Math.Ceiling((double)pageData.TotalCount / pageSize);
+        var pageWindow = AppListPaging.CreateWindow(pageData.TotalCount, currentPage, pageSize);
 
         return new UserSurveyListPageViewModel
         {
             AccessibleSurveys = surveys,
             UserOrganizationId = userOrganizationId.Value,
-            CurrentPage = Math.Max(currentPage, 1),
-            TotalPages = totalPages,
-            TotalCount = pageData.TotalCount,
+            CurrentPage = pageWindow.CurrentPage,
+            TotalPages = pageWindow.TotalPages,
+            TotalCount = pageWindow.TotalCount,
             SearchTerm = normalizedSearchTerm
         };
     }
