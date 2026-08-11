@@ -19,7 +19,7 @@ public sealed class UserSurveyPageContentViewModel
     // public string Title => IsArchive ? "Архив анкет" : "Доступные анкеты";
 
     public string Description => IsArchive
-        ? "Ниже вы можете открыть ранее завершённые анкеты и посмотреть отправленные ответы."
+        ? "Ниже отображаются недоступные анкеты и ранее отправленные ответы."
         : "Ниже вы можете открыть доступные анкеты и сразу перейти к заполнению.";
 
     public AppPaginationViewModel Pagination => Surveys.Count == 0

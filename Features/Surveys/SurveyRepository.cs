@@ -57,6 +57,7 @@ public sealed class SurveyRepository
                 SELECT 1
                 FROM public.organization_survey assignment
                 WHERE assignment.id_survey = survey.id_survey
+                  AND (assignment.date_begin IS NULL OR assignment.date_begin <= @Today)
                   AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
             )
             ORDER BY survey.id_survey DESC;
@@ -99,8 +100,10 @@ public sealed class SurveyRepository
                 organization.id_organization AS Id,
                 COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS Name
             FROM public.organization organization
-            WHERE organization.date_end IS NULL
-               OR organization.date_end >= @Today
+            WHERE (
+                    (organization.date_begin IS NULL OR organization.date_begin <= @Today)
+                    AND (organization.date_end IS NULL OR organization.date_end >= @Today)
+                )
                OR organization.id_organization IN (
                     SELECT id_organization
                     FROM public.organization_survey
@@ -146,7 +149,8 @@ public sealed class SurveyRepository
             WITH active_survey AS (
                 SELECT DISTINCT id_survey
                 FROM public.organization_survey
-                WHERE date_end IS NULL OR date_end >= @Today
+                WHERE (date_begin IS NULL OR date_begin <= @Today)
+                  AND (date_end IS NULL OR date_end >= @Today)
             ),
             updated AS (
                 UPDATE public.organization_survey assignment
@@ -204,17 +208,11 @@ public sealed class SurveyRepository
                     FROM public.organization_survey assignment
                     WHERE assignment.id_survey = survey.id_survey
                 )
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.answer answer
-                    INNER JOIN public.organization_survey answered_assignment
-                        ON answered_assignment.id_organization_survey = answer.id_organization_survey
-                    WHERE answered_assignment.id_survey = survey.id_survey
-                )
               AND NOT EXISTS (
                     SELECT 1
                     FROM public.organization_survey active_assignment
                     WHERE active_assignment.id_survey = survey.id_survey
+                      AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
                       AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                 )
             ORDER BY survey.id_survey DESC;
@@ -248,17 +246,11 @@ public sealed class SurveyRepository
                       FROM public.organization_survey assignment
                       WHERE assignment.id_survey = survey.id_survey
                   )
-                  AND EXISTS (
-                      SELECT 1
-                      FROM public.answer answer
-                      INNER JOIN public.organization_survey answered_assignment
-                          ON answered_assignment.id_organization_survey = answer.id_organization_survey
-                      WHERE answered_assignment.id_survey = survey.id_survey
-                  )
                   AND NOT EXISTS (
                       SELECT 1
                       FROM public.organization_survey active_assignment
                       WHERE active_assignment.id_survey = survey.id_survey
+                        AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
                         AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                   );
                 """,
@@ -339,6 +331,7 @@ public sealed class SurveyRepository
                 SELECT 1
                 FROM public.organization_survey active_assignment
                 WHERE active_assignment.id_survey = os.id_survey
+                  AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
                   AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
             );
             """,
@@ -415,17 +408,11 @@ public sealed class SurveyRepository
                     FROM public.organization_survey existing_assignment
                     WHERE existing_assignment.id_survey = os.id_survey
                 )
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.answer answer
-                    INNER JOIN public.organization_survey answered_assignment
-                        ON answered_assignment.id_organization_survey = answer.id_organization_survey
-                    WHERE answered_assignment.id_survey = os.id_survey
-                )
               AND NOT EXISTS (
                     SELECT 1
                     FROM public.organization_survey active_assignment
                     WHERE active_assignment.id_survey = os.id_survey
+                      AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
                       AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                 );
             """,
@@ -464,7 +451,7 @@ public sealed class SurveyRepository
             {UserArchiveBaseSql}
             ORDER BY Name, Id;
             """,
-            new { OrganizationId = organizationId },
+            new { OrganizationId = organizationId, Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
         return options.AsList();
     }
@@ -565,6 +552,7 @@ public sealed class SurveyRepository
         parameters.Add("SurveyIds", surveyIds.ToArray());
         parameters.Add("Offset", offset);
         parameters.Add("PageSize", pageSize);
+        parameters.Add("Today", _clock.Today.Date);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
@@ -618,10 +606,11 @@ public sealed class SurveyRepository
                 archived.date_end AS DateEnd,
                 archived.completion_date AS CompletionDate,
                 archived.csp AS Csp,
-                archived.id_organization AS OrganizationId
+                archived.id_organization AS OrganizationId,
+                archived.id_answer AS IdAnswer
             {UserArchiveBaseSql}
             {whereClause}
-            ORDER BY archived.completion_date DESC
+            ORDER BY archived.completion_date DESC NULLS LAST, archived.date_end DESC NULLS LAST, archived.id_survey DESC
             OFFSET @Offset
             LIMIT @PageSize;
             """,
@@ -946,6 +935,7 @@ public sealed class SurveyRepository
                 SELECT 1
                 FROM public.organization_survey active_assignment
                 WHERE active_assignment.id_survey = s.id_survey
+                  AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
                   AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
             )
         )
@@ -988,17 +978,11 @@ public sealed class SurveyRepository
                     FROM public.organization_survey existing_assignment
                     WHERE existing_assignment.id_survey = s.id_survey
                 )
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.answer answer
-                    INNER JOIN public.organization_survey answered_assignment
-                        ON answered_assignment.id_organization_survey = answer.id_organization_survey
-                    WHERE answered_assignment.id_survey = s.id_survey
-                )
               AND NOT EXISTS (
                     SELECT 1
                     FROM public.organization_survey active_assignment
                     WHERE active_assignment.id_survey = s.id_survey
+                      AND (active_assignment.date_begin IS NULL OR active_assignment.date_begin <= @Today)
                       AND (active_assignment.date_end IS NULL OR active_assignment.date_end >= @Today)
                 )
         )
@@ -1016,7 +1000,7 @@ public sealed class SurveyRepository
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_survey = s.id_survey
             WHERE assignment.id_organization = @OrganizationId
-              AND assignment.date_begin <= @Today
+              AND (assignment.date_begin IS NULL OR assignment.date_begin <= @Today)
               AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
               AND NOT EXISTS (
                   SELECT 1
@@ -1040,15 +1024,21 @@ public sealed class SurveyRepository
                 COALESCE(assignment.date_end, schedule.date_end) AS date_end,
                 answer.completion_date,
                 answer.csp,
+                answer.id_answer,
                 assignment.id_organization
             FROM public.survey s
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_survey = s.id_survey
-            INNER JOIN public.answer answer
+            LEFT JOIN public.answer answer
                 ON answer.id_organization_survey = assignment.id_organization_survey
             LEFT JOIN public.survey_schedule schedule
                 ON schedule.id_survey = s.id_survey
             WHERE assignment.id_organization = @OrganizationId
+              AND (
+                    answer.id_answer IS NOT NULL
+                    OR (assignment.date_begin IS NOT NULL AND assignment.date_begin > @Today)
+                    OR (assignment.date_end IS NOT NULL AND assignment.date_end < @Today)
+                )
         ) AS archived
         """;
 

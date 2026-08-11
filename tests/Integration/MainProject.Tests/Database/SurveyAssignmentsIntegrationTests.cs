@@ -790,17 +790,24 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
-    public async Task AssignmentRepository_SeparatesActiveAndArchivedSurveyPages()
+    public async Task AssignmentRepository_ArchivesExpiredAndFutureSurveysWithoutAnswers()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
-        var survey = await CreateSurveyAsync(organizationIds);
+        var expiredSurvey = await CreateSurveyAsync(organizationIds);
+        var futureSurvey = await CreateSurveyAsync(organizationIds);
+        await using var userConnection = _fixture.CreateConnection();
+        var userId = await userConnection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin)
+            VALUES (@OrganizationId, 'archive-boundary-client', 'Клиент проверки архива', 'user', 'hash', CURRENT_DATE)
+            RETURNING id_user;
+            """,
+            new { OrganizationId = organizationIds[0] });
         var activePage = await new SurveyService(_connectionFactory, _surveyRepository, _clock)
             .GetSurveysPageAsync(1, null, null, null);
 
-        Assert.Contains(activePage.SurveyRows, row => row.IdSurvey == survey.SurveyId);
-
-        var workflow = CreateAnswerService();
-        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 5))).Success);
+        Assert.Contains(activePage.SurveyRows, row => row.IdSurvey == expiredSurvey.SurveyId);
+        Assert.Contains(activePage.SurveyRows, row => row.IdSurvey == futureSurvey.SurveyId);
 
         await using (var connection = _fixture.CreateConnection())
         {
@@ -810,16 +817,42 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                 SET date_end = CURRENT_DATE - 1
                 WHERE id_survey = @SurveyId;
                 """,
-                new { SurveyId = survey.SurveyId });
+                new { SurveyId = expiredSurvey.SurveyId });
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.organization_survey
+                SET
+                    date_begin = CURRENT_DATE + 1,
+                    date_end = CURRENT_DATE + 10
+                WHERE id_survey = @SurveyId;
+                """,
+                new { SurveyId = futureSurvey.SurveyId });
         }
 
-        var archivePage = await new SurveyService(_connectionFactory, _surveyRepository, _clock)
+        var surveyService = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var archivePage = await surveyService
             .GetAdminArchivedSurveysPageAsync(1, null, null, null, null, null, null, null, null);
-        var activeAfterArchive = await new SurveyService(_connectionFactory, _surveyRepository, _clock)
-            .GetSurveysPageAsync(1, null, null, null);
+        var activeAfterArchive = await surveyService.GetSurveysPageAsync(1, null, null, null);
+        var archivedSurveys = await surveyService.GetAdminArchivedSurveysAsync();
+        var activeSurveys = await surveyService.GetSurveysAsync();
+        var clientActivePage = await surveyService.GetActiveSurveysPageAsync(userId, 1, null);
+        var clientArchivePage = await surveyService
+            .GetUserArchivePageAsync(userId, 1, null, null, null, null, signedOnly: false);
 
-        Assert.DoesNotContain(activeAfterArchive.SurveyRows, row => row.IdSurvey == survey.SurveyId);
-        Assert.Contains(archivePage.SurveyRows, row => row.IdSurvey == survey.SurveyId);
+        Assert.DoesNotContain(activeAfterArchive.SurveyRows, row => row.IdSurvey == expiredSurvey.SurveyId);
+        Assert.DoesNotContain(activeAfterArchive.SurveyRows, row => row.IdSurvey == futureSurvey.SurveyId);
+        Assert.Contains(archivePage.SurveyRows, row => row.IdSurvey == expiredSurvey.SurveyId);
+        Assert.Contains(archivePage.SurveyRows, row => row.IdSurvey == futureSurvey.SurveyId);
+        Assert.DoesNotContain(activeSurveys, survey => survey.IdSurvey == expiredSurvey.SurveyId);
+        Assert.DoesNotContain(activeSurveys, survey => survey.IdSurvey == futureSurvey.SurveyId);
+        Assert.Contains(archivedSurveys, survey => survey.IdSurvey == expiredSurvey.SurveyId);
+        Assert.Contains(archivedSurveys, survey => survey.IdSurvey == futureSurvey.SurveyId);
+        Assert.NotNull(clientActivePage);
+        Assert.DoesNotContain(clientActivePage!.AccessibleSurveys, survey => survey.IdSurvey == expiredSurvey.SurveyId);
+        Assert.DoesNotContain(clientActivePage.AccessibleSurveys, survey => survey.IdSurvey == futureSurvey.SurveyId);
+        Assert.NotNull(clientArchivePage);
+        Assert.Contains(clientArchivePage!.ArchivedSurveys, survey => survey.IdSurvey == expiredSurvey.SurveyId && survey.IdAnswer == 0);
+        Assert.Contains(clientArchivePage.ArchivedSurveys, survey => survey.IdSurvey == futureSurvey.SurveyId && survey.IdAnswer == 0);
     }
 
     [RequiresPostgresFact]
@@ -1493,6 +1526,12 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         var futureUserResult = await authService.AuthenticateAsync(futureUserLogin, password);
         var futureOrganizationUserResult = await authService.AuthenticateAsync(futureOrganizationUserLogin, password);
+        var userService = new UserManagementService(_connectionFactory, _clock);
+        var organizationService = new OrganizationManagementService(_connectionFactory, _clock);
+        var activeUsers = (await userService.GetActiveUsersPageAsync(1, "name", "asc")).Users;
+        var archivedUsers = (await userService.GetArchivedUsersPageAsync(1, "name", "asc")).Users;
+        var activeOrganizations = (await organizationService.GetActiveOrganizationsPageAsync(1, "name", "asc")).Organizations;
+        var archivedOrganizations = (await organizationService.GetArchivedOrganizationsPageAsync(1, "name", "asc")).Organizations;
 
         Assert.False(futureUserResult.Success);
         Assert.Equal(StatusCodes.Status403Forbidden, futureUserResult.StatusCode);
@@ -1500,6 +1539,12 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.False(futureOrganizationUserResult.Success);
         Assert.Equal(StatusCodes.Status403Forbidden, futureOrganizationUserResult.StatusCode);
         Assert.Equal(AuthService.BlockedUserMessage, futureOrganizationUserResult.ErrorMessage);
+        Assert.DoesNotContain(activeUsers, user => user.NameUser is futureUserLogin or futureOrganizationUserLogin);
+        Assert.Contains(archivedUsers, user => user.NameUser == futureUserLogin);
+        Assert.Contains(archivedUsers, user => user.NameUser == futureOrganizationUserLogin);
+        Assert.Contains(activeOrganizations, organization => organization.OrganizationId == activeOrganizationId);
+        Assert.DoesNotContain(activeOrganizations, organization => organization.OrganizationId == futureOrganizationId);
+        Assert.Contains(archivedOrganizations, organization => organization.OrganizationId == futureOrganizationId);
     }
 
     [RequiresPostgresFact]

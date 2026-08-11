@@ -39,6 +39,7 @@
         {
             @foreach (var survey in surveys)
             {
+                var hasAnswer = survey.IdAnswer > 0 || survey.CompletionDate != default;
                 DateTime? filterDate = isArchive
                     ? (survey.CompletionDate != default ? survey.CompletionDate : survey.DateEnd)
                     : survey.DateBegin;
@@ -48,14 +49,16 @@
                     ? (!string.IsNullOrWhiteSpace(survey.Csp) ? "Подписана" : "Нет подписи")
                     : "Нет подписи";
                 var statusText = isArchive
-                    ? $"Заполнена: {FormatDate(survey.CompletionDate)}"
+                    ? (hasAnswer ? $"Заполнена: {FormatDate(survey.CompletionDate)}" : "Не заполнена")
                     : "Не заполнена";
-                var rowClass = isArchive ? "client-surveys-table__row client-surveys-table__row--viewable" : "client-surveys-table__row client-surveys-table__row--fillable";
+                var rowClass = isArchive
+                    ? $"client-surveys-table__row{(hasAnswer ? " client-surveys-table__row--viewable" : string.Empty)}"
+                    : "client-surveys-table__row client-surveys-table__row--fillable";
 
                 <tr class="@rowClass"
                     data-role="user-survey-row"
-                    data-row-action="@(isArchive ? "view" : "fill")"
-                    data-hover-label="@(isArchive ? "Смотреть" : "Заполнить")"
+                    data-row-action="@(isArchive ? (hasAnswer ? "view" : null) : "fill")"
+                    data-hover-label="@(isArchive ? (hasAnswer ? "Смотреть" : null) : "Заполнить")"
                     data-survey-id="@survey.IdSurvey"
                     data-survey-name="@(string.IsNullOrWhiteSpace(survey.NameSurvey) ? "Без названия" : survey.NameSurvey)"
                     data-survey-date-begin="@FormatIsoDate(survey.DateBegin)"

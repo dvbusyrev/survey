@@ -345,7 +345,8 @@ public class OrganizationManagementService
             """
             SELECT id_organization AS Id, COALESCE(NULLIF(organization_short_name, ''), organization_name) AS Name
             FROM public.organization
-            WHERE date_end IS NULL OR date_end >= @Today
+            WHERE (date_begin IS NULL OR date_begin <= @Today)
+              AND (date_end IS NULL OR date_end >= @Today)
             ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name);
             """,
             new { Today = _clock.Today.Date },
@@ -450,7 +451,8 @@ public class OrganizationManagementService
                    latest_assignment.date_end AS AssignmentDateEnd
             FROM public.organization o
             LEFT JOIN latest_assignment ON latest_assignment.id_organization = o.id_organization
-            WHERE o.date_end IS NULL OR o.date_end >= @Today
+            WHERE (o.date_begin IS NULL OR o.date_begin <= @Today)
+              AND (o.date_end IS NULL OR o.date_end >= @Today)
             """);
         if (organizationIds is { Count: > 0 })
         {
@@ -540,8 +542,14 @@ public class OrganizationManagementService
     }
 
     private static string GetArchivePredicate(bool includeArchived) => includeArchived
-        ? "o.date_end < @Today"
-        : "(o.date_end IS NULL OR o.date_end >= @Today)";
+        ? """
+          (o.date_begin IS NOT NULL AND o.date_begin > @Today)
+          OR (o.date_end IS NOT NULL AND o.date_end < @Today)
+          """
+        : """
+          (o.date_begin IS NULL OR o.date_begin <= @Today)
+          AND (o.date_end IS NULL OR o.date_end >= @Today)
+          """;
 
     private static string BuildOrderBy(string sortBy, string sortDirection)
     {

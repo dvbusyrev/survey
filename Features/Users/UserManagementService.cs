@@ -251,7 +251,12 @@ public sealed class UserManagementService
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT COUNT(*) FROM public.app_user u WHERE {GetArchivePredicate(includeArchived)};",
+            $"""
+            SELECT COUNT(*)
+            FROM public.app_user u
+            INNER JOIN public.organization o ON o.id_organization = u.id_organization
+            WHERE {GetArchivePredicate(includeArchived)};
+            """,
             new { Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
     }
@@ -310,7 +315,8 @@ public sealed class UserManagementService
             """
             SELECT id_organization AS Id, COALESCE(NULLIF(organization_short_name, ''), organization_name) AS Name
             FROM public.organization
-            WHERE date_end IS NULL OR date_end >= @Today
+            WHERE (date_begin IS NULL OR date_begin <= @Today)
+              AND (date_end IS NULL OR date_end >= @Today)
             ORDER BY COALESCE(NULLIF(organization_short_name, ''), organization_name);
             """,
             new { Today = _clock.Today.Date },
@@ -436,8 +442,18 @@ public sealed class UserManagementService
     }
 
     private static string GetArchivePredicate(bool includeArchived) => includeArchived
-        ? "u.date_end < @Today"
-        : "(u.date_end IS NULL OR u.date_end >= @Today)";
+        ? """
+          (u.date_begin IS NOT NULL AND u.date_begin > @Today)
+          OR (u.date_end IS NOT NULL AND u.date_end < @Today)
+          OR (o.date_begin IS NOT NULL AND o.date_begin > @Today)
+          OR (o.date_end IS NOT NULL AND o.date_end < @Today)
+          """
+        : """
+          (u.date_begin IS NULL OR u.date_begin <= @Today)
+          AND (u.date_end IS NULL OR u.date_end >= @Today)
+          AND (o.date_begin IS NULL OR o.date_begin <= @Today)
+          AND (o.date_end IS NULL OR o.date_end >= @Today)
+          """;
 
     private static string BuildOrderBy(string sortBy, string sortDirection)
     {
