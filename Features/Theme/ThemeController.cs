@@ -27,9 +27,19 @@ public class ThemeController : Controller
     [HttpPost("theme/settings")]
     public async Task<IActionResult> SaveThemeSettings([FromBody] ThemeSettings? settings, CancellationToken cancellationToken)
     {
+        if (settings == null)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                error = "Проверьте корректность настроек темы.",
+                errors = new[] { "Параметры темы не переданы." }
+            });
+        }
+
         try
         {
-            await _themeSettingsService.SaveAsync(settings ?? new ThemeSettings(), cancellationToken);
+            await _themeSettingsService.SaveAsync(settings, cancellationToken);
             return Ok(new { success = true, message = "Настройки темы сохранены." });
         }
         catch (ThemeSettingsValidationException ex)

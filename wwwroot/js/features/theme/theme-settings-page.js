@@ -92,11 +92,17 @@
         });
     }
 
-    function readThemeNumberValue(field, { withDefault = false, clamp = false } = {}) {
-        const rawValue = readThemeValue(field.id) || (withDefault ? String(field.defaultValue) : '');
-        const value = Number.parseInt(rawValue, 10);
-        if (!Number.isFinite(value)) return withDefault ? field.defaultValue : 0;
-        return clamp ? Math.max(0, Math.min(100, value)) : value;
+    function readThemeNumberValue(field, { withDefault = false } = {}) {
+        const rawValue = readThemeValue(field.id).trim();
+        if (!rawValue) {
+            return withDefault ? field.defaultValue : Number.NaN;
+        }
+
+        if (!/^-?\d+$/.test(rawValue)) {
+            return Number.NaN;
+        }
+
+        return Number(rawValue);
     }
 
     function readThemeTextFields(fields, { withDefaults = false } = {}) {
@@ -112,10 +118,10 @@
         return Object.fromEntries(fields.map((field) => [field.property, readThemeChecked(field.id)]));
     }
 
-    function readThemePercentFields(fields) {
+    function readThemePercentFields(fields, { withDefaults = false } = {}) {
         return Object.fromEntries(fields.map((field) => [
             field.property,
-            readThemeNumberValue(field, { withDefault: true, clamp: true })
+            readThemeNumberValue(field, { withDefault: withDefaults })
         ]));
     }
 
@@ -152,7 +158,7 @@
             backgroundImageOpacity: readThemeNumberValue(THEME_IMAGE_FIELDS.opacity, { withDefault: withDefaults }),
             ...readThemeTextFields(THEME_COLOR_FIELDS, { withDefaults }),
             ...readThemeCheckboxFields(THEME_EFFECT_FIELDS),
-            ...readThemePercentFields(THEME_PERCENT_FIELDS)
+            ...readThemePercentFields(THEME_PERCENT_FIELDS, { withDefaults })
         };
     }
 
@@ -421,12 +427,14 @@
     }
 
     async function submitThemeSettings() {
-        const settings = normalizeThemeSettingsPayload(readThemeFormSettings());
-        const validationErrors = validateThemeSettingsPayload(settings);
+        const submittedSettings = readThemeFormSettings();
+        const validationErrors = validateThemeSettingsPayload(submittedSettings);
         if (validationErrors.length > 0) {
             showThemeValidationErrors(validationErrors);
             return false;
         }
+
+        const settings = normalizeThemeSettingsPayload(submittedSettings);
 
         setThemeButtonsBusy(true);
 

@@ -203,46 +203,53 @@ public class ThemeSettingsService
             throw new ThemeSettingsValidationException(["Параметры темы не переданы."]);
         }
 
-        var normalized = new ThemeSettings
-        {
-            FontColor = NormalizeColorOrDefault(settings.FontColor, DefaultFontColor),
-            BackgroundColor = NormalizeColorOrDefault(settings.BackgroundColor, DefaultBackgroundColor),
-            EffectSnow = settings.EffectSnow,
-            EffectFireworks = settings.EffectFireworks,
-            EffectGrass = settings.EffectGrass,
-            EffectRain = settings.EffectRain,
-            BackgroundImageDataUrl = NormalizeBackgroundImage(settings.BackgroundImageDataUrl),
-            BackgroundImageFileName = NormalizeBackgroundImageFileName(settings.BackgroundImageFileName, settings.BackgroundImageDataUrl),
-            BackgroundImageOpacity = NormalizeOpacity(settings.BackgroundImageOpacity),
-            HeaderDarkenPercent = NormalizePercent(settings.HeaderDarkenPercent),
-            FooterDarkenPercent = NormalizePercent(settings.FooterDarkenPercent),
-            ButtonDarkenPercent = NormalizePercent(settings.ButtonDarkenPercent),
-            SurfaceTintOpacityPercent = NormalizePercent(settings.SurfaceTintOpacityPercent)
-        };
-
         var errors = new List<string>();
+        var fontColor = (settings.FontColor ?? string.Empty).Trim();
+        var backgroundColor = (settings.BackgroundColor ?? string.Empty).Trim();
+        var backgroundImageDataUrl = NormalizeBackgroundImage(settings.BackgroundImageDataUrl);
+        var submittedImageFileName = (settings.BackgroundImageFileName ?? string.Empty).Trim();
 
-        ValidateColor(normalized.FontColor, "Цвет шрифта", errors);
-        ValidateColor(normalized.BackgroundColor, "Цвет фона", errors);
+        ValidateColor(fontColor, "Цвет шрифта", errors);
+        ValidateColor(backgroundColor, "Цвет фона", errors);
 
-        ParseBackgroundImage(normalized.BackgroundImageDataUrl, normalized.BackgroundImageFileName, errors);
+        if (submittedImageFileName.Length > 255)
+        {
+            errors.Add("Имя файла фонового изображения должно содержать не более 255 символов.");
+        }
 
-        if (normalized.BackgroundImageOpacity < 0 || normalized.BackgroundImageOpacity > 100)
+        ParseBackgroundImage(backgroundImageDataUrl, submittedImageFileName, errors);
+
+        if (settings.BackgroundImageOpacity < 0 || settings.BackgroundImageOpacity > 100)
         {
             errors.Add("Непрозрачность фонового изображения должна быть от 0 до 100.");
         }
 
-        ValidatePercent(normalized.HeaderDarkenPercent, "Яркость шапки", errors);
-        ValidatePercent(normalized.FooterDarkenPercent, "Яркость подвала", errors);
-        ValidatePercent(normalized.ButtonDarkenPercent, "Яркость кнопок", errors);
-        ValidatePercent(normalized.SurfaceTintOpacityPercent, "Яркость деталей", errors);
+        ValidatePercent(settings.HeaderDarkenPercent, "Яркость шапки", errors);
+        ValidatePercent(settings.FooterDarkenPercent, "Яркость подвала", errors);
+        ValidatePercent(settings.ButtonDarkenPercent, "Яркость кнопок", errors);
+        ValidatePercent(settings.SurfaceTintOpacityPercent, "Яркость деталей", errors);
 
         if (errors.Count > 0)
         {
             throw new ThemeSettingsValidationException(errors);
         }
 
-        return normalized;
+        return new ThemeSettings
+        {
+            FontColor = fontColor.ToUpperInvariant(),
+            BackgroundColor = backgroundColor.ToUpperInvariant(),
+            EffectSnow = settings.EffectSnow,
+            EffectFireworks = settings.EffectFireworks,
+            EffectGrass = settings.EffectGrass,
+            EffectRain = settings.EffectRain,
+            BackgroundImageDataUrl = backgroundImageDataUrl,
+            BackgroundImageFileName = NormalizeBackgroundImageFileName(submittedImageFileName, backgroundImageDataUrl),
+            BackgroundImageOpacity = settings.BackgroundImageOpacity,
+            HeaderDarkenPercent = settings.HeaderDarkenPercent,
+            FooterDarkenPercent = settings.FooterDarkenPercent,
+            ButtonDarkenPercent = settings.ButtonDarkenPercent,
+            SurfaceTintOpacityPercent = settings.SurfaceTintOpacityPercent
+        };
     }
 
     private static void ValidateColor(string value, string fieldName, ICollection<string> errors)
