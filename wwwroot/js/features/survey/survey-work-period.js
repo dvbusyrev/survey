@@ -277,6 +277,11 @@
 
     function buildCalendarCard(instance, monthDate, displayState) {
         const card = createElement('div', 'survey-period-filter__calendar-card');
+        const title = createElement(
+            'h4',
+            'survey-period-filter__calendar-title',
+            getMonthDescription(monthDate.getFullYear(), monthDate.getMonth())
+        );
         const weekdaysRow = buildWeekdayRow();
         const daysGrid = createElement('div', 'survey-period-filter__days-grid');
         const firstDayIndex = (new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay() + 6) % 7;
@@ -291,6 +296,7 @@
             daysGrid.appendChild(buildDayButton(instance, isoValue, displayState));
         }
 
+        card.appendChild(title);
         card.appendChild(weekdaysRow);
         card.appendChild(daysGrid);
         return card;
@@ -298,10 +304,15 @@
 
     function render(instance) {
         const { state, refs } = instance;
-        const monthDate = new Date(state.viewDate.getFullYear(), state.viewDate.getMonth(), 1);
+        const firstMonth = new Date(state.viewDate.getFullYear(), state.viewDate.getMonth(), 1);
+        const secondMonth = shiftMonth(firstMonth, 1);
+        const calendars = document.createDocumentFragment();
+        const displayState = getDisplayState(state);
 
-        refs.label.textContent = getMonthDescription(monthDate.getFullYear(), monthDate.getMonth());
-        refs.calendar.replaceChildren(buildCalendarCard(instance, monthDate, getDisplayState(state)));
+        refs.label.textContent = `${getMonthDescription(firstMonth.getFullYear(), firstMonth.getMonth())} - ${getMonthDescription(secondMonth.getFullYear(), secondMonth.getMonth())}`;
+        calendars.appendChild(buildCalendarCard(instance, firstMonth, displayState));
+        calendars.appendChild(buildCalendarCard(instance, secondMonth, displayState));
+        refs.calendar.replaceChildren(calendars);
         refs.saveButton.disabled = state.isSaving || !isValidSelection(state);
         refs.saveButton.textContent = state.isSaving ? 'Сохранение...' : 'Сохранить';
     }

@@ -54,7 +54,18 @@
 }
 
 .survey-work-period__popover {
-  width: min(336px, calc(100vw - var(--app-filter-popover-viewport-gap)));
+  width: min(32.5rem, calc(100vw - var(--app-filter-popover-viewport-gap)));
+}
+
+.survey-work-period__trigger,
+.survey-work-period__trigger:hover,
+.survey-work-period__trigger:focus-visible,
+.survey-work-period__trigger:active,
+.survey-work-period__trigger[aria-expanded="true"] {
+  color: var(--app-theme-button-text-color) !important;
+  background: var(--app-theme-button-color) !important;
+  background-image: none !important;
+  border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%) !important;
 }
 
 .survey-period-filter__mode-switch {
@@ -184,10 +195,6 @@
   gap: var(--app-gap-md);
 }
 
-.survey-work-period__popover .survey-period-filter__calendars {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .survey-work-period__panel-nav {
   flex: 1 1 auto;
 }
@@ -224,12 +231,18 @@
 
 .survey-period-filter__day-placeholder {
   display: block;
-  min-height: 2rem;
+}
+
+.survey-period-filter__day-placeholder,
+.survey-period-filter__day-button {
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1;
 }
 
 .survey-period-filter__day-button {
   position: relative;
-  min-height: 2rem;
+  min-height: 0;
   padding: 0;
   color: var(--text-main);
   font-size: 0.86rem;
