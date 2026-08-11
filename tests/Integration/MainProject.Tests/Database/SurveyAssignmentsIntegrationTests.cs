@@ -1,5 +1,6 @@
 using System.Text;
 using Dapper;
+using DocumentFormat.OpenXml.Packaging;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
 using MainProject.Application.DTO.Email;
@@ -1385,7 +1386,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var editPage = await service.GetSurveyEditPageAsync(survey.SurveyId!.Value);
         var result = await service.UpdateActiveSurveysWorkPeriodAsync(new SurveyWorkPeriodRequest
         {
-            DateBegin = DateTime.Today.AddDays(1),
+            DateBegin = DateTime.Today,
             DateEnd = DateTime.Today.AddDays(10)
         });
 
@@ -1410,9 +1411,9 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal(organizationIds, editPage!.SelectedOrganizationIds);
         Assert.True(extensionResult.Success, extensionResult.Message);
         Assert.True(result.Success);
-        Assert.Equal(DateTime.Today.AddDays(1).Date, basePeriod.DateBegin);
+        Assert.Equal(DateTime.Today.Date, basePeriod.DateBegin);
         Assert.Equal(DateTime.Today.AddDays(10).Date, basePeriod.DateEnd);
-        Assert.All(assignments, row => Assert.Equal(DateTime.Today.AddDays(1).Date, row.DateBegin));
+        Assert.All(assignments, row => Assert.Equal(DateTime.Today.Date, row.DateBegin));
         Assert.Equal(extensionEnd, assignments[0].DateEnd);
         Assert.Equal(DateTime.Today.AddDays(10).Date, assignments[1].DateEnd);
     }
@@ -1454,7 +1455,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var survey = await CreateSurveyAsync(organizationIds);
         var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
         var extensionEnd = DateTime.Today.AddDays(40);
-        var newStart = DateTime.Today.AddDays(1);
+        var newStart = DateTime.Today;
         var newEnd = DateTime.Today.AddDays(20);
 
         var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
@@ -2466,7 +2467,11 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var reportRepository = new SurveyRepository(_connectionFactory, _clock);
         var reportName = await reportRepository.GetSurveyNameAsync(survey.SurveyId.Value);
         var reportQuestions = await reportRepository.GetSurveyQuestionsAsync(survey.SurveyId.Value);
-        var reportAnswers = await reportRepository.GetSurveyAnswersAsync(survey.SurveyId.Value, organizationIds[0]);
+        var reportAnswers = await reportRepository.GetSurveyAnswersAsync(
+            survey.SurveyId.Value,
+            organizationIds[0],
+            DateTime.Today.AddMonths(-1),
+            DateTime.Today.AddMonths(1));
         var reportSurveys = await reportRepository.GetSurveysAsync();
         var allReportAnswers = await reportRepository.GetAnswersAsync();
 
@@ -2481,6 +2486,57 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal(2, reportAnswers[0].Answers.Count);
         Assert.Contains(reportSurveys, item => item.IdSurvey == survey.SurveyId && item.Questions.Count == 2);
         Assert.Contains(allReportAnswers, item => item.IdSurvey == survey.SurveyId);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SurveyMonthlyReport_FiltersByCompletionDateAndUsesSelectedPeriodInTitle()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationIds[0], 4))).Success);
+        Assert.True((await workflow.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationIds[1], 5))).Success);
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.answer answer
+                SET completion_date = CASE
+                    WHEN assignment.id_organization = @JulyOrganizationId THEN @JulyCompletionDate
+                    ELSE @AugustCompletionDate
+                END
+                FROM public.organization_survey assignment
+                WHERE assignment.id_organization_survey = answer.id_organization_survey
+                  AND assignment.id_survey = @SurveyId;
+                """,
+                new
+                {
+                    SurveyId = surveyId,
+                    JulyOrganizationId = organizationIds[0],
+                    JulyCompletionDate = new DateTime(2026, 7, 15, 12, 0, 0),
+                    AugustCompletionDate = new DateTime(2026, 8, 5, 12, 0, 0)
+                });
+        }
+
+        var reportClock = new FixedClock(new DateTime(2026, 8, 11));
+        var reportRepository = new SurveyRepository(_connectionFactory, reportClock);
+        var reportService = new SurveyService(_connectionFactory, reportRepository, reportClock);
+        var report = await reportService.CreateSurveyMonthlyReportAsync(surveyId, 0, 7, 2026);
+
+        using var reportStream = new MemoryStream(report.Content);
+        using var document = WordprocessingDocument.Open(reportStream, false);
+        var reportText = document.MainDocumentPart?.Document?.Body?.InnerText ?? string.Empty;
+
+        Assert.Contains("июль 2026", report.FileName);
+        Assert.Contains("за июль 2026", reportText);
+        Assert.Contains("Орг 1", reportText);
+        Assert.DoesNotContain("Орг 2", reportText);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            reportService.CreateSurveyMonthlyReportAsync(surveyId, 0, 9, 2026));
+        Assert.Equal("За выбранный месяц и год записи для отчёта не найдены.", error.Message);
     }
 
     [RequiresPostgresFact]

@@ -32,13 +32,20 @@ public partial class SurveyService
     public async Task<GeneratedFileResult> CreateSurveyMonthlyReportAsync(
         int surveyId,
         int organizationId,
+        int month,
+        int year,
         CancellationToken cancellationToken = default)
     {
+        ValidateMonthlyPeriod(month, year);
+
         string surveyName = string.Empty;
         var criteriaList = new List<string>();
         var organizations = new List<string>();
         var ratings = new List<List<int>>();
         var comments = new List<List<string>>();
+        var periodStart = new DateTime(year, month, 1);
+        var periodEndExclusive = periodStart.AddMonths(1);
+        var periodLabel = FormatRussianMonthYear(month, year);
 
         surveyName = await _surveyRepository.GetSurveyNameAsync(surveyId, cancellationToken) ?? string.Empty;
         criteriaList = (await _surveyRepository.GetSurveyQuestionsAsync(surveyId, cancellationToken))
@@ -48,7 +55,15 @@ public partial class SurveyService
         var surveyAnswers = await _surveyRepository.GetSurveyAnswersAsync(
             surveyId,
             organizationId == 0 ? null : organizationId,
+            periodStart,
+            periodEndExclusive,
             cancellationToken);
+
+        if (surveyAnswers.Count == 0)
+        {
+            throw new InvalidOperationException("За выбранный месяц и год записи для отчёта не найдены.");
+        }
+
         foreach (var answer in surveyAnswers)
         {
             organizations.Add(answer.OrganizationName ?? string.Empty);
@@ -58,10 +73,9 @@ public partial class SurveyService
 
         var metrics = SurveyReportMetricsCalculator.Calculate(ratings, criteriaList.Count);
 
-        string currentMonth = _clock.Now.ToString("MMMM yyyy").ToLower();
         string fileName = organizationId == 0
-            ? $"Отчет по анкете {surveyName} ({currentMonth}).docx"
-            : $"Отчет по анкете {surveyName} для {organizations.FirstOrDefault()} ({currentMonth}).docx";
+            ? $"Отчет по анкете {surveyName} ({periodLabel}).docx"
+            : $"Отчет по анкете {surveyName} для {organizations.FirstOrDefault()} ({periodLabel}).docx";
 
         using var mem = new MemoryStream();
         using (var document = WordprocessingDocument.Create(mem, WordprocessingDocumentType.Document, true))
@@ -86,7 +100,7 @@ public partial class SurveyService
             });
 
             body.AppendChild(new Paragraph(
-                new Run(new Text($"за {currentMonth}"))
+                new Run(new Text($"за {periodLabel}"))
                 {
                     RunProperties = new RunProperties(
                         new Italic(),

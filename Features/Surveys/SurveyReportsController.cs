@@ -33,14 +33,25 @@ public class SurveyReportsController : Controller
     [HttpGet("reports/monthly/{id:int}")]
     public async Task<IActionResult> CreateMonthlyReport(
         int id,
+        int month,
+        int year,
         int idOrganization = 0,
         string type = "",
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _surveyReportService.CreateSurveyMonthlyReportAsync(id, idOrganization, cancellationToken);
+            var result = await _surveyReportService.CreateSurveyMonthlyReportAsync(
+                id,
+                idOrganization,
+                month,
+                year,
+                cancellationToken);
             return File(result.Content, result.ContentType, result.FileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return this.SafeError(ex, "Невозможно сформировать отчёт с указанными параметрами.", "Некорректные параметры месячного отчёта по анкете", StatusCodes.Status400BadRequest);
         }
         catch (Exception ex)
         {

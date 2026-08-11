@@ -1814,6 +1814,8 @@ public sealed class SurveyRepository
     public async Task<IReadOnlyList<AnswerRecord>> GetSurveyAnswersAsync(
         int surveyId,
         int? organizationId,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -1834,13 +1836,21 @@ public sealed class SurveyRepository
                 ON organization.id_organization = assignment.id_organization
             WHERE assignment.id_survey = @SurveyId
               AND (@OrganizationId IS NULL OR assignment.id_organization = @OrganizationId)
+              AND answer.completion_date >= @PeriodStart
+              AND answer.completion_date < @PeriodEndExclusive
               AND EXISTS (
                   SELECT 1 FROM public.answer_item answer_item
                   WHERE answer_item.id_answer = answer.id_answer
               )
             ORDER BY answer.completion_date DESC;
             """,
-            new { SurveyId = surveyId, OrganizationId = organizationId },
+            new
+            {
+                SurveyId = surveyId,
+                OrganizationId = organizationId,
+                PeriodStart = periodStart,
+                PeriodEndExclusive = periodEndExclusive
+            },
             cancellationToken: cancellationToken))).ToList();
 
         await AttachAnswerItemsAsync(connection, answers, cancellationToken);

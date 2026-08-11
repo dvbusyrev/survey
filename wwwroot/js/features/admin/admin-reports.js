@@ -132,8 +132,23 @@ async function downloadReport(url, defaultFileName, options = {}) {
     }
 }
 
-function createMonthlyReport(id) {
-    return downloadReport(`/reports/monthly/${id}`, 'Отчет.docx');
+function createMonthlyReport(id, month, year, options = {}) {
+    const resolvedMonth = resolvePositiveInteger(month, 'reportMonth');
+    const resolvedYear = resolvePositiveInteger(year, 'reportMonthYear');
+
+    if (!resolvedMonth || !resolvedYear) {
+        showReportFailure('Отчёт по анкете', 'Выберите месяц и год для формирования отчёта.');
+        return false;
+    }
+
+    return downloadReport(
+        `/reports/monthly/${id}?month=${resolvedMonth}&year=${resolvedYear}`,
+        `Отчет_по_анкете_за_${resolvedMonth}_${resolvedYear}.docx`,
+        {
+            ...options,
+            reportTitle: 'Отчёт по анкете'
+        }
+    );
 }
 
 function createMonthlySummaryReport(month, year, options = {}) {
