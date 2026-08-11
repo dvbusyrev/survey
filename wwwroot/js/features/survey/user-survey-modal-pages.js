@@ -178,7 +178,6 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
 
         questionNodes.forEach((questionNode) => {
             const questionId = questionNode.dataset.questionId || '';
-            const questionText = questionNode.querySelector('[data-role="question-title"]')?.textContent?.trim() || '';
             const answer = answers[questionId] || {};
             const rating = Number(answer.rating || 0);
             const comment = rating === 5 ? '' : String(answer.comment || '').trim();
@@ -197,7 +196,6 @@ window.mountSurveyFillPage = function mountSurveyFillPage(host, { survey, organi
 
             payloadAnswers.push({
                 question_id: questionId,
-                question_text: questionText,
                 rating: rating || null,
                 comment
             });

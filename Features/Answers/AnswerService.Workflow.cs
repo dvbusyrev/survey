@@ -27,7 +27,7 @@ public partial class AnswerService
         await InsertAnswerRecordAsync(answerRecord, GetRequiredCurrentUserId(), cancellationToken);
 
         var model = await BuildCheckAnswersPageAsync(
-            answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers, cancellationToken);
+            answerRecord.IdSurvey, answerRecord.OrganizationId, cancellationToken);
         if (model == null)
         {
             return new AnswerMutationResult
@@ -101,7 +101,7 @@ public partial class AnswerService
         }
 
         var model = await BuildCheckAnswersPageAsync(
-            answerRecord.IdSurvey, answerRecord.OrganizationId, answerRecord.Answers, cancellationToken);
+            answerRecord.IdSurvey, answerRecord.OrganizationId, cancellationToken);
         if (model == null)
         {
             return new AnswerMutationResult
@@ -398,11 +398,11 @@ public partial class AnswerService
     private async Task<CheckAnswersPageViewModel?> BuildCheckAnswersPageAsync(
         int surveyId,
         int organizationId,
-        IReadOnlyList<AnswerPayloadItem> answers,
         CancellationToken cancellationToken)
     {
         var survey = await GetSurveyInfoAsync(surveyId, cancellationToken);
-        if (survey == null)
+        var answerRecord = await GetAnswerRecordAsync(surveyId, organizationId, cancellationToken);
+        if (survey == null || answerRecord == null)
         {
             return null;
         }
@@ -410,7 +410,7 @@ public partial class AnswerService
         return new CheckAnswersPageViewModel
         {
             Survey = survey,
-            Answers = answers,
+            Answers = answerRecord.Answers,
             IdOrganization = organizationId
         };
     }

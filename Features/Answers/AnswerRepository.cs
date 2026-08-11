@@ -829,9 +829,8 @@ public sealed class AnswerRepository
             normalizedItems.Add(new AnswerItemRow
             {
                 QuestionOrder = questionOrder,
-                QuestionText = !string.IsNullOrWhiteSpace(item.DisplayQuestion)
-                    ? item.DisplayQuestion.Trim()
-                    : questionLookup.GetValueOrDefault(questionOrder, $"Вопрос {questionOrder}"),
+                // The snapshot must preserve the server-side survey text, not client-supplied display data.
+                QuestionText = questionLookup[questionOrder],
                 Rating = item.Rating,
                 Comment = item.Rating == 5 || string.IsNullOrWhiteSpace(item.Comment)
                     ? null

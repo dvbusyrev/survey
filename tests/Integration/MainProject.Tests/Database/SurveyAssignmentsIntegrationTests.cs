@@ -1524,6 +1524,58 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task AnswerSnapshots_UseServerQuestionTextInsteadOfClientPayload()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var survey = await CreateSurveyAsync([organizationId]);
+        var surveyId = survey.SurveyId!.Value;
+        var workflow = CreateAnswerService();
+        var answerRecord = BuildAnswerRecord(surveyId, organizationId, 4);
+        answerRecord.Answers[0].QuestionText = "Подменённый вопрос из question_text";
+        answerRecord.Answers[0].Text = "Подменённый вопрос из text";
+        answerRecord.Answers[1].QuestionText = "Ещё один подменённый вопрос";
+
+        var draftResult = await workflow.SaveDraftAnswerAsync(answerRecord);
+
+        await using var connection = _fixture.CreateConnection();
+        var draftQuestionTexts = (await connection.QueryAsync<string>(
+            """
+            SELECT item.question_text
+            FROM public.answer_draft_item item
+            INNER JOIN public.answer_draft draft ON draft.id_answer_draft = item.id_answer_draft
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = draft.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+            ORDER BY item.question_order;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId })).ToArray();
+
+        var submissionResult = await workflow.InsertAnswerAsync(answerRecord);
+        var submittedQuestionTexts = (await connection.QueryAsync<string>(
+            """
+            SELECT item.question_text
+            FROM public.answer_item item
+            INNER JOIN public.answer answer ON answer.id_answer = item.id_answer
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = answer.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+            ORDER BY item.question_order;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId })).ToArray();
+
+        Assert.True(draftResult.Success);
+        Assert.True(submissionResult.Success);
+        Assert.NotNull(submissionResult.Model);
+        Assert.Equal(
+            new[] { "Первый вопрос", "Второй вопрос" },
+            submissionResult.Model.Answers.Select(answer => answer.DisplayQuestion));
+        Assert.Equal(new[] { "Первый вопрос", "Второй вопрос" }, draftQuestionTexts);
+        Assert.Equal(new[] { "Первый вопрос", "Второй вопрос" }, submittedQuestionTexts);
+    }
+
+    [RequiresPostgresFact]
     public async Task Signature_CanBeSavedOnlyOnce()
     {
         var organizationIds = await CreateOrganizationsAsync(1);

@@ -629,11 +629,8 @@
         renderError();
         renderSubmitState();
         const payloadAnswers = Object.entries(answers).map(([questionId, answer]) => {
-          const questionNode = getQuestionNodes().find((node) => node.dataset.questionId === questionId);
-          const questionText = questionNode?.querySelector('[data-role="question-title"]')?.textContent?.trim() || "";
           return {
             question_id: questionId,
-            question_text: questionText,
             rating: answer.rating,
             comment: answer.rating === 5 ? "" : answer.comment || ""
           };
