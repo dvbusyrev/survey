@@ -910,6 +910,7 @@ public sealed class SurveyRepository
         return connection.QuerySingleOrDefaultAsync<SurveyAssignmentPeriodState>(new CommandDefinition(
             """
             SELECT
+                assignment.id_organization_survey AS AssignmentId,
                 assignment.date_begin AS AssignmentDateBegin,
                 assignment.date_end AS AssignmentDateEnd,
                 survey.date_begin AS BaseDateBegin,
@@ -922,6 +923,27 @@ public sealed class SurveyRepository
             FOR UPDATE OF assignment;
             """,
             new { SurveyId = surveyId, OrganizationId = organizationId },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    public Task<bool> HasAnswerCompletedAfterAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int assignmentId,
+        DateTime date,
+        CancellationToken cancellationToken = default)
+    {
+        return connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.answer answer
+                WHERE answer.id_organization_survey = @AssignmentId
+                  AND answer.completion_date::date > @Date::date
+            );
+            """,
+            new { AssignmentId = assignmentId, Date = date.Date },
             transaction,
             cancellationToken: cancellationToken));
     }

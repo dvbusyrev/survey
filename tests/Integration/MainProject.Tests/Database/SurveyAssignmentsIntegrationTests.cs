@@ -1182,6 +1182,117 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task ExtensionDeletion_RejectsAnswerCompletedAfterBaseSurveyEndDate()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var userId = await CreateUserAsync(organizationId, "extension-history-delete-client");
+        var survey = await CreateSurveyAsync([organizationId]);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var extensionEnd = DateTime.Today.AddDays(30);
+        var baseEnd = DateTime.Today.AddDays(-1);
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationId,
+                    ExtendedUntil = extensionEnd.ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                "UPDATE public.survey SET date_end = @BaseEnd WHERE id_survey = @SurveyId;",
+                new { BaseEnd = baseEnd, SurveyId = survey.SurveyId });
+        }
+
+        var answerResult = await CreateAnswerService(userId).InsertAnswerAsync(
+            BuildAnswerRecord(survey.SurveyId.Value, organizationId, 4));
+        var deletionResult = await service.DeleteExtensionAsync(survey.SurveyId.Value, organizationId);
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var assignmentEnd = await verificationConnection.ExecuteScalarAsync<DateTime>(
+            """
+            SELECT date_end
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationId });
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.True(answerResult.Success, answerResult.Error);
+        Assert.False(deletionResult.Success);
+        Assert.Equal("extension_answer_in_extended_period", deletionResult.Code);
+        Assert.Equal(
+            "Нельзя удалить продление: по анкете был отправлен ответ в продлённый период.",
+            deletionResult.Message);
+        Assert.Equal(extensionEnd, assignmentEnd);
+    }
+
+    [RequiresPostgresFact]
+    public async Task ExtensionEndDateUpdate_BaseDateRejectsAnswerCompletedInExtendedPeriod()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var userId = await CreateUserAsync(organizationId, "extension-history-edit-client");
+        var survey = await CreateSurveyAsync([organizationId]);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var extensionEnd = DateTime.Today.AddDays(30);
+        var baseEnd = DateTime.Today.AddDays(-1);
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationId,
+                    ExtendedUntil = extensionEnd.ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                "UPDATE public.survey SET date_end = @BaseEnd WHERE id_survey = @SurveyId;",
+                new { BaseEnd = baseEnd, SurveyId = survey.SurveyId });
+        }
+
+        var answerResult = await CreateAnswerService(userId).InsertAnswerAsync(
+            BuildAnswerRecord(survey.SurveyId.Value, organizationId, 4));
+        var updateResult = await service.UpdateExtensionPeriodAsync(
+            survey.SurveyId.Value,
+            organizationId,
+            new SurveyAssignmentPeriodRequest { DateEnd = baseEnd });
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var assignmentEnd = await verificationConnection.ExecuteScalarAsync<DateTime>(
+            """
+            SELECT date_end
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationId });
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.True(answerResult.Success, answerResult.Error);
+        Assert.False(updateResult.Success);
+        Assert.Equal("extension_answer_in_extended_period", updateResult.Code);
+        Assert.Equal(
+            "Нельзя удалить продление: по анкете был отправлен ответ в продлённый период.",
+            updateResult.Message);
+        Assert.Equal(extensionEnd, assignmentEnd);
+    }
+
+    [RequiresPostgresFact]
     public async Task AdminLists_MoveBaseSurveyAndExtensionIndependently()
     {
         var organizationId = Assert.Single(await CreateOrganizationsAsync(1));

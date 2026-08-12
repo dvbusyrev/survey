@@ -580,6 +580,24 @@ public partial class SurveyService
                 };
             }
 
+            var hasAnswerAfterRequestedEnd = await _surveyRepository.HasAnswerCompletedAfterAsync(
+                connection,
+                transaction,
+                period.AssignmentId,
+                requestedDateEnd,
+                cancellationToken);
+            if (hasAnswerAfterRequestedEnd)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = requestedDateEnd == baseDateEnd
+                        ? "Нельзя удалить продление: по анкете был отправлен ответ в продлённый период."
+                        : "Дата конца продления не может быть раньше даты отправки ответа.",
+                    Code = "extension_answer_in_extended_period"
+                };
+            }
+
             if (requestedDateEnd == baseDateEnd)
             {
                 var resetRows = await _surveyRepository.ResetExtensionPeriodAsync(
@@ -667,6 +685,40 @@ public partial class SurveyService
 
         try
         {
+            var period = await _surveyRepository.GetAssignmentPeriodForUpdateAsync(
+                connection,
+                transaction,
+                surveyId,
+                organizationId,
+                cancellationToken);
+
+            if (period?.AssignmentDateEnd == null
+                || period.BaseDateEnd == null
+                || period.AssignmentDateEnd.Value.Date <= period.BaseDateEnd.Value.Date)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = "Продлённое назначение не найдено.",
+                    Code = "extension_not_found"
+                };
+            }
+
+            if (await _surveyRepository.HasAnswerCompletedAfterAsync(
+                    connection,
+                    transaction,
+                    period.AssignmentId,
+                    period.BaseDateEnd.Value,
+                    cancellationToken))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = "Нельзя удалить продление: по анкете был отправлен ответ в продлённый период.",
+                    Code = "extension_answer_in_extended_period"
+                };
+            }
+
             var affectedRows = await _surveyRepository.ResetExtensionPeriodAsync(
                 connection,
                 transaction,
