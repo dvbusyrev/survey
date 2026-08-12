@@ -127,7 +127,6 @@ public partial class SurveyService
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
-        DateTime today,
         DateTime startDate,
         DateTime endDate,
         CancellationToken cancellationToken)
@@ -142,13 +141,14 @@ public partial class SurveyService
             throw new InvalidOperationException($"Анкета {surveyId} не найдена для автосоздания.");
         }
 
-        var hasActiveSurvey = await _surveyRepository.HasActiveSurveyWithNameAsync(
+        var alreadyCreated = await _surveyRepository.HasSurveyWithScheduleAsync(
             connection,
             transaction,
             originalSurvey.NameSurvey,
-            today,
+            startDate,
+            endDate,
             cancellationToken);
-        if (hasActiveSurvey)
+        if (alreadyCreated)
         {
             return false;
         }

@@ -215,7 +215,6 @@ public partial class SurveyService
                 connection,
                 transaction,
                 surveyId,
-                today,
                 schedule.StartDate,
                 schedule.EndDate,
                 cancellationToken);

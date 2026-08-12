@@ -2224,31 +2224,80 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
-    public async Task AutoCreation_RunPending_SkipsTemplateWhileSurveyWithSameNameIsActive()
+    public async Task AutoCreation_RunPending_DoesNotRecreateExpiredScheduledCopy()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
         var surveyId = survey.SurveyId!.Value;
-        var today = new DateTime(2026, 4, 27);
+        var today = new DateTime(2026, 8, 31);
+
+        var autoCreation = new SurveyService(
+            _connectionFactory,
+            _surveyRepository,
+            new FixedClock(today),
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: CreateWeekdayProductionCalendar());
+
+        var startResult = await autoCreation.StartAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "month",
+            ReportingOffsetBusinessDays = 5,
+            ActivePeriodBusinessDays = 5,
+            SurveyIds = [surveyId]
+        });
+
+        await using (var normalizationConnection = _fixture.CreateConnection())
+        {
+            await normalizationConnection.ExecuteAsync(
+                """
+                UPDATE public.survey
+                SET name_survey = '  интеграционная АНКЕТА  '
+                WHERE id_survey <> @SurveyId
+                  AND date_begin = '2026-08-18'
+                  AND date_end = '2026-08-24';
+                """,
+                new { SurveyId = surveyId });
+        }
+
+        var repeatedRun = await autoCreation.RunPendingAsync();
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var scheduledCopies = await verificationConnection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.survey
+            WHERE lower(btrim(name_survey)) = lower(btrim('Интеграционная анкета'))
+              AND date_begin = '2026-08-18'
+              AND date_end = '2026-08-24';
+            """);
+
+        Assert.True(startResult.Success, startResult.Message);
+        Assert.True(repeatedRun.Processed);
+        Assert.Equal(0, repeatedRun.CreatedSurveyCount);
+        Assert.Equal(1, scheduledCopies);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AutoCreation_RunPending_CreatesNextPeriodDespitePreviousExtension()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var surveyId = survey.SurveyId!.Value;
+        var today = new DateTime(2026, 8, 24);
 
         await using (var connection = _fixture.CreateConnection())
         {
             await connection.ExecuteAsync(
                 """
                 UPDATE public.survey
-                SET date_begin = @DateBegin, date_end = @DateEnd
+                SET date_begin = '2026-07-20', date_end = '2026-07-29'
                 WHERE id_survey = @SurveyId;
 
                 UPDATE public.organization_survey
-                SET date_begin = @DateBegin, date_end = @DateEnd
+                SET date_begin = '2026-07-20', date_end = '2026-08-25'
                 WHERE id_survey = @SurveyId;
                 """,
-                new
-                {
-                    SurveyId = surveyId,
-                    DateBegin = today.AddDays(-5),
-                    DateEnd = today.AddDays(5)
-                });
+                new { SurveyId = surveyId });
         }
 
         var autoCreation = new SurveyService(
@@ -2260,44 +2309,25 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         var startResult = await autoCreation.StartAsync(new SurveyAutoCreationSettingsRequest
         {
-            ReportingPeriod = "quarter",
-            ReportingOffsetBusinessDays = 5,
+            ReportingPeriod = "month",
+            ReportingOffsetBusinessDays = 1,
             ActivePeriodBusinessDays = 5,
             SurveyIds = [surveyId]
         });
 
         await using var verificationConnection = _fixture.CreateConnection();
-        var matchingSurveyCount = await verificationConnection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM public.survey WHERE lower(btrim(name_survey)) = lower(btrim('Интеграционная анкета'));"
-        );
+        var augustCopy = await verificationConnection.QuerySingleAsync<SurveyDateRow>(
+            """
+            SELECT date_begin AS DateBegin, date_end AS DateEnd
+            FROM public.survey
+            WHERE lower(btrim(name_survey)) = lower(btrim('Интеграционная анкета'))
+              AND id_survey <> @SurveyId;
+            """,
+            new { SurveyId = surveyId });
 
         Assert.True(startResult.Success, startResult.Message);
-        Assert.Equal(1, matchingSurveyCount);
-
-        await verificationConnection.ExecuteAsync(
-            """
-            UPDATE public.survey
-            SET date_end = @DateEnd
-            WHERE id_survey = @SurveyId;
-
-            UPDATE public.organization_survey
-            SET date_end = @DateEnd
-            WHERE id_survey = @SurveyId;
-            """,
-            new
-            {
-                SurveyId = surveyId,
-                DateEnd = today.AddDays(-1)
-            });
-
-        var runAfterArchive = await autoCreation.RunPendingAsync();
-        matchingSurveyCount = await verificationConnection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM public.survey WHERE lower(btrim(name_survey)) = lower(btrim('Интеграционная анкета'));"
-        );
-
-        Assert.True(runAfterArchive.Processed);
-        Assert.Equal(1, runAfterArchive.CreatedSurveyCount);
-        Assert.Equal(2, matchingSurveyCount);
+        Assert.Equal(new DateTime(2026, 8, 24), augustCopy.DateBegin);
+        Assert.Equal(new DateTime(2026, 8, 28), augustCopy.DateEnd);
     }
 
     [RequiresPostgresFact]

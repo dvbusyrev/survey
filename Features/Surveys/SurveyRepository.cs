@@ -848,11 +848,12 @@ public sealed class SurveyRepository
         return organizationIds.ToArray();
     }
 
-    public async Task<bool> HasActiveSurveyWithNameAsync(
+    public async Task<bool> HasSurveyWithScheduleAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         string surveyName,
-        DateTime today,
+        DateTime dateBegin,
+        DateTime? dateEnd,
         CancellationToken cancellationToken = default)
     {
         return await connection.ExecuteScalarAsync<bool>(
@@ -862,35 +863,15 @@ public sealed class SurveyRepository
                     SELECT 1
                     FROM public.survey survey
                     WHERE lower(btrim(survey.name_survey)) = lower(btrim(@SurveyName))
-                      AND EXISTS (
-                          SELECT 1
-                          FROM public.organization_survey assignment
-                          WHERE assignment.id_survey = survey.id_survey
-                      )
-                      AND (
-                          (
-                              survey.date_begin IS NOT NULL
-                              AND survey.date_begin <= @Today
-                              AND (survey.date_end IS NULL OR survey.date_end >= @Today)
-                          )
-                          OR EXISTS (
-                              SELECT 1
-                              FROM public.organization_survey assignment
-                              WHERE assignment.id_survey = survey.id_survey
-                                AND (
-                                    assignment.date_begin IS DISTINCT FROM survey.date_begin
-                                    OR assignment.date_end IS DISTINCT FROM survey.date_end
-                                )
-                                AND assignment.date_begin <= @Today
-                                AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
-                          )
-                      )
+                      AND survey.date_begin = @DateBegin
+                      AND survey.date_end IS NOT DISTINCT FROM @DateEnd::date
                 );
                 """,
                 new
                 {
                     SurveyName = surveyName,
-                    Today = today.Date
+                    DateBegin = dateBegin.Date,
+                    DateEnd = dateEnd?.Date
                 },
                 transaction,
                 cancellationToken: cancellationToken));
