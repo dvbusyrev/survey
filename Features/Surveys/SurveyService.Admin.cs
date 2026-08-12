@@ -203,7 +203,7 @@ public partial class SurveyService
         }
 
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        return await _surveyRepository.GetSelectedOrganizationsForSurveyAsync(
+        return await _surveyRepository.GetUnansweredOrganizationsForSurveyExtensionAsync(
             connection,
             surveyId,
             cancellationToken);
@@ -436,6 +436,19 @@ public partial class SurveyService
                 {
                     await transaction.RollbackAsync(cancellationToken);
                     const string message = "Доступ к анкете не ограничен датой конца и не требует продления.";
+                    return new OperationResult
+                    {
+                        Success = false,
+                        Message = message,
+                        Error = message,
+                        Errors = [message]
+                    };
+                }
+
+                if (period.HasAnswer)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    const string message = "Нельзя продлить доступ: организация уже отправила ответ по анкете.";
                     return new OperationResult
                     {
                         Success = false,

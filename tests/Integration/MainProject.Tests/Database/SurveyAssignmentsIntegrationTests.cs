@@ -910,6 +910,51 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task SurveyExtension_ListsOnlyUnansweredOrganizationsAndRejectsAnsweredAssignment()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var userId = await CreateUserAsync(organizationIds[0], "extension-answered-client");
+        var survey = await CreateSurveyAsync(organizationIds);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var answerResult = await CreateAnswerService(userId).InsertAnswerAsync(
+            BuildAnswerRecord(survey.SurveyId!.Value, organizationIds[0], 4));
+
+        var availableOrganizations = await service.GetAssignedOrganizationsForExtensionAsync(
+            survey.SurveyId.Value);
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+
+        await using var connection = _fixture.CreateConnection();
+        var answeredAssignmentEnd = await connection.ExecuteScalarAsync<DateTime>(
+            """
+            SELECT date_end
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+
+        Assert.True(answerResult.Success, answerResult.Error);
+        var availableOrganization = Assert.Single(availableOrganizations);
+        Assert.Equal(organizationIds[1], availableOrganization.Id);
+        Assert.False(extensionResult.Success);
+        Assert.Equal(
+            "Нельзя продлить доступ: организация уже отправила ответ по анкете.",
+            extensionResult.Message);
+        Assert.Equal(DateTime.Today.AddDays(14), answeredAssignmentEnd);
+    }
+
+    [RequiresPostgresFact]
     public async Task ExtensionEndDateUpdate_ChangesOnlySelectedAssignmentEndDate()
     {
         var organizationIds = await CreateOrganizationsAsync(2);
@@ -1329,7 +1374,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             1, null, null, null, null, null, null, null, null);
 
         Assert.True(extensionResult.Success, extensionResult.Message);
-        Assert.DoesNotContain(activeWithExtension.SurveyRows, row => row.NameSurvey == "Интеграционная анкета");
+        Assert.Contains(activeWithExtension.SurveyRows, row => row.NameSurvey == "Интеграционная анкета");
         Assert.Contains(
             activeWithExtension.SurveyRows,
             row => row.NameSurvey == "Интеграционная анкета: продление для Орг 1"
@@ -1356,6 +1401,66 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains(
             archiveAfterExtension.SurveyRows,
             row => row.NameSurvey == "Интеграционная анкета: продление для Орг 1");
+    }
+
+    [RequiresPostgresFact]
+    public async Task ArchivedSurveyExtension_MovesOriginalAndExtensionRowsToActiveList()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var survey = await CreateSurveyAsync([organizationId]);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var baseEnd = DateTime.Today.AddDays(-1);
+        var extensionEnd = DateTime.Today.AddDays(20);
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.organization_survey
+                SET date_end = @BaseEnd
+                WHERE id_survey = @SurveyId;
+
+                UPDATE public.survey
+                SET date_end = @BaseEnd
+                WHERE id_survey = @SurveyId;
+                """,
+                new { BaseEnd = baseEnd, SurveyId = survey.SurveyId });
+        }
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationId,
+                    ExtendedUntil = extensionEnd.ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+        var activePage = await service.GetSurveysPageAsync(1, null, null, null);
+        var archivePage = await service.GetAdminArchivedSurveysPageAsync(
+            1, null, null, null, null, null, null, null, null);
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        var activeRows = activePage.SurveyRows
+            .Where(row => row.IdSurvey == survey.SurveyId)
+            .ToArray();
+        Assert.Equal(2, activeRows.Length);
+        Assert.False(activeRows[0].IsExtension);
+        Assert.Equal(baseEnd, activeRows[0].DateEnd);
+        Assert.True(activeRows[1].IsExtension);
+        Assert.Equal(extensionEnd, activeRows[1].DateEnd);
+        Assert.Contains(
+            activePage.SurveyRows,
+            row => row.IdSurvey == survey.SurveyId && !row.IsExtension);
+        Assert.Contains(
+            archivePage.SurveyRows,
+            row => row.IdSurvey == survey.SurveyId && !row.IsExtension && row.DateEnd == baseEnd);
+        Assert.DoesNotContain(
+            archivePage.SurveyRows,
+            row => row.IdSurvey == survey.SurveyId && row.IsExtension);
     }
 
     [RequiresPostgresFact]

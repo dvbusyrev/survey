@@ -7,4 +7,5 @@ public sealed class SurveyAssignmentPeriodState
     public DateTime? AssignmentDateEnd { get; init; }
     public DateTime BaseDateBegin { get; init; }
     public DateTime? BaseDateEnd { get; init; }
+    public bool HasAnswer { get; init; }
 }

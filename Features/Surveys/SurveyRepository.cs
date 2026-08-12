@@ -150,6 +150,36 @@ public sealed class SurveyRepository
         return organizations.AsList();
     }
 
+    public async Task<IReadOnlyList<OrganizationSelectionItem>> GetUnansweredOrganizationsForSurveyExtensionAsync(
+        NpgsqlConnection connection,
+        int surveyId,
+        CancellationToken cancellationToken = default)
+    {
+        var organizations = await connection.QueryAsync<OrganizationSelectionItem>(new CommandDefinition(
+            """
+            SELECT
+                organization.id_organization AS Id,
+                COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS Name,
+                assignment.date_end AS DateEnd,
+                survey.date_end AS SurveyDateEnd
+            FROM public.organization_survey assignment
+            INNER JOIN public.organization organization
+                ON organization.id_organization = assignment.id_organization
+            INNER JOIN public.survey survey
+                ON survey.id_survey = assignment.id_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM public.answer answer
+                    WHERE answer.id_organization_survey = assignment.id_organization_survey
+                )
+            ORDER BY COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name);
+            """,
+            new { SurveyId = surveyId },
+            cancellationToken: cancellationToken));
+        return organizations.AsList();
+    }
+
     public Task<int> UpdateActiveSurveyPeriodAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -914,7 +944,12 @@ public sealed class SurveyRepository
                 assignment.date_begin AS AssignmentDateBegin,
                 assignment.date_end AS AssignmentDateEnd,
                 survey.date_begin AS BaseDateBegin,
-                survey.date_end AS BaseDateEnd
+                survey.date_end AS BaseDateEnd,
+                EXISTS (
+                    SELECT 1
+                    FROM public.answer answer
+                    WHERE answer.id_organization_survey = assignment.id_organization_survey
+                ) AS HasAnswer
             FROM public.organization_survey assignment
             INNER JOIN public.survey survey
                 ON survey.id_survey = assignment.id_survey
@@ -1120,8 +1155,8 @@ public sealed class SurveyRepository
                         SELECT DISTINCT assignment.id_organization
                         FROM public.organization_survey assignment
                         WHERE assignment.id_survey = s.id_survey
-                          AND assignment.date_begin IS NOT DISTINCT FROM s.date_begin
-                          AND assignment.date_end IS NOT DISTINCT FROM s.date_end
+                          AND assignment.date_begin <= @Today
+                          AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
                         ORDER BY assignment.id_organization
                     ),
                     ARRAY[]::integer[]
@@ -1133,8 +1168,8 @@ public sealed class SurveyRepository
                         INNER JOIN public.organization o
                             ON o.id_organization = assignment.id_organization
                         WHERE assignment.id_survey = s.id_survey
-                          AND assignment.date_begin IS NOT DISTINCT FROM s.date_begin
-                          AND assignment.date_end IS NOT DISTINCT FROM s.date_end
+                          AND assignment.date_begin <= @Today
+                          AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
                         ORDER BY COALESCE(NULLIF(o.organization_short_name, ''), o.organization_name)
                     ),
                     ARRAY[]::text[]
@@ -1146,8 +1181,20 @@ public sealed class SurveyRepository
                 0 AS row_organization_id
             FROM public.survey s
             WHERE s.date_begin IS NOT NULL
-              AND s.date_begin <= @Today
-              AND (s.date_end IS NULL OR s.date_end >= @Today)
+              AND (
+                    (
+                        s.date_begin <= @Today
+                        AND (s.date_end IS NULL OR s.date_end >= @Today)
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM public.organization_survey extension
+                        WHERE extension.id_survey = s.id_survey
+                          AND extension.date_end > s.date_end
+                          AND extension.date_begin <= @Today
+                          AND extension.date_end >= @Today
+                    )
+                )
               AND EXISTS (
                     SELECT 1
                     FROM public.organization_survey assignment
