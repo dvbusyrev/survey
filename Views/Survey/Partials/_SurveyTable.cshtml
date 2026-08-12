@@ -138,6 +138,7 @@
                                         data-organization-name="@(survey.OrganizationNames?.FirstOrDefault() ?? string.Empty)"
                                         data-date-begin="@survey.DateBegin.ToString("yyyy-MM-dd")"
                                         data-date-end="@FormatIsoDate(survey.DateEnd)"
+                                        data-base-date-end="@FormatIsoDate(survey.BaseDateEnd)"
                                         data-click-call="openSurveyExtensionPeriodModalFromTrigger"
                                         data-click-pass-element="true"
                                         aria-label="Редактировать">

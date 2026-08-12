@@ -153,9 +153,7 @@ public class SurveyExtensionController : Controller
                 return NotFound(error);
             }
 
-            return string.Equals(result.Code, "extension_in_use", StringComparison.Ordinal)
-                ? Conflict(error)
-                : BadRequest(error);
+            return BadRequest(error);
         }
         catch (Exception ex)
         {

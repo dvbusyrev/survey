@@ -875,6 +875,41 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task SurveyExtension_RejectsDateNotLaterThanCurrentAssignmentEndDate()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+
+        var result = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = DateTime.Today.AddDays(10).ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+
+        await using var connection = _fixture.CreateConnection();
+        var dateEnd = await connection.ExecuteScalarAsync<DateTime>(
+            """
+            SELECT date_end
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+
+        Assert.False(result.Success);
+        Assert.Equal("Новая дата конца должна быть позже текущей даты конца назначения.", result.Message);
+        Assert.Equal(DateTime.Today.AddDays(14), dateEnd);
+    }
+
+    [RequiresPostgresFact]
     public async Task ExtensionEndDateUpdate_ChangesOnlySelectedAssignmentEndDate()
     {
         var organizationIds = await CreateOrganizationsAsync(2);
@@ -929,9 +964,100 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
-    public async Task ExtensionDeletion_RemovesOnlySelectedExtensionAndPreservesSurvey()
+    public async Task ExtensionEndDateUpdate_RejectsDateBeforeBaseSurveyEndDate()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var extensionEnd = DateTime.Today.AddDays(30);
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = extensionEnd.ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+        var updateResult = await service.UpdateExtensionPeriodAsync(
+            survey.SurveyId.Value,
+            organizationIds[0],
+            new SurveyAssignmentPeriodRequest
+            {
+                DateEnd = DateTime.Today.AddDays(10)
+            });
+
+        await using var connection = _fixture.CreateConnection();
+        var dateEnd = await connection.ExecuteScalarAsync<DateTime>(
+            """
+            SELECT date_end
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.False(updateResult.Success);
+        Assert.Equal("Дата конца продления не может быть раньше даты конца анкеты.", updateResult.Message);
+        Assert.Equal(extensionEnd, dateEnd);
+    }
+
+    [RequiresPostgresFact]
+    public async Task ExtensionEndDateUpdate_BaseSurveyEndDateCancelsExtension()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var baseEnd = DateTime.Today.AddDays(14);
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+        var updateResult = await service.UpdateExtensionPeriodAsync(
+            survey.SurveyId.Value,
+            organizationIds[0],
+            new SurveyAssignmentPeriodRequest { DateEnd = baseEnd });
+
+        await using var connection = _fixture.CreateConnection();
+        var assignment = await connection.QuerySingleAsync<AssignmentDateRow>(
+            """
+            SELECT id_organization AS OrganizationId, date_begin AS DateBegin, date_end AS DateEnd
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+        var activePage = await service.GetSurveysPageAsync(1, null, null, null);
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.True(updateResult.Success, updateResult.Message);
+        Assert.Equal("Продление успешно отменено.", updateResult.Message);
+        Assert.Equal(DateTime.Today.AddDays(-1), assignment.DateBegin);
+        Assert.Equal(baseEnd, assignment.DateEnd);
+        Assert.DoesNotContain(
+            activePage.SurveyRows,
+            row => row.IdSurvey == survey.SurveyId && row.IsExtension);
+    }
+
+    [RequiresPostgresFact]
+    public async Task ExtensionDeletion_RestoresBasePeriodAndPreservesAssignmentAndDraft()
     {
         var organizationIds = await CreateOrganizationsAsync(2);
+        var userId = await CreateUserAsync(organizationIds[0], "extension-reset-draft-client");
         var survey = await CreateSurveyAsync(organizationIds);
         var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
 
@@ -947,6 +1073,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                 }
             ]
         });
+        var draftResult = await CreateAnswerService(userId).SaveDraftAnswerAsync(
+            BuildAnswerRecord(survey.SurveyId.Value, organizationIds[0], 4));
         var deletionResult = await service.DeleteExtensionAsync(
             survey.SurveyId.Value,
             organizationIds[0]);
@@ -957,34 +1085,53 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             new { SurveyId = survey.SurveyId });
         var assignments = (await connection.QueryAsync<AssignmentDateRow>(
             """
-            SELECT id_organization AS OrganizationId, date_begin AS DateBegin, date_end AS DateEnd
+            SELECT
+                id_organization_survey AS AssignmentId,
+                id_organization AS OrganizationId,
+                date_begin AS DateBegin,
+                date_end AS DateEnd
             FROM public.organization_survey
             WHERE id_survey = @SurveyId
             ORDER BY id_organization;
             """,
             new { SurveyId = survey.SurveyId })).ToArray();
+        var draftCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.answer_draft draft
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = draft.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
         var activePage = await service.GetSurveysPageAsync(1, null, null, null);
 
         Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.True(draftResult.Success, draftResult.Error);
         Assert.True(deletionResult.Success, deletionResult.Message);
         Assert.Equal("Продление успешно удалено.", deletionResult.Message);
         Assert.Equal(1, surveyCount);
-        var remainingAssignment = Assert.Single(assignments);
-        Assert.Equal(organizationIds[1], remainingAssignment.OrganizationId);
-        Assert.Equal(DateTime.Today.AddDays(-1), remainingAssignment.DateBegin);
-        Assert.Equal(DateTime.Today.AddDays(14), remainingAssignment.DateEnd);
+        Assert.Equal(2, assignments.Length);
+        Assert.All(assignments, assignment =>
+        {
+            Assert.True(assignment.AssignmentId > 0);
+            Assert.Equal(DateTime.Today.AddDays(-1), assignment.DateBegin);
+            Assert.Equal(DateTime.Today.AddDays(14), assignment.DateEnd);
+        });
+        Assert.Equal(1, draftCount);
         Assert.Contains(
             activePage.SurveyRows,
             row => row.IdSurvey == survey.SurveyId
                 && !row.IsExtension
-                && row.OrganizationIds.SequenceEqual([organizationIds[1]]));
+                && row.OrganizationIds.SequenceEqual(organizationIds));
         Assert.DoesNotContain(
             activePage.SurveyRows,
             row => row.IdSurvey == survey.SurveyId && row.IsExtension);
     }
 
     [RequiresPostgresFact]
-    public async Task ExtensionDeletion_IsRejectedWhenAssignmentHasAnswer()
+    public async Task ExtensionDeletion_RestoresBasePeriodAndPreservesAnswer()
     {
         var organizationIds = await CreateOrganizationsAsync(2);
         var userId = await CreateUserAsync(organizationIds[0], "extension-deletion-client");
@@ -1010,21 +1157,28 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             organizationIds[0]);
 
         await using var connection = _fixture.CreateConnection();
-        var assignmentCount = await connection.ExecuteScalarAsync<int>(
+        var assignment = await connection.QuerySingleAsync<AssignmentDateRow>(
             """
-            SELECT COUNT(*)
+            SELECT
+                id_organization_survey AS AssignmentId,
+                id_organization AS OrganizationId,
+                date_begin AS DateBegin,
+                date_end AS DateEnd
             FROM public.organization_survey
             WHERE id_survey = @SurveyId
               AND id_organization = @OrganizationId;
             """,
             new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+        var answerCount = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM public.answer WHERE id_organization_survey = @AssignmentId;",
+            new { assignment.AssignmentId });
 
         Assert.True(extensionResult.Success, extensionResult.Message);
         Assert.True(answerResult.Success, answerResult.Error);
-        Assert.False(deletionResult.Success);
-        Assert.Equal("extension_in_use", deletionResult.Code);
-        Assert.Contains("по нему есть ответы", deletionResult.Message, StringComparison.Ordinal);
-        Assert.Equal(1, assignmentCount);
+        Assert.True(deletionResult.Success, deletionResult.Message);
+        Assert.Equal(DateTime.Today.AddDays(-1), assignment.DateBegin);
+        Assert.Equal(DateTime.Today.AddDays(14), assignment.DateEnd);
+        Assert.Equal(1, answerCount);
     }
 
     [RequiresPostgresFact]
@@ -1234,6 +1388,25 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             await connection.ExecuteAsync(
                 """
                 UPDATE public.organization_survey
+                SET
+                    date_begin = CASE id_survey
+                        WHEN @MarchSurveyId THEN DATE '2024-03-10'
+                        ELSE DATE '2024-04-10'
+                    END,
+                    date_end = CASE id_survey
+                        WHEN @MarchSurveyId THEN DATE '2024-03-20'
+                        ELSE DATE '2024-04-20'
+                    END
+                WHERE id_survey = ANY(@SurveyIds);
+                """,
+                new
+                {
+                    MarchSurveyId = marchSurvey.SurveyId,
+                    SurveyIds = new[] { marchSurvey.SurveyId!.Value, aprilSurvey.SurveyId!.Value }
+                });
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.survey
                 SET
                     date_begin = CASE id_survey
                         WHEN @MarchSurveyId THEN DATE '2024-03-10'
@@ -1504,6 +1677,56 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.All(assignments, assignment => Assert.Equal(newStart.Date, assignment.DateBegin));
         Assert.Equal(extensionEnd, assignments[0].DateEnd);
         Assert.Equal(newEnd.Date, assignments[1].DateEnd);
+    }
+
+    [RequiresPostgresFact]
+    public async Task UpdateSurvey_BaseEndAfterExtensionResetsAssignmentToNewBaseEnd()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var extensionEnd = DateTime.Today.AddDays(30);
+        var newBaseEnd = DateTime.Today.AddDays(40);
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationIds[0],
+                    ExtendedUntil = extensionEnd.ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+        var updateResult = await service.UpdateSurveyAsync(survey.SurveyId.Value, new SurveyUpdateRequest
+        {
+            Title = "Анкета с новым базовым сроком",
+            Description = "Описание",
+            StartDate = DateTime.Today,
+            EndDate = newBaseEnd,
+            Organizations = organizationIds.ToList(),
+            Criteria = ["Критерий"]
+        });
+
+        await using var connection = _fixture.CreateConnection();
+        var assignmentDateEnd = await connection.ExecuteScalarAsync<DateTime>(
+            """
+            SELECT date_end
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationIds[0] });
+        var activePage = await service.GetSurveysPageAsync(1, null, null, null);
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.True(updateResult.Success, updateResult.Message);
+        Assert.Equal(newBaseEnd, assignmentDateEnd);
+        Assert.DoesNotContain(
+            activePage.SurveyRows,
+            row => row.IdSurvey == survey.SurveyId && row.IsExtension);
     }
 
     [RequiresPostgresFact]
@@ -2890,6 +3113,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
     private sealed class AssignmentDateRow
     {
+        public int AssignmentId { get; init; }
         public int OrganizationId { get; init; }
         public DateTime DateBegin { get; init; }
         public DateTime? DateEnd { get; init; }

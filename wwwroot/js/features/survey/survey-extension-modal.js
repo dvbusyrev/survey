@@ -44,14 +44,32 @@
         let renderScope = null;
         let organizationsRequest = null;
         const today = window.AppDate?.todayIso?.() || new Date().toISOString().split('T')[0];
-        const minEndDate = (() => {
-            const date = new Date();
+
+        const addOneDay = (isoDate) => {
+            const date = window.AppDate?.parseDate?.(isoDate);
+            if (!date) {
+                return '';
+            }
+
             date.setDate(date.getDate() + 1);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        })();
+            return window.AppDate?.toIso?.(date) || '';
+        };
+
+        const getMinimumEndDate = () => {
+            const selectedIds = new Set(extension.organizationIds);
+            const candidateDates = [today, survey?.date_end]
+                .concat(
+                    organizations
+                        .filter((organization) => selectedIds.has(organization.organizationId))
+                        .flatMap((organization) => [organization.dateEnd, organization.surveyDateEnd])
+                )
+                .filter(Boolean);
+            const latestDate = candidateDates.reduce((latest, candidate) => (
+                (window.AppDate?.compare?.(candidate, latest) ?? -1) > 0 ? candidate : latest
+            ), today);
+
+            return addOneDay(latestDate) || addOneDay(today);
+        };
 
         const handleChange = (field, value) => {
             extension = {
@@ -108,8 +126,9 @@
                 return;
             }
 
-            if ((window.AppDate?.compare(extension.extendedUntil, today) ?? -1) <= 0) {
-                const message = 'Дата конца должна быть в будущем.';
+            const minimumEndDate = getMinimumEndDate();
+            if ((window.AppDate?.compare(extension.extendedUntil, minimumEndDate) ?? -1) < 0) {
+                const message = 'Новая дата конца должна быть позже текущей даты конца назначения.';
                 window.AppValidation?.setFieldError?.(dateInput, message);
                 window.AppValidation?.notifyErrors?.([message]);
                 return;
@@ -225,6 +244,7 @@
                 const organizationOptions = row.querySelector('[data-role="organization-options"]');
                 const dateInput = row.querySelector('[data-role="date-input"]');
                 const selectedOrganizationIds = new Set(extension.organizationIds);
+                const minimumEndDate = getMinimumEndDate();
 
                 if (organizationField) {
                     organizationField.dataset.value = extension.organizationIds.join(',');
@@ -298,8 +318,8 @@
                 }
 
                 if (dateInput) {
-                    dateInput.dataset.dateMin = minEndDate;
-                    dateInput.min = minEndDate;
+                    dateInput.dataset.dateMin = minimumEndDate;
+                    dateInput.min = minimumEndDate;
                     dateInput.value = extension.extendedUntil;
                     if (window.AppDate?.enhanceDateInputs) {
                         window.AppDate.enhanceDateInputs(row);
@@ -357,7 +377,9 @@
                         .filter((org) => org && (org.id_organization !== undefined || org.id !== undefined))
                         .map((org) => ({
                             organizationId: String(org.id_organization ?? org.id),
-                            organizationName: String(org.organization_name ?? org.name ?? '')
+                            organizationName: String(org.organization_name ?? org.name ?? ''),
+                            dateEnd: String(org.date_end ?? org.dateEnd ?? ''),
+                            surveyDateEnd: String(org.survey_date_end ?? org.surveyDateEnd ?? '')
                         }))
                         .filter((org) => org.organizationName)
                     : [];

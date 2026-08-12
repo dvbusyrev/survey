@@ -9,25 +9,25 @@ namespace MainProject.Tests.Controllers;
 public sealed class SurveyExtensionControllerDeletionTests
 {
     [Fact]
-    public async Task DeleteExtension_ReturnsConflict_WhenAssignmentHasAnswer()
+    public async Task DeleteExtension_ReturnsNotFound_WhenExtensionDoesNotExist()
     {
-        const string message = "Нельзя удалить продление анкеты: по нему есть ответы.";
+        const string message = "Продлённое назначение не найдено.";
         var controller = CreateController(new OperationResult
         {
             Message = message,
-            Code = "extension_in_use"
+            Code = "extension_not_found"
         });
 
         var actionResult = await controller.DeleteExtension(42, 7, CancellationToken.None);
 
-        var conflictResult = Assert.IsType<ConflictObjectResult>(actionResult);
-        var payload = JsonSerializer.SerializeToElement(conflictResult.Value);
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(actionResult);
+        var payload = JsonSerializer.SerializeToElement(notFoundResult.Value);
         Assert.False(payload.GetProperty("success").GetBoolean());
         Assert.Equal(message, payload.GetProperty("message").GetString());
     }
 
     [Fact]
-    public async Task DeleteExtension_ReturnsSuccess_WhenAssignmentWasDeleted()
+    public async Task DeleteExtension_ReturnsSuccess_WhenBasePeriodWasRestored()
     {
         const string message = "Продление успешно удалено.";
         var controller = CreateController(new OperationResult

@@ -66,10 +66,7 @@ public sealed class SurveyRepository
                         SELECT 1
                         FROM public.organization_survey assignment
                         WHERE assignment.id_survey = survey.id_survey
-                          AND (
-                              assignment.date_begin IS DISTINCT FROM survey.date_begin
-                              OR assignment.date_end IS DISTINCT FROM survey.date_end
-                          )
+                          AND assignment.date_end > survey.date_end
                           AND assignment.date_begin <= @Today
                           AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
                     )
@@ -137,10 +134,14 @@ public sealed class SurveyRepository
             """
             SELECT
                 organization.id_organization AS Id,
-                COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS Name
+                COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS Name,
+                assignment.date_end AS DateEnd,
+                survey.date_end AS SurveyDateEnd
             FROM public.organization_survey assignment
             INNER JOIN public.organization organization
                 ON organization.id_organization = assignment.id_organization
+            INNER JOIN public.survey survey
+                ON survey.id_survey = assignment.id_survey
             WHERE assignment.id_survey = @SurveyId
             ORDER BY COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name);
             """,
@@ -171,10 +172,7 @@ public sealed class SurveyRepository
                 FROM public.organization_survey assignment
                 INNER JOIN public.survey survey
                     ON survey.id_survey = assignment.id_survey
-                WHERE (
-                        assignment.date_begin IS DISTINCT FROM survey.date_begin
-                        OR assignment.date_end IS DISTINCT FROM survey.date_end
-                    )
+                WHERE assignment.date_end > survey.date_end
                   AND assignment.date_begin <= @Today
                   AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
             ),
@@ -192,10 +190,10 @@ public sealed class SurveyRepository
                 SET
                     date_begin = @DateBegin::date,
                     date_end = CASE
-                        WHEN assignment.date_begin IS NOT DISTINCT FROM active.date_begin
-                         AND assignment.date_end IS NOT DISTINCT FROM active.date_end
-                            THEN @DateEnd::date
-                        ELSE assignment.date_end
+                        WHEN assignment.date_end > active.date_end
+                         AND assignment.date_end > @DateEnd::date
+                            THEN assignment.date_end
+                        ELSE @DateEnd::date
                     END
                 FROM active_survey active
                 WHERE assignment.id_survey = active.id_survey
@@ -267,10 +265,7 @@ public sealed class SurveyRepository
                         SELECT 1
                         FROM public.organization_survey assignment
                         WHERE assignment.id_survey = survey.id_survey
-                          AND (
-                              assignment.date_begin IS DISTINCT FROM survey.date_begin
-                              OR assignment.date_end IS DISTINCT FROM survey.date_end
-                          )
+                          AND assignment.date_end > survey.date_end
                           AND (
                               assignment.date_begin > @Today
                               OR (assignment.date_end IS NOT NULL AND assignment.date_end < @Today)
@@ -318,10 +313,7 @@ public sealed class SurveyRepository
                             SELECT 1
                             FROM public.organization_survey assignment
                             WHERE assignment.id_survey = survey.id_survey
-                              AND (
-                                  assignment.date_begin IS DISTINCT FROM survey.date_begin
-                                  OR assignment.date_end IS DISTINCT FROM survey.date_end
-                              )
+                              AND assignment.date_end > survey.date_end
                               AND (
                                   assignment.date_begin > @Today
                                   OR (assignment.date_end IS NOT NULL AND assignment.date_end < @Today)
@@ -379,6 +371,7 @@ public sealed class SurveyRepository
                 group_name_survey AS OriginalNameSurvey,
                 date_begin AS DateBegin,
                 date_end AS DateEnd,
+                group_date_end AS BaseDateEnd,
                 organization_ids AS OrganizationIds,
                 organization_names AS OrganizationNames,
                 row_rank = 1 AS IsExtension,
@@ -453,6 +446,7 @@ public sealed class SurveyRepository
                 group_name_survey AS OriginalNameSurvey,
                 date_begin AS DateBegin,
                 date_end AS DateEnd,
+                group_date_end AS BaseDateEnd,
                 organization_ids AS OrganizationIds,
                 organization_names AS OrganizationNames,
                 row_rank = 1 AS IsExtension,
@@ -887,10 +881,14 @@ public sealed class SurveyRepository
     {
         return connection.ExecuteAsync(new CommandDefinition(
             """
-            UPDATE public.organization_survey
+            UPDATE public.organization_survey assignment
             SET date_end = @DateEnd::date
-            WHERE id_survey = @SurveyId
-              AND id_organization = @OrganizationId;
+            FROM public.survey survey
+            WHERE survey.id_survey = assignment.id_survey
+              AND assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+              AND assignment.date_end < @DateEnd::date
+              AND survey.date_end < @DateEnd::date;
             """,
             new
             {
@@ -902,25 +900,25 @@ public sealed class SurveyRepository
             cancellationToken: cancellationToken));
     }
 
-    public Task<DateTime?> GetExtensionDateBeginForUpdateAsync(
+    public Task<SurveyAssignmentPeriodState?> GetAssignmentPeriodForUpdateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         int surveyId,
         int organizationId,
         CancellationToken cancellationToken = default)
     {
-        return connection.ExecuteScalarAsync<DateTime?>(new CommandDefinition(
+        return connection.QuerySingleOrDefaultAsync<SurveyAssignmentPeriodState>(new CommandDefinition(
             """
-            SELECT assignment.date_begin
+            SELECT
+                assignment.date_begin AS AssignmentDateBegin,
+                assignment.date_end AS AssignmentDateEnd,
+                survey.date_begin AS BaseDateBegin,
+                survey.date_end AS BaseDateEnd
             FROM public.organization_survey assignment
             INNER JOIN public.survey survey
                 ON survey.id_survey = assignment.id_survey
             WHERE assignment.id_survey = @SurveyId
               AND assignment.id_organization = @OrganizationId
-              AND (
-                    assignment.date_begin IS DISTINCT FROM survey.date_begin
-                    OR assignment.date_end IS DISTINCT FROM survey.date_end
-                )
             FOR UPDATE OF assignment;
             """,
             new { SurveyId = surveyId, OrganizationId = organizationId },
@@ -944,10 +942,8 @@ public sealed class SurveyRepository
             WHERE survey.id_survey = assignment.id_survey
               AND assignment.id_survey = @SurveyId
               AND assignment.id_organization = @OrganizationId
-              AND (
-                    assignment.date_begin IS DISTINCT FROM survey.date_begin
-                    OR assignment.date_end IS DISTINCT FROM survey.date_end
-                );
+              AND assignment.date_end > survey.date_end
+              AND @DateEnd::date > survey.date_end;
             """,
             new
             {
@@ -955,6 +951,31 @@ public sealed class SurveyRepository
                 OrganizationId = organizationId,
                 DateEnd = dateEnd.Date
             },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    public Task<int> ResetExtensionPeriodAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int surveyId,
+        int organizationId,
+        CancellationToken cancellationToken = default)
+    {
+        return connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE public.organization_survey assignment
+            SET
+                date_begin = survey.date_begin,
+                date_end = survey.date_end
+            FROM public.survey survey
+            WHERE survey.id_survey = assignment.id_survey
+              AND assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId
+              AND survey.date_begin IS NOT NULL
+              AND assignment.date_end > survey.date_end;
+            """,
+            new { SurveyId = surveyId, OrganizationId = organizationId },
             transaction,
             cancellationToken: cancellationToken));
     }
@@ -1130,10 +1151,7 @@ public sealed class SurveyRepository
                 ON s.id_survey = assignment.id_survey
             INNER JOIN public.organization o
                 ON o.id_organization = assignment.id_organization
-            WHERE (
-                    assignment.date_begin IS DISTINCT FROM s.date_begin
-                    OR assignment.date_end IS DISTINCT FROM s.date_end
-                )
+            WHERE assignment.date_end > s.date_end
               AND assignment.date_begin <= @Today
               AND (assignment.date_end IS NULL OR assignment.date_end >= @Today)
         ),
@@ -1211,10 +1229,7 @@ public sealed class SurveyRepository
                 ON s.id_survey = assignment.id_survey
             INNER JOIN public.organization o
                 ON o.id_organization = assignment.id_organization
-            WHERE (
-                    assignment.date_begin IS DISTINCT FROM s.date_begin
-                    OR assignment.date_end IS DISTINCT FROM s.date_end
-                )
+            WHERE assignment.date_end > s.date_end
               AND (
                     assignment.date_begin > @Today
                     OR (assignment.date_end IS NOT NULL AND assignment.date_end < @Today)
@@ -1325,10 +1340,10 @@ public sealed class SurveyRepository
                 SET
                     date_begin = @DateBegin::date,
                     date_end = CASE
-                        WHEN assignment.date_begin IS NOT DISTINCT FROM current.date_begin
-                         AND assignment.date_end IS NOT DISTINCT FROM current.date_end
-                            THEN @DateEnd::date
-                        ELSE assignment.date_end
+                        WHEN assignment.date_end > current.date_end
+                         AND assignment.date_end > @DateEnd::date
+                            THEN assignment.date_end
+                        ELSE @DateEnd::date
                     END
                 FROM current_survey current
                 WHERE assignment.id_survey = current.id_survey

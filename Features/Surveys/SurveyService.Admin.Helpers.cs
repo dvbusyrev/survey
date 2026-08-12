@@ -20,6 +20,7 @@ public partial class SurveyService
             OriginalNameSurvey = row.OriginalNameSurvey ?? row.NameSurvey ?? string.Empty,
             DateBegin = row.DateBegin,
             DateEnd = row.DateEnd,
+            BaseDateEnd = row.BaseDateEnd,
             OrganizationIds = row.OrganizationIds ?? Array.Empty<int>(),
             OrganizationNames = row.OrganizationNames ?? Array.Empty<string>(),
             IsExtension = row.IsExtension,

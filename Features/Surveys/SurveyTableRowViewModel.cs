@@ -7,6 +7,7 @@ public sealed class SurveyTableRowViewModel
     public string OriginalNameSurvey { get; init; } = string.Empty;
     public DateTime DateBegin { get; init; }
     public DateTime? DateEnd { get; init; }
+    public DateTime? BaseDateEnd { get; init; }
     public IReadOnlyList<int> OrganizationIds { get; init; } = Array.Empty<int>();
     public IReadOnlyList<string> OrganizationNames { get; init; } = Array.Empty<string>();
     public bool IsExtension { get; init; }

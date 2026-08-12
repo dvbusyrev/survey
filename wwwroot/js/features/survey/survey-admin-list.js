@@ -783,7 +783,8 @@
             surveyName: trigger?.dataset?.surveyName || '',
             organizationName: trigger?.dataset?.organizationName || '',
             dateBegin: trigger?.dataset?.dateBegin || '',
-            dateEnd: trigger?.dataset?.dateEnd || ''
+            dateEnd: trigger?.dataset?.dateEnd || '',
+            baseDateEnd: trigger?.dataset?.baseDateEnd || ''
         };
     }
 
@@ -803,8 +804,16 @@
             errors.push('Дата конца должна быть позже даты начала.');
         }
 
+        const baseEndComparison = extension.baseDateEnd && dateEnd
+            ? (window.AppDate?.compare?.(dateEnd, extension.baseDateEnd) ?? 0)
+            : null;
+        if (baseEndComparison !== null && baseEndComparison < 0) {
+            errors.push('Дата конца продления не может быть раньше даты конца анкеты.');
+        }
+
         const today = window.AppDate?.todayIso?.() || new Date().toISOString().split('T')[0];
-        if (dateEnd && (window.AppDate?.compare?.(dateEnd, today) ?? 0) < 0) {
+        const cancelsExtension = baseEndComparison === 0;
+        if (dateEnd && !cancelsExtension && (window.AppDate?.compare?.(dateEnd, today) ?? 0) < 0) {
             errors.push('Дата конца не может быть раньше сегодняшней даты.');
         }
 
@@ -874,7 +883,7 @@
                 'extensionPeriodDateEnd',
                 'Дата конца',
                 extension.dateEnd,
-                getExtensionEndMinimum(extension.dateBegin)
+                extension.baseDateEnd || getExtensionEndMinimum(extension.dateBegin)
             );
 
             extensionPeriodHost.appendChild(createSurveyNameField(extension.surveyName));
