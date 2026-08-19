@@ -1,5 +1,6 @@
 using System.Net;
 using MainProject.Infrastructure.External.Calendar;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -7,6 +8,22 @@ namespace MainProject.Tests.Unit.Infrastructure;
 
 public sealed class ProductionCalendarServiceTests
 {
+    [Fact]
+    public void DependencyInjection_ResolvesTypedHttpClient()
+    {
+        var services = new ServiceCollection();
+        services.Configure<ProductionCalendarOptions>(_ => { });
+        services.AddLogging();
+        services.AddHttpClient<ProductionCalendarService>(client =>
+        {
+            client.BaseAddress = new Uri("https://calendar.test/");
+        });
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<ProductionCalendarService>());
+    }
+
     [Fact]
     public async Task IsBusinessDayAsync_ReadsLocalCalendarWithoutNetworkRequest()
     {

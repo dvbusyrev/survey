@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Text;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace MainProject.Infrastructure.External.Calendar;
@@ -12,14 +11,6 @@ public sealed class ProductionCalendarService
     private readonly bool _remoteDownloadEnabled;
     private readonly ILogger<ProductionCalendarService> _logger;
     private readonly ConcurrentDictionary<int, Lazy<Task<string>>> _yearCache = new();
-
-    public ProductionCalendarService(HttpClient httpClient)
-        : this(
-            httpClient,
-            Options.Create(new ProductionCalendarOptions()),
-            NullLogger<ProductionCalendarService>.Instance)
-    {
-    }
 
     public ProductionCalendarService(
         HttpClient httpClient,

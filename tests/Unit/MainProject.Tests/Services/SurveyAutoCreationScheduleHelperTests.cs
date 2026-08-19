@@ -1,5 +1,7 @@
 using MainProject.Application.UseCases.Surveys;
 using MainProject.Infrastructure.External.Calendar;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace MainProject.Tests.Services;
 
@@ -80,10 +82,13 @@ public sealed class SurveyAutoCreationScheduleHelperTests
         response[0] = '8';
         response[1] = '2';
         var handler = new CalendarHandler(new string(response));
-        var calendar = new ProductionCalendarService(new HttpClient(handler)
-        {
-            BaseAddress = new Uri("https://calendar.test/")
-        });
+        var calendar = new ProductionCalendarService(
+            new HttpClient(handler)
+            {
+                BaseAddress = new Uri("https://calendar.test/")
+            },
+            Options.Create(new ProductionCalendarOptions()),
+            NullLogger<ProductionCalendarService>.Instance);
 
         Assert.False(await calendar.IsBusinessDayAsync(new DateTime(2026, 1, 1)));
         Assert.True(await calendar.IsBusinessDayAsync(new DateTime(2026, 1, 2)));

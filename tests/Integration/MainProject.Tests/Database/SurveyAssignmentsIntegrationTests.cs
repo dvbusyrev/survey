@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using Npgsql;
 
@@ -3216,10 +3217,13 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     private static ProductionCalendarService CreateWeekdayProductionCalendar()
     {
         var handler = new StaticCalendarHandler();
-        return new ProductionCalendarService(new HttpClient(handler)
-        {
-            BaseAddress = new Uri("https://calendar.test/")
-        });
+        return new ProductionCalendarService(
+            new HttpClient(handler)
+            {
+                BaseAddress = new Uri("https://calendar.test/")
+            },
+            Options.Create(new ProductionCalendarOptions()),
+            NullLogger<ProductionCalendarService>.Instance);
     }
 
     private async Task<List<int>> CreateOrganizationsAsync(int count)
