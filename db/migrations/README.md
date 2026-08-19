@@ -11,13 +11,13 @@ Apply schema changes explicitly with PostgreSQL tooling:
 Windows PowerShell:
 
 ```powershell
-.\scripts\apply-migrations.ps1 -ConnectionString "Host=localhost;Port=5432;Database=survey_recovered;Username=postgres;Password=postgres"
+.\scripts\apply-migrations.ps1 -ConnectionString "Host=localhost;Port=5432;Database=survey_recovered;Username=<DB_USER>;Password=<DB_PASSWORD>"
 ```
 
 If `psql` is not available in `PATH`, pass its full path:
 
 ```powershell
-.\scripts\apply-migrations.ps1 -Psql "C:\Program Files\PostgreSQL\16\bin\psql.exe" -ConnectionString "Host=localhost;Port=5432;Database=survey_recovered;Username=postgres;Password=postgres"
+.\scripts\apply-migrations.ps1 -Psql "C:\Program Files\PostgreSQL\16\bin\psql.exe" -ConnectionString "Host=localhost;Port=5432;Database=survey_recovered;Username=<DB_USER>;Password=<DB_PASSWORD>"
 ```
 
 If the application log contains errors like `relation "public.app_user" does not exist`

@@ -11,6 +11,16 @@
 .DS_Store
 wwwroot/dumps/
 
+# Local and server secrets
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+appsettings.*.Local.json
+appsettings.*.Secrets.json
+server-config.json
+server-config.*.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

@@ -13,6 +13,7 @@ using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.External.Email;
 using MainProject.Infrastructure.External.Calendar;
+using MainProject.Infrastructure.Configuration;
 using MainProject.Infrastructure.Security;
 using MainProject.Infrastructure.Time;
 using MainProject.Application.UseCases;
@@ -29,6 +30,13 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     Args = args,
     EnvironmentName = ResolveEnvironmentName()
 });
+
+var externalConfigurationPath = ExternalConfigurationLoader.Add(
+    builder.Configuration,
+    builder.Environment.EnvironmentName,
+    Environment.GetEnvironmentVariable(ExternalConfigurationLoader.PathEnvironmentVariable));
+
+_ = DefaultConnectionStringResolver.Resolve(builder.Configuration);
 
 var configuredUrls = builder.Configuration["urls"];
 builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls)
@@ -158,6 +166,13 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 });
 
 var app = builder.Build();
+
+if (externalConfigurationPath != null)
+{
+    app.Logger.LogInformation(
+        "External configuration loaded from {ExternalConfigurationPath}",
+        externalConfigurationPath);
+}
 
 app.Logger.LogInformation(
     "Data Protection keys are stored in {DataProtectionKeysPath}",
