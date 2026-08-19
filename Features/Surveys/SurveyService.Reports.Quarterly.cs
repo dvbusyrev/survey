@@ -56,7 +56,7 @@ public partial class SurveyService
 
         if (answers.Count == 0)
         {
-            throw new InvalidOperationException("За выбранный квартал и год записи для отчёта не найдены.");
+            throw ReportDataNotFoundException.ForQuarter();
         }
 
         var surveys = await _surveyRepository.GetSurveysAsync(cancellationToken);
@@ -194,7 +194,7 @@ public partial class SurveyService
 
         if (worksheetsCreated == 0)
         {
-            throw new InvalidOperationException("За выбранный квартал и год записи для отчёта не найдены.");
+            throw ReportDataNotFoundException.ForQuarter();
         }
 
         string safeQuarterName = string.Join("_", quarterName.Split(Path.GetInvalidFileNameChars()));

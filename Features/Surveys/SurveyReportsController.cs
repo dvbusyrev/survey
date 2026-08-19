@@ -49,6 +49,10 @@ public class SurveyReportsController : Controller
                 cancellationToken);
             return File(result.Content, result.ContentType, result.FileName);
         }
+        catch (ReportDataNotFoundException ex)
+        {
+            return ReportDataNotFound(ex, "Месячный отчёт по анкете");
+        }
         catch (InvalidOperationException ex)
         {
             return this.SafeError(ex, "Невозможно сформировать отчёт с указанными параметрами.", "Некорректные параметры месячного отчёта по анкете", StatusCodes.Status400BadRequest);
@@ -70,6 +74,10 @@ public class SurveyReportsController : Controller
         {
             var result = await _surveyReportService.CreateAllMonthlyReportAsync(month, year, cancellationToken);
             return File(result.Content, result.ContentType, result.FileName);
+        }
+        catch (ReportDataNotFoundException ex)
+        {
+            return ReportDataNotFound(ex, "Сводный месячный отчёт");
         }
         catch (InvalidOperationException ex)
         {
@@ -94,6 +102,10 @@ public class SurveyReportsController : Controller
             var result = await _surveyReportService.CreateQuarterlyReportAsync(quarter, year, cancellationToken);
             return File(result.Content, result.ContentType, result.FileName);
         }
+        catch (ReportDataNotFoundException ex)
+        {
+            return ReportDataNotFound(ex, "Квартальный отчёт");
+        }
         catch (InvalidOperationException ex)
         {
             return this.SafeError(ex, "Невозможно сформировать отчёт с указанными параметрами.", "Некорректные параметры квартального отчёта", StatusCodes.Status400BadRequest);
@@ -102,5 +114,11 @@ public class SurveyReportsController : Controller
         {
             return this.SafeError(ex, "Не удалось сформировать отчёт.", $"Ошибка при формировании квартального отчёта за {quarter} квартал {year}");
         }
+    }
+
+    private IActionResult ReportDataNotFound(ReportDataNotFoundException exception, string reportName)
+    {
+        _logger.LogInformation("{ReportName} не сформирован: отсутствуют ответы.", reportName);
+        return NotFound(ApiErrorResponse.Create(HttpContext, exception.Message));
     }
 }

@@ -61,7 +61,7 @@ public partial class SurveyService
 
         if (surveyAnswers.Count == 0)
         {
-            throw new InvalidOperationException("За выбранный месяц и год записи для отчёта не найдены.");
+            throw ReportDataNotFoundException.ForMonth();
         }
 
         foreach (var answer in surveyAnswers)
@@ -259,7 +259,7 @@ public partial class SurveyService
 
         if (allAnswers.Count == 0)
         {
-            throw new InvalidOperationException("За выбранный месяц и год записи для отчёта не найдены.");
+            throw ReportDataNotFoundException.ForMonth();
         }
 
         var reportSections = (await _surveyRepository.GetSurveysAsync(cancellationToken))
@@ -276,7 +276,7 @@ public partial class SurveyService
 
         if (reportSections.Count == 0)
         {
-            throw new InvalidOperationException("За выбранный месяц и год записи для отчёта не найдены.");
+            throw ReportDataNotFoundException.ForMonth();
         }
 
         string fileName = $"Сводный отчет по всем анкетам ({periodLabel}).docx";

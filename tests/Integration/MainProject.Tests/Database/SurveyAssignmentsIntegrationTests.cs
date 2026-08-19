@@ -3080,9 +3080,9 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains("Орг 1", reportText);
         Assert.DoesNotContain("Орг 2", reportText);
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var error = await Assert.ThrowsAsync<ReportDataNotFoundException>(() =>
             reportService.CreateSurveyMonthlyReportAsync(surveyId, 0, 9, 2026));
-        Assert.Equal("За выбранный месяц и год записи для отчёта не найдены.", error.Message);
+        Assert.Equal("За выбранный месяц и год нет ответов для формирования отчёта.", error.Message);
     }
 
     [RequiresPostgresFact]
