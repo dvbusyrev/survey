@@ -27,6 +27,20 @@
     let surveyDeletePending = false;
     const SURVEY_ROW_SELECTOR = '.surveys-table tbody tr[data-survey-id]';
 
+    function getResponseErrorMessage(response, payload, responseText, fallbackMessage) {
+        const payloadMessage = payload?.message || payload?.error;
+        if (payloadMessage) {
+            return payloadMessage;
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        const normalizedText = String(responseText || '').trimStart().toLowerCase();
+        const isHtml = contentType.includes('text/html')
+            || normalizedText.startsWith('<!doctype html')
+            || normalizedText.startsWith('<html');
+        return isHtml ? fallbackMessage : responseText || fallbackMessage;
+    }
+
     function createSurveyModalFrame(options) {
         if (typeof window.createSiteModalFrame !== 'function') {
             throw new Error('Модуль модальных окон не загружен.');
@@ -944,7 +958,12 @@
             }
 
             if (!response.ok || !payload?.success) {
-                throw new Error(payload?.message || responseText || 'Не удалось удалить анкету.');
+                throw new Error(getResponseErrorMessage(
+                    response,
+                    payload,
+                    responseText,
+                    'Не удалось удалить анкету.'
+                ));
             }
 
             const target = resolveSurveyListTarget();
@@ -1003,7 +1022,12 @@
             }
 
             if (!response.ok || !payload?.success) {
-                throw new Error(payload?.message || responseText || 'Не удалось удалить продление.');
+                throw new Error(getResponseErrorMessage(
+                    response,
+                    payload,
+                    responseText,
+                    'Не удалось удалить продление.'
+                ));
             }
 
             const target = resolveSurveyListTarget();

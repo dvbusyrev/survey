@@ -1,5 +1,7 @@
 (function () {
     const headerName = 'RequestVerificationToken';
+    const ajaxHeaderName = 'X-Requested-With';
+    const ajaxHeaderValue = 'XMLHttpRequest';
     const unsafeMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
     function getRequestVerificationToken() {
@@ -18,21 +20,31 @@
         }
     }
 
-    function redirectBlockedUser(response) {
+    function redirectUnauthenticatedUser(response) {
         const wasBlocked = response.status === 401
             && response.headers.get('X-Authentication-Status') === 'blocked';
+        const responseUrl = new URL(response.url, window.location.href);
         const redirectedToBlockedLogin = response.redirected
-            && new URL(response.url, window.location.href).searchParams.get('auth') === 'blocked';
+            && responseUrl.searchParams.get('auth') === 'blocked';
 
         if (wasBlocked || redirectedToBlockedLogin) {
             window.location.assign('/?auth=blocked');
+            return response;
+        }
+
+        const redirectedToLogin = response.redirected
+            && responseUrl.origin === window.location.origin
+            && responseUrl.pathname === '/';
+        const isLoginPage = window.location.pathname === '/';
+        if ((response.status === 401 && !isLoginPage) || redirectedToLogin) {
+            window.location.assign('/');
         }
 
         return response;
     }
 
     function sendFetch(input, init) {
-        return originalFetch(input, init).then(redirectBlockedUser);
+        return originalFetch(input, init).then(redirectUnauthenticatedUser);
     }
 
     const originalFetch = window.fetch?.bind(window);
@@ -42,28 +54,30 @@
             const method = (init?.method || request?.method || 'GET').toUpperCase();
             const url = typeof input === 'string' ? input : request?.url || window.location.href;
 
-            if (!isUnsafeMethod(method) || !isSameOrigin(url)) {
+            if (!isSameOrigin(url)) {
                 return sendFetch(input, init);
             }
 
             const token = getRequestVerificationToken();
-            if (!token) {
-                return sendFetch(input, init);
-            }
-
             if (request && !init) {
                 const headers = new Headers(request.headers);
-                if (!headers.has(headerName)) {
+                if (isUnsafeMethod(method) && token && !headers.has(headerName)) {
                     headers.set(headerName, token);
-                    input = new Request(request, { headers });
                 }
+                if (!headers.has(ajaxHeaderName)) {
+                    headers.set(ajaxHeaderName, ajaxHeaderValue);
+                }
+                input = new Request(request, { headers });
 
                 return sendFetch(input);
             }
 
             const headers = new Headers(init?.headers || request?.headers || undefined);
-            if (!headers.has(headerName)) {
+            if (isUnsafeMethod(method) && token && !headers.has(headerName)) {
                 headers.set(headerName, token);
+            }
+            if (!headers.has(ajaxHeaderName)) {
+                headers.set(ajaxHeaderName, ajaxHeaderValue);
             }
 
             return sendFetch(input, { ...init, headers });
@@ -101,13 +115,17 @@
     XMLHttpRequest.prototype.send = function (body) {
         const method = this.__csrfMethod || 'GET';
         const url = this.__csrfUrl || window.location.href;
-        const hasHeader = this.__csrfHeaders?.has(headerName.toLowerCase());
+        const hasAntiforgeryHeader = this.__csrfHeaders?.has(headerName.toLowerCase());
+        const hasAjaxHeader = this.__csrfHeaders?.has(ajaxHeaderName.toLowerCase());
 
-        if (isUnsafeMethod(method) && isSameOrigin(url) && !hasHeader) {
+        if (isUnsafeMethod(method) && isSameOrigin(url) && !hasAntiforgeryHeader) {
             const token = getRequestVerificationToken();
             if (token) {
                 originalSetRequestHeader.call(this, headerName, token);
             }
+        }
+        if (isSameOrigin(url) && !hasAjaxHeader) {
+            originalSetRequestHeader.call(this, ajaxHeaderName, ajaxHeaderValue);
         }
 
         return originalSend.call(this, body);

@@ -11,6 +11,14 @@
             return fallbackMessage;
         }
 
+        const contentType = response.headers.get('content-type') || '';
+        const normalizedText = responseText.trimStart().toLowerCase();
+        if (contentType.includes('text/html')
+            || normalizedText.startsWith('<!doctype html')
+            || normalizedText.startsWith('<html')) {
+            return fallbackMessage;
+        }
+
         try {
             const payload = JSON.parse(responseText);
             if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
