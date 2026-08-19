@@ -12,6 +12,7 @@
 C:\ProgramData\AIS-Anketirovanie\
   Config\server-config.json
   DataProtection-Keys\
+  ProductionCalendar\
 ```
 
 Пример `C:\ProgramData\AIS-Anketirovanie\Config\server-config.json`:
@@ -23,9 +24,29 @@ C:\ProgramData\AIS-Anketirovanie\
   },
   "DataProtection": {
     "KeysPath": "C:\\ProgramData\\AIS-Anketirovanie\\DataProtection-Keys"
+  },
+  "ProductionCalendar": {
+    "BaseUrl": "https://isdayoff.ru/",
+    "DataPath": "C:\\ProgramData\\AIS-Anketirovanie\\ProductionCalendar",
+    "RemoteDownloadEnabled": false
   }
 }
 ```
+
+При `RemoteDownloadEnabled=false` приложение работает без интернета и читает файлы
+`{год}.txt` из `DataPath`. Подготовьте прошлый, текущий и следующий годы на компьютере
+с интернетом:
+
+```powershell
+.\scripts\download-production-calendars.ps1 `
+  -Years 2025,2026,2027 `
+  -OutputPath C:\Temp\ProductionCalendar
+```
+
+Перенесите полученные файлы в
+`C:\ProgramData\AIS-Anketirovanie\ProductionCalendar`. Если удалённая загрузка
+включена, приложение сначала читает локальный файл, а при его отсутствии получает
+год из внешнего сервиса и сохраняет результат в этот каталог.
 
 Для PostgreSQL следует создать отдельного пользователя приложения с правами только
 на рабочую БД. Учётную запись суперпользователя PostgreSQL использовать нельзя.
@@ -44,8 +65,9 @@ $identity = 'IIS AppPool\AIS-Anketirovanie'
 $root = 'C:\ProgramData\AIS-Anketirovanie'
 $config = Join-Path $root 'Config\server-config.json'
 $keys = Join-Path $root 'DataProtection-Keys'
+$calendar = Join-Path $root 'ProductionCalendar'
 
-New-Item -ItemType Directory -Force (Split-Path $config), $keys | Out-Null
+New-Item -ItemType Directory -Force (Split-Path $config), $keys, $calendar | Out-Null
 
 # После создания server-config.json ограничить доступ к нему и каталогам.
 icacls $root /inheritance:r
@@ -54,11 +76,13 @@ icacls $root /grant:r "${identity}:(RX)"
 icacls (Split-Path $config) /grant:r "${identity}:(RX)"
 icacls $config /grant:r "${identity}:(R)"
 icacls $keys /grant:r "${identity}:(OI)(CI)(M)"
+icacls $calendar /grant:r "${identity}:(OI)(CI)(M)"
 ```
 
 Файл конфигурации сначала создаётся администратором, затем ему выдаётся только право
 чтения для пула. Каталогу ключей требуется право изменения. Пулу также нужны права
-чтения и выполнения на каталог публикации и право изменения на
+чтения и выполнения на каталог публикации, право изменения на каталог календарей и
+право изменения на
 `wwwroot\help_files`, потому что там сохраняются загруженные инструкции.
 
 ## Настройка пула IIS

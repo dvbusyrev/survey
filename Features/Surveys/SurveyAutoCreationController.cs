@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MainProject.Application.DTO;
 using MainProject.Application.UseCases.Surveys;
+using MainProject.Infrastructure.External.Calendar;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
 
@@ -54,6 +55,14 @@ public class SurveyAutoCreationController : Controller
 
             return Ok(result);
         }
+        catch (ProductionCalendarUnavailableException ex)
+        {
+            return this.SafeError(
+                ex,
+                ProductionCalendarUnavailableException.UserMessage,
+                "Производственный календарь недоступен при расчёте автосоздания анкет",
+                StatusCodes.Status503ServiceUnavailable);
+        }
         catch (Exception ex)
         {
             return this.SafeError(ex, "Не удалось рассчитать календарь действия.", "Ошибка расчёта календаря автосоздания анкет");
@@ -75,6 +84,14 @@ public class SurveyAutoCreationController : Controller
 
             return Ok(new { success = true, message = result.Message, isEnabled = result.IsEnabled });
         }
+        catch (ProductionCalendarUnavailableException ex)
+        {
+            return this.SafeError(
+                ex,
+                ProductionCalendarUnavailableException.UserMessage,
+                "Производственный календарь недоступен при сохранении автосоздания анкет",
+                StatusCodes.Status503ServiceUnavailable);
+        }
         catch (Exception ex)
         {
             return this.SafeError(ex, "Не удалось сохранить настройки автосоздания анкет.", "Ошибка при сохранении настроек автосоздания анкет");
@@ -95,6 +112,14 @@ public class SurveyAutoCreationController : Controller
             }
 
             return Ok(new { success = true, message = result.Message, isEnabled = result.IsEnabled });
+        }
+        catch (ProductionCalendarUnavailableException ex)
+        {
+            return this.SafeError(
+                ex,
+                ProductionCalendarUnavailableException.UserMessage,
+                "Производственный календарь недоступен при запуске автосоздания анкет",
+                StatusCodes.Status503ServiceUnavailable);
         }
         catch (Exception ex)
         {

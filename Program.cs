@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using MainProject.Application.Contracts;
 using MainProject.Infrastructure.Persistence;
 using MainProject.Infrastructure.External.Email;
@@ -137,9 +138,14 @@ builder.Services.AddScoped<OrganizationManagementService>();
 builder.Services.AddScoped<SurveyService>();
 builder.Services.AddScoped<AnswerService>();
 builder.Services.AddScoped<SmtpEmailSender>();
-builder.Services.AddHttpClient<ProductionCalendarService>(client =>
+builder.Services.Configure<ProductionCalendarOptions>(
+    builder.Configuration.GetSection("ProductionCalendar"));
+builder.Services.AddHttpClient<ProductionCalendarService>((serviceProvider, client) =>
 {
-    var baseUrl = builder.Configuration["ProductionCalendar:BaseUrl"] ?? "https://isdayoff.ru";
+    var options = serviceProvider.GetRequiredService<IOptions<ProductionCalendarOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+        ? "https://isdayoff.ru"
+        : options.BaseUrl;
     client.BaseAddress = new Uri($"{baseUrl.TrimEnd('/')}/");
     client.Timeout = TimeSpan.FromSeconds(15);
 });
