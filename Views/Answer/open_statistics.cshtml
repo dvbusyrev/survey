@@ -6,10 +6,6 @@
     <link rel="stylesheet" href="~/css/pages/answers.css" asp-append-version="true" />
 }
 
-@section Head {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-}
-
 <div class="app-page answers-page__statistics" id="default_content" data-page="answers-statistics">
                 @await Html.PartialAsync(
                     "~/Views/Shared/_PageIntro.cshtml",
@@ -49,5 +45,5 @@
 </div>
 
 @section Scripts {
-    <script src="~/js/features/answers/answer-statistics-page.js" asp-append-version="true"></script>
+    <script src="~/js/dist/answer-statistics-page.js" asp-append-version="true"></script>
 }

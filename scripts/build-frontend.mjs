@@ -16,6 +16,7 @@ const buildOptions = {
     'process.env.NODE_ENV': '"production"'
   },
   entryPoints: {
+    'answer-statistics-page': 'wwwroot/js/entries/answer-statistics-page.js',
     'auth-page': 'wwwroot/js/entries/auth-page.js',
     'check-answers-app': 'wwwroot/js/entries/check-answers-app.js',
     'survey-fill-app': 'wwwroot/js/entries/survey-fill-app.js',

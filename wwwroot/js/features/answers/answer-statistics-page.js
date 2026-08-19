@@ -1,3 +1,5 @@
+import Chart from 'chart.js/auto';
+
 (function () {
     if (window.__answerStatisticsPageInitialized) {
         if (typeof window.initAnswerStatisticsPage === 'function') {
@@ -19,7 +21,7 @@
         return document.getElementById(id + 'Chart');
     });
 
-    if (!hasAllCanvases || typeof window.Chart === 'undefined') {
+    if (!hasAllCanvases) {
         return;
     }
 
@@ -291,7 +293,7 @@
     async function init() {
         if (!ids.every(function (id) {
             return document.getElementById(id + 'Chart');
-        }) || typeof window.Chart === 'undefined') {
+        })) {
             return;
         }
 
