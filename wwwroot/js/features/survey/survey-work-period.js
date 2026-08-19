@@ -330,6 +330,7 @@
         calendars.appendChild(buildCalendarCard(instance, firstMonth, displayState));
         calendars.appendChild(buildCalendarCard(instance, secondMonth, displayState));
         refs.calendar.replaceChildren(calendars);
+        refs.resetButton.disabled = state.isSaving || (!state.rangeStart && !state.rangeEnd);
         refs.saveButton.disabled = state.isSaving || !isValidSelection(state);
         refs.saveButton.textContent = state.isSaving ? 'Сохранение...' : 'Сохранить';
     }
@@ -456,6 +457,7 @@
                 popover: root.querySelector('[data-role="survey-work-period-popover"]'),
                 label: root.querySelector('[data-role="survey-work-period-label"]'),
                 calendar: root.querySelector('[data-role="survey-work-period-calendar"]'),
+                resetButton: root.querySelector('[data-role="survey-work-period-reset"]'),
                 saveButton: root.querySelector('[data-role="survey-work-period-save"]')
             },
             handlers: {},
@@ -463,7 +465,12 @@
             isSyncingDropdownOpenState: false
         };
 
-        if (!instance.refs.trigger || !instance.refs.popover || !instance.refs.label || !instance.refs.calendar || !instance.refs.saveButton) {
+        if (!instance.refs.trigger
+            || !instance.refs.popover
+            || !instance.refs.label
+            || !instance.refs.calendar
+            || !instance.refs.resetButton
+            || !instance.refs.saveButton) {
             return;
         }
 
@@ -516,6 +523,15 @@
             if (dayButton && root.contains(dayButton)) {
                 event.preventDefault();
                 handleDateSelection(instance, dayButton.dataset.dateIso || '');
+                return;
+            }
+
+            if (event.target.closest('[data-role="survey-work-period-reset"]')) {
+                event.preventDefault();
+                if (!instance.state.isSaving) {
+                    clearSelection(instance.state);
+                    render(instance);
+                }
                 return;
             }
 

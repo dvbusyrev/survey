@@ -283,6 +283,24 @@
   border-color: var(--border);
 }
 
+.survey-work-period__popover .survey-period-filter__day-button:disabled:not(
+  .is-in-range,
+  .is-range-start,
+  .is-range-end,
+  .is-range-single
+),
+.survey-work-period__popover .survey-period-filter__day-button:disabled:not(
+  .is-in-range,
+  .is-range-start,
+  .is-range-end,
+  .is-range-single
+):hover {
+  color: color-mix(in srgb, var(--text-secondary) 68%, #ffffff 32%);
+  background: #eef0f3;
+  border-color: #e1e4e8;
+  cursor: not-allowed;
+}
+
 .survey-period-filter__footer {
   display: flex;
   align-items: center;
@@ -303,6 +321,16 @@
   background: var(--app-theme-button-color);
   background-image: none;
   border-color: color-mix(in srgb, var(--app-theme-button-color) 82%, transparent 18%);
+}
+
+.survey-work-period__reset-button,
+.survey-work-period__reset-button:hover,
+.survey-work-period__reset-button:focus-visible,
+.survey-work-period__reset-button:active {
+  color: var(--text-main);
+  background: #ffffff;
+  background-image: none;
+  border-color: var(--border);
 }
 
 .survey-period-filter__popover :is(
