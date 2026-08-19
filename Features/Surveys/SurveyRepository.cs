@@ -1627,6 +1627,11 @@ public sealed class SurveyRepository
             LEFT JOIN public.survey_auto_creation_config selected
               ON selected.id_config = @ConfigId
              AND selected.id_survey = s.id_survey
+            WHERE EXISTS (
+                SELECT 1
+                FROM public.organization_survey assignment
+                WHERE assignment.id_survey = s.id_survey
+            )
             ORDER BY
                 lower(btrim(s.name_survey)),
                 (selected.id_survey IS NOT NULL) DESC,
@@ -1637,7 +1642,7 @@ public sealed class SurveyRepository
         return surveys.ToArray();
     }
 
-    public async Task<IReadOnlySet<int>> GetExistingSurveyIdsAsync(
+    public async Task<IReadOnlySet<int>> GetAvailableAutoCreationTemplateIdsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
         IReadOnlyCollection<int> surveyIds,
@@ -1649,7 +1654,16 @@ public sealed class SurveyRepository
         }
 
         var ids = await connection.QueryAsync<int>(new CommandDefinition(
-            "SELECT id_survey FROM public.survey WHERE id_survey = ANY(@SurveyIds);",
+            """
+            SELECT survey.id_survey
+            FROM public.survey survey
+            WHERE survey.id_survey = ANY(@SurveyIds)
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey assignment
+                    WHERE assignment.id_survey = survey.id_survey
+                );
+            """,
             new { SurveyIds = surveyIds.ToArray() },
             transaction,
             cancellationToken: cancellationToken));
@@ -1815,7 +1829,17 @@ public sealed class SurveyRepository
         CancellationToken cancellationToken = default)
     {
         var ids = await connection.QueryAsync<int>(new CommandDefinition(
-            "SELECT id_survey FROM public.survey_auto_creation_config WHERE id_config = @ConfigId ORDER BY id_survey;",
+            """
+            SELECT selected.id_survey
+            FROM public.survey_auto_creation_config selected
+            WHERE selected.id_config = @ConfigId
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey assignment
+                    WHERE assignment.id_survey = selected.id_survey
+                )
+            ORDER BY selected.id_survey;
+            """,
             new { ConfigId = configId },
             transaction,
             cancellationToken: cancellationToken));
@@ -1834,6 +1858,11 @@ public sealed class SurveyRepository
             FROM public.survey_auto_creation_config cs
             INNER JOIN public.survey s ON s.id_survey = cs.id_survey
             WHERE cs.id_config = @ConfigId
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey assignment
+                    WHERE assignment.id_survey = s.id_survey
+                )
             ORDER BY lower(s.name_survey), s.id_survey;
             """,
             new { ConfigId = configId },
@@ -1847,7 +1876,16 @@ public sealed class SurveyRepository
         int configId,
         CancellationToken cancellationToken = default) =>
         connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM public.survey_auto_creation_config WHERE id_config = @ConfigId;",
+            """
+            SELECT COUNT(*)
+            FROM public.survey_auto_creation_config selected
+            WHERE selected.id_config = @ConfigId
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey assignment
+                    WHERE assignment.id_survey = selected.id_survey
+                );
+            """,
             new { ConfigId = configId },
             cancellationToken: cancellationToken));
 

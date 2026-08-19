@@ -2538,6 +2538,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     [RequiresPostgresFact]
     public async Task AutoCreation_SurveyOptionsContainOneLatestTemplatePerName()
     {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
         await using var connection = _fixture.CreateConnection();
         var surveyIds = (await connection.QueryAsync<int>(
             """
@@ -2547,6 +2548,13 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                 ('  повторяющаяся АНКЕТА  ', 'Последняя версия')
             RETURNING id_survey;
             """)).ToArray();
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
+            SELECT @OrganizationId, selected.survey_id, CURRENT_DATE, CURRENT_DATE + 14
+            FROM unnest(@SurveyIds) AS selected(survey_id);
+            """,
+            new { OrganizationId = organizationId, SurveyIds = surveyIds });
 
         var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
         var options = await service.GetSurveyOptionsAsync();
@@ -2559,6 +2567,34 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
 
         var option = Assert.Single(matchingOptions);
         Assert.Equal(surveyIds.Max(), option.Id);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AutoCreation_RejectsSurveyWithoutOrganizationAssignments()
+    {
+        await using var connection = _fixture.CreateConnection();
+        var surveyId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.survey (name_survey, description)
+            VALUES ('Анкета без назначений', 'Не должна использоваться как шаблон')
+            RETURNING id_survey;
+            """);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+
+        var options = await service.GetSurveyOptionsAsync();
+        var saveResult = await service.SaveAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "month",
+            ReportingOffsetBusinessDays = 1,
+            ActivePeriodBusinessDays = 8,
+            SurveyIds = [surveyId]
+        });
+
+        Assert.DoesNotContain(options, option => option.Id == surveyId);
+        Assert.False(saveResult.Success);
+        Assert.Equal(
+            "Одна или несколько выбранных анкет не найдены или не назначены организациям.",
+            saveResult.Message);
     }
 
     [RequiresPostgresFact]

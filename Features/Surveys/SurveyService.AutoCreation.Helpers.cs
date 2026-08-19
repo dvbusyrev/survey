@@ -45,14 +45,15 @@ public partial class SurveyService
             return InvalidAutoCreationRequest("Выберите хотя бы одну анкету.");
         }
 
-        var existingSurveyIds = await _surveyRepository.GetExistingSurveyIdsAsync(
+        var availableTemplateIds = await _surveyRepository.GetAvailableAutoCreationTemplateIdsAsync(
             connection,
             transaction,
             surveyIds,
             cancellationToken);
-        if (existingSurveyIds.Count != surveyIds.Length)
+        if (availableTemplateIds.Count != surveyIds.Length)
         {
-            return InvalidAutoCreationRequest("Одна или несколько выбранных анкет не найдены.");
+            return InvalidAutoCreationRequest(
+                "Одна или несколько выбранных анкет не найдены или не назначены организациям.");
         }
 
         var distinctNameCount = await _surveyRepository.GetDistinctSurveyNameCountAsync(
