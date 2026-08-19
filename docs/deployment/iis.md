@@ -19,7 +19,7 @@ C:\ProgramData\AIS-Anketirovanie\
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=DB-SERVER;Port=5432;Database=survey;Username=survey_app;Password=<DB_PASSWORD>;SSL Mode=Require"
+    "DefaultConnection": "Host=DB-SERVER;Port=5432;Database=surveys;Username=survey_app;Password=<DB_PASSWORD>;SSL Mode=Require"
   },
   "DataProtection": {
     "KeysPath": "C:\\ProgramData\\AIS-Anketirovanie\\DataProtection-Keys"
@@ -102,7 +102,7 @@ dotnet publish .\main_project.csproj -c Release -r win-x64 --self-contained fals
 Локальная строка подключения хранится в .NET User Secrets:
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=survey;Username=<DB_USER>;Password=<DB_PASSWORD>"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=surveys;Username=<DB_USER>;Password=<DB_PASSWORD>"
 ```
 
 User Secrets предназначен только для разработки. Рабочие секреты IIS в него не
