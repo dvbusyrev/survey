@@ -33,13 +33,14 @@
         formData.append('file', file);
         formData.append('type', instructionType);
         formData.append('role', role);
+        const antiforgeryToken = window.AppHttp?.getAntiforgeryToken() || '';
 
         try {
             const response = await fetch('/help/upload', {
                 method: 'POST',
-                headers: {
-                    RequestVerificationToken: document.getElementById('global-antiforgery-token')?.value || ''
-                },
+                headers: antiforgeryToken
+                    ? { RequestVerificationToken: antiforgeryToken }
+                    : undefined,
                 body: formData
             });
             const responseText = await response.text();

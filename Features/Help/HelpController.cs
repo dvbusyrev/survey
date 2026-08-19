@@ -48,7 +48,7 @@ public class HelpController : Controller
             return NotFound("Файл DOCX не найден.");
         }
 
-        return PhysicalFile(docxFilePath, HelpDocumentContentType, GetDownloadFileName(type));
+        return PhysicalFile(docxFilePath, HelpDocumentContentType, GetCurrentDownloadFileName(type));
     }
 
     [HttpGet("help/download/{type?}")]
@@ -64,7 +64,7 @@ public class HelpController : Controller
             return NotFound("Файл DOCX не найден.");
         }
 
-        return PhysicalFile(docxFilePath, HelpDocumentContentType, GetDownloadFileName(documentType));
+        return PhysicalFile(docxFilePath, HelpDocumentContentType, GetCurrentDownloadFileName(documentType));
     }
 
     private string GetDefaultHelpDocumentType()
@@ -129,6 +129,31 @@ public class HelpController : Controller
         return NormalizeHelpDocumentType(type) == AdminGuideType
             ? AdminGuideDownloadFileName
             : UserGuideDownloadFileName;
+    }
+
+    private string GetCurrentDownloadFileName(string type)
+    {
+        var normalizedType = NormalizeHelpDocumentType(type);
+        if (normalizedType is null)
+        {
+            return GetDownloadFileName(type);
+        }
+
+        var originalFileName = SanitizeDocxFileName(ReadHelpMetadata(normalizedType)?.OriginalFileName);
+        return originalFileName ?? GetDownloadFileName(normalizedType);
+    }
+
+    private static string? SanitizeDocxFileName(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return null;
+        }
+
+        var normalizedFileName = Path.GetFileName(fileName.Replace('\\', '/')).Trim();
+        return string.Equals(Path.GetExtension(normalizedFileName), ".docx", StringComparison.OrdinalIgnoreCase)
+            ? normalizedFileName
+            : null;
     }
 
     private static bool IsValidDocx(Stream stream)
@@ -302,11 +327,8 @@ public class HelpController : Controller
             Directory.CreateDirectory(_uploadFolder);
         }
 
-        var originalFileName = Path.GetFileName(file.FileName);
-        if (string.IsNullOrWhiteSpace(originalFileName))
-        {
-            originalFileName = GetDownloadFileName(documentType);
-        }
+        var originalFileName = SanitizeDocxFileName(file.FileName)
+            ?? GetDownloadFileName(documentType);
 
         var fileName = GetStorageFileName(documentType);
         string filePath = Path.Combine(_uploadFolder, fileName);

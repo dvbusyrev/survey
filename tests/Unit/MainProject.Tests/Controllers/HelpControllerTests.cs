@@ -117,6 +117,9 @@ public sealed class HelpControllerTests
             Assert.True(File.Exists(storedFile));
             using var document = WordprocessingDocument.Open(storedFile, false);
             Assert.Equal("Инструкция", document.MainDocumentPart?.Document?.Body?.InnerText);
+
+            var download = Assert.IsType<PhysicalFileResult>(controller.DownloadHelpFile("admin-guide"));
+            Assert.Equal("instruction.docx", download.FileDownloadName);
         }
         finally
         {
