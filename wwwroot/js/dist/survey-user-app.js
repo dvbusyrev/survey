@@ -2875,7 +2875,9 @@
         }
         return;
       }
-      const actionableRow = target.closest('[data-role="user-survey-row"][data-row-action]');
+      const actionableRow = target.closest(
+        '[data-role="user-survey-row"][data-row-action="fill"], [data-role="user-survey-row"][data-row-action="view"]'
+      );
       if (belongsToPage(actionableRow) && !target.closest("button, a, input, select, textarea")) {
         const surveyId = readPositiveNumber(actionableRow, "surveyId");
         if (surveyId) {
@@ -2901,7 +2903,7 @@
     }
     function handleMouseOver(event) {
       const target = getEventTarget(event);
-      const row = target?.closest('[data-role="user-survey-row"][data-hover-label]');
+      const row = target?.closest('[data-role="user-survey-row"][data-hover-label]:not([data-hover-label=""])');
       if (!belongsToPage(row) || rowTooltip?.isActiveRow?.(row)) {
         return;
       }
