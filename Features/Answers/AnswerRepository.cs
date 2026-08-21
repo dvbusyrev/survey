@@ -113,7 +113,22 @@ public sealed class AnswerRepository
                 assignment.id_survey AS IdSurvey,
                 answer.completion_date AS CompletionDate,
                 answer.csp AS Csp,
-                answer.signed_content AS SignedContent
+                answer.signed_content AS SignedContent,
+                (
+                    SELECT COALESCE(
+                        NULLIF(BTRIM(participant_user.full_name), ''),
+                        NULLIF(BTRIM(participant_user.login), '')
+                    )
+                    FROM public.answer_participant participant
+                    INNER JOIN public.app_user participant_user
+                        ON participant_user.id_user = participant.id_user
+                    WHERE participant.id_answer = answer.id_answer
+                      AND participant.participation_type IN ('signed', 'legacy')
+                    ORDER BY
+                        CASE participant.participation_type WHEN 'signed' THEN 0 ELSE 1 END,
+                        participant.date_created DESC
+                    LIMIT 1
+                ) AS SignerName
             FROM public.answer answer
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_organization_survey = answer.id_organization_survey
@@ -182,7 +197,22 @@ public sealed class AnswerRepository
                 answer.csp AS Csp,
                 answer.signed_content AS SignedContent,
                 answer.completion_date AS CompletionDate,
-                COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS OrganizationName
+                COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS OrganizationName,
+                (
+                    SELECT COALESCE(
+                        NULLIF(BTRIM(participant_user.full_name), ''),
+                        NULLIF(BTRIM(participant_user.login), '')
+                    )
+                    FROM public.answer_participant participant
+                    INNER JOIN public.app_user participant_user
+                        ON participant_user.id_user = participant.id_user
+                    WHERE participant.id_answer = answer.id_answer
+                      AND participant.participation_type IN ('signed', 'legacy')
+                    ORDER BY
+                        CASE participant.participation_type WHEN 'signed' THEN 0 ELSE 1 END,
+                        participant.date_created DESC
+                    LIMIT 1
+                ) AS SignerName
             FROM public.answer answer
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_organization_survey = answer.id_organization_survey

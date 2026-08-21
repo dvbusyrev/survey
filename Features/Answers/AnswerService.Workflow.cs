@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using MainProject.Domain.Entities;
 using MainProject.Application.Contracts;
 using MainProject.Application.DTO;
@@ -174,25 +175,20 @@ public partial class AnswerService
                 IsSigned = true,
                 IsValid = null,
                 Status = "Проверка недоступна",
+                SignedBy = GetSignerDisplayName(null, answer.SignerName),
                 ValidationMessage = "Подпись сохранена, но её не удалось прочитать."
             };
         }
 
-        SignedCms signedCms;
-        try
-        {
-            signedCms = answer.SignedContent is { Length: > 0 }
-                ? new SignedCms(new ContentInfo(answer.SignedContent), detached: true)
-                : new SignedCms();
-            signedCms.Decode(signatureBytes);
-        }
-        catch (Exception exception) when (exception is CryptographicException or ArgumentException)
+        var signedCms = TryDecodeSignedCms(answer, signatureBytes);
+        if (signedCms == null)
         {
             return new AnswerSignatureInfoViewModel
             {
                 IsSigned = true,
                 IsValid = null,
                 Status = "Проверка недоступна",
+                SignedBy = GetSignerDisplayName(null, answer.SignerName),
                 ValidationMessage = "Подпись сохранена, но проверить её не удалось."
             };
         }
@@ -205,7 +201,7 @@ public partial class AnswerService
             IsSigned = true,
             IsValid = verification.IsValid,
             Status = verification.Status,
-            SignedBy = GetSignerDisplayName(signerCertificate),
+            SignedBy = GetSignerDisplayName(signerCertificate, answer.SignerName),
             Subject = signerCertificate?.Subject ?? string.Empty,
             Issuer = signerCertificate?.Issuer ?? string.Empty,
             SerialNumber = signerCertificate?.SerialNumber ?? string.Empty,
@@ -245,6 +241,58 @@ public partial class AnswerService
         {
             return Array.Empty<byte>();
         }
+    }
+
+    private static SignedCms? TryDecodeSignedCms(AnswerRecord answer, byte[] signatureBytes)
+    {
+        if (TryDecodeSignedCmsCandidate(answer, signatureBytes, out var signedCms))
+        {
+            return signedCms;
+        }
+
+        var nestedSignatureBytes = TryDecodeBase64Text(signatureBytes);
+        return nestedSignatureBytes.Length > 0
+            && TryDecodeSignedCmsCandidate(answer, nestedSignatureBytes, out signedCms)
+                ? signedCms
+                : null;
+    }
+
+    private static bool TryDecodeSignedCmsCandidate(
+        AnswerRecord answer,
+        byte[] signatureBytes,
+        out SignedCms? signedCms)
+    {
+        try
+        {
+            signedCms = answer.SignedContent is { Length: > 0 }
+                ? new SignedCms(new ContentInfo(answer.SignedContent), detached: true)
+                : new SignedCms();
+            signedCms.Decode(signatureBytes);
+            return true;
+        }
+        catch (Exception exception) when (exception is CryptographicException or ArgumentException)
+        {
+            signedCms = null;
+            return false;
+        }
+    }
+
+    private static byte[] TryDecodeBase64Text(byte[] value)
+    {
+        if (value.Length == 0 || value.Any(character => character > 0x7f))
+        {
+            return Array.Empty<byte>();
+        }
+
+        var text = Encoding.ASCII.GetString(value);
+        if (text.Any(character => !char.IsWhiteSpace(character)
+                                  && !char.IsLetterOrDigit(character)
+                                  && character is not '+' and not '/' and not '-' and not '_' and not '='))
+        {
+            return Array.Empty<byte>();
+        }
+
+        return TryDecodeBase64(text);
     }
 
     private static X509Certificate2? ResolveSignerCertificate(SignedCms signedCms)
@@ -310,31 +358,61 @@ public partial class AnswerService
             || message.Contains("содержим", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetSignerDisplayName(X509Certificate2? certificate)
+    private static string GetSignerDisplayName(X509Certificate2? certificate, string? participantName)
     {
-        if (certificate == null)
+        if (certificate != null)
         {
-            return "Не удалось определить";
+            var surname = ExtractFirstDistinguishedNameValue(
+                certificate.Subject,
+                "SURNAME",
+                "SN",
+                "OID.2.5.4.4",
+                "2.5.4.4");
+            var givenName = ExtractFirstDistinguishedNameValue(
+                certificate.Subject,
+                "GIVENNAME",
+                "GN",
+                "G",
+                "OID.2.5.4.42",
+                "2.5.4.42");
+            var personalName = $"{surname} {givenName}".Trim();
+            if (!string.IsNullOrWhiteSpace(personalName))
+            {
+                return personalName;
+            }
+
+            var simpleName = certificate.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
+            if (!string.IsNullOrWhiteSpace(simpleName))
+            {
+                return simpleName.Trim();
+            }
+
+            var commonName = ExtractDistinguishedNameValue(certificate.Subject, "CN");
+            if (!string.IsNullOrWhiteSpace(commonName))
+            {
+                return commonName;
+            }
         }
 
-        var simpleName = certificate.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
-        if (!string.IsNullOrWhiteSpace(simpleName))
-        {
-            return simpleName.Trim();
-        }
-
-        var commonName = ExtractDistinguishedNameValue(certificate.Subject, "CN");
-        if (!string.IsNullOrWhiteSpace(commonName))
-        {
-            return commonName;
-        }
-
-        var surname = ExtractDistinguishedNameValue(certificate.Subject, "SURNAME");
-        var givenName = ExtractDistinguishedNameValue(certificate.Subject, "GIVENNAME");
-        var fullName = $"{surname} {givenName}".Trim();
-        return string.IsNullOrWhiteSpace(fullName)
+        return string.IsNullOrWhiteSpace(participantName)
             ? "Не удалось определить"
-            : fullName;
+            : participantName.Trim();
+    }
+
+    private static string ExtractFirstDistinguishedNameValue(
+        string distinguishedName,
+        params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = ExtractDistinguishedNameValue(distinguishedName, key);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return string.Empty;
     }
 
     private static string ExtractDistinguishedNameValue(string distinguishedName, string key)

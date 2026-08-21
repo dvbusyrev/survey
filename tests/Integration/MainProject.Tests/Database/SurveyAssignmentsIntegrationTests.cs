@@ -2333,6 +2333,57 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task ImportedSignature_UsesLegacyParticipantAsSignerWhenCmsCannotBeRead()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var userId = await CreateUserAsync(organizationId, "legacy-signature-client");
+        var survey = await CreateSurveyAsync([organizationId]);
+        var workflow = CreateAnswerService(userId);
+        var submission = await workflow.InsertAnswerAsync(
+            BuildAnswerRecord(survey.SurveyId!.Value, organizationId, 5));
+        Assert.True(submission.Success, submission.Error);
+
+        await using var connection = _fixture.CreateConnection();
+        var answerId = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT answer.id_answer
+            FROM public.answer answer
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = answer.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+              AND assignment.id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId.Value, OrganizationId = organizationId });
+        await connection.ExecuteAsync(
+            """
+            UPDATE public.answer
+            SET csp = @Signature
+            WHERE id_answer = @AnswerId;
+
+            INSERT INTO public.answer_participant (id_answer, id_user, participation_type)
+            VALUES (@AnswerId, @UserId, 'legacy');
+            """,
+            new
+            {
+                AnswerId = answerId,
+                UserId = userId,
+                Signature = Convert.ToBase64String("legacy signature"u8.ToArray())
+            });
+
+        var response = await workflow.GetAnswersResponseAsync(
+            survey.SurveyId.Value,
+            organizationId,
+            "archive",
+            includeAllOrganizationAnswers: false);
+
+        Assert.True(response.Success, response.Error);
+        var answer = Assert.Single(response.Answers);
+        Assert.True(answer.IsSigned);
+        Assert.Equal("Тестовый клиент", answer.SignatureInfo?.SignedBy);
+        Assert.Equal("Проверка недоступна", answer.SignatureInfo?.Status);
+    }
+
+    [RequiresPostgresFact]
     public async Task ConcurrentSignatureAttempts_LeaveExactlyOneSavedSignature()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
