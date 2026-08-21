@@ -1,20 +1,32 @@
 import { createSnapshotFromHtml } from './user-survey-page-helpers.js';
 
-function buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
+export function normalizeSurveyArchiveFilterQuery(filterQuery) {
+    const params = new URLSearchParams(String(filterQuery || '').replace(/^\?/, ''));
+    ['page', 'searchTerm', 'signedOnly'].forEach((key) => params.delete(key));
+    return params.toString();
+}
+
+function buildSnapshotRequest({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
     if (tab === 'help') {
-        return '/help';
+        return { url: '/help', filterQuery: '' };
     }
 
     if (tab === 'active') {
-        return `/survey?page=${page}&searchTerm=${encodeURIComponent(searchTerm || '')}`;
+        return {
+            url: `/survey?page=${page}&searchTerm=${encodeURIComponent(searchTerm || '')}`,
+            filterQuery: ''
+        };
     }
 
-    const params = new URLSearchParams(filterQuery ?? window.location.search);
-    ['page', 'searchTerm', 'signedOnly'].forEach((key) => params.delete(key));
+    const archiveFilterQuery = normalizeSurveyArchiveFilterQuery(filterQuery ?? window.location.search);
+    const params = new URLSearchParams(archiveFilterQuery);
     params.set('page', String(page));
     params.set('searchTerm', searchTerm || '');
     params.set('signedOnly', signedOnly ? 'true' : 'false');
-    return `/archive/${userId}?${params.toString()}`;
+    return {
+        url: `/archive/${userId}?${params.toString()}`,
+        filterQuery: archiveFilterQuery
+    };
 }
 
 function getSnapshotLoadError(tab) {
@@ -30,7 +42,8 @@ function getSnapshotParseError(tab) {
 }
 
 export async function fetchSurveyUserSnapshot({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
-    const response = await fetch(buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly, filterQuery }), {
+    const request = buildSnapshotRequest({ tab, userId, page, searchTerm, signedOnly, filterQuery });
+    const response = await fetch(request.url, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }
@@ -44,5 +57,6 @@ export async function fetchSurveyUserSnapshot({ tab, userId, page, searchTerm, s
         throw new Error(getSnapshotParseError(tab));
     }
 
+    snapshot.filterQuery = request.filterQuery;
     return snapshot;
 }

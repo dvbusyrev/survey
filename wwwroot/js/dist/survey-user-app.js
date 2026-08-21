@@ -2765,19 +2765,30 @@
   }
 
   // wwwroot/js/features/survey/user-survey-snapshot-loader.js
-  function buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
+  function normalizeSurveyArchiveFilterQuery(filterQuery) {
+    const params = new URLSearchParams(String(filterQuery || "").replace(/^\?/, ""));
+    ["page", "searchTerm", "signedOnly"].forEach((key) => params.delete(key));
+    return params.toString();
+  }
+  function buildSnapshotRequest({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
     if (tab === "help") {
-      return "/help";
+      return { url: "/help", filterQuery: "" };
     }
     if (tab === "active") {
-      return `/survey?page=${page}&searchTerm=${encodeURIComponent(searchTerm || "")}`;
+      return {
+        url: `/survey?page=${page}&searchTerm=${encodeURIComponent(searchTerm || "")}`,
+        filterQuery: ""
+      };
     }
-    const params = new URLSearchParams(filterQuery ?? window.location.search);
-    ["page", "searchTerm", "signedOnly"].forEach((key) => params.delete(key));
+    const archiveFilterQuery = normalizeSurveyArchiveFilterQuery(filterQuery ?? window.location.search);
+    const params = new URLSearchParams(archiveFilterQuery);
     params.set("page", String(page));
     params.set("searchTerm", searchTerm || "");
     params.set("signedOnly", signedOnly ? "true" : "false");
-    return `/archive/${userId}?${params.toString()}`;
+    return {
+      url: `/archive/${userId}?${params.toString()}`,
+      filterQuery: archiveFilterQuery
+    };
   }
   function getSnapshotLoadError(tab) {
     return tab === "help" ? "Не удалось загрузить справку." : "Не удалось загрузить анкеты.";
@@ -2786,7 +2797,8 @@
     return tab === "help" ? "Не удалось отобразить справку." : "Не удалось отобразить страницу анкет.";
   }
   async function fetchSurveyUserSnapshot({ tab, userId, page, searchTerm, signedOnly, filterQuery }) {
-    const response = await fetch(buildSnapshotUrl({ tab, userId, page, searchTerm, signedOnly, filterQuery }), {
+    const request = buildSnapshotRequest({ tab, userId, page, searchTerm, signedOnly, filterQuery });
+    const response = await fetch(request.url, {
       headers: {
         "X-Requested-With": "XMLHttpRequest"
       }
@@ -2798,6 +2810,7 @@
     if (!snapshot) {
       throw new Error(getSnapshotParseError(tab));
     }
+    snapshot.filterQuery = request.filterQuery;
     return snapshot;
   }
 
@@ -2913,6 +2926,7 @@
           page: targetPage,
           searchTerm: state.currentSnapshot.searchTerm,
           signedOnly: state.currentSnapshot.signedOnly,
+          filterQuery: state.activeTab === "archived" ? state.currentSnapshot.filterQuery : null,
           scrollToTableStart: true
         });
       }
@@ -2949,7 +2963,8 @@
       loadTabSnapshot?.(state.activeTab, {
         page: 1,
         searchTerm: searchInput?.value?.trim() || "",
-        signedOnly: Boolean(signedInput?.checked)
+        signedOnly: Boolean(signedInput?.checked),
+        filterQuery: state.activeTab === "archived" ? state.currentSnapshot.filterQuery : null
       });
     }
     function handleChange(event) {
@@ -2974,7 +2989,8 @@
         loadTabSnapshot?.("archived", {
           page: 1,
           searchTerm: state.currentSnapshot.searchTerm,
-          signedOnly: signedInput.checked
+          signedOnly: signedInput.checked,
+          filterQuery: state.currentSnapshot.filterQuery
         });
       }
     }
@@ -3196,6 +3212,7 @@
     if (!initialSnapshot) {
       return;
     }
+    initialSnapshot.filterQuery = initialSnapshot.activeTab === "archived" ? normalizeSurveyArchiveFilterQuery(window.location.search) : "";
     const tabTemplateElements = {
       active: contentHost.querySelector("#survey-user-active-content-template") || document.getElementById("survey-user-active-content-template"),
       archived: contentHost.querySelector("#survey-user-archived-content-template") || document.getElementById("survey-user-archived-content-template"),
@@ -3316,6 +3333,7 @@
         rowTooltip.hide();
         contentHost.replaceChildren(snapshot.template.content.cloneNode(true));
         state.currentSnapshot = createSnapshotFromHost(contentHost) || snapshot;
+        state.currentSnapshot.filterQuery = snapshot.filterQuery || "";
       } else {
         state.currentSnapshot = snapshot;
       }
@@ -3358,12 +3376,13 @@
       const page = options.page ?? currentSnapshot?.currentPage ?? 1;
       const searchTerm = options.searchTerm ?? currentSnapshot?.searchTerm ?? "";
       const signedOnly = tab === "archived" ? Boolean(options.signedOnly ?? currentSnapshot?.signedOnly) : false;
+      const filterQuery = tab === "archived" ? options.filterQuery ?? currentSnapshot?.filterQuery ?? "" : null;
       if (options.showLoading !== false && state.activeTab === tab) {
         setError("");
         setLoading(true);
       }
       try {
-        const snapshot = await fetchSnapshot(tab, page, searchTerm, signedOnly, options.filterQuery ?? null);
+        const snapshot = await fetchSnapshot(tab, page, searchTerm, signedOnly, filterQuery);
         if (disposed) {
           return null;
         }

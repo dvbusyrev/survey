@@ -14,7 +14,10 @@ import {
 } from './user-survey-page-helpers.js';
 import { createSurveyUserLocalFilters } from './user-survey-local-filters.js';
 import { createSurveyUserRowTooltip } from './user-survey-row-tooltip.js';
-import { fetchSurveyUserSnapshot } from './user-survey-snapshot-loader.js';
+import {
+    fetchSurveyUserSnapshot,
+    normalizeSurveyArchiveFilterQuery
+} from './user-survey-snapshot-loader.js';
 import { showPendingAnswerSubmittedNotification } from './user-survey-notifications.js';
 
 function readSurveyUserBootstrapData(root = document) {
@@ -153,6 +156,9 @@ export function createSurveyUserListInteractionController({
                 page: targetPage,
                 searchTerm: state.currentSnapshot.searchTerm,
                 signedOnly: state.currentSnapshot.signedOnly,
+                filterQuery: state.activeTab === 'archived'
+                    ? state.currentSnapshot.filterQuery
+                    : null,
                 scrollToTableStart: true
             });
         }
@@ -198,7 +204,10 @@ export function createSurveyUserListInteractionController({
         loadTabSnapshot?.(state.activeTab, {
             page: 1,
             searchTerm: searchInput?.value?.trim() || '',
-            signedOnly: Boolean(signedInput?.checked)
+            signedOnly: Boolean(signedInput?.checked),
+            filterQuery: state.activeTab === 'archived'
+                ? state.currentSnapshot.filterQuery
+                : null
         });
     }
 
@@ -227,7 +236,8 @@ export function createSurveyUserListInteractionController({
             loadTabSnapshot?.('archived', {
                 page: 1,
                 searchTerm: state.currentSnapshot.searchTerm,
-                signedOnly: signedInput.checked
+                signedOnly: signedInput.checked,
+                filterQuery: state.currentSnapshot.filterQuery
             });
         }
     }
@@ -501,6 +511,9 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
     if (!initialSnapshot) {
         return;
     }
+    initialSnapshot.filterQuery = initialSnapshot.activeTab === 'archived'
+        ? normalizeSurveyArchiveFilterQuery(window.location.search)
+        : '';
 
     const tabTemplateElements = {
         active: contentHost.querySelector('#survey-user-active-content-template')
@@ -651,6 +664,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
             rowTooltip.hide();
             contentHost.replaceChildren(snapshot.template.content.cloneNode(true));
             state.currentSnapshot = createSnapshotFromHost(contentHost) || snapshot;
+            state.currentSnapshot.filterQuery = snapshot.filterQuery || '';
         } else {
             state.currentSnapshot = snapshot;
         }
@@ -703,6 +717,9 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         const signedOnly = tab === 'archived'
             ? Boolean(options.signedOnly ?? currentSnapshot?.signedOnly)
             : false;
+        const filterQuery = tab === 'archived'
+            ? options.filterQuery ?? currentSnapshot?.filterQuery ?? ''
+            : null;
 
         if (options.showLoading !== false && state.activeTab === tab) {
             setError('');
@@ -710,7 +727,7 @@ window.bindSurveyUserListPage = function bindSurveyUserListPage(initialData, pag
         }
 
         try {
-            const snapshot = await fetchSnapshot(tab, page, searchTerm, signedOnly, options.filterQuery ?? null);
+            const snapshot = await fetchSnapshot(tab, page, searchTerm, signedOnly, filterQuery);
             if (disposed) {
                 return null;
             }

@@ -65,3 +65,67 @@ test('незаполненная архивная анкета не открыв
     await page.getByText('Заполнена', { exact: true }).click();
     expect(await page.evaluate(() => window.__openedSurveyIds)).toEqual([2]);
 });
+
+test('пагинация клиентского архива сохраняет выбранные фильтры', async ({ page }) => {
+    await page.route('http://survey.test/**', (route) => route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: '<!doctype html><html></html>'
+    }));
+    await page.route('http://survey.test/js/**', async (route) => {
+        const relativePath = decodeURIComponent(new URL(route.request().url()).pathname)
+            .replace(/^\/js\//, '');
+        const scriptPath = path.resolve(scriptsRoot, relativePath);
+        if (!scriptPath.startsWith(`${scriptsRoot}${path.sep}`)) {
+            await route.abort();
+            return;
+        }
+
+        await route.fulfill({
+            status: 200,
+            contentType: 'text/javascript',
+            body: await fs.readFile(scriptPath, 'utf8')
+        });
+    });
+
+    await page.goto('http://survey.test/archive?surveyIds=12%2C18&month=2026-08');
+    await page.setContent(`
+        <div id="survey-list">
+            <button type="button" data-role="pagination-page" data-page="2">2</button>
+        </div>
+    `);
+
+    await page.evaluate(async () => {
+        const { createSurveyUserListInteractionController } = await import(
+            '/js/features/survey/user-survey-list.js'
+        );
+        window.__snapshotLoads = [];
+        window.__rowController = createSurveyUserListInteractionController({
+            contentHost: document.getElementById('survey-list'),
+            state: {
+                activeTab: 'archived',
+                currentSnapshot: {
+                    currentPage: 1,
+                    searchTerm: '',
+                    signedOnly: false,
+                    filterQuery: 'surveyIds=12%2C18&month=2026-08'
+                }
+            },
+            loadTabSnapshot(tab, options) {
+                window.__snapshotLoads.push({ tab, options });
+            }
+        });
+    });
+
+    await page.getByRole('button', { name: '2', exact: true }).click();
+    expect(await page.evaluate(() => window.__snapshotLoads)).toEqual([{
+        tab: 'archived',
+        options: {
+            page: 2,
+            searchTerm: '',
+            signedOnly: false,
+            filterQuery: 'surveyIds=12%2C18&month=2026-08',
+            scrollToTableStart: true
+        }
+    }]);
+});
