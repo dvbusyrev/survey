@@ -1781,6 +1781,7 @@
         optionRole: "survey-organization-filter-option",
         valueDatasetKey: "organizationName",
         idDatasetKey: "organizationId",
+        idsDatasetKey: "organizationIds",
         emptyText: "Организации для фильтрации не найдены.",
         filterName: "organization"
       },
@@ -1793,6 +1794,7 @@
         optionRole: "survey-name-filter-option",
         valueDatasetKey: "surveyName",
         idDatasetKey: "surveyId",
+        idsDatasetKey: "surveyIds",
         emptyText: "Анкеты для фильтрации не найдены.",
         filterName: "survey"
       }
@@ -1816,8 +1818,9 @@
       const options = state.serverMode ? state[config.availableOptionsKey] : state[config.availableValuesKey];
       options.forEach((option) => {
         const optionId = state.serverMode ? option.id : null;
+        const optionIds = state.serverMode && Array.isArray(option.ids) && option.ids.length > 0 ? option.ids : [optionId];
         const optionName = state.serverMode ? option.name : option;
-        const isSelected = state.serverMode ? state[config.selectedIdsKey].includes(optionId) : state[config.selectedValuesKey].includes(optionName);
+        const isSelected = state.serverMode ? optionIds.some((id) => state[config.selectedIdsKey].includes(id)) : state[config.selectedValuesKey].includes(optionName);
         const checkboxOption = window.AppUi.createCheckboxOption({
           text: optionName,
           checked: isSelected,
@@ -1830,6 +1833,7 @@
         checkbox.dataset[config.valueDatasetKey] = optionName;
         if (state.serverMode) {
           checkbox.dataset[config.idDatasetKey] = String(optionId);
+          checkbox.dataset[config.idsDatasetKey] = optionIds.join(",");
         }
         refs.options.appendChild(optionLabel);
       });
@@ -1849,17 +1853,22 @@
       callbacks?.applyPageFilters?.(instance.page);
     }
     function toggleId(instance, config, rawId, isSelected, callbacks) {
-      const id = Number.parseInt(String(rawId || ""), 10);
-      if (!Number.isInteger(id)) {
+      toggleIds(instance, config, [rawId], isSelected, callbacks);
+    }
+    function toggleIds(instance, config, rawIds, isSelected, callbacks) {
+      const ids = (Array.isArray(rawIds) ? rawIds : String(rawIds || "").split(",")).map((rawId) => Number.parseInt(String(rawId || ""), 10)).filter((id, index, values) => Number.isInteger(id) && values.indexOf(id) === index);
+      if (ids.length === 0) {
         return;
       }
       const serverFilters = callbacks?.serverFilters || window.SurveyServerFilterState;
       const nextSelectedIds = new Set(instance.state[config.selectedIdsKey]);
-      if (isSelected) {
-        nextSelectedIds.add(id);
-      } else {
-        nextSelectedIds.delete(id);
-      }
+      ids.forEach((id) => {
+        if (isSelected) {
+          nextSelectedIds.add(id);
+        } else {
+          nextSelectedIds.delete(id);
+        }
+      });
       instance.state[config.selectedIdsKey] = Array.from(nextSelectedIds).sort((left, right) => left - right);
       const serverConfig = serverFilters.getConfig(instance.page);
       if (serverConfig) {
@@ -1975,7 +1984,13 @@
           return;
         }
         if (instance.state.serverMode) {
-          toggleId(instance, config, option.dataset[config.idDatasetKey], Boolean(option.checked), callbacks);
+          toggleIds(
+            instance,
+            config,
+            option.dataset[config.idsDatasetKey] || option.dataset[config.idDatasetKey],
+            Boolean(option.checked),
+            callbacks
+          );
           return;
         }
         toggleValue(instance, config, option.dataset[config.valueDatasetKey], Boolean(option.checked), callbacks);
@@ -1998,6 +2013,7 @@
       render,
       toggleValue,
       toggleId,
+      toggleIds,
       clear
     };
   })();

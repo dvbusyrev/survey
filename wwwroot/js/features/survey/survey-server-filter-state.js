@@ -17,6 +17,26 @@
             .filter((value, index, array) => Number.isInteger(value) && array.indexOf(value) === index);
     }
 
+    function parseOptions(values) {
+        if (!Array.isArray(values)) {
+            return [];
+        }
+
+        return values.map((option) => {
+            const id = Number.parseInt(String(option?.Id ?? option?.id ?? ''), 10);
+            const ids = parseIntegerList(option?.Ids ?? option?.ids);
+            if (Number.isInteger(id) && !ids.includes(id)) {
+                ids.unshift(id);
+            }
+
+            return {
+                id: Number.isInteger(id) ? id : ids[0],
+                ids,
+                name: String(option?.Name ?? option?.name ?? '').trim()
+            };
+        }).filter((option) => Number.isInteger(option.id) && option.ids.length > 0 && option.name);
+    }
+
     function getConfig(page) {
         if (!(page instanceof Element)) {
             return null;
@@ -41,19 +61,9 @@
                 enableDateFilter: Boolean(parsed?.EnableDateFilter ?? parsed?.enableDateFilter),
                 enableOrganizationFilter: Boolean(parsed?.EnableOrganizationFilter ?? parsed?.enableOrganizationFilter),
                 enableSurveyFilter: Boolean(parsed?.EnableSurveyFilter ?? parsed?.enableSurveyFilter),
-                organizationOptions: Array.isArray(parsed?.OrganizationOptions ?? parsed?.organizationOptions)
-                    ? (parsed.OrganizationOptions ?? parsed.organizationOptions).map((option) => ({
-                        id: Number.parseInt(String(option?.Id ?? option?.id ?? ''), 10),
-                        name: String(option?.Name ?? option?.name ?? '').trim()
-                    })).filter((option) => Number.isInteger(option.id) && option.name)
-                    : [],
+                organizationOptions: parseOptions(parsed?.OrganizationOptions ?? parsed?.organizationOptions),
                 selectedOrganizationIds: parseIntegerList(parsed?.SelectedOrganizationIds ?? parsed?.selectedOrganizationIds),
-                surveyOptions: Array.isArray(parsed?.SurveyOptions ?? parsed?.surveyOptions)
-                    ? (parsed.SurveyOptions ?? parsed.surveyOptions).map((option) => ({
-                        id: Number.parseInt(String(option?.Id ?? option?.id ?? ''), 10),
-                        name: String(option?.Name ?? option?.name ?? '').trim()
-                    })).filter((option) => Number.isInteger(option.id) && option.name)
-                    : [],
+                surveyOptions: parseOptions(parsed?.SurveyOptions ?? parsed?.surveyOptions),
                 selectedSurveyIds: parseIntegerList(parsed?.SelectedSurveyIds ?? parsed?.selectedSurveyIds),
                 year: Number.isInteger(parsed?.Year) ? parsed.Year : Number.parseInt(String(parsed?.Year ?? parsed?.year ?? ''), 10),
                 month: String(parsed?.Month ?? parsed?.month ?? '').trim(),
@@ -94,7 +104,7 @@
     function getSelectedOptionNames(options, selectedIds) {
         const selectedIdSet = new Set(parseIntegerList(selectedIds));
         return options
-            .filter((option) => selectedIdSet.has(option.id))
+            .filter((option) => option.ids.some((id) => selectedIdSet.has(id)))
             .map((option) => option.name)
             .sort((left, right) => left.localeCompare(right, 'ru'));
     }

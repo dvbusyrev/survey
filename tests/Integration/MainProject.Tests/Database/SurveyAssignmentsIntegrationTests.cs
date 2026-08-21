@@ -1625,6 +1625,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                 """
                 UPDATE public.survey
                 SET
+                    name_survey = CASE id_survey
+                        WHEN @MarchSurveyId THEN 'Мартовская анкета'
+                        ELSE 'Апрельская анкета'
+                    END,
                     date_begin = CASE id_survey
                         WHEN @MarchSurveyId THEN DATE '2024-03-10'
                         ELSE DATE '2024-04-10'
@@ -1685,6 +1689,74 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal("2024-03", monthPage.FilterState.Month);
         Assert.Equal("2024-04-01", rangePage.FilterState.DateFrom);
         Assert.Equal("2024-04-30", rangePage.FilterState.DateTo);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SurveyNameFilters_GroupMonthlySurveyCopiesEverywhere()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var firstSurvey = await CreateSurveyAsync([organizationId]);
+        var secondSurvey = await CreateSurveyAsync([organizationId]);
+        var surveyIds = new[] { firstSurvey.SurveyId!.Value, secondSurvey.SurveyId!.Value };
+        var answerService = CreateAnswerService();
+
+        Assert.True((await answerService.InsertAnswerAsync(
+            BuildAnswerRecord(surveyIds[0], organizationId, 4))).Success);
+        Assert.True((await answerService.InsertAnswerAsync(
+            BuildAnswerRecord(surveyIds[1], organizationId, 5))).Success);
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.survey
+                SET date_begin = DATE '2024-03-01', date_end = DATE '2024-03-31'
+                WHERE id_survey = ANY(@SurveyIds);
+
+                UPDATE public.organization_survey
+                SET date_begin = DATE '2024-03-01', date_end = DATE '2024-03-31'
+                WHERE id_survey = ANY(@SurveyIds);
+                """,
+                new { SurveyIds = surveyIds });
+        }
+
+        var userId = await CreateUserAsync(organizationId, "grouped-survey-filter-client");
+        var surveyService = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var adminArchive = await surveyService.GetAdminArchivedSurveysPageAsync(
+            1, null, null, null, surveyIds[1].ToString(), null, null, null, null);
+        var userArchive = await surveyService.GetUserArchivePageAsync(
+            userId,
+            1,
+            searchTerm: null,
+            date: null,
+            dateFrom: null,
+            dateTo: null,
+            signedOnly: false,
+            surveyIds: surveyIds[1].ToString());
+        var answerJournal = await answerService.GetAnswersPageAsync(
+            1,
+            null,
+            null,
+            null,
+            surveyIds[1].ToString(),
+            null,
+            null,
+            null,
+            null);
+
+        var adminOption = Assert.Single(adminArchive.FilterState.SurveyOptions);
+        var userOption = Assert.Single(userArchive!.FilterState.SurveyOptions);
+        var answerOption = Assert.Single(answerJournal.FilterState.SurveyOptions);
+
+        Assert.Equal(surveyIds, adminOption.Ids);
+        Assert.Equal(surveyIds, userOption.Ids);
+        Assert.Equal(surveyIds, answerOption.Ids);
+        Assert.Equal(surveyIds, adminArchive.FilterState.SelectedSurveyIds);
+        Assert.Equal(surveyIds, userArchive.FilterState.SelectedSurveyIds);
+        Assert.Equal(surveyIds, answerJournal.FilterState.SelectedSurveyIds);
+        Assert.Equal(surveyIds, adminArchive.SurveyRows.Select(row => row.IdSurvey).Order().ToArray());
+        Assert.Equal(surveyIds, userArchive.ArchivedSurveys.Select(survey => survey.IdSurvey).Order().ToArray());
+        Assert.Equal(surveyIds, answerJournal.Answers.Select(answer => answer.IdSurvey).Order().ToArray());
     }
 
     [RequiresPostgresFact]

@@ -65,6 +65,7 @@ public partial class AnswerService
                 currentPage,
                 AppListPaging.DefaultPageSize),
             cancellationToken);
+        selectedSurveyIds = SurveyFilterOptions.ExpandSelectedIds(selectedSurveyIds, readData.SurveyOptions);
 
         return new AnswerListPageViewModel
         {

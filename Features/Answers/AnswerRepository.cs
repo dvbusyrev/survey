@@ -264,16 +264,6 @@ public sealed class AnswerRepository
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        var parameters = new DynamicParameters();
-        parameters.Add("SelectedOrganizationIds", request.OrganizationIds.ToArray());
-        parameters.Add("HasOrganizationFilter", request.OrganizationIds.Count > 0);
-        parameters.Add("SelectedSurveyIds", request.SurveyIds.ToArray());
-        parameters.Add("HasSurveyFilter", request.SurveyIds.Count > 0);
-        parameters.Add("HasDateFilter", request.DateStart.HasValue && request.DateEnd.HasValue);
-        parameters.Add("DateStart", request.DateStart);
-        parameters.Add("DateEnd", request.DateEnd);
-        parameters.Add("Today", _clock.Today.Date);
-
         var organizationOptions = BuildSelectionOptions(await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             """
             SELECT DISTINCT
@@ -286,7 +276,7 @@ public sealed class AnswerRepository
                 ON organization.id_organization = assignment.id_organization;
             """,
             cancellationToken: cancellationToken)));
-        var surveyOptions = BuildSelectionOptions(await connection.QueryAsync<SelectionOption>(new CommandDefinition(
+        var surveyOptions = SurveyFilterOptions.Build(await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             """
             SELECT DISTINCT
                 assignment.id_survey AS Id,
@@ -298,6 +288,17 @@ public sealed class AnswerRepository
                 ON survey.id_survey = assignment.id_survey;
             """,
             cancellationToken: cancellationToken)));
+        var selectedSurveyIds = SurveyFilterOptions.ExpandSelectedIds(request.SurveyIds, surveyOptions);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("SelectedOrganizationIds", request.OrganizationIds.ToArray());
+        parameters.Add("HasOrganizationFilter", request.OrganizationIds.Count > 0);
+        parameters.Add("SelectedSurveyIds", selectedSurveyIds.ToArray());
+        parameters.Add("HasSurveyFilter", selectedSurveyIds.Count > 0);
+        parameters.Add("HasDateFilter", request.DateStart.HasValue && request.DateEnd.HasValue);
+        parameters.Add("DateStart", request.DateStart);
+        parameters.Add("DateEnd", request.DateEnd);
+        parameters.Add("Today", _clock.Today.Date);
 
         var totalCount = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"{AnswerRowsCte} SELECT COUNT(*) FROM answer_rows WHERE {AnswerFilterPredicate};",

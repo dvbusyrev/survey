@@ -34,8 +34,9 @@ public partial class SurveyService
 
         var organizationOptions = BuildArchiveSelectionOptions(
             await _surveyRepository.GetArchivedOrganizationOptionsAsync(connection, cancellationToken));
-        var surveyOptions = BuildArchiveSelectionOptions(
+        var surveyOptions = SurveyFilterOptions.Build(
             await _surveyRepository.GetArchivedSurveyOptionsAsync(connection, cancellationToken));
+        selectedSurveyIds = SurveyFilterOptions.ExpandSelectedIds(selectedSurveyIds, surveyOptions);
         var totalCount = await _surveyRepository.CountArchivedSurveysAsync(
             connection,
             selectedOrganizationIds,
@@ -142,11 +143,12 @@ public partial class SurveyService
             }
         }
 
-        var surveyOptions = BuildArchiveSelectionOptions(
+        var surveyOptions = SurveyFilterOptions.Build(
             await _surveyRepository.GetUserArchivedSurveyOptionsAsync(
                 connection,
                 userOrganizationId.Value,
                 cancellationToken));
+        selectedSurveyIds = SurveyFilterOptions.ExpandSelectedIds(selectedSurveyIds, surveyOptions);
 
         var pageData = await _surveyRepository.GetUserArchivePageAsync(
             connection,
