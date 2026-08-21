@@ -200,6 +200,7 @@ test('администратор проходит основные раздел�
     await expect(page.locator('[data-page="surveys-list"]')).toBeVisible();
     await page.locator('[data-role="survey-organization-filter-trigger"]').click();
     await expect(page.locator('[data-role="survey-organization-filter-popover"]')).not.toHaveClass(/is-hidden/);
+    await expect(page.locator('[data-role="survey-organization-filter"]')).toHaveCSS('z-index', '10');
     await page.locator('[data-role="survey-organization-filter-option"]').first().check();
     await page.locator('[data-role="survey-organization-filter-close"]').click();
     await expect(page).toHaveURL(/organizationIds=\d+/);
