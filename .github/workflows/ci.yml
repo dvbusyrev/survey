@@ -44,6 +44,11 @@ jobs:
           dotnet format tests/Unit/MainProject.Tests/MainProject.Tests.csproj --verify-no-changes --no-restore
           dotnet format tests/Integration/MainProject.Tests/MainProject.IntegrationTests.csproj --verify-no-changes --no-restore
 
+      - name: Verify PowerShell syntax
+        shell: pwsh
+        run: |
+          [scriptblock]::Create((Get-Content scripts/import-legacy-schema.ps1 -Raw)) | Out-Null
+
       - name: Run analyzers as errors
         run: |
           dotnet build tests/Unit/MainProject.Tests/MainProject.Tests.csproj --configuration Release --no-restore -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest -p:NuGetAudit=false -p:WarningsNotAsErrors=NU1900 -warnaserror
@@ -160,6 +165,27 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file tests/migrations/verify-v030-upgrade.sql
+
+      - name: Rehearse legacy schema import
+        env:
+          PGPASSWORD: postgres
+          SURVEY_LEGACY_SOURCE_PASSWORD: postgres
+        run: |
+          set -euo pipefail
+          password_hash='AQAAAAIAAYagAAAAENm3jgmJCIAVrEDtYWGgxeXurLrJjfZFEIX/jVTRnRTzLM1534AN4JptTJ/qOJit+Q=='
+          staging_schema='legacy_import_fdw_fixture'
+          foreign_server='legacy_source_fdw_fixture'
+          cleanup_fdw() {
+            psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --set "staging_schema=$staging_schema" --set "foreign_server=$foreign_server" --file scripts/cleanup-legacy-foreign-schema.sql
+          }
+          psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file tests/migrations/seed-legacy-import-schema.sql
+          psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --set source_host=localhost --set source_port=5432 --set source_database=survey_migration_rehearsal --set source_user=postgres --set source_schema=legacy_import_fixture --set source_sslmode=disable --set staging_schema="$staging_schema" --set foreign_server="$foreign_server" --file scripts/prepare-legacy-foreign-schema.sql
+          trap cleanup_fdw EXIT
+          psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --set legacy_schema="$staging_schema" --set legacy_password_hash="$password_hash" --set commit_import=false --file scripts/import-legacy-schema.sql
+          psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --set legacy_schema="$staging_schema" --set legacy_password_hash="$password_hash" --set commit_import=true --file scripts/import-legacy-schema.sql
+          psql --host localhost --username postgres --dbname survey_migration_rehearsal --set ON_ERROR_STOP=1 --file tests/migrations/verify-legacy-import.sql
+          cleanup_fdw
+          trap - EXIT
 
   browser-smoke:
     runs-on: ubuntu-latest

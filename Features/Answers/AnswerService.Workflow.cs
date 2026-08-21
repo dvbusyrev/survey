@@ -218,10 +218,23 @@ public partial class AnswerService
 
     private static byte[] TryDecodeBase64(string signature)
     {
-        var normalized = string.Concat(signature.Where(character => !char.IsWhiteSpace(character)));
+        var normalized = string.Concat(signature.Where(character => !char.IsWhiteSpace(character)))
+            .Replace('-', '+')
+            .Replace('_', '/');
         if (string.IsNullOrWhiteSpace(normalized))
         {
             return Array.Empty<byte>();
+        }
+
+        var remainder = normalized.Length % 4;
+        if (remainder == 1)
+        {
+            return Array.Empty<byte>();
+        }
+
+        if (remainder > 0)
+        {
+            normalized = normalized.PadRight(normalized.Length + 4 - remainder, '=');
         }
 
         try
