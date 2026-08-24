@@ -1615,7 +1615,6 @@ public sealed class SurveyRepository
 
     public async Task<IReadOnlyList<SurveySelectionItem>> GetAutoCreationSurveySelectionOptionsAsync(
         NpgsqlConnection connection,
-        int configId,
         CancellationToken cancellationToken = default)
     {
         var surveys = await connection.QueryAsync<SurveySelectionItem>(new CommandDefinition(
@@ -1624,9 +1623,6 @@ public sealed class SurveyRepository
                 s.id_survey AS Id,
                 s.name_survey AS Name
             FROM public.survey s
-            LEFT JOIN public.survey_auto_creation_config selected
-              ON selected.id_config = @ConfigId
-             AND selected.id_survey = s.id_survey
             WHERE EXISTS (
                 SELECT 1
                 FROM public.organization_survey assignment
@@ -1634,10 +1630,8 @@ public sealed class SurveyRepository
             )
             ORDER BY
                 lower(btrim(s.name_survey)),
-                (selected.id_survey IS NOT NULL) DESC,
                 s.id_survey DESC;
             """,
-            new { ConfigId = configId },
             cancellationToken: cancellationToken));
         return surveys.ToArray();
     }
@@ -1830,15 +1824,28 @@ public sealed class SurveyRepository
     {
         var ids = await connection.QueryAsync<int>(new CommandDefinition(
             """
-            SELECT selected.id_survey
-            FROM public.survey_auto_creation_config selected
-            WHERE selected.id_config = @ConfigId
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey assignment
-                    WHERE assignment.id_survey = selected.id_survey
-                )
-            ORDER BY selected.id_survey;
+            WITH selected_names AS (
+                SELECT DISTINCT lower(btrim(selected_survey.name_survey)) AS normalized_name
+                FROM public.survey_auto_creation_config selected
+                INNER JOIN public.survey selected_survey
+                    ON selected_survey.id_survey = selected.id_survey
+                WHERE selected.id_config = @ConfigId
+            )
+            SELECT latest_survey.id_survey
+            FROM selected_names selected
+            CROSS JOIN LATERAL (
+                SELECT survey.id_survey
+                FROM public.survey survey
+                WHERE lower(btrim(survey.name_survey)) = selected.normalized_name
+                  AND EXISTS (
+                        SELECT 1
+                        FROM public.organization_survey assignment
+                        WHERE assignment.id_survey = survey.id_survey
+                    )
+                ORDER BY survey.id_survey DESC
+                LIMIT 1
+            ) latest_survey
+            ORDER BY selected.normalized_name;
             """,
             new { ConfigId = configId },
             transaction,
@@ -1854,16 +1861,30 @@ public sealed class SurveyRepository
     {
         var surveys = await connection.QueryAsync<SurveySelectionItem>(new CommandDefinition(
             """
-            SELECT s.id_survey AS Id, s.name_survey AS Name
-            FROM public.survey_auto_creation_config cs
-            INNER JOIN public.survey s ON s.id_survey = cs.id_survey
-            WHERE cs.id_config = @ConfigId
-              AND EXISTS (
-                    SELECT 1
-                    FROM public.organization_survey assignment
-                    WHERE assignment.id_survey = s.id_survey
-                )
-            ORDER BY lower(s.name_survey), s.id_survey;
+            WITH selected_names AS (
+                SELECT DISTINCT lower(btrim(selected_survey.name_survey)) AS normalized_name
+                FROM public.survey_auto_creation_config selected
+                INNER JOIN public.survey selected_survey
+                    ON selected_survey.id_survey = selected.id_survey
+                WHERE selected.id_config = @ConfigId
+            )
+            SELECT
+                latest_survey.id_survey AS Id,
+                latest_survey.name_survey AS Name
+            FROM selected_names selected
+            CROSS JOIN LATERAL (
+                SELECT survey.id_survey, survey.name_survey
+                FROM public.survey survey
+                WHERE lower(btrim(survey.name_survey)) = selected.normalized_name
+                  AND EXISTS (
+                        SELECT 1
+                        FROM public.organization_survey assignment
+                        WHERE assignment.id_survey = survey.id_survey
+                    )
+                ORDER BY survey.id_survey DESC
+                LIMIT 1
+            ) latest_survey
+            ORDER BY selected.normalized_name;
             """,
             new { ConfigId = configId },
             transaction,

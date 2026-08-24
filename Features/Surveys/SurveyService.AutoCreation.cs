@@ -51,7 +51,6 @@ public partial class SurveyService
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         return await _surveyRepository.GetAutoCreationSurveySelectionOptionsAsync(
             connection,
-            SingletonConfigId,
             cancellationToken);
     }
 

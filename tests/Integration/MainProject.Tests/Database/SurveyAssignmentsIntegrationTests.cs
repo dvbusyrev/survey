@@ -2694,6 +2694,100 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task AutoCreation_RunPending_UsesLatestSurveyWithSelectedName()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var selectedSurvey = await CreateSurveyAsync([organizationIds[0]]);
+        var selectedSurveyId = selectedSurvey.SurveyId!.Value;
+        var calendar = CreateWeekdayProductionCalendar();
+        var setupService = new SurveyService(
+            _connectionFactory,
+            _surveyRepository,
+            new FixedClock(new DateTime(2026, 4, 1)),
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: calendar);
+
+        var startResult = await setupService.StartAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "quarter",
+            ReportingOffsetBusinessDays = 5,
+            ActivePeriodBusinessDays = 5,
+            SurveyIds = [selectedSurveyId]
+        });
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            var latestSurveyId = await connection.ExecuteScalarAsync<int>(
+                """
+                INSERT INTO public.survey
+                    (name_survey, description, date_begin, date_end)
+                VALUES
+                    ('  интеграционная АНКЕТА  ', 'Последняя версия', '2026-04-01', '2026-04-10')
+                RETURNING id_survey;
+                """);
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO public.survey_question (id_survey, question_order, question_text)
+                VALUES (@SurveyId, 1, 'Вопрос последней версии');
+
+                INSERT INTO public.organization_survey
+                    (id_organization, id_survey, date_begin, date_end)
+                VALUES
+                    (@OrganizationId, @SurveyId, '2026-04-01', '2026-04-10');
+                """,
+                new
+                {
+                    SurveyId = latestSurveyId,
+                    OrganizationId = organizationIds[1]
+                });
+        }
+
+        var runService = new SurveyService(
+            _connectionFactory,
+            _surveyRepository,
+            new FixedClock(new DateTime(2026, 4, 27)),
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: calendar);
+        var runResult = await runService.RunPendingAsync();
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var createdSurveyId = await verificationConnection.QuerySingleAsync<int>(
+            """
+            SELECT id_survey
+            FROM public.survey
+            WHERE lower(btrim(name_survey)) = lower(btrim('Интеграционная анкета'))
+              AND date_begin = '2026-04-24'
+              AND date_end = '2026-04-30';
+            """);
+        var copiedDescription = await verificationConnection.ExecuteScalarAsync<string>(
+            "SELECT description FROM public.survey WHERE id_survey = @SurveyId;",
+            new { SurveyId = createdSurveyId });
+        var copiedQuestions = (await verificationConnection.QueryAsync<string>(
+            """
+            SELECT question_text
+            FROM public.survey_question
+            WHERE id_survey = @SurveyId
+            ORDER BY question_order;
+            """,
+            new { SurveyId = createdSurveyId })).ToArray();
+        var copiedOrganizationIds = (await verificationConnection.QueryAsync<int>(
+            """
+            SELECT id_organization
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+            ORDER BY id_organization;
+            """,
+            new { SurveyId = createdSurveyId })).ToArray();
+
+        Assert.True(startResult.Success, startResult.Message);
+        Assert.True(runResult.Processed);
+        Assert.Equal(1, runResult.CreatedSurveyCount);
+        Assert.Equal("Последняя версия", copiedDescription);
+        Assert.Equal(["Вопрос последней версии"], copiedQuestions);
+        Assert.Equal([organizationIds[1]], copiedOrganizationIds);
+    }
+
+    [RequiresPostgresFact]
     public async Task AutoCreation_RejectsSurveyWithoutOrganizationAssignments()
     {
         await using var connection = _fixture.CreateConnection();
