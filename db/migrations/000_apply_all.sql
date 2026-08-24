@@ -6,8 +6,7 @@ CREATE TABLE IF NOT EXISTS public.schema_migrations (
     version text PRIMARY KEY,
     name text NOT NULL,
     applied_at timestamp without time zone NOT NULL DEFAULT NOW(),
-    date_update timestamp without time zone NOT NULL DEFAULT NOW(),
-    user_update integer
+    date_update timestamp without time zone NOT NULL DEFAULT NOW()
 );
 
 COMMIT;
@@ -52,3 +51,4 @@ COMMIT;
 \ir 038_repair_answer_participants.sql
 \ir 039_restore_survey_base_schedule.sql
 \ir 040_protect_smtp_password_storage.sql
+\ir 041_remove_redundant_user_update.sql

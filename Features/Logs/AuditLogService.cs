@@ -30,8 +30,7 @@ public partial class AuditLogService
 
     private static readonly HashSet<string> IgnoredChangedFieldNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "date_update",
-        "user_update"
+        "date_update"
     };
 
     private readonly AuditLogRepository _auditLogRepository;

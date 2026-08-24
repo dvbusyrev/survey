@@ -8,6 +8,7 @@ DECLARE
     obsolete_schedule_column_count integer;
     applied_migration_count integer;
     audit_column_without_generator_count integer;
+    redundant_user_update_column_count integer;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -80,9 +81,19 @@ BEGIN
         FROM information_schema.columns
         WHERE table_schema = 'public'
           AND table_name = 'auto_creation_config'
-          AND column_name IN ('date_update', 'user_update')
+          AND column_name = 'date_update'
     ) THEN
         RAISE EXCEPTION 'Update metadata columns are inconsistent';
+    END IF;
+
+    SELECT COUNT(*)
+    INTO redundant_user_update_column_count
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND column_name = 'user_update';
+
+    IF redundant_user_update_column_count <> 0 THEN
+        RAISE EXCEPTION 'Redundant user_update columns remain after the upgrade';
     END IF;
 
     SELECT COUNT(*)
@@ -122,9 +133,12 @@ BEGIN
     SELECT COUNT(*)
     INTO applied_migration_count
     FROM public.schema_migrations
-    WHERE version IN ('028', '029', '030', '031', '032', '033', '034');
+    WHERE version IN (
+        '028', '029', '030', '031', '032', '033', '034',
+        '035', '036', '037', '038', '039', '040', '041'
+    );
 
-    IF applied_migration_count <> 7 THEN
+    IF applied_migration_count <> 14 THEN
         RAISE EXCEPTION 'Not all current migrations were applied';
     END IF;
 END;

@@ -46,8 +46,9 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 037_store_answer_participants.sql", script);
         Assert.Contains(@"\ir 038_repair_answer_participants.sql", script);
         Assert.Contains(@"\ir 039_restore_survey_base_schedule.sql", script);
+        Assert.Contains(@"\ir 040_protect_smtp_password_storage.sql", script);
+        Assert.Contains(@"\ir 041_remove_redundant_user_update.sql", script);
         Assert.Contains("date_update", script);
-        Assert.Contains("user_update", script);
     }
 
     [Fact]
@@ -483,6 +484,26 @@ public sealed class DatabaseMigrationTests
         Assert.DoesNotContain("FROM public.answer_l", script);
         Assert.DoesNotContain("FROM public.app_user_l", script);
         Assert.Contains("VALUES ('038', 'repair_answer_participants')", script);
+    }
+
+    [Fact]
+    public void UserUpdateRemovalMigration_PreservesParticipantsAndDropsRedundantMetadata()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "041_remove_redundant_user_update.sql"));
+
+        Assert.Contains("INSERT INTO public.answer_participant", script);
+        Assert.Contains("answer.user_update", script);
+        Assert.Contains("ON CONFLICT DO NOTHING", script);
+        Assert.Contains("CREATE OR REPLACE FUNCTION public.set_update_metadata()", script);
+        Assert.Contains("NEW.date_update = NOW()", script);
+        Assert.DoesNotContain("NEW.user_update", script);
+        Assert.Contains("DROP COLUMN IF EXISTS user_update", script);
+        Assert.Contains("VALUES ('041', 'remove_redundant_user_update')", script);
+        Assert.DoesNotContain("FROM public.answer_l", script);
     }
 
     [Fact]

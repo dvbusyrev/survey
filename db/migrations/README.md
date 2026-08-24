@@ -64,6 +64,10 @@ What this does:
 - applies `035_disallow_comments_for_top_rating`
 - applies `036_protect_referenced_records_from_deletion`
 - applies `037_store_answer_participants`
+- applies `038_repair_answer_participants`
+- applies `039_restore_survey_base_schedule`
+- applies `040_protect_smtp_password_storage`
+- applies `041_remove_redundant_user_update`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -108,5 +112,7 @@ Migration sources:
 - `037_store_answer_participants` stores answer and draft participation as business data so deletion rules never depend on audit tables
 - `038_repair_answer_participants` restores missing answer participants from current answer metadata without reading audit tables
 - `039_restore_survey_base_schedule` restores the base survey period and keeps organization-specific extensions separate from it
+- `040_protect_smtp_password_storage` redacts the SMTP password in audit snapshots
+- `041_remove_redundant_user_update` moves the remaining legacy answer relation to `answer_participant` and removes `user_update` from current and audit tables
 
 `db/bootstrap/001_base_schema.sql` is not an independently executable migration. It is the canonical base schema imported only by `001_unified_schema.sql` when a database has no migration history. Keep schema snapshots and bootstrap files outside `db/migrations` so the migration runner cannot treat them as standalone steps.

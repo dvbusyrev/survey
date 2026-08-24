@@ -160,6 +160,13 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name = 'auto_creation_config';
             """)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var userUpdateColumnCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND column_name = 'user_update';
+            """);
         var themeDefaults = await connection.QuerySingleAsync<(string FontColor, string BackgroundColor)>(
             """
             SELECT
@@ -183,9 +190,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             """);
 
         Assert.Contains("date_update", answerColumns);
-        Assert.Contains("user_update", answerColumns);
+        Assert.DoesNotContain("user_update", answerColumns);
         Assert.DoesNotContain("date_update", autoCreationColumns);
         Assert.DoesNotContain("user_update", autoCreationColumns);
+        Assert.Equal(0, userUpdateColumnCount);
         Assert.Contains("#343D4B", themeDefaults.FontColor);
         Assert.Contains("#B2A8FF", themeDefaults.BackgroundColor);
         Assert.Equal(0, legacyObjects);
@@ -695,44 +703,6 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             );
             """,
             new { SurveyId = surveyId }));
-    }
-
-    [RequiresPostgresFact]
-    public async Task DeleteUser_BlocksAnswerRecordedBeforeParticipantRepair()
-    {
-        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
-        var userId = await CreateUserAsync(organizationId, "answer-metadata-deletion-client");
-        var survey = await CreateSurveyAsync([organizationId]);
-        var surveyId = survey.SurveyId!.Value;
-        var answerService = CreateAnswerService(userId);
-        Assert.True((await answerService.InsertAnswerAsync(BuildAnswerRecord(surveyId, organizationId, 4))).Success);
-
-        await using var connection = _fixture.CreateConnection();
-        var answerId = await connection.ExecuteScalarAsync<int>(
-            """
-            SELECT answer.id_answer
-            FROM public.answer answer
-            INNER JOIN public.organization_survey assignment
-                ON assignment.id_organization_survey = answer.id_organization_survey
-            WHERE assignment.id_survey = @SurveyId
-              AND assignment.id_organization = @OrganizationId;
-            """,
-            new { SurveyId = surveyId, OrganizationId = organizationId });
-        await connection.ExecuteAsync(
-            "UPDATE public.answer SET user_update = @UserId WHERE id_answer = @AnswerId;",
-            new { UserId = userId, AnswerId = answerId });
-        await connection.ExecuteAsync(
-            "DELETE FROM public.answer_participant WHERE id_answer = @AnswerId AND id_user = @UserId;",
-            new { UserId = userId, AnswerId = answerId });
-
-        var deletion = await new UserManagementService(_connectionFactory, _clock).DeleteUserAsync(userId);
-
-        Assert.False(deletion.Success);
-        Assert.Equal("user_in_use", deletion.Code);
-        Assert.Contains("связан с сохранёнными ответами анкет", deletion.Message);
-        Assert.True(await connection.ExecuteScalarAsync<bool>(
-            "SELECT EXISTS (SELECT 1 FROM public.app_user WHERE id_user = @UserId);",
-            new { UserId = userId }));
     }
 
     [RequiresPostgresFact]

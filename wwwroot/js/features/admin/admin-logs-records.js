@@ -1,6 +1,6 @@
 (function () {
     const normalizeSourceTable = window.AdminLogsData?.normalizeSourceTable || ((value) => String(value || '').trim().toLowerCase());
-    const IGNORED_CHANGED_COLUMNS = new Set(['date_update', 'user_update']);
+    const IGNORED_CHANGED_COLUMNS = new Set(['date_update']);
     const SENSITIVE_RECORD_COLUMNS = new Set([
         'password',
         'hash_password',
