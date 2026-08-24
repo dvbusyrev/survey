@@ -141,13 +141,22 @@
             window.AppScrollState?.saveCurrentPosition?.();
         }
 
-        if (options.historyMode === 'replace') {
+        const currentUrl = new URL(window.location.href);
+        const targetUrl = new URL(resolvedUrl, currentUrl);
+        const targetsCurrentDocument = targetUrl.origin === currentUrl.origin
+            && targetUrl.pathname === currentUrl.pathname
+            && targetUrl.search === currentUrl.search
+            && targetUrl.hash === currentUrl.hash;
+
+        if (targetsCurrentDocument) {
+            window.location.reload();
+        } else if (options.historyMode === 'replace') {
             window.location.replace(resolvedUrl);
         } else {
             window.location.assign(resolvedUrl);
         }
 
-        return new Promise(() => {});
+        return Promise.resolve(true);
     }
 
     function resolveCurrentAdminTab(pathname = window.location.pathname) {
