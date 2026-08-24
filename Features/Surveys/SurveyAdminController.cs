@@ -311,26 +311,6 @@ public class SurveyAdminController : Controller
         }
     }
 
-    [HttpGet("survey/{id:int}/copy")]
-    [HttpGet("surveys/{id:int}/copy")]
-    public async Task<IActionResult> CopySurvey(int id, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var survey = await _surveyAdminService.GetSurveyForCopyAsync(id, cancellationToken);
-            if (survey == null)
-            {
-                return NotFound("Анкета не найдена.");
-            }
-
-            return View("~/Views/Survey/copy_survey.cshtml", survey);
-        }
-        catch (Exception ex)
-        {
-            return this.SafeError(ex, "Не удалось загрузить анкету для копирования.", $"Ошибка при загрузке анкеты {id} для копирования");
-        }
-    }
-
     [HttpGet("survey/{id:int}/copy-template")]
     [HttpGet("surveys/{id:int}/copy-template")]
     public async Task<IActionResult> GetSurveyCopyTemplate(int id, CancellationToken cancellationToken)

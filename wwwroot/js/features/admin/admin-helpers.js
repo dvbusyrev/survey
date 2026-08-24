@@ -103,20 +103,12 @@
             return hasId ? `/survey/archive/${id}/edit` : '';
         }
 
-        if (tab === 'copy_survey') {
-            return hasId ? `/survey/${id}/copy` : '';
-        }
-
         if (tab === 'update_user') {
             return hasId ? `/users/${id}/edit` : '';
         }
 
         if (tab === 'update_organization') {
             return hasId ? `/organizations/${id}/edit` : '';
-        }
-
-        if (tab === 'get_survey_signatures') {
-            return hasId ? `/survey/${id}/signatures` : '';
         }
 
         const route = adminRoutes[tab] || '';

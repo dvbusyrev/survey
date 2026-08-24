@@ -13,7 +13,7 @@
   padding: 24px 16px;
   background: transparent !important;
   overflow: hidden;
-  animation: modal-fade-in 0.3s ease-out;
+  animation: modal-slide-in 0.3s ease-out;
 }
 
 .modal--visible {
@@ -47,7 +47,8 @@
   min-width: 0;
   margin: auto;
   padding: 0;
-  background: white;
+  background: #ffffff !important;
+  opacity: 1;
   border-radius: var(--app-modal-radius, var(--app-section-radius));
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
@@ -522,14 +523,12 @@ body.modal-open {
   text-align: center;
 }
 
-@keyframes modal-fade-in {
+@keyframes modal-slide-in {
   from {
-    opacity: 0;
     transform: translateY(-20px);
   }
 
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }

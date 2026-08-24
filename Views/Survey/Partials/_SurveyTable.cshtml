@@ -90,17 +90,16 @@
                         <div class="action-icons__content">
                             @if (!survey.IsExtension)
                             {
-                                <a class="icon-container"
-                                   href="/survey/@survey.IdSurvey/signatures"
-                                   data-survey-id="@survey.IdSurvey"
-                                   data-survey-name="@(survey.NameSurvey ?? string.Empty)"
-                                   data-click-call="openSurveyCompletionModalFromTrigger"
-                                   data-click-pass-element="true"
-                                   data-fallback-url="/survey/@survey.IdSurvey/signatures"
-                                   aria-label="Проверить прохождение">
+                                <button type="button"
+                                        class="icon-container"
+                                        data-survey-id="@survey.IdSurvey"
+                                        data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                        data-click-call="openSurveyCompletionModalFromTrigger"
+                                        data-click-pass-element="true"
+                                        aria-label="Проверить прохождение">
                                     <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
                                     <span class="icon-tooltip">Проверить прохождение</span>
-                                </a>
+                                </button>
                                 <button type="button"
                                         class="icon-container"
                                         data-survey-id="@survey.IdSurvey"

@@ -763,20 +763,6 @@ public partial class SurveyService
         }
     }
 
-    public async Task<Survey?> GetSurveyForCopyAsync(int id, CancellationToken cancellationToken = default)
-    {
-        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var survey = await _surveyRepository.GetSurveyWithScheduleAsync(connection, id, cancellationToken);
-
-        if (survey != null)
-        {
-            await _surveyRepository.AttachQuestionsAsync(connection, new[] { survey }, cancellationToken);
-        }
-
-        return survey;
-    }
-
     public async Task<SurveyCommandResult> CopySurveyAsync(
         int id,
         SurveyCopyRequest? request,

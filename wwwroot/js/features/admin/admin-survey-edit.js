@@ -254,88 +254,6 @@ function surveyEditSaveSelectedOrganization() {
     }
     // Общие helper-функции вынесены в ~/js/pages/admin-common-helpers.js
 
-        // СКРИПТЫ ДЛЯ ВКЛАДКИ КОПИРОВАНИЯ АНКЕТЫ
-
-            function copySurvey(id) {
-                const startDateInput = document.getElementById('startDate');
-                const endDateInput = document.getElementById('endDate');
-                const startDate = window.AppDate?.toIso(startDateInput?.value) || '';
-                const endDate = window.AppDate?.toIso(endDateInput?.value) || '';
-                const token = window.AppHttp?.getAntiforgeryToken() || '';
-
-                if (!startDate || !endDate) {
-                    const errors = [];
-                    if (!startDate) {
-                        const message = startDateInput?.value
-                            ? 'Укажите корректную дату начала.'
-                            : 'Укажите дату начала.';
-                        window.AppValidation?.setFieldError?.(startDateInput, message);
-                        errors.push(message);
-                    }
-                    if (!endDate) {
-                        const message = endDateInput?.value
-                            ? 'Укажите корректную дату конца.'
-                            : 'Укажите дату конца.';
-                        window.AppValidation?.setFieldError?.(endDateInput, message);
-                        errors.push(message);
-                    }
-                    window.AppValidation?.notifyErrors?.(errors);
-                    return;
-                }
-
-                const periodError = window.AppDate?.getPeriodError?.(startDateInput, endDateInput);
-                if (periodError) {
-                    window.AppValidation?.setFieldError?.(periodError.target, periodError.message);
-                    window.AppValidation?.notifyErrors?.([periodError.message]);
-                    return;
-                }
-
-                document.getElementById('loadingOverlay').style.display = 'flex';
-
-                fetch('/survey/' + id + '/copy', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': token
-                    },
-                    body: JSON.stringify({
-                        StartDate: startDate,
-                        EndDate: endDate
-                    })
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => {
-                            throw new Error(err.message || 'Не удалось скопировать анкету.');
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    document.getElementById('loadingOverlay').style.display = 'none';
-
-                    if (data.success) {
-                        if (typeof window.handleAdminMutationSuccess === 'function') {
-                            return window.handleAdminMutationSuccess({
-                                message: data.message || 'Анкета успешно скопирована.',
-                                tabName: 'get_surveys',
-                                fallbackUrl: '/survey'
-                            });
-                        }
-
-                        surveyEditNotify('Анкета успешно скопирована.', 'success');
-                        window.location.reload();
-                    } else {
-                        throw new Error(data.message || 'Не удалось скопировать анкету.');
-                    }
-                })
-                .catch(error => {
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    window.AppUi?.notify?.(error.message, 'error');
-                    console.error('Error:', error);
-                });
-            }
-
 window.surveyEditToggleOrganizationSelection = surveyEditToggleOrganizationSelection;
 window.surveyEditSaveSelectedOrganization = surveyEditSaveSelectedOrganization;
 window.surveyEditUpdateSelectedOrganizationDisplay = surveyEditUpdateSelectedOrganizationDisplay;
@@ -343,5 +261,4 @@ window.surveyEditRemoveOrganization = surveyEditRemoveOrganization;
 window.surveyEditAddCriteria = surveyEditAddCriteria;
 window.surveyEditUpdate = surveyEditUpdate;
 window.surveyEditValidateForm = surveyEditValidateForm;
-window.copySurvey = copySurvey;
 window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');

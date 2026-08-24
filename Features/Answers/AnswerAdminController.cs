@@ -56,6 +56,11 @@ public class AnswerAdminController : Controller
     [HttpGet("surveys/{id:int}/signatures")]
     public async Task<IActionResult> GetSurveySignatures(int id, CancellationToken cancellationToken = default)
     {
+        if (!string.Equals(Request.Headers["X-Admin-Inline-Request"], "true", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotFound();
+        }
+
         if (id <= 0)
         {
             return BadRequest("Некорректный идентификатор анкеты.");
@@ -63,8 +68,8 @@ public class AnswerAdminController : Controller
 
         try
         {
-            return View(
-                "~/Views/Answer/survey_signatures.cshtml",
+            return PartialView(
+                "~/Views/Answer/Partials/_SurveySignaturesTable.cshtml",
                 await _answerService.GetSignaturePageAsync(id, cancellationToken));
         }
         catch (Exception ex)
