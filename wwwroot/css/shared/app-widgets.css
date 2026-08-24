@@ -91,7 +91,7 @@
   z-index: 500;
   width: max-content;
   min-width: 0;
-  max-width: min(16rem, 80vw);
+  max-width: min(16rem, calc(100vw - 16px));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -101,7 +101,7 @@
   font-weight: 400;
   line-height: 1.35;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   pointer-events: none;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(148, 163, 184, 0.28);

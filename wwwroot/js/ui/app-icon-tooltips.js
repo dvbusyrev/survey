@@ -11,16 +11,27 @@
 
     function getBoundaryRect(icon) {
         const boundary = icon.closest('.app-page, .modal-content, #content_admin, .content-wrapper');
-        if (boundary) {
-            return boundary.getBoundingClientRect();
-        }
-
-        return {
+        const viewportRect = {
             top: 0,
             right: window.innerWidth,
             bottom: window.innerHeight,
             left: 0
         };
+        if (!boundary) {
+            return viewportRect;
+        }
+
+        const boundaryRect = boundary.getBoundingClientRect();
+        const visibleRect = {
+            top: Math.max(viewportRect.top, boundaryRect.top),
+            right: Math.min(viewportRect.right, boundaryRect.right),
+            bottom: Math.min(viewportRect.bottom, boundaryRect.bottom),
+            left: Math.max(viewportRect.left, boundaryRect.left)
+        };
+
+        return visibleRect.right > visibleRect.left && visibleRect.bottom > visibleRect.top
+            ? visibleRect
+            : viewportRect;
     }
 
     function resetTooltip(tooltip) {
@@ -43,10 +54,15 @@
         resetTooltip(tooltip);
 
         const boundaryRect = getBoundaryRect(icon);
+        const iconRect = icon.getBoundingClientRect();
         let tooltipRect = tooltip.getBoundingClientRect();
         if (tooltipRect.top < boundaryRect.top + EDGE_GAP) {
-            tooltip.classList.add('icon-tooltip--below');
-            tooltipRect = tooltip.getBoundingClientRect();
+            const availableAbove = iconRect.top - boundaryRect.top;
+            const availableBelow = boundaryRect.bottom - iconRect.bottom;
+            if (availableBelow > availableAbove) {
+                tooltip.classList.add('icon-tooltip--below');
+                tooltipRect = tooltip.getBoundingClientRect();
+            }
         }
 
         const minLeft = boundaryRect.left + EDGE_GAP;
@@ -59,7 +75,7 @@
             shiftX = maxRight - tooltipRect.right;
         }
 
-        tooltip.style.setProperty('--icon-tooltip-shift-x', `${Math.round(shiftX)}px`);
+        tooltip.style.setProperty('--icon-tooltip-shift-x', `${shiftX}px`);
     }
 
     function queueSync(icon) {

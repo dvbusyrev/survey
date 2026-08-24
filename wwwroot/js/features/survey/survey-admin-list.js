@@ -971,12 +971,13 @@
                 await window.handleAdminMutationSuccess({
                     message: payload?.message || 'Анкета успешно удалена.',
                     tabName: target.tabName,
-                    fallbackUrl: target.fallbackUrl
+                    fallbackUrl: target.fallbackUrl,
+                    preserveCurrentLocation: true
                 });
                 return;
             }
 
-            window.location.assign(target.fallbackUrl);
+            window.location.reload();
         } catch (error) {
             window.AppUi?.notify?.(error.message || 'Не удалось удалить анкету.', 'error');
         } finally {
@@ -1035,13 +1036,14 @@
                 await window.handleAdminMutationSuccess({
                     message: payload.message || 'Продление успешно удалено.',
                     tabName: target.tabName,
-                    fallbackUrl: target.fallbackUrl
+                    fallbackUrl: target.fallbackUrl,
+                    preserveCurrentLocation: true
                 });
                 return;
             }
 
             window.AppUi?.notify?.(payload.message || 'Продление успешно удалено.', 'success');
-            window.location.assign(target.fallbackUrl);
+            window.location.reload();
         } catch (error) {
             window.AppUi?.notify?.(error.message || 'Не удалось удалить продление.', 'error');
         } finally {

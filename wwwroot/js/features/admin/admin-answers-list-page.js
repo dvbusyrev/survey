@@ -8,29 +8,6 @@
     const tooltip = window.AppUi.createRowTooltip();
     let answerDeletePending = false;
 
-    function removeAnswerRow(trigger) {
-        const page = trigger.closest('.answers-page[data-page="answers-list"]');
-        const row = trigger.closest('.answers-page__row');
-        row?.remove();
-
-        if (!page) {
-            return;
-        }
-
-        const visibleRows = page.querySelectorAll('.answers-page__row').length;
-        const totalCount = Math.max(0, Number.parseInt(page.dataset.totalCount || '0', 10) - 1);
-        page.dataset.visibleCount = String(visibleRows);
-        page.dataset.totalCount = String(totalCount);
-
-        if (visibleRows === 0) {
-            page.querySelector('[data-role="survey-filter-empty-row"]')?.classList.remove('is-hidden');
-        }
-
-        if (totalCount === 0) {
-            page.querySelector('[data-role="pagination"]')?.remove();
-        }
-    }
-
     async function deleteAnswerFromTrigger(trigger) {
         if (answerDeletePending) {
             return;
@@ -72,8 +49,18 @@
                 throw new Error(responseMessage || 'Не удалось удалить ответ.');
             }
 
-            removeAnswerRow(trigger);
+            if (typeof window.handleAdminMutationSuccess === 'function') {
+                await window.handleAdminMutationSuccess({
+                    message: responseMessage || 'Ответ успешно удалён.',
+                    tabName: 'list_answers_users',
+                    fallbackUrl: '/survey/answer',
+                    preserveCurrentLocation: true
+                });
+                return;
+            }
+
             window.AppUi.notify(responseMessage || 'Ответ успешно удалён.', 'success');
+            window.location.reload();
         } catch (error) {
             window.AppUi.notify(error?.message || 'Не удалось удалить ответ.', 'error');
         } finally {

@@ -227,13 +227,14 @@ async function deleteUser(id, fullName) {
             await window.handleAdminMutationSuccess({
                 message: responseMessage || 'Пользователь успешно удалён.',
                 tabName: 'get_users',
-                fallbackUrl: '/users'
+                fallbackUrl: '/users',
+                preserveCurrentLocation: true
             });
             return;
         }
 
         showAdminToast(responseMessage || 'Пользователь успешно удалён.', 'success');
-        navigateAdminTab("get_users", "/users");
+        window.location.reload();
     } catch (error) {
         console.error("Ошибка:", error);
         showAdminToast(error.message || 'Не удалось удалить пользователя.');

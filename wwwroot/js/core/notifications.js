@@ -839,6 +839,9 @@
         const offsetY = Number.isFinite(Number(options.offsetY)) ? Number(options.offsetY) : 14;
         const className = options.className || 'app-row-tooltip';
         const defaultLabel = options.defaultLabel || 'Смотреть';
+        const edgeGap = Number.isFinite(Number(options.edgeGap)) ? Number(options.edgeGap) : 8;
+        const excludedSelector = options.excludedSelector
+            || 'button, a, input, select, textarea, label, [role="button"], [role="link"], .action-icons, .icon-container';
         let tooltip = null;
         let activeRow = null;
         let latestX = 0;
@@ -866,11 +869,37 @@
                 return;
             }
 
-            tooltip.style.transform = `translate3d(${latestX + offsetX}px, ${latestY + offsetY}px, 0)`;
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const maxX = Math.max(edgeGap, window.innerWidth - tooltipRect.width - edgeGap);
+            const maxY = Math.max(edgeGap, window.innerHeight - tooltipRect.height - edgeGap);
+            let nextX = latestX + offsetX;
+            let nextY = latestY + offsetY;
+
+            if (nextX + tooltipRect.width > window.innerWidth - edgeGap) {
+                nextX = latestX - tooltipRect.width - offsetX;
+            }
+            if (nextY + tooltipRect.height > window.innerHeight - edgeGap) {
+                nextY = latestY - tooltipRect.height - offsetY;
+            }
+
+            nextX = Math.min(Math.max(edgeGap, nextX), maxX);
+            nextY = Math.min(Math.max(edgeGap, nextY), maxY);
+            tooltip.style.transform = `translate3d(${Math.round(nextX)}px, ${Math.round(nextY)}px, 0)`;
+        }
+
+        function isExcludedTarget(row, event) {
+            const target = event?.target instanceof Element ? event.target : null;
+            const excludedTarget = target?.closest(excludedSelector);
+            return Boolean(excludedTarget && excludedTarget !== row && row?.contains(excludedTarget));
         }
 
         function move(event) {
             if (activeRow && !activeRow.isConnected) {
+                hide();
+                return;
+            }
+
+            if (activeRow && isExcludedTarget(activeRow, event)) {
                 hide();
                 return;
             }
@@ -883,6 +912,11 @@
         }
 
         function show(row, event) {
+            if (!row || isExcludedTarget(row, event)) {
+                hide();
+                return;
+            }
+
             activeRow = row;
             ensure(row?.dataset?.hoverLabel || defaultLabel).classList.add('is-visible');
             move(event);
@@ -931,7 +965,9 @@
             defaultLabel: options.label || 'Смотреть',
             className: options.tooltipClassName,
             offsetX: options.offsetX,
-            offsetY: options.offsetY
+            offsetY: options.offsetY,
+            edgeGap: options.edgeGap,
+            excludedSelector
         });
 
         function findRow(event) {

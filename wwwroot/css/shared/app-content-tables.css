@@ -732,8 +732,8 @@
   left: 50%;
   --icon-tooltip-shift-x: 0px;
   z-index: 500;
-  min-width: 148px;
-  max-width: min(260px, 80vw);
+  min-width: min(148px, calc(100vw - 16px));
+  max-width: min(260px, calc(100vw - 16px));
   display: block;
   padding: var(--app-tooltip-padding);
   color: var(--text-main);
@@ -750,7 +750,7 @@
   visibility: hidden;
   pointer-events: none;
   transform: translateX(calc(-50% + var(--icon-tooltip-shift-x)));
-  transition: all 0.12s ease;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
 }
 
 .icon-tooltip.icon-tooltip--below {
@@ -767,7 +767,7 @@
   content: "";
   position: absolute;
   top: 100%;
-  left: 50%;
+  left: clamp(12px, calc(50% - var(--icon-tooltip-shift-x)), calc(100% - 12px));
   margin-left: -6px;
   border-width: 6px;
   border-style: solid;

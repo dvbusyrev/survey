@@ -30,6 +30,16 @@ VALUES
     (:smoke_organization_id, 'smoke-admin', 'Smoke administrator', 'admin', '${passwordHash}', 'admin@example.test', CURRENT_DATE),
     (:smoke_organization_id, 'smoke-client', 'Smoke client', 'user', '${passwordHash}', 'client@example.test', CURRENT_DATE);
 
+INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin)
+SELECT
+    :smoke_organization_id,
+    'smoke-pagination-' || series_number,
+    'ZZZ Pagination user ' || LPAD(series_number::text, 2, '0'),
+    'user',
+    '${passwordHash}',
+    CURRENT_DATE
+FROM generate_series(1, 21) AS series_number;
+
 INSERT INTO public.app_user (id_organization, login, full_name, role, password, email, date_begin, date_end)
 VALUES
     (:smoke_organization_id, 'smoke-archived-user', 'Smoke archived user', 'user', '${passwordHash}', 'archived-user@example.test', CURRENT_DATE - 10, CURRENT_DATE - 1);

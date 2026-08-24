@@ -60,6 +60,7 @@
 @await Html.PartialAsync("~/Views/Organization/Partials/_EditOrganizationModal.cshtml")
 
 @section Scripts {
+    @await Html.PartialAsync("~/Views/Shared/_AdminPageScripts.cshtml")
     <script src="~/js/features/organization/organization-page.js" asp-append-version="true"></script>
     <script>
     (function(){

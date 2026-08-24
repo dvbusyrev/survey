@@ -349,12 +349,24 @@
         return element ? element.value : '';
     }
 
-    function refreshAdminUi({ tabName, id = undefined, fallbackUrl, options } = {}) {
+    function getCurrentDocumentUrl() {
+        return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    }
+
+    function refreshAdminUi({
+        tabName,
+        id = undefined,
+        fallbackUrl,
+        preserveCurrentLocation = false,
+        options
+    } = {}) {
         const resolvedTabName = tabName || resolveCurrentAdminTab();
         const resolvedOptions = options && typeof options === 'object'
             ? options
             : {};
-        const resolvedUrl = fallbackUrl || resolveAdminRoute(resolvedTabName, id) || window.location.pathname;
+        const resolvedUrl = preserveCurrentLocation
+            ? getCurrentDocumentUrl()
+            : fallbackUrl || resolveAdminRoute(resolvedTabName, id) || window.location.pathname;
         return navigateAdminUrl(resolvedUrl, {
             historyMode: 'replace',
             scrollMode: 'carry',

@@ -117,9 +117,9 @@
                                             data-organization-name="@(answer.OrganizationName ?? string.Empty)"
                                             data-click-call="deleteAnswerFromTrigger"
                                             data-click-pass-element="true"
-                                            aria-label="Удалить ответ">
+                                            aria-label="Удалить">
                                         <span aria-hidden="true"><i class="fas fa-trash"></i></span>
-                                        <span class="icon-tooltip">Удалить ответ</span>
+                                        <span class="icon-tooltip">Удалить</span>
                                     </button>
                                 </div>
                             }
@@ -140,6 +140,7 @@
 </div>
 
 @section Scripts {
+    @await Html.PartialAsync("~/Views/Shared/_AdminPageScripts.cshtml")
     @await Html.PartialAsync("~/Views/Shared/_AdminArchiveScripts.cshtml")
     <script src="~/js/features/survey/survey-filter-popover.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-filter-summary.js" asp-append-version="true"></script>

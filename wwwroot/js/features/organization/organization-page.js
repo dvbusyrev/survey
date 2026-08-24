@@ -398,12 +398,13 @@
                 await window.handleAdminMutationSuccess({
                     message: responseText || 'Организация успешно удалена.',
                     tabName: 'get_organization',
-                    fallbackUrl: '/organizations'
+                    fallbackUrl: '/organizations',
+                    preserveCurrentLocation: true
                 });
                 return;
             }
 
-            refreshOrganizationList();
+            window.location.reload();
         } catch (error) {
             window.AppUi?.notify?.(error.message || 'Не удалось удалить организацию.', 'error');
         } finally {

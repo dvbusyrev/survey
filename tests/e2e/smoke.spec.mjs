@@ -101,6 +101,56 @@ test('общий каркас виден до загрузки скриптов 
     expect(Math.abs(afterLoad.height - beforeLoad.height)).toBeLessThan(1);
 });
 
+test('подсказки строк и кнопок действий остаются у цели и в границах экрана', async ({ page }) => {
+    await login(page, 'smoke-admin');
+    await page.goto('/users');
+
+    const row = page.locator('[data-role="user-row"][data-user-name="smoke-client"]');
+    const rowBox = await row.boundingBox();
+    expect(rowBox).not.toBeNull();
+
+    await row.dispatchEvent('mouseover', {
+        bubbles: true,
+        clientX: page.viewportSize().width - 1,
+        clientY: rowBox.y + (rowBox.height / 2)
+    });
+
+    const rowTooltip = page.locator('.app-row-tooltip');
+    await expect(rowTooltip).toBeVisible();
+    const rowTooltipBox = await rowTooltip.boundingBox();
+    expect(rowTooltipBox).not.toBeNull();
+    expect(rowTooltipBox.x).toBeGreaterThanOrEqual(8);
+    expect(rowTooltipBox.x + rowTooltipBox.width).toBeLessThanOrEqual(page.viewportSize().width - 8);
+
+    const deleteAction = row.locator('[data-click-call="deleteUserFromTrigger"]');
+    await deleteAction.hover();
+    await expect(rowTooltip).toBeHidden();
+
+    const actionTooltip = deleteAction.locator('.icon-tooltip');
+    await expect(actionTooltip).toBeVisible();
+    await expect(actionTooltip).toHaveText('Удалить');
+    await deleteAction.evaluate(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    }));
+
+    const tooltipGeometry = await deleteAction.evaluate((icon) => {
+        const tooltip = icon.querySelector('.icon-tooltip');
+        const iconRect = icon.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const arrowStyle = getComputedStyle(tooltip, '::after');
+        return {
+            iconCenter: iconRect.left + (iconRect.width / 2),
+            tooltipLeft: tooltipRect.left,
+            tooltipRight: tooltipRect.right,
+            arrowCenter: tooltipRect.left + Number.parseFloat(arrowStyle.left)
+        };
+    });
+
+    expect(tooltipGeometry.tooltipLeft).toBeGreaterThanOrEqual(8);
+    expect(tooltipGeometry.tooltipRight).toBeLessThanOrEqual(page.viewportSize().width - 8);
+    expect(Math.abs(tooltipGeometry.arrowCenter - tooltipGeometry.iconCenter)).toBeLessThanOrEqual(2);
+});
+
 test('администратор проходит основные разделы', async ({ page }) => {
     test.setTimeout(45_000);
     await login(page, 'smoke-admin');
@@ -430,23 +480,19 @@ test('ошибка удаления сохраняет текущий списо
     await userToast.locator('.site-toast__close').click();
 
     await page.unroute(/\/users\/\d+\/delete$/);
-    await page.route(/\/users\/\d+\/delete$/, async (route) => {
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-                success: true,
-                message: 'Пользователь успешно удалён.'
-            })
-        });
-    });
-    await page.locator('[data-role="user-row"][data-user-name="smoke-client"]')
-        .locator('[data-click-call="deleteUserFromTrigger"]')
-        .click();
+    await page.goto('/users?page=2&sortBy=name&sortDirection=asc');
+    const paginatedUsersUrl = page.url();
+    const paginatedUserRows = page.locator('[data-role="user-row"]');
+    await expect(paginatedUserRows).toHaveCount(10);
+    const deletedLogin = await paginatedUserRows.first().getAttribute('data-user-name');
+    await paginatedUserRows.first().locator('[data-click-call="deleteUserFromTrigger"]').click();
     await page.locator('.site-confirm__button--confirm').click();
     await expect(page.locator('.site-toast--success')
         .filter({ hasText: 'Пользователь успешно удалён.' })
         .last()).toBeVisible();
+    await expect(page).toHaveURL(paginatedUsersUrl);
+    await expect(page.locator('[data-role="user-row"]')).toHaveCount(10);
+    await expect(page.locator(`[data-role="user-row"][data-user-name="${deletedLogin}"]`)).toHaveCount(0);
     await expect(page.locator('.site-toast--error')
         .filter({ hasText: 'closeModal is not defined' }))
         .toHaveCount(0);
@@ -729,7 +775,7 @@ test('клиент проходит доступные анкеты, черно�
     await expect(page.locator('#answersContainer .answers-modal__table')).toHaveCSS('margin-bottom', '0px');
 
     await page.locator('#answersModal [data-modal-close="answersModal"]').click();
-    const deleteAnswerButton = answerJournalRow.getByRole('button', { name: 'Удалить ответ', exact: true });
+    const deleteAnswerButton = answerJournalRow.getByRole('button', { name: 'Удалить', exact: true });
     await expect(deleteAnswerButton).toBeVisible();
     const answerDeleted = page.waitForResponse((response) => (
         response.request().method() === 'POST'
