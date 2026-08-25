@@ -287,7 +287,7 @@
 ) th.table-col--date {
   width: 10ch;
   min-width: 10ch;
-  max-width: 14ch;
+  max-width: 16ch;
   white-space: normal;
   text-wrap: balance;
   -webkit-hyphens: none;

@@ -3,22 +3,26 @@ namespace MainProject.Web.ViewModels;
 public static class SurveyListSortFields
 {
     public const string Name = "name";
-    public const string Default = Name;
+    public const string AutoCreation = "autoCreation";
     public const string DateBegin = "dateBegin";
     public const string DateEnd = "dateEnd";
+    public const string Default = DateBegin;
 }
 
 public sealed class SurveyListPageViewModel : ServerSortablePageViewModelBase
 {
     public IReadOnlyList<SurveyTableRowViewModel> SurveyRows { get; init; } = Array.Empty<SurveyTableRowViewModel>();
+    public bool IsTemplateSection { get; init; }
     public bool OpenAddSurveyModal { get; init; }
     public SurveyEditPageViewModel? EditSurveyPage { get; init; }
     public ServerTableFilterStateViewModel FilterState { get; init; } = new();
 
-    protected override string BasePath => "/surveys";
+    protected override string BasePath => IsTemplateSection ? "/survey-templates" : "/surveys";
     protected override string DefaultSortField => SurveyListSortFields.Default;
-    protected override string DefaultSortDirection => "asc";
-    protected override string PaginationAriaLabel => "Навигация по страницам списка анкет";
+    protected override string DefaultSortDirection => "desc";
+    protected override string PaginationAriaLabel => IsTemplateSection
+        ? "Навигация по страницам списка шаблонов"
+        : "Навигация по страницам списка анкет";
     protected override string ScrollAnchorId => "surveys-table-top";
 
     protected override IEnumerable<KeyValuePair<string, string>> BuildAdditionalQueryParameters()
@@ -36,6 +40,7 @@ public sealed class SurveyListPageViewModel : ServerSortablePageViewModelBase
         return field?.Trim() switch
         {
             SurveyListSortFields.Name => SurveyListSortFields.Name,
+            SurveyListSortFields.AutoCreation => SurveyListSortFields.AutoCreation,
             SurveyListSortFields.DateBegin => SurveyListSortFields.DateBegin,
             SurveyListSortFields.DateEnd => SurveyListSortFields.DateEnd,
             _ => SurveyListSortFields.Default
@@ -47,6 +52,7 @@ public sealed class SurveyListPageViewModel : ServerSortablePageViewModelBase
         return field switch
         {
             SurveyListSortFields.Name => "asc",
+            SurveyListSortFields.AutoCreation => "desc",
             SurveyListSortFields.DateBegin => "desc",
             SurveyListSortFields.DateEnd => "desc",
             _ => "desc"

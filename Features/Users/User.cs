@@ -28,9 +28,6 @@ namespace MainProject.Domain.Entities
         [JsonPropertyName("id_organization")]
         public int OrganizationId { get; set; }
 
-        [JsonPropertyName("key_csp")]
-        public string? KeyCsp { get; set; }
-
         [JsonPropertyName("date_begin")]
         [JsonConverter(typeof(NullableDateOnlyDateTimeJsonConverter))]
         public DateTime? DateBegin { get; set; }

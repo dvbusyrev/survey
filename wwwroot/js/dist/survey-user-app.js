@@ -1121,6 +1121,14 @@
     function shouldHideCountSummary(page) {
       return page?.dataset?.filterHideCountSummary === "true";
     }
+    function updateInlineClearButton(instance, hasSelection) {
+      const button = instance.refs.inlineClearButton;
+      if (!button) {
+        return;
+      }
+      button.disabled = !hasSelection;
+      button.classList.toggle("is-hidden", !hasSelection);
+    }
     function getOrganizationFilterLabel(selectedOrganizations) {
       if (!Array.isArray(selectedOrganizations) || selectedOrganizations.length === 0) {
         return "Фильтр по организациям";
@@ -1180,7 +1188,9 @@
       if (instance.refs.summary) {
         instance.refs.summary.textContent = summary;
       }
-      instance.refs.clearButton.disabled = instance.state.serverMode ? instance.state.selectedOrganizationIds.length === 0 : selectedOrganizations.length === 0;
+      const hasSelection = instance.state.serverMode ? instance.state.selectedOrganizationIds.length > 0 : selectedOrganizations.length > 0;
+      instance.refs.clearButton.disabled = !hasSelection;
+      updateInlineClearButton(instance, hasSelection);
     }
     function updateSurveyName(instance, visibleCount, totalCount, serverFilters) {
       const selectedSurveyNames = instance.state.serverMode ? serverFilters.getSelectedOptionNames(instance.state.availableSurveyOptions, instance.state.selectedSurveyIds) : instance.state.selectedSurveyNames;
@@ -1197,7 +1207,9 @@
       if (instance.refs.summary) {
         instance.refs.summary.textContent = summary;
       }
-      instance.refs.clearButton.disabled = instance.state.serverMode ? instance.state.selectedSurveyIds.length === 0 : selectedSurveyNames.length === 0;
+      const hasSelection = instance.state.serverMode ? instance.state.selectedSurveyIds.length > 0 : selectedSurveyNames.length > 0;
+      instance.refs.clearButton.disabled = !hasSelection;
+      updateInlineClearButton(instance, hasSelection);
     }
     window.SurveyFilterSummary = {
       getPageItemLabel,
@@ -1921,7 +1933,8 @@
           popover: root.querySelector(`[data-role="${definition.popoverRole}"]`),
           options: root.querySelector(`[data-role="${definition.optionsRole}"]`),
           summary: root.querySelector(`[data-role="${definition.summaryRole}"]`),
-          clearButton: root.querySelector(`[data-role="${definition.clearRole}"]`)
+          clearButton: root.querySelector(`[data-role="${definition.clearRole}"]`),
+          inlineClearButton: root.querySelector(`[data-role="${definition.inlineClearRole}"]`)
         },
         handlers: {},
         dropdownController: null
@@ -1975,6 +1988,12 @@
         if (target.closest(`[data-role="${definition.clearRole}"]`)) {
           event.preventDefault();
           clear(instance, config, callbacks);
+          return;
+        }
+        if (target.closest(`[data-role="${definition.inlineClearRole}"]`)) {
+          event.preventDefault();
+          clear(instance, config, callbacks);
+          commitServerFilter();
         }
       };
       instance.handlers.change = function(event) {
@@ -2115,6 +2134,7 @@
         optionsRole: "survey-organization-filter-options",
         summaryRole: "survey-organization-filter-summary",
         clearRole: "survey-organization-filter-clear",
+        inlineClearRole: "survey-organization-filter-inline-clear",
         closeRole: "survey-organization-filter-close",
         createState(page) {
           const config = serverFilters.getConfig(page);
@@ -2139,6 +2159,7 @@
         optionsRole: "survey-name-filter-options",
         summaryRole: "survey-name-filter-summary",
         clearRole: "survey-name-filter-clear",
+        inlineClearRole: "survey-name-filter-inline-clear",
         closeRole: "survey-name-filter-close",
         createState(page) {
           const config = serverFilters.getConfig(page);

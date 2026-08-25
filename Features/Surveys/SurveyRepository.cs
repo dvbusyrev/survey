@@ -9,7 +9,7 @@ using Npgsql;
 
 namespace MainProject.Infrastructure.Persistence;
 
-public sealed class SurveyRepository
+public sealed partial class SurveyRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly IClock _clock;
@@ -110,19 +110,51 @@ public sealed class SurveyRepository
                 COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS Name
             FROM public.organization organization
             WHERE (
-                    (organization.date_begin IS NULL OR organization.date_begin <= @Today)
-                    AND (organization.date_end IS NULL OR organization.date_end >= @Today)
+                    (
+                        (organization.date_begin IS NULL OR organization.date_begin <= @Today)
+                        AND (organization.date_end IS NULL OR organization.date_end >= @Today)
+                    )
+                    OR organization.id_organization IN (
+                        SELECT id_organization
+                        FROM public.organization_survey
+                        WHERE id_survey = @SurveyId
+                    )
                 )
-               OR organization.id_organization IN (
-                    SELECT id_organization
-                    FROM public.organization_survey
-                    WHERE id_survey = @SurveyId
-               )
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey answered_assignment
+                    INNER JOIN public.answer answer
+                        ON answer.id_organization_survey = answered_assignment.id_organization_survey
+                    WHERE answered_assignment.id_survey = @SurveyId
+                      AND answered_assignment.id_organization = organization.id_organization
+                )
             ORDER BY COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name);
             """,
             new { SurveyId = surveyId, Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
         return organizations.AsList();
+    }
+
+    public async Task<IReadOnlyList<int>> GetAnsweredOrganizationIdsForSurveyAsync(
+        NpgsqlConnection connection,
+        int surveyId,
+        NpgsqlTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+    {
+        var organizationIds = await connection.QueryAsync<int>(new CommandDefinition(
+            """
+            SELECT DISTINCT assignment.id_organization
+            FROM public.organization_survey assignment
+            INNER JOIN public.answer answer
+                ON answer.id_organization_survey = assignment.id_organization_survey
+            WHERE assignment.id_survey = @SurveyId
+            ORDER BY assignment.id_organization;
+            """,
+            new { SurveyId = surveyId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        return organizationIds.ToArray();
     }
 
     public async Task<IReadOnlyList<OrganizationSelectionItem>> GetSelectedOrganizationsForSurveyAsync(
@@ -185,8 +217,19 @@ public sealed class SurveyRepository
         NpgsqlTransaction transaction,
         DateTime dateBegin,
         DateTime dateEnd,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return UpdateActiveSurveyTemplatePeriodAsync(
+                connection,
+                transaction,
+                dateBegin,
+                dateEnd,
+                cancellationToken);
+        }
+
         return connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
             WITH active_survey_ids AS (
@@ -359,8 +402,14 @@ public sealed class SurveyRepository
     public Task<int> CountActiveSurveysAsync(
         NpgsqlConnection connection,
         IReadOnlyCollection<int> organizationIds,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return CountActiveSurveyTemplatesAsync(connection, organizationIds, cancellationToken);
+        }
+
         var parameters = new
         {
             OrganizationIds = organizationIds.ToArray(),
@@ -381,8 +430,21 @@ public sealed class SurveyRepository
         string sortDirection,
         int pageSize,
         int offset,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return await GetActiveSurveyTemplatePageAsync(
+                connection,
+                organizationIds,
+                sortBy,
+                sortDirection,
+                pageSize,
+                offset,
+                cancellationToken);
+        }
+
         var parameters = new
         {
             OrganizationIds = organizationIds.ToArray(),
@@ -418,8 +480,14 @@ public sealed class SurveyRepository
 
     public async Task<IReadOnlyList<SelectionOption>> GetActiveOrganizationOptionsAsync(
         NpgsqlConnection connection,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return await GetActiveSurveyTemplateOrganizationOptionsAsync(connection, cancellationToken);
+        }
+
         var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             $"""
             {ActiveSurveyRowsCte}
@@ -442,8 +510,20 @@ public sealed class SurveyRepository
         IReadOnlyCollection<int> surveyIds,
         DateTime? dateStart,
         DateTime? dateEnd,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return CountArchivedSurveyTemplatesAsync(
+                connection,
+                organizationIds,
+                surveyIds,
+                dateStart,
+                dateEnd,
+                cancellationToken);
+        }
+
         var parameters = BuildArchivedParameters(organizationIds, surveyIds, dateStart, dateEnd);
         return connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"{ArchivedSurveyRowsCte} SELECT COUNT(*) FROM survey_rows WHERE {ArchivedSurveyFilterPredicate};",
@@ -461,8 +541,24 @@ public sealed class SurveyRepository
         string sortDirection,
         int pageSize,
         int offset,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return await GetArchivedSurveyTemplatePageAsync(
+                connection,
+                organizationIds,
+                surveyIds,
+                dateStart,
+                dateEnd,
+                sortBy,
+                sortDirection,
+                pageSize,
+                offset,
+                cancellationToken);
+        }
+
         var parameters = BuildArchivedParameters(organizationIds, surveyIds, dateStart, dateEnd);
         parameters.Add("PageSize", pageSize);
         parameters.Add("Offset", offset);
@@ -493,8 +589,14 @@ public sealed class SurveyRepository
 
     public async Task<IReadOnlyList<SelectionOption>> GetArchivedOrganizationOptionsAsync(
         NpgsqlConnection connection,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return await GetArchivedSurveyTemplateOrganizationOptionsAsync(connection, cancellationToken);
+        }
+
         var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             $"""
             {ArchivedSurveyRowsCte}
@@ -513,8 +615,14 @@ public sealed class SurveyRepository
 
     public async Task<IReadOnlyList<SelectionOption>> GetArchivedSurveyOptionsAsync(
         NpgsqlConnection connection,
+        bool isTemplate,
         CancellationToken cancellationToken = default)
     {
+        if (isTemplate)
+        {
+            return await GetArchivedSurveyTemplateOptionsAsync(connection, cancellationToken);
+        }
+
         var options = await connection.QueryAsync<SelectionOption>(new CommandDefinition(
             $"""
             {ArchivedSurveyRowsCte}
@@ -901,6 +1009,31 @@ public sealed class SurveyRepository
                 cancellationToken: cancellationToken));
     }
 
+    public Task<bool> HasSurveyForReportingMonthAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string surveyName,
+        DateTime reportingMonth,
+        CancellationToken cancellationToken = default) =>
+        connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey survey
+                WHERE lower(btrim(survey.name_survey)) = lower(btrim(@SurveyName))
+                  AND survey.date_begin >= @MonthBegin
+                  AND survey.date_begin < @NextMonthBegin
+            );
+            """,
+            new
+            {
+                SurveyName = surveyName,
+                MonthBegin = new DateTime(reportingMonth.Year, reportingMonth.Month, 1),
+                NextMonthBegin = new DateTime(reportingMonth.Year, reportingMonth.Month, 1).AddMonths(1)
+            },
+            transaction,
+            cancellationToken: cancellationToken));
+
     public Task<int> UpdateAssignedSurveyEndDateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -1119,9 +1252,10 @@ public sealed class SurveyRepository
         return sortBy switch
         {
             "name" => $"group_name_survey {direction}, id_survey DESC, row_rank, row_organization_id",
+            "autoCreation" => $"is_auto_creation_enabled {direction}, group_name_survey ASC, id_survey DESC",
             "dateBegin" => $"group_date_begin {direction} NULLS LAST, id_survey DESC, row_rank, row_organization_id",
             "dateEnd" => $"group_date_end {direction} NULLS LAST, id_survey DESC, row_rank, row_organization_id",
-            _ => "group_name_survey ASC, id_survey DESC, row_rank, row_organization_id"
+            _ => "group_date_begin DESC NULLS LAST, id_survey DESC, row_rank, row_organization_id"
         };
     }
 
@@ -1613,69 +1747,48 @@ public sealed class SurveyRepository
         return surveys.ToArray();
     }
 
-    public async Task<IReadOnlyList<SurveySelectionItem>> GetAutoCreationSurveySelectionOptionsAsync(
-        NpgsqlConnection connection,
-        CancellationToken cancellationToken = default)
-    {
-        var surveys = await connection.QueryAsync<SurveySelectionItem>(new CommandDefinition(
-            """
-            SELECT DISTINCT ON (lower(btrim(s.name_survey)))
-                s.id_survey AS Id,
-                s.name_survey AS Name
-            FROM public.survey s
-            WHERE EXISTS (
-                SELECT 1
-                FROM public.organization_survey assignment
-                WHERE assignment.id_survey = s.id_survey
-            )
-            ORDER BY
-                lower(btrim(s.name_survey)),
-                s.id_survey DESC;
-            """,
-            cancellationToken: cancellationToken));
-        return surveys.ToArray();
-    }
-
     public async Task<IReadOnlySet<int>> GetAvailableAutoCreationTemplateIdsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
-        IReadOnlyCollection<int> surveyIds,
+        IReadOnlyCollection<int> templateIds,
         CancellationToken cancellationToken = default)
     {
-        if (surveyIds.Count == 0)
+        if (templateIds.Count == 0)
         {
             return new HashSet<int>();
         }
 
         var ids = await connection.QueryAsync<int>(new CommandDefinition(
             """
-            SELECT survey.id_survey
-            FROM public.survey survey
-            WHERE survey.id_survey = ANY(@SurveyIds)
+            SELECT template.id_survey_template
+            FROM public.survey_template template
+            WHERE template.id_survey_template = ANY(@TemplateIds)
+              AND template.date_begin <= @Today
+              AND (template.date_end IS NULL OR template.date_end >= @Today)
               AND EXISTS (
                     SELECT 1
-                    FROM public.organization_survey assignment
-                    WHERE assignment.id_survey = survey.id_survey
+                    FROM public.organization_survey_template assignment
+                    WHERE assignment.id_survey_template = template.id_survey_template
                 );
             """,
-            new { SurveyIds = surveyIds.ToArray() },
+            new { TemplateIds = templateIds.ToArray(), Today = _clock.Today.Date },
             transaction,
             cancellationToken: cancellationToken));
         return ids.ToHashSet();
     }
 
-    public Task<int> GetDistinctSurveyNameCountAsync(
+    public Task<int> GetDistinctSurveyTemplateNameCountAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
-        IReadOnlyCollection<int> surveyIds,
+        IReadOnlyCollection<int> templateIds,
         CancellationToken cancellationToken = default) =>
         connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
-            SELECT COUNT(DISTINCT lower(btrim(name_survey)))
-            FROM public.survey
-            WHERE id_survey = ANY(@SurveyIds);
+            SELECT COUNT(DISTINCT lower(btrim(name_survey_template)))
+            FROM public.survey_template
+            WHERE id_survey_template = ANY(@TemplateIds);
             """,
-            new { SurveyIds = surveyIds.ToArray() },
+            new { TemplateIds = templateIds.ToArray() },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -1687,7 +1800,13 @@ public sealed class SurveyRepository
             """
             SELECT
                 to_regclass('public.auto_creation_config') IS NOT NULL
-                AND to_regclass('public.survey_auto_creation_config') IS NOT NULL
+                AND to_regclass('public.survey_template_auto_creation_config') IS NOT NULL
+                AND EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                      AND table_name = 'survey_template_auto_creation_config'
+                      AND column_name = 'id_survey_template'
+                )
                 AND EXISTS (
                     SELECT 1 FROM information_schema.columns
                     WHERE table_schema = 'public' AND table_name = 'auto_creation_config'
@@ -1777,7 +1896,7 @@ public sealed class SurveyRepository
         int reportingOffsetBusinessDays,
         int workingPeriod,
         bool isEnabled,
-        IReadOnlyCollection<int> surveyIds,
+        IReadOnlyCollection<int> templateIds,
         CancellationToken cancellationToken = default)
     {
         await connection.ExecuteAsync(new CommandDefinition(
@@ -1802,21 +1921,21 @@ public sealed class SurveyRepository
             transaction,
             cancellationToken: cancellationToken));
         await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM public.survey_auto_creation_config WHERE id_config = @ConfigId;",
+            "DELETE FROM public.survey_template_auto_creation_config WHERE id_config = @ConfigId;",
             new { ConfigId = configId },
             transaction,
             cancellationToken: cancellationToken));
-        foreach (var surveyId in surveyIds)
+        foreach (var templateId in templateIds)
         {
             await connection.ExecuteAsync(new CommandDefinition(
-                "INSERT INTO public.survey_auto_creation_config (id_config, id_survey) VALUES (@ConfigId, @SurveyId);",
-                new { ConfigId = configId, SurveyId = surveyId },
+                "INSERT INTO public.survey_template_auto_creation_config (id_config, id_survey_template) VALUES (@ConfigId, @TemplateId);",
+                new { ConfigId = configId, TemplateId = templateId },
                 transaction,
                 cancellationToken: cancellationToken));
         }
     }
 
-    public async Task<IReadOnlyList<int>> GetSelectedAutoCreationSurveyIdsAsync(
+    public async Task<IReadOnlyList<int>> GetSelectedAutoCreationTemplateIdsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
         int configId,
@@ -1824,90 +1943,76 @@ public sealed class SurveyRepository
     {
         var ids = await connection.QueryAsync<int>(new CommandDefinition(
             """
-            WITH selected_names AS (
-                SELECT DISTINCT lower(btrim(selected_survey.name_survey)) AS normalized_name
-                FROM public.survey_auto_creation_config selected
-                INNER JOIN public.survey selected_survey
-                    ON selected_survey.id_survey = selected.id_survey
-                WHERE selected.id_config = @ConfigId
-            )
-            SELECT latest_survey.id_survey
-            FROM selected_names selected
-            CROSS JOIN LATERAL (
-                SELECT survey.id_survey
-                FROM public.survey survey
-                WHERE lower(btrim(survey.name_survey)) = selected.normalized_name
-                  AND EXISTS (
-                        SELECT 1
-                        FROM public.organization_survey assignment
-                        WHERE assignment.id_survey = survey.id_survey
-                    )
-                ORDER BY survey.id_survey DESC
-                LIMIT 1
-            ) latest_survey
-            ORDER BY selected.normalized_name;
+            SELECT template.id_survey_template
+            FROM public.survey_template_auto_creation_config selected
+            INNER JOIN public.survey_template template
+                ON template.id_survey_template = selected.id_survey_template
+            WHERE selected.id_config = @ConfigId
+              AND template.date_begin <= @Today
+              AND (template.date_end IS NULL OR template.date_end >= @Today)
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey_template assignment
+                    WHERE assignment.id_survey_template = template.id_survey_template
+                )
+            ORDER BY lower(btrim(template.name_survey_template)), template.id_survey_template;
             """,
-            new { ConfigId = configId },
+            new { ConfigId = configId, Today = _clock.Today.Date },
             transaction,
             cancellationToken: cancellationToken));
         return ids.ToArray();
     }
 
-    public async Task<IReadOnlyList<SurveySelectionItem>> GetSelectedAutoCreationSurveysAsync(
+    public async Task<IReadOnlyList<SurveySelectionItem>> GetSelectedAutoCreationTemplatesAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
         int configId,
         CancellationToken cancellationToken = default)
     {
-        var surveys = await connection.QueryAsync<SurveySelectionItem>(new CommandDefinition(
+        var templates = await connection.QueryAsync<SurveySelectionItem>(new CommandDefinition(
             """
-            WITH selected_names AS (
-                SELECT DISTINCT lower(btrim(selected_survey.name_survey)) AS normalized_name
-                FROM public.survey_auto_creation_config selected
-                INNER JOIN public.survey selected_survey
-                    ON selected_survey.id_survey = selected.id_survey
-                WHERE selected.id_config = @ConfigId
-            )
             SELECT
-                latest_survey.id_survey AS Id,
-                latest_survey.name_survey AS Name
-            FROM selected_names selected
-            CROSS JOIN LATERAL (
-                SELECT survey.id_survey, survey.name_survey
-                FROM public.survey survey
-                WHERE lower(btrim(survey.name_survey)) = selected.normalized_name
-                  AND EXISTS (
-                        SELECT 1
-                        FROM public.organization_survey assignment
-                        WHERE assignment.id_survey = survey.id_survey
-                    )
-                ORDER BY survey.id_survey DESC
-                LIMIT 1
-            ) latest_survey
-            ORDER BY selected.normalized_name;
+                template.id_survey_template AS Id,
+                template.name_survey_template AS Name
+            FROM public.survey_template_auto_creation_config selected
+            INNER JOIN public.survey_template template
+                ON template.id_survey_template = selected.id_survey_template
+            WHERE selected.id_config = @ConfigId
+              AND template.date_begin <= @Today
+              AND (template.date_end IS NULL OR template.date_end >= @Today)
+              AND EXISTS (
+                    SELECT 1
+                    FROM public.organization_survey_template assignment
+                    WHERE assignment.id_survey_template = template.id_survey_template
+                )
+            ORDER BY lower(btrim(template.name_survey_template)), template.id_survey_template;
             """,
-            new { ConfigId = configId },
+            new { ConfigId = configId, Today = _clock.Today.Date },
             transaction,
             cancellationToken: cancellationToken));
-        return surveys.ToArray();
+        return templates.ToArray();
     }
 
-    public Task<int> GetSelectedAutoCreationSurveyCountAsync(
+    public Task<int> GetSelectedAutoCreationTemplateCountAsync(
         NpgsqlConnection connection,
         int configId,
         CancellationToken cancellationToken = default) =>
         connection.ExecuteScalarAsync<int>(new CommandDefinition(
             """
             SELECT COUNT(*)
-            FROM public.survey_auto_creation_config selected
+            FROM public.survey_template_auto_creation_config selected
+            INNER JOIN public.survey_template template
+                ON template.id_survey_template = selected.id_survey_template
             WHERE selected.id_config = @ConfigId
+              AND template.date_begin <= @Today
+              AND (template.date_end IS NULL OR template.date_end >= @Today)
               AND EXISTS (
                     SELECT 1
-                    FROM public.organization_survey assignment
-                    WHERE assignment.id_survey = selected.id_survey
+                    FROM public.organization_survey_template assignment
+                    WHERE assignment.id_survey_template = selected.id_survey_template
                 );
             """,
-            new { ConfigId = configId },
+            new { ConfigId = configId, Today = _clock.Today.Date },
             cancellationToken: cancellationToken));
 
     public async Task<IReadOnlyList<int>> GetAvailableYearsAsync(CancellationToken cancellationToken = default)

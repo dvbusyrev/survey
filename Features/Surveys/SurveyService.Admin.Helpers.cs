@@ -24,7 +24,8 @@ public partial class SurveyService
             OrganizationIds = row.OrganizationIds ?? Array.Empty<int>(),
             OrganizationNames = row.OrganizationNames ?? Array.Empty<string>(),
             IsExtension = row.IsExtension,
-            ExtensionOrganizationId = row.ExtensionOrganizationId
+            ExtensionOrganizationId = row.ExtensionOrganizationId,
+            IsAutoCreationEnabled = row.IsAutoCreationEnabled
         };
     }
 
@@ -57,6 +58,7 @@ public partial class SurveyService
         return sortBy?.Trim() switch
         {
             SurveyListSortFields.Name => SurveyListSortFields.Name,
+            SurveyListSortFields.AutoCreation => SurveyListSortFields.AutoCreation,
             SurveyListSortFields.DateBegin => SurveyListSortFields.DateBegin,
             SurveyListSortFields.DateEnd => SurveyListSortFields.DateEnd,
             _ => SurveyListSortFields.Default
@@ -78,6 +80,7 @@ public partial class SurveyService
         return sortField switch
         {
             SurveyListSortFields.Name => "asc",
+            SurveyListSortFields.AutoCreation => "desc",
             _ => "desc"
         };
     }

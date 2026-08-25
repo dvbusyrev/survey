@@ -41,6 +41,8 @@
     }
 
     const adminListTabs = new Set([
+        'survey_templates',
+        'archived_survey_templates',
         'get_surveys',
         'list_answers_users',
         'archived_surveys',
@@ -52,6 +54,9 @@
     ]);
 
     const adminRoutes = {
+        survey_templates: '/survey-templates',
+        archived_survey_templates: '/survey-templates/archive',
+        add_survey_template: '/survey-templates/create',
         get_surveys: '/survey',
         list_answers_users: '/survey/answer',
         archived_surveys: '/survey/archive',
@@ -97,6 +102,10 @@
         const hasId = id !== null && id !== undefined && id !== '';
         if (tab === 'update_survey') {
             return hasId ? `/survey/${id}/edit` : '';
+        }
+
+        if (tab === 'update_survey_template') {
+            return hasId ? `/survey-templates/${id}/edit` : '';
         }
 
         if (tab === 'update_archived_survey') {
@@ -156,6 +165,19 @@
 
         if (normalizedPath === '/statistics') {
             return 'open_statistics';
+        }
+
+        if (normalizedPath === '/survey-templates/archive') {
+            return 'archived_survey_templates';
+        }
+
+        if (normalizedPath === '/survey-templates/create') {
+            return 'add_survey_template';
+        }
+
+        if (normalizedPath === '/survey-templates'
+            || /^\/survey-templates\/\d+\/edit$/.test(normalizedPath)) {
+            return 'survey_templates';
         }
 
         if (normalizedPath === '/survey/answer' || normalizedPath === '/surveys/answers') {

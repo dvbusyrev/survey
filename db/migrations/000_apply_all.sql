@@ -52,3 +52,11 @@ COMMIT;
 \ir 039_restore_survey_base_schedule.sql
 \ir 040_protect_smtp_password_storage.sql
 \ir 041_remove_redundant_user_update.sql
+\ir 042_add_survey_templates.sql
+\ir 043_remove_redundant_date_update.sql
+\ir 044_make_email_config_singleton.sql
+\ir 045_remove_obsolete_user_csp_key.sql
+\ir 046_store_answer_submitter.sql
+\ir 047_split_survey_templates.sql
+\ir 048_allow_open_ended_survey_templates.sql
+\ir 049_use_templates_for_auto_creation.sql

@@ -1,7 +1,9 @@
 ﻿@model MainProject.Web.ViewModels.SurveyArchivePageViewModel
 @{
-    ViewData["Title"] = "Архив анкет";
+    var isTemplateSection = Model?.IsTemplateSection ?? false;
+    ViewData["Title"] = isTemplateSection ? "Архивные шаблоны" : "Архив анкет";
     ViewData["SurveySection"] = "archive";
+    ViewData["IsTemplateSection"] = isTemplateSection;
     var pageModel = Model ?? new MainProject.Web.ViewModels.SurveyArchivePageViewModel();
     var surveyRows = pageModel.SurveyRows;
 }
@@ -14,6 +16,11 @@
 <div class="app-page"
      id="default_content"
      data-page="surveys-archive"
+     data-survey-entity="@(isTemplateSection ? "template" : "survey")"
+     data-list-path="@(isTemplateSection ? "/survey-templates/archive" : "/survey/archive")"
+     data-create-path="@(isTemplateSection ? "/survey-templates/create" : "/survey/create")"
+     data-list-tab="@(isTemplateSection ? "archived_survey_templates" : "archived_surveys")"
+     data-create-tab="@(isTemplateSection ? "add_survey_template" : "add_survey")"
      data-total-count="@pageModel.TotalCount"
      data-visible-count="@surveyRows.Count"
      data-table-scroll-target="#surveys-table-top"
@@ -24,13 +31,18 @@
         new MainProject.Web.ViewModels.PageIntroModel
         {
             // Title = "Архив анкет",
-            Description = "На этой странице вы можете посмотреть архивные анкеты."
+            Description = isTemplateSection
+                ? "На этой странице вы можете посмотреть архивные шаблоны."
+                : "На этой странице вы можете посмотреть архивные анкеты."
         })
 
     <div class="app-page__toolbar survey-list-toolbar">
         @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyDateFilter.cshtml")
         @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
-        @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyNameFilter.cshtml")
+        @if (!isTemplateSection)
+        {
+            @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyNameFilter.cshtml")
+        }
     </div>
 
     @await Html.PartialAsync(
@@ -39,6 +51,7 @@
         {
             Surveys = surveyRows,
             IsArchive = true,
+            IsTemplateSection = isTemplateSection,
             TableId = "surveys-table-top",
             NameSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyArchiveSortFields.Name),
             NameSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyArchiveSortFields.Name),
@@ -63,6 +76,7 @@
     "~/Views/Survey/Partials/_SurveyEditorModal.cshtml",
     new MainProject.Web.ViewModels.SurveyListPageViewModel
     {
+        IsTemplateSection = isTemplateSection,
         EditSurveyPage = Model?.EditSurveyPage
     })
 

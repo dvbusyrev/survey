@@ -23,8 +23,6 @@ namespace MainProject.Domain.Entities
         public string Csp { get; set; } = string.Empty;
         public byte[]? SignedContent { get; set; }
 
-        public string? SignerName { get; set; }
-
         [JsonPropertyName("name_survey")]
         public string? NameSurvey { get; set; }
 

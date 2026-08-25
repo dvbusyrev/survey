@@ -48,6 +48,14 @@ public sealed class DatabaseMigrationTests
         Assert.Contains(@"\ir 039_restore_survey_base_schedule.sql", script);
         Assert.Contains(@"\ir 040_protect_smtp_password_storage.sql", script);
         Assert.Contains(@"\ir 041_remove_redundant_user_update.sql", script);
+        Assert.Contains(@"\ir 042_add_survey_templates.sql", script);
+        Assert.Contains(@"\ir 043_remove_redundant_date_update.sql", script);
+        Assert.Contains(@"\ir 044_make_email_config_singleton.sql", script);
+        Assert.Contains(@"\ir 045_remove_obsolete_user_csp_key.sql", script);
+        Assert.Contains(@"\ir 046_store_answer_submitter.sql", script);
+        Assert.Contains(@"\ir 047_split_survey_templates.sql", script);
+        Assert.Contains(@"\ir 048_allow_open_ended_survey_templates.sql", script);
+        Assert.Contains(@"\ir 049_use_templates_for_auto_creation.sql", script);
         Assert.Contains("date_update", script);
     }
 
@@ -69,6 +77,7 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("login text NOT NULL", schema);
         Assert.Contains("role text NOT NULL", schema);
         Assert.Contains("password text NOT NULL", schema);
+        Assert.Contains("id_user integer NOT NULL", schema);
         Assert.Contains("CREATE TABLE public.email_config", schema);
         Assert.Contains("CREATE TABLE public.survey_auto_creation_config_l", schema);
         Assert.Contains("CREATE TABLE public.survey_question_l", schema);
@@ -504,6 +513,75 @@ public sealed class DatabaseMigrationTests
         Assert.Contains("DROP COLUMN IF EXISTS user_update", script);
         Assert.Contains("VALUES ('041', 'remove_redundant_user_update')", script);
         Assert.DoesNotContain("FROM public.answer_l", script);
+    }
+
+    [Fact]
+    public void DateUpdateRemovalMigration_KeepsOnlyEmailConfigurationMetadata()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "043_remove_redundant_date_update.sql"));
+
+        Assert.Contains("trigger_function.proname = 'set_update_metadata'", script);
+        Assert.Contains("table_class.relname <> 'email_config'", script);
+        Assert.Contains("column_definition.column_name = 'date_update'", script);
+        Assert.Contains("NOT IN ('email_config', 'email_config_l')", script);
+        Assert.Contains("DROP COLUMN date_update", script);
+        Assert.Contains("VALUES ('043', 'remove_redundant_date_update')", script);
+    }
+
+    [Fact]
+    public void EmailConfigSingletonMigration_ConsolidatesRowsAndRemovesUpdateMetadata()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "044_make_email_config_singleton.sql"));
+
+        Assert.Contains("ORDER BY date_update DESC, id_config DESC", script);
+        Assert.Contains("ON CONFLICT (id_config) DO UPDATE", script);
+        Assert.Contains("DELETE FROM public.email_config", script);
+        Assert.Contains("CHECK (id_config = 1)", script);
+        Assert.Contains("ALTER TABLE public.email_config_l", script);
+        Assert.Contains("DROP FUNCTION IF EXISTS public.set_update_metadata()", script);
+        Assert.Contains("VALUES ('044', 'make_email_config_singleton')", script);
+    }
+
+    [Fact]
+    public void UserCspKeyRemovalMigration_RemovesObsoleteColumns()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "045_remove_obsolete_user_csp_key.sql"));
+
+        Assert.Contains("ALTER TABLE IF EXISTS public.app_user", script);
+        Assert.Contains("ALTER TABLE IF EXISTS public.app_user_l", script);
+        Assert.Contains("DROP COLUMN IF EXISTS key_csp", script);
+        Assert.Contains("VALUES ('045', 'remove_obsolete_user_csp_key')", script);
+    }
+
+    [Fact]
+    public void AnswerSubmitterMigration_ReplacesParticipantTablesWithRequiredUserRelation()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "046_store_answer_submitter.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS id_user integer", script);
+        Assert.Contains("WHEN 'submitted' THEN 0", script);
+        Assert.Contains("ALTER COLUMN id_user SET NOT NULL", script);
+        Assert.Contains("answer_id_user_fkey", script);
+        Assert.Contains("ON DELETE RESTRICT", script);
+        Assert.Contains("DROP TABLE IF EXISTS public.answer_participant", script);
+        Assert.Contains("DROP TABLE IF EXISTS public.answer_draft_participant", script);
+        Assert.Contains("VALUES ('046', 'store_answer_submitter')", script);
     }
 
     [Fact]

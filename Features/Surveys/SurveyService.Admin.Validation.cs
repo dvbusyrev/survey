@@ -13,10 +13,11 @@ public partial class SurveyService
 {
     private bool TryValidateCreateRequest(
         SurveyAddRequest? request,
+        bool allowOpenEndDate,
         out string title,
         out string description,
         out DateTime startDate,
-        out DateTime endDate,
+        out DateTime? endDate,
         out IReadOnlyList<int> organizationIds,
         out IReadOnlyList<SurveyQuestionRow> questionRows,
         out string validationError)
@@ -24,14 +25,16 @@ public partial class SurveyService
         title = string.Empty;
         description = string.Empty;
         startDate = default;
-        endDate = default;
+        endDate = null;
         organizationIds = Array.Empty<int>();
         questionRows = Array.Empty<SurveyQuestionRow>();
         validationError = string.Empty;
 
         if (request == null)
         {
-            validationError = "Данные анкеты не предоставлены.";
+            validationError = allowOpenEndDate
+                ? "Данные шаблона не предоставлены."
+                : "Данные анкеты не предоставлены.";
             return false;
         }
 
@@ -40,13 +43,36 @@ public partial class SurveyService
 
         if (string.IsNullOrWhiteSpace(title))
         {
-            validationError = "Введите название анкеты.";
+            validationError = allowOpenEndDate
+                ? "Введите название шаблона."
+                : "Введите название анкеты.";
             return false;
         }
 
-        if (!TryParseDateRange(request.StartDate, request.EndDate, out startDate, out endDate, out validationError))
+        if (allowOpenEndDate)
+        {
+            if (!TryParseOpenEndedDateRange(
+                    request.StartDate,
+                    request.EndDate,
+                    out startDate,
+                    out endDate,
+                    out validationError))
+            {
+                return false;
+            }
+        }
+        else if (!TryParseDateRange(
+                     request.StartDate,
+                     request.EndDate,
+                     out startDate,
+                     out var requiredEndDate,
+                     out validationError))
         {
             return false;
+        }
+        else
+        {
+            endDate = requiredEndDate;
         }
 
         if (!TryValidateStartDateNotFuture(startDate, out validationError))
@@ -54,7 +80,7 @@ public partial class SurveyService
             return false;
         }
 
-        if (!TryValidateEndDateNotPast(endDate, out validationError))
+        if (endDate.HasValue && !TryValidateEndDateNotPast(endDate.Value, out validationError))
         {
             return false;
         }
@@ -69,10 +95,11 @@ public partial class SurveyService
 
     private bool TryValidateUpdateRequest(
         SurveyUpdateRequest? request,
+        bool allowOpenEndDate,
         out string title,
         out string description,
         out DateTime startDate,
-        out DateTime endDate,
+        out DateTime? endDate,
         out IReadOnlyList<int> organizationIds,
         out IReadOnlyList<SurveyQuestionRow> questionRows,
         out string validationError)
@@ -80,14 +107,16 @@ public partial class SurveyService
         title = string.Empty;
         description = string.Empty;
         startDate = default;
-        endDate = default;
+        endDate = null;
         organizationIds = Array.Empty<int>();
         questionRows = Array.Empty<SurveyQuestionRow>();
         validationError = string.Empty;
 
         if (request == null)
         {
-            validationError = "Данные анкеты не предоставлены.";
+            validationError = allowOpenEndDate
+                ? "Данные шаблона не предоставлены."
+                : "Данные анкеты не предоставлены.";
             return false;
         }
 
@@ -96,24 +125,39 @@ public partial class SurveyService
 
         if (string.IsNullOrWhiteSpace(title))
         {
-            validationError = "Введите название анкеты.";
+            validationError = allowOpenEndDate
+                ? "Введите название шаблона."
+                : "Введите название анкеты.";
             return false;
         }
 
-        if (!TryValidateDateRange(request.StartDate, request.EndDate, out validationError))
+        if (request.StartDate == default)
         {
+            validationError = "Укажите дату начала.";
             return false;
         }
 
         startDate = request.StartDate;
         endDate = request.EndDate;
 
+        if (!endDate.HasValue && !allowOpenEndDate)
+        {
+            validationError = "Укажите дату конца.";
+            return false;
+        }
+
+        if (endDate.HasValue
+            && !TryValidateDateRange(startDate, endDate.Value, out validationError))
+        {
+            return false;
+        }
+
         if (!TryValidateStartDateNotFuture(startDate, out validationError))
         {
             return false;
         }
 
-        if (!TryValidateEndDateNotPast(endDate, out validationError))
+        if (endDate.HasValue && !TryValidateEndDateNotPast(endDate.Value, out validationError))
         {
             return false;
         }
@@ -171,9 +215,13 @@ public partial class SurveyService
                 errors.Add("Организация не выбрана.");
             }
 
-            if (!DateTime.TryParse(extension.ExtendedUntil, out var endDate) || endDate.Date <= _clock.Today.Date)
+            if (!DateTime.TryParse(extension.ExtendedUntil, out var endDate))
             {
-                errors.Add("Дата конца должна быть позже сегодняшней даты.");
+                errors.Add("Укажите корректную дату конца.");
+            }
+            else if (endDate.Date < _clock.Today.Date)
+            {
+                errors.Add("Дата конца не может быть раньше сегодняшней даты.");
             }
         }
 
@@ -211,6 +259,44 @@ public partial class SurveyService
         }
 
         return TryValidateDateRange(startDate, endDate, out validationError);
+    }
+
+    private static bool TryParseOpenEndedDateRange(
+        string? rawStartDate,
+        string? rawEndDate,
+        out DateTime startDate,
+        out DateTime? endDate,
+        out string validationError)
+    {
+        startDate = default;
+        endDate = null;
+        validationError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rawStartDate))
+        {
+            validationError = "Укажите дату начала.";
+            return false;
+        }
+
+        if (!DateTime.TryParse(rawStartDate, out startDate))
+        {
+            validationError = "Некорректный формат даты.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(rawEndDate))
+        {
+            return true;
+        }
+
+        if (!DateTime.TryParse(rawEndDate, out var parsedEndDate))
+        {
+            validationError = "Некорректный формат даты.";
+            return false;
+        }
+
+        endDate = parsedEndDate;
+        return TryValidateDateRange(startDate, parsedEndDate, out validationError);
     }
 
     private static bool TryValidateDateRange(DateTime startDate, DateTime endDate, out string validationError)

@@ -113,22 +113,7 @@ public sealed class AnswerRepository
                 assignment.id_survey AS IdSurvey,
                 answer.completion_date AS CompletionDate,
                 answer.csp AS Csp,
-                answer.signed_content AS SignedContent,
-                (
-                    SELECT COALESCE(
-                        NULLIF(BTRIM(participant_user.full_name), ''),
-                        NULLIF(BTRIM(participant_user.login), '')
-                    )
-                    FROM public.answer_participant participant
-                    INNER JOIN public.app_user participant_user
-                        ON participant_user.id_user = participant.id_user
-                    WHERE participant.id_answer = answer.id_answer
-                      AND participant.participation_type IN ('signed', 'legacy')
-                    ORDER BY
-                        CASE participant.participation_type WHEN 'signed' THEN 0 ELSE 1 END,
-                        participant.date_created DESC
-                    LIMIT 1
-                ) AS SignerName
+                answer.signed_content AS SignedContent
             FROM public.answer answer
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_organization_survey = answer.id_organization_survey
@@ -197,22 +182,7 @@ public sealed class AnswerRepository
                 answer.csp AS Csp,
                 answer.signed_content AS SignedContent,
                 answer.completion_date AS CompletionDate,
-                COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS OrganizationName,
-                (
-                    SELECT COALESCE(
-                        NULLIF(BTRIM(participant_user.full_name), ''),
-                        NULLIF(BTRIM(participant_user.login), '')
-                    )
-                    FROM public.answer_participant participant
-                    INNER JOIN public.app_user participant_user
-                        ON participant_user.id_user = participant.id_user
-                    WHERE participant.id_answer = answer.id_answer
-                      AND participant.participation_type IN ('signed', 'legacy')
-                    ORDER BY
-                        CASE participant.participation_type WHEN 'signed' THEN 0 ELSE 1 END,
-                        participant.date_created DESC
-                    LIMIT 1
-                ) AS SignerName
+                COALESCE(NULLIF(organization.organization_short_name, ''), organization.organization_name) AS OrganizationName
             FROM public.answer answer
             INNER JOIN public.organization_survey assignment
                 ON assignment.id_organization_survey = answer.id_organization_survey
@@ -538,12 +508,14 @@ public sealed class AnswerRepository
             """
             INSERT INTO public.answer (
                 id_organization_survey,
+                id_user,
                 completion_date,
                 csp,
                 signed_content
             )
             VALUES (
                 @AssignmentId,
+                @UserId,
                 @CompletionDate,
                 @Signature,
                 @SignedContent
@@ -553,6 +525,7 @@ public sealed class AnswerRepository
             new
             {
                 AssignmentId = assignmentId.Value,
+                UserId = userId,
                 CompletionDate = _clock.Now,
                 Signature = string.IsNullOrWhiteSpace(answerRecord.Csp) ? null : answerRecord.Csp,
                 SignedContent = answerRecord.SignedContent
@@ -560,10 +533,6 @@ public sealed class AnswerRepository
             transaction,
             cancellationToken: cancellationToken));
 
-        await RecordAnswerParticipationAsync(
-            connection, transaction, answerId, userId, "submitted", cancellationToken);
-        await CopyDraftParticipationAsync(
-            connection, transaction, assignmentId.Value, answerId, cancellationToken);
         await ReplaceAnswerItemsAsync(connection, transaction, answerId, items, cancellationToken);
         await DeleteDraftAsync(connection, transaction, answerRecord.IdSurvey, answerRecord.OrganizationId, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -577,7 +546,6 @@ public sealed class AnswerRepository
 
     public async Task<AnswerStorageResult> SaveDraftAsync(
         AnswerRecord answerRecord,
-        int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -664,8 +632,6 @@ public sealed class AnswerRepository
                 cancellationToken: cancellationToken));
         }
 
-        await RecordDraftParticipationAsync(
-            connection, transaction, draftId, userId, "saved", cancellationToken);
         if (existingDraft == null || answersChanged)
         {
             await ReplaceDraftItemsAsync(connection, transaction, draftId, items, cancellationToken);
@@ -683,7 +649,6 @@ public sealed class AnswerRepository
         int organizationId,
         string signature,
         byte[]? signedContent,
-        int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -750,8 +715,6 @@ public sealed class AnswerRepository
             transaction,
             cancellationToken: cancellationToken));
 
-        await RecordAnswerParticipationAsync(
-            connection, transaction, answer.AnswerId, userId, "signed", cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return new AnswerStorageResult
         {
@@ -765,7 +728,6 @@ public sealed class AnswerRepository
         int organizationId,
         string signature,
         byte[]? signedContent,
-        int userId,
         CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -821,8 +783,6 @@ public sealed class AnswerRepository
             transaction,
             cancellationToken: cancellationToken));
 
-        await RecordDraftParticipationAsync(
-            connection, transaction, draft.AnswerId, userId, "signed", cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return new AnswerStorageResult
         {
@@ -1062,69 +1022,6 @@ public sealed class AnswerRepository
         }
 
         return true;
-    }
-
-    private static Task RecordAnswerParticipationAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        int answerId,
-        int userId,
-        string participationType,
-        CancellationToken cancellationToken)
-    {
-        return connection.ExecuteAsync(new CommandDefinition(
-            """
-            INSERT INTO public.answer_participant (id_answer, id_user, participation_type)
-            VALUES (@AnswerId, @UserId, @ParticipationType)
-            ON CONFLICT DO NOTHING;
-            """,
-            new { AnswerId = answerId, UserId = userId, ParticipationType = participationType },
-            transaction,
-            cancellationToken: cancellationToken));
-    }
-
-    private static Task RecordDraftParticipationAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        int draftId,
-        int userId,
-        string participationType,
-        CancellationToken cancellationToken)
-    {
-        return connection.ExecuteAsync(new CommandDefinition(
-            """
-            INSERT INTO public.answer_draft_participant (id_answer_draft, id_user, participation_type)
-            VALUES (@DraftId, @UserId, @ParticipationType)
-            ON CONFLICT DO NOTHING;
-            """,
-            new { DraftId = draftId, UserId = userId, ParticipationType = participationType },
-            transaction,
-            cancellationToken: cancellationToken));
-    }
-
-    private static Task CopyDraftParticipationAsync(
-        NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
-        int assignmentId,
-        int answerId,
-        CancellationToken cancellationToken)
-    {
-        return connection.ExecuteAsync(new CommandDefinition(
-            """
-            INSERT INTO public.answer_participant (id_answer, id_user, participation_type)
-            SELECT
-                @AnswerId,
-                participant.id_user,
-                CASE WHEN participant.participation_type = 'signed' THEN 'signed' ELSE 'submitted' END
-            FROM public.answer_draft_participant participant
-            INNER JOIN public.answer_draft draft
-                ON draft.id_answer_draft = participant.id_answer_draft
-            WHERE draft.id_organization_survey = @AssignmentId
-            ON CONFLICT DO NOTHING;
-            """,
-            new { AnswerId = answerId, AssignmentId = assignmentId },
-            transaction,
-            cancellationToken: cancellationToken));
     }
 
     private static Task DeleteDraftAsync(

@@ -40,18 +40,17 @@ public sealed class AnswerSignaturePayloadTests
     }
 
     [Fact]
-    public void BuildSignatureInfo_UsesRecordedParticipantWhenCertificateCannotBeRead()
+    public void BuildSignatureInfo_DoesNotAssumeSubmitterWhenCertificateCannotBeRead()
     {
         var answer = new AnswerRecord
         {
-            Csp = Convert.ToBase64String("not a CMS signature"u8.ToArray()),
-            SignerName = "Импортированный пользователь"
+            Csp = Convert.ToBase64String("not a CMS signature"u8.ToArray())
         };
 
         var signatureInfo = InvokeBuildSignatureInfo(answer);
 
         Assert.True(signatureInfo.IsSigned);
-        Assert.Equal("Импортированный пользователь", signatureInfo.SignedBy);
+        Assert.Equal("Не удалось определить", signatureInfo.SignedBy);
         Assert.Equal("Проверка недоступна", signatureInfo.Status);
     }
 
@@ -97,7 +96,7 @@ public sealed class AnswerSignaturePayloadTests
             "GetSignerDisplayName",
             BindingFlags.NonPublic | BindingFlags.Static);
 
-        var signerName = Assert.IsType<string>(method?.Invoke(null, [certificate, null]));
+        var signerName = Assert.IsType<string>(method?.Invoke(null, [certificate]));
 
         Assert.Equal("Оболонская Екатерина Анатольевна", signerName);
     }

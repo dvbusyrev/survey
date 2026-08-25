@@ -69,6 +69,11 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains("038", versions);
         Assert.Contains("039", versions);
         Assert.Contains("040", versions);
+        Assert.Contains("042", versions);
+        Assert.Contains("043", versions);
+        Assert.Contains("044", versions);
+        Assert.Contains("047", versions);
+        Assert.Contains("049", versions);
         Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT to_regclass('public.week_day')::text;"));
         var auditColumnsWithoutGenerator = (await connection.QueryAsync<string>(
             """
@@ -91,9 +96,12 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                     "email_config_l",
                     "organization_l",
                     "organization_survey_l",
-                    "survey_auto_creation_config_l",
+                    "survey_template_auto_creation_config_l",
                     "survey_l",
                     "survey_question_l",
+                    "survey_template_l",
+                    "survey_template_question_l",
+                    "organization_survey_template_l",
                     "theme_config_l"
                 }
             })).ToArray();
@@ -128,19 +136,230 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                     "organization_survey_id_survey_fkey",
                     "answer_id_organization_survey_fkey",
                     "answer_draft_id_organization_survey_fkey",
-                    "answer_participant_id_user_fkey",
-                    "answer_draft_participant_id_user_fkey"
+                    "answer_id_user_fkey"
                 }
             })).ToDictionary(row => row.ConstraintName, row => row.DeleteRule, StringComparer.OrdinalIgnoreCase);
+        var obsoleteParticipantTableCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM pg_class table_definition
+            INNER JOIN pg_namespace table_namespace
+                ON table_namespace.oid = table_definition.relnamespace
+            WHERE table_namespace.nspname = 'public'
+              AND table_definition.relname IN ('answer_participant', 'answer_draft_participant');
+            """);
         Assert.Contains("background_image", themeColumns);
         Assert.Equal("NO", userOrganizationIsNullable);
         Assert.Equal("RESTRICT", userOrganizationDeleteAction);
-        Assert.Equal(6, protectedDeleteRules.Count);
+        Assert.Equal(5, protectedDeleteRules.Count);
         Assert.All(protectedDeleteRules.Values, deleteRule => Assert.Equal("RESTRICT", deleteRule));
+        Assert.Equal(0, obsoleteParticipantTableCount);
         Assert.DoesNotContain("gradient_enabled", themeColumns);
         Assert.DoesNotContain("background_image_data_url", themeColumns);
         Assert.DoesNotContain("soft_lighten_percent", themeColumns);
         Assert.DoesNotContain("button_strong_darken_percent", themeColumns);
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'survey'
+              AND column_name = 'is_template';
+            """));
+        Assert.Equal("survey_template_auto_creation_config", await connection.ExecuteScalarAsync<string>(
+            "SELECT to_regclass('public.survey_template_auto_creation_config')::text;"));
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'organization_survey_template'
+              AND column_name IN ('date_begin', 'date_end');
+            """));
+    }
+
+    [RequiresPostgresFact]
+    public async Task SurveyTemplates_AreStoredAndListedSeparatelyFromSurveys()
+    {
+        var organizationId = (await CreateOrganizationsAsync(1)).Single();
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var survey = await CreateSurveyAsync([organizationId]);
+        var template = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Интеграционный шаблон",
+            Description = "Проверка отдельного раздела шаблонов",
+            StartDate = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd"),
+            EndDate = string.Empty,
+            Organizations = [organizationId],
+            Criteria = ["Первый вопрос", "Второй вопрос"],
+            IsAutoCreationEnabled = true
+        });
+
+        Assert.True(template.Success, template.Message);
+        Assert.NotNull(template.SurveyId);
+        Assert.Contains("Шаблон успешно добавлен в автосоздание.", template.Message);
+
+        var surveyPage = await service.GetSurveysPageAsync(1, null, null, null);
+        var templatePage = await service.GetSurveyTemplatesPageAsync(1, null, null, null);
+        var activeTemplateOptions = await service.GetActiveSurveyTemplateOptionsAsync();
+
+        Assert.Contains(surveyPage.SurveyRows, row => row.IdSurvey == survey.SurveyId);
+        Assert.DoesNotContain(surveyPage.SurveyRows, row => row.NameSurvey == "Интеграционный шаблон");
+        Assert.Contains(templatePage.SurveyRows, row => row.IdSurvey == template.SurveyId && row.NameSurvey == "Интеграционный шаблон");
+        Assert.Contains(templatePage.SurveyRows, row => row.IdSurvey == template.SurveyId && row.DateEnd == null);
+        Assert.Contains(templatePage.SurveyRows, row => row.IdSurvey == template.SurveyId && row.IsAutoCreationEnabled);
+        Assert.DoesNotContain(templatePage.SurveyRows, row => row.IdSurvey == survey.SurveyId && row.NameSurvey == "Интеграционная анкета");
+        Assert.True(templatePage.IsTemplateSection);
+        Assert.Equal("/survey-templates", templatePage.FilterState.BasePath);
+        Assert.Contains(activeTemplateOptions, option => option.Id == template.SurveyId && option.Name == "Интеграционный шаблон");
+
+        await using var connection = _fixture.CreateConnection();
+        Assert.True(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey_template
+                WHERE id_survey_template = @SurveyId
+            );
+            """,
+            new { SurveyId = template.SurveyId }));
+        Assert.True(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey_template_auto_creation_config
+                WHERE id_config = 1
+                  AND id_survey_template = @SurveyId
+            );
+            """,
+            new { SurveyId = template.SurveyId }));
+        Assert.True(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey_template_l
+                WHERE id_survey_template = @SurveyId
+            );
+            """,
+            new { SurveyId = template.SurveyId }));
+
+        await connection.ExecuteAsync(
+            """
+            UPDATE public.survey_template
+            SET date_begin = CURRENT_DATE - 10,
+                date_end = CURRENT_DATE - 1
+            WHERE id_survey_template = @SurveyId;
+            """,
+            new { SurveyId = template.SurveyId });
+
+        var surveyArchive = await service.GetAdminArchivedSurveysPageAsync(
+            1, null, null, null, null, null, null, null, null);
+        var templateArchive = await service.GetAdminArchivedSurveyTemplatesPageAsync(
+            1, null, null, null, null, null, null, null, null);
+        var activeTemplateOptionsAfterArchiving = await service.GetActiveSurveyTemplateOptionsAsync();
+        var autoCreationPage = await service.GetPageModelAsync();
+
+        Assert.DoesNotContain(surveyArchive.SurveyRows, row => row.NameSurvey == "Интеграционный шаблон");
+        Assert.Contains(templateArchive.SurveyRows, row => row.IdSurvey == template.SurveyId && row.NameSurvey == "Интеграционный шаблон");
+        Assert.DoesNotContain(activeTemplateOptionsAfterArchiving, option => option.Id == template.SurveyId);
+        Assert.DoesNotContain(autoCreationPage.SelectedTemplates, item => item.Id == template.SurveyId);
+        Assert.False(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey_template_auto_creation_config
+                WHERE id_survey_template = @SurveyId
+            );
+            """,
+            new { SurveyId = template.SurveyId }));
+        Assert.True(templateArchive.IsTemplateSection);
+        Assert.Equal("/survey-templates/archive", templateArchive.FilterState.BasePath);
+        Assert.False(templateArchive.FilterState.EnableSurveyFilter);
+        Assert.Empty(templateArchive.FilterState.SurveyOptions);
+        Assert.Empty(templateArchive.FilterState.SelectedSurveyIds);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SurveyTemplateUpdate_ReportsAutoCreationSelectionChanges()
+    {
+        var organizationId = (await CreateOrganizationsAsync(1)).Single();
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var template = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Шаблон для изменения автосоздания",
+            Description = "Проверка уведомлений",
+            StartDate = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd"),
+            EndDate = string.Empty,
+            Organizations = [organizationId],
+            Criteria = ["Критерий"],
+            IsAutoCreationEnabled = false
+        });
+
+        Assert.True(template.Success, template.Message);
+        Assert.NotNull(template.SurveyId);
+
+        var updateRequest = new SurveyUpdateRequest
+        {
+            Title = "Шаблон для изменения автосоздания",
+            Description = "Проверка уведомлений",
+            StartDate = DateTime.Today.AddDays(-1),
+            EndDate = null,
+            Organizations = [organizationId],
+            Criteria = ["Критерий"],
+            IsAutoCreationEnabled = true
+        };
+        var addedResult = await service.UpdateSurveyTemplateAsync(template.SurveyId.Value, updateRequest);
+
+        updateRequest.IsAutoCreationEnabled = false;
+        var removedResult = await service.UpdateSurveyTemplateAsync(template.SurveyId.Value, updateRequest);
+
+        Assert.True(addedResult.Success, addedResult.Message);
+        Assert.Contains("Шаблон успешно добавлен в автосоздание.", addedResult.Message);
+        Assert.True(removedResult.Success, removedResult.Message);
+        Assert.Contains("Шаблон успешно удалён из автосоздания.", removedResult.Message);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SurveyTemplates_CanBeSortedByAutoCreationSelection()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var selectedTemplate = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Шаблон в автосоздании",
+            StartDate = DateTime.Today.ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий"],
+            IsAutoCreationEnabled = true
+        });
+        var unselectedTemplate = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Шаблон вне автосоздания",
+            StartDate = DateTime.Today.ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий"],
+            IsAutoCreationEnabled = false
+        });
+
+        var descendingPage = await service.GetSurveyTemplatesPageAsync(
+            1,
+            SurveyListSortFields.AutoCreation,
+            "desc",
+            null);
+        var ascendingPage = await service.GetSurveyTemplatesPageAsync(
+            1,
+            SurveyListSortFields.AutoCreation,
+            "asc",
+            null);
+
+        Assert.True(selectedTemplate.Success, selectedTemplate.Message);
+        Assert.True(unselectedTemplate.Success, unselectedTemplate.Message);
+        Assert.True(descendingPage.SurveyRows.First().IsAutoCreationEnabled);
+        Assert.False(ascendingPage.SurveyRows.First().IsAutoCreationEnabled);
+        Assert.Equal(SurveyListSortFields.AutoCreation, descendingPage.SortBy);
+        Assert.Equal("desc", descendingPage.SortDirection);
+        Assert.Equal(SurveyListSortFields.AutoCreation, ascendingPage.SortBy);
+        Assert.Equal("asc", ascendingPage.SortDirection);
     }
 
     [RequiresPostgresFact]
@@ -167,6 +386,48 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public'
               AND column_name = 'user_update';
             """);
+        var dateUpdateTables = (await connection.QueryAsync<string>(
+            """
+            SELECT table_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND column_name = 'date_update'
+            ORDER BY table_name;
+            """)).ToArray();
+        var metadataTriggerTables = (await connection.QueryAsync<string>(
+            """
+            SELECT DISTINCT table_class.relname
+            FROM pg_trigger trigger_definition
+            INNER JOIN pg_class table_class
+                ON table_class.oid = trigger_definition.tgrelid
+            INNER JOIN pg_namespace table_namespace
+                ON table_namespace.oid = table_class.relnamespace
+            INNER JOIN pg_proc trigger_function
+                ON trigger_function.oid = trigger_definition.tgfoid
+            INNER JOIN pg_namespace function_namespace
+                ON function_namespace.oid = trigger_function.pronamespace
+            WHERE NOT trigger_definition.tgisinternal
+              AND table_namespace.nspname = 'public'
+              AND function_namespace.nspname = 'public'
+              AND trigger_function.proname = 'set_update_metadata'
+            ORDER BY table_class.relname;
+            """)).ToArray();
+        var updateMetadataFunctionCount = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM pg_proc function_definition
+            INNER JOIN pg_namespace function_namespace
+                ON function_namespace.oid = function_definition.pronamespace
+            WHERE function_namespace.nspname = 'public'
+              AND function_definition.proname = 'set_update_metadata';
+            """);
+        var emailSingletonConstraint = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT pg_get_constraintdef(constraint_definition.oid)
+            FROM pg_constraint constraint_definition
+            WHERE constraint_definition.conrelid = 'public.email_config'::regclass
+              AND constraint_definition.conname = 'ck_email_config_singleton';
+            """);
         var themeDefaults = await connection.QuerySingleAsync<(string FontColor, string BackgroundColor)>(
             """
             SELECT
@@ -189,11 +450,15 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
               );
             """);
 
-        Assert.Contains("date_update", answerColumns);
+        Assert.DoesNotContain("date_update", answerColumns);
         Assert.DoesNotContain("user_update", answerColumns);
         Assert.DoesNotContain("date_update", autoCreationColumns);
         Assert.DoesNotContain("user_update", autoCreationColumns);
         Assert.Equal(0, userUpdateColumnCount);
+        Assert.Empty(dateUpdateTables);
+        Assert.Empty(metadataTriggerTables);
+        Assert.Equal(0, updateMetadataFunctionCount);
+        Assert.Contains("id_config = 1", emailSingletonConstraint);
         Assert.Contains("#343D4B", themeDefaults.FontColor);
         Assert.Contains("#B2A8FF", themeDefaults.BackgroundColor);
         Assert.Equal(0, legacyObjects);
@@ -410,12 +675,6 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             _connectionFactory,
             NullLogger<ThemeSettingsService>.Instance);
 
-        await using (var seedConnection = _fixture.CreateConnection())
-        {
-            await seedConnection.ExecuteAsync(
-                "INSERT INTO public.email_config (id_config) VALUES (7);");
-        }
-
         var createOrganization = await organizationService.CreateOrganizationAsync(new OrganizationSaveRequest
         {
             Name = "Репозиторий организация",
@@ -484,6 +743,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         await using var connection = _fixture.CreateConnection();
         var storedEmailConfig = await connection.QuerySingleAsync<(int IdConfig, string SmtpPassword)>(
             "SELECT id_config AS IdConfig, smtp_password AS SmtpPassword FROM public.email_config;");
+        var emailConfigCount = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM public.email_config;");
         var storedAuditPasswords = (await connection.QueryAsync<string?>(
             "SELECT smtp_password FROM public.email_config_l;")).ToArray();
         await connection.ExecuteAsync(
@@ -509,7 +770,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal("Новое содержание", emailMessage.Content);
         Assert.Equal("smtp.example.test", emailSender.SmtpHost);
         Assert.Empty(emailSender.SmtpPassword);
-        Assert.Equal(7, storedEmailConfig.IdConfig);
+        Assert.Equal(1, storedEmailConfig.IdConfig);
+        Assert.Equal(1, emailConfigCount);
         Assert.StartsWith(SmtpPasswordProtector.ProtectedValuePrefix, storedEmailConfig.SmtpPassword);
         Assert.Equal("smtp-password", smtpPasswordProtector.Unprotect(storedEmailConfig.SmtpPassword));
         Assert.All(
@@ -543,15 +805,13 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE id_survey = @SurveyId AND id_organization = @OrganizationId;
             """,
             new { SurveyId = surveyId, OrganizationId = organizationId });
-        var participantTypes = (await connection.QueryAsync<string>(
+        var answerUserId = await connection.ExecuteScalarAsync<int>(
             """
-            SELECT participant.participation_type
-            FROM public.answer_participant participant
-            INNER JOIN public.answer answer ON answer.id_answer = participant.id_answer
+            SELECT answer.id_user
+            FROM public.answer answer
             WHERE answer.id_organization_survey = @AssignmentId
-              AND participant.id_user = @UserId;
             """,
-            new { AssignmentId = assignmentId, UserId = userId })).ToArray();
+            new { AssignmentId = assignmentId });
 
         var surveyDeletion = await new SurveyService(_connectionFactory, _surveyRepository, _clock)
             .DeleteSurveyAsync(surveyId);
@@ -572,7 +832,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains("по ней есть ответы", surveyDeletion.Message);
 
         Assert.False(userDeletion.Success);
-        Assert.Contains("submitted", participantTypes);
+        Assert.Equal(userId, answerUserId);
         Assert.Equal("user_in_use", userDeletion.Code);
         Assert.Contains("Тестовый клиент", userDeletion.Message);
         Assert.Contains("Связанные анкеты", userDeletion.Message);
@@ -684,10 +944,6 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             );
             """,
             new { SurveyId = surveyId, OrganizationId = organizationId }));
-        Assert.False(await connection.ExecuteScalarAsync<bool>(
-            "SELECT EXISTS (SELECT 1 FROM public.answer_draft_participant WHERE id_user = @UserId);",
-            new { UserId = userId }));
-
         var surveyDeletion = await new SurveyService(_connectionFactory, _surveyRepository, _clock)
             .DeleteSurveyAsync(surveyId);
 
@@ -843,6 +1099,76 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var assignment = Assert.Single(assignments);
         Assert.Equal(organizationIds[0], assignment.OrganizationId);
         Assert.Equal(DateTime.Today.AddDays(14), assignment.DateEnd);
+    }
+
+    [RequiresPostgresFact]
+    public async Task SurveyLists_DefaultToStartDateDescending()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        await using var connection = _fixture.CreateConnection();
+
+        async Task<int> CreateSurveyWithPeriodAsync(string name, DateTime dateBegin, DateTime dateEnd)
+        {
+            var surveyId = await connection.ExecuteScalarAsync<int>(
+                """
+                INSERT INTO public.survey (name_survey, description, date_begin, date_end)
+                VALUES (@Name, 'Проверка сортировки', @DateBegin, @DateEnd)
+                RETURNING id_survey;
+                """,
+                new { Name = name, DateBegin = dateBegin.Date, DateEnd = dateEnd.Date });
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO public.organization_survey
+                    (id_organization, id_survey, date_begin, date_end)
+                VALUES
+                    (@OrganizationId, @SurveyId, @DateBegin, @DateEnd);
+                """,
+                new
+                {
+                    OrganizationId = organizationId,
+                    SurveyId = surveyId,
+                    DateBegin = dateBegin.Date,
+                    DateEnd = dateEnd.Date
+                });
+            return surveyId;
+        }
+
+        var activeOlderId = await CreateSurveyWithPeriodAsync(
+            "Активная ранняя",
+            DateTime.Today.AddDays(-5),
+            DateTime.Today.AddDays(10));
+        var activeNewerId = await CreateSurveyWithPeriodAsync(
+            "Активная поздняя",
+            DateTime.Today.AddDays(-1),
+            DateTime.Today.AddDays(10));
+        var archivedOlderId = await CreateSurveyWithPeriodAsync(
+            "Архивная ранняя",
+            DateTime.Today.AddDays(-30),
+            DateTime.Today.AddDays(-20));
+        var archivedNewerId = await CreateSurveyWithPeriodAsync(
+            "Архивная поздняя",
+            DateTime.Today.AddDays(-15),
+            DateTime.Today.AddDays(-5));
+
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var activePage = await service.GetSurveysPageAsync(1, null, null, null);
+        var archivePage = await service.GetAdminArchivedSurveysPageAsync(
+            1,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+
+        Assert.Equal(
+            new[] { activeNewerId, activeOlderId },
+            activePage.SurveyRows.Select(row => row.IdSurvey));
+        Assert.Equal(
+            new[] { archivedNewerId, archivedOlderId },
+            archivePage.SurveyRows.Select(row => row.IdSurvey));
     }
 
     [RequiresPostgresFact]
@@ -1435,6 +1761,56 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
+    public async Task ArchivedSurveyExtension_AllowsExtendingUntilToday()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var survey = await CreateSurveyAsync([organizationId]);
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var archivedEnd = DateTime.Today.AddDays(-1);
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE public.organization_survey
+                SET date_end = @ArchivedEnd
+                WHERE id_survey = @SurveyId;
+
+                UPDATE public.survey
+                SET date_end = @ArchivedEnd
+                WHERE id_survey = @SurveyId;
+                """,
+                new { ArchivedEnd = archivedEnd, SurveyId = survey.SurveyId });
+        }
+
+        var extensionResult = await service.SaveExtensionsAsync(new SurveyExtensionRequest
+        {
+            SurveyId = survey.SurveyId!.Value,
+            Extensions =
+            [
+                new SurveyExtensionItemRequest
+                {
+                    OrganizationId = organizationId,
+                    ExtendedUntil = DateTime.Today.ToString("yyyy-MM-dd")
+                }
+            ]
+        });
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var assignmentEnd = await verificationConnection.ExecuteScalarAsync<DateTime>(
+            """
+            SELECT date_end
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId
+              AND id_organization = @OrganizationId;
+            """,
+            new { SurveyId = survey.SurveyId, OrganizationId = organizationId });
+
+        Assert.True(extensionResult.Success, extensionResult.Message);
+        Assert.Equal(DateTime.Today, assignmentEnd);
+    }
+
+    [RequiresPostgresFact]
     public async Task AssignmentRepository_ArchivesExpiredAndFutureSurveysWithoutAnswers()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
@@ -1878,6 +2254,64 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal(endDate.Date, editPage.Survey.DateEnd?.Date);
         Assert.Equal(new[] { organizationIds[1] }, editPage.SelectedOrganizationIds);
         Assert.Equal(new[] { "Новый первый критерий", "Новый второй критерий" }, editPage.Criteria);
+    }
+
+    [RequiresPostgresFact]
+    public async Task UpdateSurvey_WithAnswerProtectsCriteriaAndAnsweredOrganizationAssignment()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var survey = await CreateSurveyAsync(organizationIds);
+        var surveyId = survey.SurveyId!.Value;
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var answerResult = await CreateAnswerService().InsertAnswerAsync(
+            BuildAnswerRecord(surveyId, organizationIds[0], 5));
+
+        var editPage = await service.GetSurveyEditPageAsync(surveyId);
+        var changedCriteriaResult = await service.UpdateSurveyAsync(surveyId, new SurveyUpdateRequest
+        {
+            Title = "Анкета с ответом",
+            Description = "Описание",
+            StartDate = DateTime.Today,
+            EndDate = DateTime.Today.AddDays(20),
+            Organizations = organizationIds.ToList(),
+            Criteria = ["Изменённый вопрос", "Второй вопрос"]
+        });
+        var removedAnsweredOrganizationResult = await service.UpdateSurveyAsync(surveyId, new SurveyUpdateRequest
+        {
+            Title = "Анкета с ответом",
+            Description = "Описание",
+            StartDate = DateTime.Today,
+            EndDate = DateTime.Today.AddDays(20),
+            Organizations = [organizationIds[1]],
+            Criteria = ["Первый вопрос", "Второй вопрос"]
+        });
+        var removeUnansweredOrganizationResult = await service.UpdateSurveyAsync(surveyId, new SurveyUpdateRequest
+        {
+            Title = "Анкета с защищённым ответом",
+            Description = "Обновлённое описание",
+            StartDate = DateTime.Today,
+            EndDate = DateTime.Today.AddDays(20),
+            Organizations = [organizationIds[0]],
+            Criteria = ["Первый вопрос", "Второй вопрос"]
+        });
+        var updatedEditPage = await service.GetSurveyEditPageAsync(surveyId);
+
+        Assert.True(answerResult.Success, answerResult.Error);
+        Assert.NotNull(editPage);
+        Assert.True(editPage!.HasAnswers);
+        Assert.Contains(organizationIds[0], editPage.SelectedOrganizationIds);
+        Assert.DoesNotContain(editPage.AllOrganization, item => item.Id == organizationIds[0]);
+        Assert.Contains(editPage.AllOrganization, item => item.Id == organizationIds[1]);
+        Assert.False(changedCriteriaResult.Success);
+        Assert.Equal("Нельзя изменить критерии: по анкете уже есть ответы.", changedCriteriaResult.Message);
+        Assert.False(removedAnsweredOrganizationResult.Success);
+        Assert.Equal(
+            "Нельзя отменить назначение организации: по анкете уже есть ответ.",
+            removedAnsweredOrganizationResult.Message);
+        Assert.True(removeUnansweredOrganizationResult.Success, removeUnansweredOrganizationResult.Message);
+        Assert.NotNull(updatedEditPage);
+        Assert.Equal(new[] { organizationIds[0] }, updatedEditPage!.SelectedOrganizationIds);
+        Assert.Equal(new[] { "Первый вопрос", "Второй вопрос" }, updatedEditPage.Criteria);
     }
 
     [RequiresPostgresFact]
@@ -2375,7 +2809,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
-    public async Task ImportedSignature_UsesLegacyParticipantAsSignerWhenCmsCannotBeRead()
+    public async Task ImportedSignature_DoesNotAssumeSubmitterWhenCmsCannotBeRead()
     {
         var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
         var userId = await CreateUserAsync(organizationId, "legacy-signature-client");
@@ -2401,14 +2835,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             UPDATE public.answer
             SET csp = @Signature
             WHERE id_answer = @AnswerId;
-
-            INSERT INTO public.answer_participant (id_answer, id_user, participation_type)
-            VALUES (@AnswerId, @UserId, 'legacy');
             """,
             new
             {
                 AnswerId = answerId,
-                UserId = userId,
                 Signature = Convert.ToBase64String("legacy signature"u8.ToArray())
             });
 
@@ -2421,7 +2851,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.True(response.Success, response.Error);
         var answer = Assert.Single(response.Answers);
         Assert.True(answer.IsSigned);
-        Assert.Equal("Тестовый клиент", answer.SignatureInfo?.SignedBy);
+        Assert.Equal("Не удалось определить", answer.SignatureInfo?.SignedBy);
         Assert.Equal("Проверка недоступна", answer.SignatureInfo?.Status);
     }
 
@@ -2592,7 +3022,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     public async Task AutoCreation_SavePersistsScheduleAndSelectedTemplate()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
-        var survey = await CreateSurveyAsync(organizationIds);
+        var templateId = await CreateAutoCreationTemplateAsync(organizationIds);
         var autoCreation = new SurveyService(
             _connectionFactory,
             _surveyRepository,
@@ -2604,7 +3034,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             ReportingPeriod = "quarter",
             ReportingOffsetBusinessDays = 16,
             ActivePeriodBusinessDays = 20,
-            SurveyIds = [survey.SurveyId!.Value]
+            TemplateIds = [templateId]
         });
 
         await using var connection = _fixture.CreateConnection();
@@ -2618,57 +3048,107 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             FROM public.auto_creation_config
             WHERE id_config = 1;
             """);
-        var selectedSurveyId = await connection.ExecuteScalarAsync<int>(
-            "SELECT id_survey FROM public.survey_auto_creation_config WHERE id_config = 1;");
+        var selectedTemplateId = await connection.ExecuteScalarAsync<int>(
+            "SELECT id_survey_template FROM public.survey_template_auto_creation_config WHERE id_config = 1;");
 
         Assert.True(result.Success);
         Assert.Equal("quarter", stored.ReportingPeriod);
         Assert.Equal(16, stored.ReportingOffset);
         Assert.Equal(20, stored.WorkingPeriod);
         Assert.False(stored.IsEnabled);
-        Assert.Equal(survey.SurveyId, selectedSurveyId);
+        Assert.Equal(templateId, selectedTemplateId);
     }
 
     [RequiresPostgresFact]
-    public async Task AutoCreation_SurveyOptionsContainOneLatestTemplatePerName()
+    public async Task AutoCreation_ApplyWhileRunning_PersistsSettingsAndKeepsProcessEnabled()
+    {
+        var organizationIds = await CreateOrganizationsAsync(1);
+        var templateId = await CreateAutoCreationTemplateAsync(organizationIds);
+        var autoCreation = new SurveyService(
+            _connectionFactory,
+            _surveyRepository,
+            new FixedClock(new DateTime(2026, 4, 20)),
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: CreateWeekdayProductionCalendar());
+
+        var startResult = await autoCreation.StartAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "month",
+            ReportingOffsetBusinessDays = 1,
+            ActivePeriodBusinessDays = 8,
+            TemplateIds = [templateId]
+        });
+        var applyResult = await autoCreation.SaveAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "quarter",
+            ReportingOffsetBusinessDays = 3,
+            ActivePeriodBusinessDays = 12,
+            TemplateIds = [templateId]
+        });
+
+        await using var connection = _fixture.CreateConnection();
+        var stored = await connection.QuerySingleAsync<(string ReportingPeriod, int ReportingOffset, int WorkingPeriod, bool IsEnabled)>(
+            """
+            SELECT
+                reporting_period AS ReportingPeriod,
+                reporting_offset_business_days AS ReportingOffset,
+                working_period AS WorkingPeriod,
+                is_enabled AS IsEnabled
+            FROM public.auto_creation_config
+            WHERE id_config = 1;
+            """);
+
+        Assert.True(startResult.Success, startResult.Message);
+        Assert.StartsWith(
+            "Новые настройки автосоздания применены, автосоздание анкет запущено.",
+            startResult.Message);
+        Assert.True(applyResult.Success, applyResult.Message);
+        Assert.StartsWith("Новые настройки автосоздания применены.", applyResult.Message);
+        Assert.True(applyResult.IsEnabled);
+        Assert.Equal("quarter", stored.ReportingPeriod);
+        Assert.Equal(3, stored.ReportingOffset);
+        Assert.Equal(12, stored.WorkingPeriod);
+        Assert.True(stored.IsEnabled);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AutoCreation_TemplateOptionsContainOnlyActiveTemplates()
     {
         var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
         await using var connection = _fixture.CreateConnection();
-        var surveyIds = (await connection.QueryAsync<int>(
+        var templateIds = (await connection.QueryAsync<int>(
             """
-            INSERT INTO public.survey (name_survey, description)
+            INSERT INTO public.survey_template (
+                name_survey_template,
+                description,
+                date_begin,
+                date_end
+            )
             VALUES
-                ('Повторяющаяся анкета', 'Первая версия'),
-                ('  повторяющаяся АНКЕТА  ', 'Последняя версия')
-            RETURNING id_survey;
+                ('Активный шаблон', 'Активная версия', '2000-01-01', NULL),
+                ('Архивный шаблон', 'Архивная версия', '2000-01-01', '2000-01-02')
+            RETURNING id_survey_template;
             """)).ToArray();
         await connection.ExecuteAsync(
             """
-            INSERT INTO public.organization_survey (id_organization, id_survey, date_begin, date_end)
-            SELECT @OrganizationId, selected.survey_id, CURRENT_DATE, CURRENT_DATE + 14
-            FROM unnest(@SurveyIds) AS selected(survey_id);
+            INSERT INTO public.organization_survey_template (id_organization, id_survey_template)
+            SELECT @OrganizationId, selected.template_id
+            FROM unnest(@TemplateIds) AS selected(template_id);
             """,
-            new { OrganizationId = organizationId, SurveyIds = surveyIds });
+            new { OrganizationId = organizationId, TemplateIds = templateIds });
 
         var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
-        var options = await service.GetSurveyOptionsAsync();
-        var matchingOptions = options
-            .Where(static option => string.Equals(
-                option.Name.Trim(),
-                "Повторяющаяся анкета",
-                StringComparison.OrdinalIgnoreCase))
-            .ToArray();
+        var options = await service.GetTemplateOptionsAsync();
 
-        var option = Assert.Single(matchingOptions);
-        Assert.Equal(surveyIds.Max(), option.Id);
+        Assert.Contains(options, option => option.Id == templateIds[0] && option.Name == "Активный шаблон");
+        Assert.DoesNotContain(options, option => option.Id == templateIds[1]);
     }
 
     [RequiresPostgresFact]
-    public async Task AutoCreation_RunPending_UsesLatestSurveyWithSelectedName()
+    public async Task AutoCreation_RunPending_UsesCurrentSelectedTemplateContent()
     {
         var organizationIds = await CreateOrganizationsAsync(2);
-        var selectedSurvey = await CreateSurveyAsync([organizationIds[0]]);
-        var selectedSurveyId = selectedSurvey.SurveyId!.Value;
+        var templateId = await CreateAutoCreationTemplateAsync([organizationIds[0]]);
         var calendar = CreateWeekdayProductionCalendar();
         var setupService = new SurveyService(
             _connectionFactory,
@@ -2682,32 +3162,37 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             ReportingPeriod = "quarter",
             ReportingOffsetBusinessDays = 5,
             ActivePeriodBusinessDays = 5,
-            SurveyIds = [selectedSurveyId]
+            TemplateIds = [templateId]
         });
 
         await using (var connection = _fixture.CreateConnection())
         {
-            var latestSurveyId = await connection.ExecuteScalarAsync<int>(
-                """
-                INSERT INTO public.survey
-                    (name_survey, description, date_begin, date_end)
-                VALUES
-                    ('  интеграционная АНКЕТА  ', 'Последняя версия', '2026-04-01', '2026-04-10')
-                RETURNING id_survey;
-                """);
             await connection.ExecuteAsync(
                 """
-                INSERT INTO public.survey_question (id_survey, question_order, question_text)
-                VALUES (@SurveyId, 1, 'Вопрос последней версии');
+                UPDATE public.survey_template
+                SET description = 'Последняя версия'
+                WHERE id_survey_template = @TemplateId;
 
-                INSERT INTO public.organization_survey
-                    (id_organization, id_survey, date_begin, date_end)
-                VALUES
-                    (@OrganizationId, @SurveyId, '2026-04-01', '2026-04-10');
+                DELETE FROM public.survey_template_question
+                WHERE id_survey_template = @TemplateId;
+
+                INSERT INTO public.survey_template_question (
+                    id_survey_template,
+                    question_order,
+                    question_text
+                )
+                VALUES (@TemplateId, 1, 'Вопрос последней версии');
+
+                DELETE FROM public.organization_survey_template
+                WHERE id_survey_template = @TemplateId;
+
+                INSERT INTO public.organization_survey_template
+                    (id_organization, id_survey_template)
+                VALUES (@OrganizationId, @TemplateId);
                 """,
                 new
                 {
-                    SurveyId = latestSurveyId,
+                    TemplateId = templateId,
                     OrganizationId = organizationIds[1]
                 });
         }
@@ -2758,30 +3243,27 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     }
 
     [RequiresPostgresFact]
-    public async Task AutoCreation_RejectsSurveyWithoutOrganizationAssignments()
+    public async Task AutoCreation_RejectsTemplateWithoutOrganizationAssignments()
     {
-        await using var connection = _fixture.CreateConnection();
-        var surveyId = await connection.ExecuteScalarAsync<int>(
-            """
-            INSERT INTO public.survey (name_survey, description)
-            VALUES ('Анкета без назначений', 'Не должна использоваться как шаблон')
-            RETURNING id_survey;
-            """);
+        var templateId = await CreateAutoCreationTemplateAsync(
+            [],
+            "Шаблон без назначений",
+            "Не должен использоваться для автосоздания");
         var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
 
-        var options = await service.GetSurveyOptionsAsync();
+        var options = await service.GetTemplateOptionsAsync();
         var saveResult = await service.SaveAsync(new SurveyAutoCreationSettingsRequest
         {
             ReportingPeriod = "month",
             ReportingOffsetBusinessDays = 1,
             ActivePeriodBusinessDays = 8,
-            SurveyIds = [surveyId]
+            TemplateIds = [templateId]
         });
 
-        Assert.DoesNotContain(options, option => option.Id == surveyId);
+        Assert.DoesNotContain(options, option => option.Id == templateId);
         Assert.False(saveResult.Success);
         Assert.Equal(
-            "Одна или несколько выбранных анкет не найдены или не назначены организациям.",
+            "Один или несколько выбранных шаблонов не найдены, не активны или не назначены организациям.",
             saveResult.Message);
     }
 
@@ -2827,7 +3309,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     public async Task AutoCreation_RunPending_CreatesScheduledCopyOnlyOnce()
     {
         var organizationIds = await CreateOrganizationsAsync(2);
-        var survey = await CreateSurveyAsync(organizationIds);
+        var templateId = await CreateAutoCreationTemplateAsync(organizationIds);
         var autoCreation = new SurveyService(
             _connectionFactory,
             _surveyRepository,
@@ -2840,7 +3322,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             ReportingPeriod = "quarter",
             ReportingOffsetBusinessDays = 5,
             ActivePeriodBusinessDays = 5,
-            SurveyIds = [survey.SurveyId!.Value]
+            TemplateIds = [templateId]
         });
         var repeatedRun = await autoCreation.RunPendingAsync();
 
@@ -2849,10 +3331,8 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             """
             SELECT id_survey AS IdSurvey
             FROM public.survey
-            WHERE name_survey = 'Интеграционная анкета'
-              AND id_survey <> @OriginalSurveyId;
-            """,
-            new { OriginalSurveyId = survey.SurveyId });
+            WHERE name_survey = 'Интеграционная анкета';
+            """);
         var copiedQuestionCount = await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(*) FROM public.survey_question WHERE id_survey = @SurveyId;",
             new { SurveyId = copy.IdSurvey });
@@ -2873,6 +3353,10 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             new { SurveyId = copy.IdSurvey });
 
         Assert.True(startResult.Success);
+        Assert.StartsWith(
+            "Новые настройки автосоздания применены, автосоздание анкет запущено.",
+            startResult.Message,
+            StringComparison.Ordinal);
         Assert.Equal(2, copiedQuestionCount);
         Assert.Equal(new DateTime(2026, 4, 24), copiedBasePeriod.DateBegin);
         Assert.Equal(new DateTime(2026, 4, 30), copiedBasePeriod.DateEnd);
@@ -2890,8 +3374,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
     public async Task AutoCreation_RunPending_DoesNotRecreateExpiredScheduledCopy()
     {
         var organizationIds = await CreateOrganizationsAsync(1);
-        var survey = await CreateSurveyAsync(organizationIds);
-        var surveyId = survey.SurveyId!.Value;
+        var templateId = await CreateAutoCreationTemplateAsync(organizationIds);
         var today = new DateTime(2026, 8, 31);
 
         var autoCreation = new SurveyService(
@@ -2906,7 +3389,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             ReportingPeriod = "month",
             ReportingOffsetBusinessDays = 5,
             ActivePeriodBusinessDays = 5,
-            SurveyIds = [surveyId]
+            TemplateIds = [templateId]
         });
 
         await using (var normalizationConnection = _fixture.CreateConnection())
@@ -2915,11 +3398,9 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
                 """
                 UPDATE public.survey
                 SET name_survey = '  интеграционная АНКЕТА  '
-                WHERE id_survey <> @SurveyId
-                  AND date_begin = '2026-08-18'
+                WHERE date_begin = '2026-08-18'
                   AND date_end = '2026-08-24';
-                """,
-                new { SurveyId = surveyId });
+                """);
         }
 
         var repeatedRun = await autoCreation.RunPendingAsync();
@@ -2946,6 +3427,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         var organizationIds = await CreateOrganizationsAsync(1);
         var survey = await CreateSurveyAsync(organizationIds);
         var surveyId = survey.SurveyId!.Value;
+        var templateId = await CreateAutoCreationTemplateAsync(organizationIds);
         var today = new DateTime(2026, 8, 24);
 
         await using (var connection = _fixture.CreateConnection())
@@ -2975,7 +3457,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             ReportingPeriod = "month",
             ReportingOffsetBusinessDays = 1,
             ActivePeriodBusinessDays = 5,
-            SurveyIds = [surveyId]
+            TemplateIds = [templateId]
         });
 
         await using var verificationConnection = _fixture.CreateConnection();
@@ -2991,6 +3473,124 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.True(startResult.Success, startResult.Message);
         Assert.Equal(new DateTime(2026, 8, 24), augustCopy.DateBegin);
         Assert.Equal(new DateTime(2026, 8, 28), augustCopy.DateEnd);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AutoCreation_AddingSelectedTemplateAfterRunCreatesItsSurveyImmediately()
+    {
+        var organizationIds = await CreateOrganizationsAsync(2);
+        var firstTemplateId = await CreateAutoCreationTemplateAsync([organizationIds[0]]);
+        var clock = new FixedClock(new DateTime(2026, 8, 24));
+        var service = new SurveyService(
+            _connectionFactory,
+            new SurveyRepository(clock),
+            clock,
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: CreateWeekdayProductionCalendar());
+
+        var startResult = await service.StartAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "month",
+            ReportingOffsetBusinessDays = 1,
+            ActivePeriodBusinessDays = 5,
+            TemplateIds = [firstTemplateId]
+        });
+        var createResult = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Новый шаблон после запуска",
+            Description = "Создаётся без ожидания следующего запуска службы",
+            StartDate = "2026-08-23",
+            EndDate = string.Empty,
+            Organizations = [organizationIds[1]],
+            Criteria = ["Новый критерий"],
+            IsAutoCreationEnabled = true
+        });
+
+        await using var connection = _fixture.CreateConnection();
+        var generatedSurvey = await connection.QuerySingleAsync<(int IdSurvey, DateTime DateBegin, DateTime DateEnd)>(
+            """
+            SELECT
+                id_survey AS IdSurvey,
+                date_begin AS DateBegin,
+                date_end AS DateEnd
+            FROM public.survey
+            WHERE name_survey = 'Новый шаблон после запуска';
+            """);
+        var generatedOrganizationId = await connection.ExecuteScalarAsync<int>(
+            """
+            SELECT id_organization
+            FROM public.organization_survey
+            WHERE id_survey = @SurveyId;
+            """,
+            new { SurveyId = generatedSurvey.IdSurvey });
+        var generatedCriterion = await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT question_text
+            FROM public.survey_question
+            WHERE id_survey = @SurveyId;
+            """,
+            new { SurveyId = generatedSurvey.IdSurvey });
+
+        Assert.True(startResult.Success, startResult.Message);
+        Assert.True(createResult.Success, createResult.Message);
+        Assert.Contains("Создано анкет: 1", createResult.Message);
+        Assert.Equal(new DateTime(2026, 8, 24), generatedSurvey.DateBegin);
+        Assert.Equal(new DateTime(2026, 8, 28), generatedSurvey.DateEnd);
+        Assert.Equal(organizationIds[1], generatedOrganizationId);
+        Assert.Equal("Новый критерий", generatedCriterion);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AutoCreation_DoesNotCreateDuplicateWhenSurveyNameAlreadyExistsInReportingMonth()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var templateId = await CreateAutoCreationTemplateAsync([organizationId]);
+        var clock = new FixedClock(new DateTime(2026, 8, 31));
+        var service = new SurveyService(
+            _connectionFactory,
+            new SurveyRepository(clock),
+            clock,
+            logger: NullLogger<SurveyService>.Instance,
+            productionCalendar: CreateWeekdayProductionCalendar());
+
+        var saveResult = await service.SaveAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "month",
+            ReportingOffsetBusinessDays = 5,
+            ActivePeriodBusinessDays = 5,
+            TemplateIds = [templateId]
+        });
+
+        await using (var connection = _fixture.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO public.survey (name_survey, description, date_begin, date_end)
+                VALUES ('  интеграционная АНКЕТА  ', 'Создана вручную', '2026-08-01', '2026-08-10');
+                """);
+        }
+
+        var startResult = await service.StartAsync(new SurveyAutoCreationSettingsRequest
+        {
+            ReportingPeriod = "month",
+            ReportingOffsetBusinessDays = 5,
+            ActivePeriodBusinessDays = 5,
+            TemplateIds = [templateId]
+        });
+
+        await using var verificationConnection = _fixture.CreateConnection();
+        var surveyCount = await verificationConnection.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(*)
+            FROM public.survey
+            WHERE lower(btrim(name_survey)) = lower(btrim('Интеграционная анкета'))
+              AND date_begin >= '2026-08-01'
+              AND date_begin < '2026-09-01';
+            """);
+
+        Assert.True(saveResult.Success, saveResult.Message);
+        Assert.True(startResult.Success, startResult.Message);
+        Assert.Equal(1, surveyCount);
     }
 
     [RequiresPostgresFact]
@@ -3364,13 +3964,13 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             "SELECT COUNT(*) FROM public.answer_item WHERE id_answer = @AnswerId;",
             new { AnswerId = activeAnswer.IdAnswer }));
         Assert.Equal(0, await connection.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM public.answer_participant WHERE id_answer = @AnswerId;",
+            "SELECT COUNT(*) FROM public.answer WHERE id_answer = @AnswerId;",
             new { AnswerId = activeAnswer.IdAnswer }));
     }
 
     private AnswerService CreateAnswerService(int? userId = null)
     {
-        var participantUserId = userId ?? GetOrCreateAnswerParticipantUserId();
+        var participantUserId = userId ?? GetOrCreateAnswerUserId();
         return new AnswerService(
             _connectionFactory,
             _surveyRepository,
@@ -3379,7 +3979,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             new FixedClock(DateTime.Today));
     }
 
-    private int GetOrCreateAnswerParticipantUserId()
+    private int GetOrCreateAnswerUserId()
     {
         using var connection = _fixture.CreateConnection();
         connection.Open();
@@ -3466,6 +4066,48 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.True(result.Success, result.Message);
         Assert.NotNull(result.SurveyId);
         return result;
+    }
+
+    private async Task<int> CreateAutoCreationTemplateAsync(
+        IReadOnlyList<int> organizationIds,
+        string name = "Интеграционная анкета",
+        string description = "Проверка сценария автосоздания")
+    {
+        await using var connection = _fixture.CreateConnection();
+        var templateId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.survey_template (
+                name_survey_template,
+                description,
+                date_begin,
+                date_end
+            )
+            VALUES (@Name, @Description, '2000-01-01', NULL)
+            RETURNING id_survey_template;
+            """,
+            new { Name = name, Description = description });
+
+        await connection.ExecuteAsync(
+            """
+            INSERT INTO public.survey_template_question (
+                id_survey_template,
+                question_order,
+                question_text
+            )
+            VALUES
+                (@TemplateId, 1, 'Первый вопрос'),
+                (@TemplateId, 2, 'Второй вопрос');
+
+            INSERT INTO public.organization_survey_template (
+                id_organization,
+                id_survey_template
+            )
+            SELECT organization_id, @TemplateId
+            FROM unnest(@OrganizationIds) AS selected(organization_id);
+            """,
+            new { TemplateId = templateId, OrganizationIds = organizationIds.ToArray() });
+
+        return templateId;
     }
 
     private static AnswerRecord BuildAnswerRecord(int surveyId, int organizationId, int firstRating)

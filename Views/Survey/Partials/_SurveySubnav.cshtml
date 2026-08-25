@@ -1,33 +1,37 @@
 @{
     var activeSection = (ViewData["SurveySection"] as string ?? "list").ToLowerInvariant();
+    var isTemplateSection = ViewData["IsTemplateSection"] as bool? == true;
     var listActive = activeSection == "list";
     var answersActive = activeSection == "answers";
     var archiveActive = activeSection == "archive";
 }
 
-<div class="app-tabs app-page__subnav" role="tablist" aria-label="Разделы анкет">
+<div class="app-tabs app-page__subnav" role="tablist" aria-label="@(isTemplateSection ? "Разделы шаблонов анкет" : "Разделы анкет")">
     <a
-        href="/survey"
+        href="@(isTemplateSection ? "/survey-templates" : "/survey")"
         class="app-tab @(listActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(listActive ? "true" : "false")"
-        data-tab-target="get_surveys">
-        Активные анкеты
+        data-tab-target="@(isTemplateSection ? "survey_templates" : "get_surveys")">
+        @(isTemplateSection ? "Активные шаблоны" : "Активные анкеты")
     </a>
+    @if (!isTemplateSection)
+    {
+        <a
+            href="/survey/answer"
+            class="app-tab @(answersActive ? "active-tab" : "")"
+            role="tab"
+            aria-selected="@(answersActive ? "true" : "false")"
+            data-tab-target="list_answers_users">
+            Журнал ответов
+        </a>
+    }
     <a
-        href="/survey/answer"
-        class="app-tab @(answersActive ? "active-tab" : "")"
-        role="tab"
-        aria-selected="@(answersActive ? "true" : "false")"
-        data-tab-target="list_answers_users">
-        Журнал ответов
-    </a>
-    <a
-        href="/survey/archive"
+        href="@(isTemplateSection ? "/survey-templates/archive" : "/survey/archive")"
         class="app-tab @(archiveActive ? "active-tab" : "")"
         role="tab"
         aria-selected="@(archiveActive ? "true" : "false")"
-        data-tab-target="archived_surveys">
-        Архивные анкеты
+        data-tab-target="@(isTemplateSection ? "archived_survey_templates" : "archived_surveys")">
+        @(isTemplateSection ? "Архивные шаблоны" : "Архивные анкеты")
     </a>
 </div>

@@ -8,11 +8,11 @@ public sealed class SurveyAutoCreationPageViewModel
     public int PreviewYear { get; init; }
     public int PreviewMonth { get; init; }
     public bool IsEnabled { get; init; }
-    public IReadOnlyList<SurveyAutoCreationSelectedSurveyViewModel> SelectedSurveys { get; init; }
-        = Array.Empty<SurveyAutoCreationSelectedSurveyViewModel>();
+    public IReadOnlyList<SurveyAutoCreationSelectedTemplateViewModel> SelectedTemplates { get; init; }
+        = Array.Empty<SurveyAutoCreationSelectedTemplateViewModel>();
 }
 
-public sealed class SurveyAutoCreationSelectedSurveyViewModel
+public sealed class SurveyAutoCreationSelectedTemplateViewModel
 {
     public int Id { get; init; }
     public string Name { get; init; } = string.Empty;

@@ -228,6 +228,7 @@
 
     function syncThemeEffectsSummary() {
         const summary = getThemeField('theme-effects-summary');
+        const clearButton = getThemeField('theme-effects-clear');
         if (!summary) {
             return;
         }
@@ -245,12 +246,15 @@
         });
 
         if (selectedEffects.length === 0) {
+            clearButton?.classList.add('is-hidden');
             summary.replaceChildren(window.AppUi.createElement('span', {
                 className: 'app-field-placeholder theme-settings-page__empty-selection',
                 text: 'Эффекты не выбраны'
             }));
             return;
         }
+
+        clearButton?.classList.remove('is-hidden');
 
         summary.replaceChildren(window.AppUi.createElement('div', {
             className: 'theme-settings-page__selected-effects-list',
@@ -603,6 +607,20 @@
             hiddenClass: 'is-hidden'
         });
         themeSettingsPageState.effectsDropdownController = multiselect.controller;
+
+        const clearButton = getThemeField('theme-effects-clear');
+        if (clearButton) {
+            listen(scope, clearButton, 'click', () => {
+                THEME_EFFECT_FIELDS.forEach((field) => {
+                    const checkbox = getThemeField(field.id);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
+                });
+                syncThemeEffectsSummary();
+                applyThemeDraftState();
+            });
+        }
     }
 
     function bindThemeColorPickerCursor(id, scope) {

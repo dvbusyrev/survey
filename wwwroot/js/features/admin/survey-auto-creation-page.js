@@ -18,7 +18,7 @@
                 isEnabled: false,
                 previewYear: today.getFullYear(),
                 previewMonth: today.getMonth() + 1,
-                selectedSurveys: []
+                selectedTemplates: []
             };
         }
 
@@ -26,15 +26,15 @@
             return JSON.parse(node.textContent.trim());
         } catch (error) {
             console.error('Не удалось прочитать bootstrap автосоздания анкет:', error);
-            return { isEnabled: false, selectedSurveys: [] };
+            return { isEnabled: false, selectedTemplates: [] };
         }
     }
 
     const state = {
         pageRoot: null,
         cleanup: null,
-        selectedSurveys: [],
-        availableSurveys: null,
+        selectedTemplates: [],
+        availableTemplates: null,
         surveyDropdown: null,
         previewYear: 0,
         previewMonth: 0,
@@ -47,21 +47,21 @@
         return state.pageRoot || document;
     }
 
-    function normalizeSurvey(rawSurvey) {
+    function normalizeTemplate(rawTemplate) {
         return {
-            id: Number(rawSurvey?.id ?? rawSurvey?.Id ?? rawSurvey?.id_survey ?? 0),
-            name: String(rawSurvey?.name ?? rawSurvey?.Name ?? rawSurvey?.name_survey ?? '').trim()
+            id: Number(rawTemplate?.id ?? rawTemplate?.Id ?? rawTemplate?.id_survey_template ?? 0),
+            name: String(rawTemplate?.name ?? rawTemplate?.Name ?? rawTemplate?.name_survey_template ?? '').trim()
         };
     }
 
-    function cloneSurveys(items) {
+    function cloneTemplates(items) {
         if (!Array.isArray(items)) {
             return [];
         }
 
         const uniqueByName = new Map();
         items
-            .map((item) => normalizeSurvey(item))
+            .map((item) => normalizeTemplate(item))
             .filter((item) => item.id > 0 && item.name)
             .forEach((item) => {
                 const key = item.name.toLocaleLowerCase('ru-RU');
@@ -194,19 +194,21 @@
         });
     }
 
-    function renderSelectedSurveys() {
+    function renderSelectedTemplates() {
         const host = getQueryRoot().querySelector('[data-role="survey-auto-creation-selected-list"]');
+        const clearButton = getQueryRoot().querySelector('[data-role="survey-auto-creation-selected-clear"]');
         if (!host) {
             return;
         }
 
         host.replaceChildren();
-        host.dataset.value = state.selectedSurveys.map((survey) => survey.id).join(',');
+        host.dataset.value = state.selectedTemplates.map((template) => template.id).join(',');
+        clearButton?.classList.toggle('is-hidden', state.selectedTemplates.length === 0);
 
-        if (state.selectedSurveys.length === 0) {
+        if (state.selectedTemplates.length === 0) {
             const empty = window.AppUi.createElement('p', {
                 className: 'app-field-placeholder survey-auto-creation-page__empty-selection',
-                text: 'Анкеты не выбраны'
+                text: 'Шаблоны не выбраны'
             });
             host.appendChild(empty);
             return;
@@ -214,16 +216,22 @@
 
         window.AppValidation?.clearFieldError?.(host);
 
-        state.selectedSurveys.forEach((survey) => {
+        state.selectedTemplates.forEach((template) => {
             const item = window.AppUi.createElement('div', {
                 className: 'survey-auto-creation-page__selected-item',
-                text: survey.name
+                text: template.name
             });
             host.appendChild(item);
         });
     }
 
-    function renderSurveyModalList() {
+    function clearSelectedTemplates() {
+        state.selectedTemplates = [];
+        renderSelectedTemplates();
+        renderTemplateModalList();
+    }
+
+    function renderTemplateModalList() {
         const list = getQueryRoot().querySelector('#surveyAutoCreationModalList');
         if (!list) {
             return;
@@ -231,11 +239,11 @@
 
         list.replaceChildren();
 
-        const selectedIds = new Set(state.selectedSurveys.map((survey) => survey.id));
-        (state.availableSurveys || []).forEach((survey) => {
-            const isSelected = selectedIds.has(survey.id);
+        const selectedIds = new Set(state.selectedTemplates.map((template) => template.id));
+        (state.availableTemplates || []).forEach((template) => {
+            const isSelected = selectedIds.has(template.id);
             const checkboxOption = window.AppUi.createCheckboxOption({
-                text: survey.name,
+                text: template.name,
                 checked: isSelected,
                 selected: isSelected
             });
@@ -243,11 +251,11 @@
             const checkbox = checkboxOption.checkbox;
 
             item.classList.toggle('is-selected', isSelected);
-            checkbox.dataset.surveyId = String(survey.id);
+            checkbox.dataset.templateId = String(template.id);
             checkbox.addEventListener('change', () => {
-                toggleSurveySelection(survey);
-                renderSelectedSurveys();
-                renderSurveyModalList();
+                toggleTemplateSelection(template);
+                renderSelectedTemplates();
+                renderTemplateModalList();
             });
 
             list.appendChild(item);
@@ -268,15 +276,15 @@
         }
     }
 
-    function toggleSurveySelection(survey) {
-        const index = state.selectedSurveys.findIndex((item) => item.id === survey.id);
+    function toggleTemplateSelection(template) {
+        const index = state.selectedTemplates.findIndex((item) => item.id === template.id);
         if (index === -1) {
-            state.selectedSurveys.push({ id: survey.id, name: survey.name });
+            state.selectedTemplates.push({ id: template.id, name: template.name });
         } else {
-            state.selectedSurveys.splice(index, 1);
+            state.selectedTemplates.splice(index, 1);
         }
 
-        state.selectedSurveys.sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+        state.selectedTemplates.sort((left, right) => left.name.localeCompare(right.name, 'ru'));
     }
 
     function getSurveyDropdown() {
@@ -300,25 +308,25 @@
     }
 
     async function handleSurveyDropdownOpen() {
-        if (state.availableSurveys) {
-            renderSurveyModalList();
+        if (state.availableTemplates) {
+            renderTemplateModalList();
             return;
         }
 
         setLoading(true);
         try {
-            await loadSurveyOptions();
-            renderSurveyModalList();
+            await loadTemplateOptions();
+            renderTemplateModalList();
         } catch (error) {
             closeSurveyDropdown();
-            showToast(error instanceof Error ? error.message : 'Не удалось загрузить список анкет.', 'error', { title: 'Ошибка' });
+            showToast(error instanceof Error ? error.message : 'Не удалось загрузить список шаблонов.', 'error', { title: 'Ошибка' });
         } finally {
             setLoading(false);
         }
     }
 
-    async function loadSurveyOptions() {
-        const response = await fetch('/settings/survey-creation/surveys', {
+    async function loadTemplateOptions() {
+        const response = await fetch('/settings/survey-creation/templates', {
             headers: {
                 Accept: 'application/json'
             }
@@ -327,13 +335,13 @@
         if (!response.ok) {
             throw new Error(
                 typeof window.getResponseErrorMessage === 'function'
-                    ? window.getResponseErrorMessage(response, 'Не удалось загрузить список анкет.')
-                    : `Не удалось загрузить список анкет: ${response.status}`
+                    ? window.getResponseErrorMessage(response, 'Не удалось загрузить список шаблонов.')
+                    : `Не удалось загрузить список шаблонов: ${response.status}`
             );
         }
 
         const payload = await response.json();
-        state.availableSurveys = cloneSurveys(payload).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+        state.availableTemplates = cloneTemplates(payload).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
     }
 
     function normalizeBusinessDayInput(input) {
@@ -366,7 +374,7 @@
             reportingPeriod,
             reportingOffsetBusinessDays,
             activePeriodBusinessDays,
-            surveyIds: state.selectedSurveys.map((survey) => survey.id)
+            templateIds: state.selectedTemplates.map((template) => template.id)
         };
     }
 
@@ -502,14 +510,14 @@
         window.location.reload();
     }
 
-    async function submitAction(url, payload, successTitle) {
+    async function submitAction(url, payload, successTitle, fallbackMessage = 'Операция выполнена.') {
         if (payload !== undefined && !validateRequest(payload)) {
             return false;
         }
 
         try {
             const result = await postAction(url, payload);
-            showToast(result.message || 'Операция выполнена.', 'success', { title: successTitle });
+            showToast(result.message || fallbackMessage, 'success', { title: successTitle });
             refreshPage();
         } catch (error) {
             showToast(error instanceof Error ? error.message : 'Операция не выполнена.', 'error', { title: 'Ошибка' });
@@ -544,12 +552,22 @@
         });
     }
 
-    window.saveSurveyAutoCreationSettings = function saveSurveyAutoCreationSettings() {
-        return submitAction('/settings/survey-creation/save', collectRequest(), 'Настройки сохранены');
+    window.applySurveyAutoCreationSettings = function applySurveyAutoCreationSettings() {
+        return submitAction(
+            '/settings/survey-creation/save',
+            collectRequest(),
+            'Настройки автосоздания',
+            'Новые настройки автосоздания применены.'
+        );
     };
 
     window.startSurveyAutoCreation = function startSurveyAutoCreation() {
-        return submitAction('/settings/survey-creation/start', collectRequest(), 'Автосоздание запущено');
+        return submitAction(
+            '/settings/survey-creation/start',
+            collectRequest(),
+            'Автосоздание анкет',
+            'Новые настройки автосоздания применены, автосоздание анкет запущено.'
+        );
     };
 
     window.stopSurveyAutoCreation = function stopSurveyAutoCreation() {
@@ -567,14 +585,14 @@
         }
 
         state.pageRoot = pageRoot;
-        state.availableSurveys = null;
+        state.availableTemplates = null;
         const bootstrap = parseBootstrap(pageRoot);
         const today = new Date();
         state.previewYear = Number(bootstrap.previewYear) || today.getFullYear();
         state.previewMonth = Number(bootstrap.previewMonth) || (today.getMonth() + 1);
         state.previewErrorShown = false;
-        state.selectedSurveys = cloneSurveys(bootstrap.selectedSurveys).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
-        renderSelectedSurveys();
+        state.selectedTemplates = cloneTemplates(bootstrap.selectedTemplates).sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+        renderSelectedTemplates();
         renderSchedulePreview();
         mountSurveyDropdownController();
 
@@ -585,6 +603,7 @@
         ].filter(Boolean);
         const previousButton = pageRoot.querySelector('[data-role="survey-auto-creation-calendar-previous"]');
         const nextButton = pageRoot.querySelector('[data-role="survey-auto-creation-calendar-next"]');
+        const clearButton = pageRoot.querySelector('[data-role="survey-auto-creation-selected-clear"]');
         const handlePreviewChange = () => void refreshSchedulePreview();
         const numericInputs = previewInputs.filter((input) => input.matches('[inputmode="numeric"]'));
         const handleNumericInput = (event) => normalizeBusinessDayInput(event.currentTarget);
@@ -603,6 +622,7 @@
         numericInputs.forEach((input) => input.addEventListener('input', handleNumericInput));
         previousButton?.addEventListener('click', handlePrevious);
         nextButton?.addEventListener('click', handleNext);
+        clearButton?.addEventListener('click', clearSelectedTemplates);
         void refreshSchedulePreview();
 
         const cleanup = () => {
@@ -613,12 +633,13 @@
             numericInputs.forEach((input) => input.removeEventListener('input', handleNumericInput));
             previousButton?.removeEventListener('click', handlePrevious);
             nextButton?.removeEventListener('click', handleNext);
+            clearButton?.removeEventListener('click', clearSelectedTemplates);
             closeSurveyDropdown();
             state.surveyDropdown?.destroy?.();
             state.surveyDropdown = null;
             if (state.pageRoot === pageRoot) {
                 state.pageRoot = null;
-                state.availableSurveys = null;
+                state.availableTemplates = null;
             }
         };
 

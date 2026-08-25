@@ -4,6 +4,9 @@
 @{
     var surveys = Model?.Surveys ?? Array.Empty<MainProject.Web.ViewModels.SurveyTableRowViewModel>();
     var isArchive = Model?.IsArchive ?? false;
+    var isTemplateSection = Model?.IsTemplateSection ?? false;
+    var showAutoCreationColumn = isTemplateSection && !isArchive;
+    var columnCount = showAutoCreationColumn ? 5 : 4;
 
     string FormatDate(DateTime? date)
     {
@@ -27,15 +30,23 @@
                 aria-sort="@Model?.NameAriaSort">
                 <a class="logs-table__sort-link" href="@Model?.NameSortUrl">Название</a>
             </th>
+            @if (showAutoCreationColumn)
+            {
+                <th class="survey-table__auto-creation-column table-sortable @(string.IsNullOrWhiteSpace(Model?.AutoCreationSortDirection) ? string.Empty : "is-sorted")"
+                    data-sort-direction="@Model?.AutoCreationSortDirection"
+                    aria-sort="@Model?.AutoCreationAriaSort">
+                    <a class="logs-table__sort-link" href="@Model?.AutoCreationSortUrl">Добавлено в автосоздание</a>
+                </th>
+            }
             <th class="table-col--date table-sortable @(string.IsNullOrWhiteSpace(Model?.DateBeginSortDirection) ? string.Empty : "is-sorted")"
                 data-sort-direction="@Model?.DateBeginSortDirection"
                 aria-sort="@Model?.DateBeginAriaSort">
-                <a class="logs-table__sort-link" href="@Model?.DateBeginSortUrl">Дата начала</a>
+                <a class="logs-table__sort-link" href="@Model?.DateBeginSortUrl">@(isTemplateSection ? "Дата начала" : "Доступно с")</a>
             </th>
             <th class="table-col--date table-sortable @(string.IsNullOrWhiteSpace(Model?.DateEndSortDirection) ? string.Empty : "is-sorted")"
                 data-sort-direction="@Model?.DateEndSortDirection"
                 aria-sort="@Model?.DateEndAriaSort">
-                <a class="logs-table__sort-link" href="@Model?.DateEndSortUrl">Дата конца</a>
+                <a class="logs-table__sort-link" href="@Model?.DateEndSortUrl">@(isTemplateSection ? "Дата конца" : "Доступно по")</a>
             </th>
             <th class="table-th--end table-col--actions">Действия</th>
         </tr>
@@ -44,13 +55,13 @@
         @if (surveys.Count == 0)
         {
             <tr>
-                <td colspan="4" class="table-empty-cell">Анкеты не найдены.</td>
+                <td colspan="@columnCount" class="table-empty-cell" aria-hidden="true"></td>
             </tr>
         }
         else
         {
             <tr id="none_result" data-role="survey-filter-empty-row" class="is-hidden">
-                <td colspan="4" class="table-empty-cell">Результаты не найдены.</td>
+                <td colspan="@columnCount" class="table-empty-cell" aria-hidden="true"></td>
             </tr>
 
             @foreach (var survey in surveys)
@@ -80,6 +91,12 @@
                             @survey.NameSurvey
                         }
                     </td>
+                    @if (showAutoCreationColumn)
+                    {
+                        <td class="survey-table__auto-creation-column">
+                            @(survey.IsAutoCreationEnabled ? "Да" : "Нет")
+                        </td>
+                    }
                     <td class="table-col--date">
                         @survey.DateBegin.ToString("dd.MM.yyyy")
                     </td>
@@ -90,26 +107,29 @@
                         <div class="action-icons__content">
                             @if (!survey.IsExtension)
                             {
-                                <button type="button"
-                                        class="icon-container"
-                                        data-survey-id="@survey.IdSurvey"
-                                        data-survey-name="@(survey.NameSurvey ?? string.Empty)"
-                                        data-click-call="openSurveyCompletionModalFromTrigger"
-                                        data-click-pass-element="true"
-                                        aria-label="Проверить прохождение">
-                                    <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
-                                    <span class="icon-tooltip">Проверить прохождение</span>
-                                </button>
-                                <button type="button"
-                                        class="icon-container"
-                                        data-survey-id="@survey.IdSurvey"
-                                        data-survey-name="@(survey.NameSurvey ?? string.Empty)"
-                                        data-click-call="openSurveyExtensionModalFromTrigger"
-                                        data-click-pass-element="true"
-                                        aria-label="Продлить доступ">
-                                    <span aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
-                                    <span class="icon-tooltip">Продлить доступ</span>
-                                </button>
+                                @if (!isTemplateSection)
+                                {
+                                    <button type="button"
+                                            class="icon-container"
+                                            data-survey-id="@survey.IdSurvey"
+                                            data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                            data-click-call="openSurveyCompletionModalFromTrigger"
+                                            data-click-pass-element="true"
+                                            aria-label="Проверить прохождение">
+                                        <span aria-hidden="true"><i class="fas fa-list-check"></i></span>
+                                        <span class="icon-tooltip">Проверить прохождение</span>
+                                    </button>
+                                    <button type="button"
+                                            class="icon-container"
+                                            data-survey-id="@survey.IdSurvey"
+                                            data-survey-name="@(survey.NameSurvey ?? string.Empty)"
+                                            data-click-call="openSurveyExtensionModalFromTrigger"
+                                            data-click-pass-element="true"
+                                            aria-label="Продлить доступ">
+                                        <span aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
+                                        <span class="icon-tooltip">Продлить доступ</span>
+                                    </button>
+                                }
                                 <button type="button"
                                         class="icon-container"
                                         data-survey-id="@survey.IdSurvey"
@@ -120,14 +140,17 @@
                                     <span aria-hidden="true"><i class="fas fa-copy"></i></span>
                                     <span class="icon-tooltip">Копировать</span>
                                 </button>
-                                <a class="icon-container"
-                                   href="@(isArchive ? $"/survey/archive/{survey.IdSurvey}/edit" : $"/survey/{survey.IdSurvey}/edit")"
-                                   aria-label="Редактировать">
-                                    <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
-                                    <span class="icon-tooltip">Редактировать</span>
-                                </a>
+                                @if (!isArchive)
+                                {
+                                    <a class="icon-container"
+                                       href="@(isTemplateSection ? $"/survey-templates/{survey.IdSurvey}/edit" : $"/survey/{survey.IdSurvey}/edit")"
+                                       aria-label="Редактировать">
+                                        <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
+                                        <span class="icon-tooltip">Редактировать</span>
+                                    </a>
+                                }
                             }
-                            else
+                            else if (!isArchive)
                             {
                                 <button type="button"
                                         class="icon-container"

@@ -57,18 +57,23 @@
 
         const getMinimumEndDate = () => {
             const selectedIds = new Set(extension.organizationIds);
-            const candidateDates = [today, survey?.date_end]
+            const currentEndDates = [survey?.date_end]
                 .concat(
                     organizations
                         .filter((organization) => selectedIds.has(organization.organizationId))
                         .flatMap((organization) => [organization.dateEnd, organization.surveyDateEnd])
                 )
                 .filter(Boolean);
-            const latestDate = candidateDates.reduce((latest, candidate) => (
+            const latestCurrentEndDate = currentEndDates.reduce((latest, candidate) => (
                 (window.AppDate?.compare?.(candidate, latest) ?? -1) > 0 ? candidate : latest
-            ), today);
+            ), '');
+            const firstDateAfterCurrentEnd = addOneDay(latestCurrentEndDate);
 
-            return addOneDay(latestDate) || addOneDay(today);
+            return [today, firstDateAfterCurrentEnd]
+                .filter(Boolean)
+                .reduce((latest, candidate) => (
+                    (window.AppDate?.compare?.(candidate, latest) ?? -1) > 0 ? candidate : latest
+                ), today);
         };
 
         const handleChange = (field, value) => {
@@ -222,29 +227,30 @@
                 surveyName.textContent = survey?.name_survey || '';
             }
             if (errorNode) {
-                errorNode.textContent = '';
-                errorNode.classList.add('is-hidden');
+                errorNode.textContent = error;
+                errorNode.classList.toggle('is-hidden', !error);
             }
 
-            const showRows = !loading && organizations.length > 0;
             if (rowsContainer) {
-                rowsContainer.classList.toggle('is-hidden', !showRows);
+                rowsContainer.classList.remove('is-hidden');
             }
             if (emptyState) {
                 emptyState.classList.toggle('is-hidden', loading || Boolean(error) || organizations.length > 0);
             }
 
-            if (showRows && rowsContainer) {
+            if (rowsContainer) {
                 const row = rowTemplate.content.firstElementChild.cloneNode(true);
                 const organizationDropdown = row.querySelector('[data-role="organization-dropdown"]');
                 const organizationTrigger = row.querySelector('[data-role="organization-trigger"]');
                 const organizationSelection = row.querySelector('[data-role="organization-selection"]');
+                const organizationClearButton = row.querySelector('[data-role="organization-selection-clear"]');
                 const organizationField = row.querySelector('.admin-extension-selected-organizations');
                 const organizationPanel = row.querySelector('[data-role="organization-panel"]');
                 const organizationOptions = row.querySelector('[data-role="organization-options"]');
                 const dateInput = row.querySelector('[data-role="date-input"]');
                 const selectedOrganizationIds = new Set(extension.organizationIds);
                 const minimumEndDate = getMinimumEndDate();
+                const fieldsDisabled = loading || Boolean(error) || organizations.length === 0;
 
                 if (organizationField) {
                     organizationField.dataset.value = extension.organizationIds.join(',');
@@ -269,6 +275,22 @@
                             }));
                         });
                     }
+                }
+
+                if (organizationClearButton) {
+                    organizationClearButton.classList.toggle('is-hidden', extension.organizationIds.length === 0);
+                    renderScope.listen(organizationClearButton, 'click', () => {
+                        handleChange('organizationIds', []);
+                    });
+                }
+
+                if (organizationTrigger) {
+                    organizationTrigger.disabled = fieldsDisabled;
+                    organizationTrigger.textContent = loading
+                        ? 'Загрузка организаций...'
+                        : organizations.length > 0
+                            ? 'Выбрать организации'
+                            : 'Организации недоступны';
                 }
 
                 if (organizationOptions) {
@@ -318,6 +340,7 @@
                 }
 
                 if (dateInput) {
+                    dateInput.disabled = fieldsDisabled;
                     dateInput.dataset.dateMin = minimumEndDate;
                     dateInput.min = minimumEndDate;
                     dateInput.value = extension.extendedUntil;
@@ -338,7 +361,7 @@
             }
 
             if (submitButton) {
-                submitButton.disabled = loading;
+                submitButton.disabled = loading || Boolean(error) || organizations.length === 0;
                 submitButton.textContent = loading ? 'Обработка...' : 'Продлить доступ';
                 submitButton.onclick = handleSubmit;
             }

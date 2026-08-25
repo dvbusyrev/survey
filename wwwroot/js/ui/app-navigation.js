@@ -213,6 +213,8 @@ function renderNavigation(host, { activeTab, userRole }) {
     const isSurveySectionActive = isAdmin
         ? ['get_surveys', 'add_survey', 'list_answers_users', 'archived_surveys'].includes(activeTab)
         : ['active', 'archived', 'answers_tab', 'archived_surveys_for_user'].includes(activeTab);
+    const isSurveyTemplateSectionActive = isAdmin
+        && ['survey_templates', 'add_survey_template', 'archived_survey_templates'].includes(activeTab);
     const isOrganizationSectionActive = ['get_organization', 'organization_surveys', 'add_organization', 'archive_list_organizations'].includes(activeTab);
     const isEmailSectionActive = ['email', 'email_new'].includes(activeTab);
     const isSettingsSectionActive = ['email_settings', 'theme_settings', 'survey_auto_creation'].includes(activeTab);
@@ -260,6 +262,8 @@ function renderNavigation(host, { activeTab, userRole }) {
         const navClass = item.dataset.navClass || '';
         const isActive = navClass === 'surveys'
             ? isSurveySectionActive
+            : navClass === 'survey-templates'
+                ? isSurveyTemplateSectionActive
             : navClass === 'organizations'
                 ? isOrganizationSectionActive
                 : navClass === 'email'

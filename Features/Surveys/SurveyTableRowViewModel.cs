@@ -12,4 +12,5 @@ public sealed class SurveyTableRowViewModel
     public IReadOnlyList<string> OrganizationNames { get; init; } = Array.Empty<string>();
     public bool IsExtension { get; init; }
     public int? ExtensionOrganizationId { get; init; }
+    public bool IsAutoCreationEnabled { get; init; }
 }

@@ -215,11 +215,6 @@ public partial class AuditLogService
 
         foreach (var propertyName in propertyNames)
         {
-            if (IgnoredChangedFieldNames.Contains(propertyName))
-            {
-                continue;
-            }
-
             currentRowData.TryGetValue(propertyName, StringComparison.OrdinalIgnoreCase, out var currentValue);
             previousRowData.TryGetValue(propertyName, StringComparison.OrdinalIgnoreCase, out var previousValue);
 
@@ -431,12 +426,15 @@ public partial class AuditLogService
             "app_user" => FirstNonEmpty(rowData?["full_name"], rowData?["login"], rowData?["name_user"]) ?? BuildIdLabel(recordPk, "id_user", "ID"),
             "organization" => FirstNonEmpty(rowData?["organization_name"]) ?? BuildIdLabel(recordPk, "id_organization", "ID"),
             "survey" => FirstNonEmpty(rowData?["name_survey"]) ?? BuildIdLabel(recordPk, "id_survey", "ID"),
+            "survey_template" => FirstNonEmpty(rowData?["name_survey_template"]) ?? BuildIdLabel(recordPk, "id_survey_template", "Шаблон"),
             "survey_question" => BuildSurveyQuestionTarget(recordPk, rowData),
+            "survey_template_question" => BuildSurveyTemplateQuestionTarget(recordPk, rowData),
             "answer" => BuildAnswerTarget(recordPk, rowData),
             "answer_item" => BuildAnswerItemTarget(recordPk, rowData),
             "organization_survey" => BuildAssignmentTarget(recordPk, rowData),
+            "organization_survey_template" => BuildSurveyTemplateAssignmentTarget(recordPk, rowData),
             "auto_creation_config" => BuildIdLabel(recordPk, "id_config", "Конфигурация"),
-            "survey_auto_creation_config" => BuildSurveyAutoCreationTarget(recordPk, rowData),
+            "survey_template_auto_creation_config" => BuildSurveyTemplateAutoCreationTarget(recordPk, rowData),
             "email_config" => BuildIdLabel(recordPk, "id_config", "Почтовая конфигурация"),
             "theme_config" => BuildIdLabel(recordPk, "id_config", "Конфигурация темы"),
             _ => BuildGenericTarget(recordPk)
@@ -460,6 +458,21 @@ public partial class AuditLogService
         }
 
         return BuildIdLabel(recordPk, "id_question", "Вопрос");
+    }
+
+    private static string BuildSurveyTemplateQuestionTarget(JObject? recordPk, JObject? rowData)
+    {
+        var questionText = FirstNonEmpty(rowData?["question_text"]);
+        if (!string.IsNullOrWhiteSpace(questionText))
+        {
+            return questionText;
+        }
+
+        var questionOrder = ExtractValue(rowData, "question_order") ?? ExtractValue(recordPk, "question_order");
+        var templateId = ExtractValue(rowData, "id_survey_template") ?? ExtractValue(recordPk, "id_survey_template");
+        return !string.IsNullOrWhiteSpace(questionOrder) && !string.IsNullOrWhiteSpace(templateId)
+            ? $"Вопрос {questionOrder} шаблона {templateId}"
+            : BuildIdLabel(recordPk, "id_survey_template_question", "Вопрос");
     }
 
     private static string BuildAnswerTarget(JObject? recordPk, JObject? rowData)
@@ -526,14 +539,32 @@ public partial class AuditLogService
         return BuildGenericTarget(recordPk);
     }
 
-    private static string BuildSurveyAutoCreationTarget(JObject? recordPk, JObject? rowData)
+    private static string BuildSurveyTemplateAssignmentTarget(JObject? recordPk, JObject? rowData)
+    {
+        var assignmentId = ExtractValue(recordPk, "id_organization_survey_template")
+            ?? ExtractValue(rowData, "id_organization_survey_template");
+        var organizationId = ExtractOrganizationId(recordPk, rowData);
+        var templateId = ExtractValue(recordPk, "id_survey_template")
+            ?? ExtractValue(rowData, "id_survey_template");
+
+        if (!string.IsNullOrWhiteSpace(organizationId) && !string.IsNullOrWhiteSpace(templateId))
+        {
+            return $"Организация {organizationId} / шаблон {templateId}";
+        }
+
+        return !string.IsNullOrWhiteSpace(assignmentId)
+            ? $"Назначение шаблона {assignmentId}"
+            : BuildGenericTarget(recordPk);
+    }
+
+    private static string BuildSurveyTemplateAutoCreationTarget(JObject? recordPk, JObject? rowData)
     {
         var configId = ExtractValue(recordPk, "id_config") ?? ExtractValue(rowData, "id_config");
-        var surveyId = ExtractValue(recordPk, "id_survey") ?? ExtractValue(rowData, "id_survey");
+        var templateId = ExtractValue(recordPk, "id_survey_template") ?? ExtractValue(rowData, "id_survey_template");
 
-        if (!string.IsNullOrWhiteSpace(configId) && !string.IsNullOrWhiteSpace(surveyId))
+        if (!string.IsNullOrWhiteSpace(configId) && !string.IsNullOrWhiteSpace(templateId))
         {
-            return $"Конфигурация {configId} / анкета {surveyId}";
+            return $"Конфигурация {configId} / шаблон {templateId}";
         }
 
         return BuildGenericTarget(recordPk);

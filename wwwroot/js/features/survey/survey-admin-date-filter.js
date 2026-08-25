@@ -26,6 +26,7 @@
             optionsRole: 'survey-organization-filter-options',
             summaryRole: 'survey-organization-filter-summary',
             clearRole: 'survey-organization-filter-clear',
+            inlineClearRole: 'survey-organization-filter-inline-clear',
             closeRole: 'survey-organization-filter-close',
             createState(page) {
                 const config = serverFilters.getConfig(page);
@@ -50,6 +51,7 @@
             optionsRole: 'survey-name-filter-options',
             summaryRole: 'survey-name-filter-summary',
             clearRole: 'survey-name-filter-clear',
+            inlineClearRole: 'survey-name-filter-inline-clear',
             closeRole: 'survey-name-filter-close',
             createState(page) {
                 const config = serverFilters.getConfig(page);

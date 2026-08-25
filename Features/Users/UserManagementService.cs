@@ -219,15 +219,14 @@ public sealed class UserManagementService
             };
         }
 
-        if (result.AnsweredSurveyNames.Count > 0 || result.SignedSurveyNames.Count > 0)
+        if (result.AnsweredSurveyNames.Count > 0)
         {
             return new OperationResult
             {
                 Success = false,
                 Message = BuildUserDeleteBlockedMessage(
                     ResolveUserDisplayName(result.User),
-                    result.AnsweredSurveyNames,
-                    result.SignedSurveyNames),
+                    result.AnsweredSurveyNames),
                 Code = "user_in_use"
             };
         }
@@ -373,22 +372,15 @@ public sealed class UserManagementService
         if (user == null)
         {
             await transaction.CommitAsync(cancellationToken);
-            return new UserDeletionResult(false, false, null, [], []);
+            return new UserDeletionResult(false, false, null, []);
         }
 
-        var answeredSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, signed: false, cancellationToken);
-        var signedSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, signed: true, cancellationToken);
-        if (answeredSurveyNames.Count > 0 || signedSurveyNames.Count > 0)
+        var answeredSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, cancellationToken);
+        if (answeredSurveyNames.Count > 0)
         {
             await transaction.CommitAsync(cancellationToken);
-            return new UserDeletionResult(true, false, user, answeredSurveyNames, signedSurveyNames);
+            return new UserDeletionResult(true, false, user, answeredSurveyNames);
         }
-
-        await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM public.answer_draft_participant WHERE id_user = @UserId;",
-            new { UserId = userId },
-            transaction,
-            cancellationToken: cancellationToken));
 
         var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM public.app_user WHERE id_user = @UserId;",
@@ -396,35 +388,27 @@ public sealed class UserManagementService
             transaction,
             cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
-        return new UserDeletionResult(true, affectedRows > 0, user, [], []);
+        return new UserDeletionResult(true, affectedRows > 0, user, []);
     }
 
     private static async Task<IReadOnlyList<string>> GetSurveyNamesAsync(
         System.Data.IDbConnection connection,
         System.Data.IDbTransaction transaction,
         int userId,
-        bool signed,
         CancellationToken cancellationToken)
     {
         var surveyNames = await connection.QueryAsync<string>(new CommandDefinition(
             """
-            WITH user_participation AS (
-                SELECT participant.participation_type, assignment.id_survey
-                FROM public.answer_participant participant
-                INNER JOIN public.answer answer
-                    ON answer.id_answer = participant.id_answer
-                INNER JOIN public.organization_survey assignment
-                    ON assignment.id_organization_survey = answer.id_organization_survey
-                WHERE participant.id_user = @UserId
-            )
-            SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || participation.id_survey::text) AS survey_name
-            FROM user_participation participation
-            LEFT JOIN public.survey s ON s.id_survey = participation.id_survey
-            WHERE (@Signed AND participation.participation_type = 'signed')
-               OR (NOT @Signed AND participation.participation_type <> 'signed')
+            SELECT DISTINCT COALESCE(NULLIF(TRIM(survey.name_survey), ''), 'Анкета #' || assignment.id_survey::text) AS survey_name
+            FROM public.answer answer
+            INNER JOIN public.organization_survey assignment
+                ON assignment.id_organization_survey = answer.id_organization_survey
+            LEFT JOIN public.survey survey
+                ON survey.id_survey = assignment.id_survey
+            WHERE answer.id_user = @UserId
             ORDER BY survey_name;
             """,
-            new { UserId = userId, Signed = signed },
+            new { UserId = userId },
             transaction,
             cancellationToken: cancellationToken));
         return surveyNames
@@ -811,8 +795,7 @@ public sealed class UserManagementService
 
     private static string BuildUserDeleteBlockedMessage(
         string userDisplayName,
-        IReadOnlyList<string> answeredSurveyNames,
-        IReadOnlyList<string> signedSurveyNames)
+        IReadOnlyList<string> answeredSurveyNames)
     {
         var builder = new StringBuilder();
         builder.Append($"Нельзя удалить пользователя \"{userDisplayName}\": он связан с сохранёнными ответами анкет.");
@@ -822,14 +805,6 @@ public sealed class UserManagementService
             builder.AppendLine();
             builder.Append("Связанные анкеты: ");
             builder.Append(string.Join(", ", answeredSurveyNames));
-            builder.Append('.');
-        }
-
-        if (signedSurveyNames.Count > 0)
-        {
-            builder.AppendLine();
-            builder.Append("Подписывал анкеты: ");
-            builder.Append(string.Join(", ", signedSurveyNames));
             builder.Append('.');
         }
 
@@ -858,5 +833,4 @@ internal sealed record UserDeletionResult(
     bool Found,
     bool Deleted,
     UserDeleteCandidate? User,
-    IReadOnlyList<string> AnsweredSurveyNames,
-    IReadOnlyList<string> SignedSurveyNames);
+    IReadOnlyList<string> AnsweredSurveyNames);

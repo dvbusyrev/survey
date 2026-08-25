@@ -21,6 +21,22 @@ public static class AppNavigationRouteResolver
             return "open_statistics";
         }
 
+        if (path == "/survey-templates/archive")
+        {
+            return "archived_survey_templates";
+        }
+
+        if (path == "/survey-templates/create")
+        {
+            return "add_survey_template";
+        }
+
+        if (path == "/survey-templates"
+            || IsNumberedAction(path, "/survey-templates/", "/edit"))
+        {
+            return "survey_templates";
+        }
+
         if (path is "/survey/answer" or "/surveys/answers")
         {
             return "list_answers_users";

@@ -19,11 +19,17 @@
   <div class="admin-extension-row">
     <div class="app-field-group admin-extension-organizations-group">
       <label>Организации</label>
-      <div class="app-field admin-extension-selected-organizations"
+      <div class="app-field app-multi-value-field admin-extension-selected-organizations"
            role="group"
            aria-required="true">
         <div class="admin-extension-selected-organizations-list"
              data-role="organization-selection"></div>
+        <button type="button"
+                class="app-multi-value-clear is-hidden"
+                data-role="organization-selection-clear"
+                aria-label="Очистить выбранные организации">
+          <i class="fas fa-xmark" aria-hidden="true"></i>
+        </button>
       </div>
       <div class="admin-extension-organization-action">
         <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline admin-extension-organization-dropdown"
@@ -45,11 +51,11 @@
       </div>
     </div>
     <div class="app-field-group admin-extension-date-group">
-      <label>Дата конца</label>
+      <label>Доступно по</label>
       <input type="date"
              data-role="date-input"
              data-date-native="true"
-             data-date-label="Дата конца"
+             data-date-label="Доступно по"
              lang="ru-RU"
              class="app-field"
              required />

@@ -3,15 +3,24 @@
 @{
     var editPage = Model?.EditSurveyPage;
     var isEditMode = editPage != null;
+    var isTemplateSection = Model?.IsTemplateSection ?? false;
+    var criteriaLocked = isEditMode && editPage!.HasAnswers;
     var selectedOrganizationNamesJson = isEditMode
         ? System.Text.Json.JsonSerializer.Serialize(editPage!.SelectedOrganizationNames)
         : "[]";
 }
 
-<div id="surveyEditorModal" class="modal survey-editor-modal">
+<div id="surveyEditorModal"
+     class="modal survey-editor-modal"
+     data-entity-kind="@(isTemplateSection ? "template" : "survey")"
+     data-create-url="@(isTemplateSection ? "/survey-templates/create" : "/survey/create")"
+     data-update-url="@(isTemplateSection && isEditMode ? $"/survey-templates/{editPage!.Survey.IdSurvey}/update" : isEditMode ? $"/survey/{editPage!.Survey.IdSurvey}/update" : string.Empty)"
+     data-criteria-locked="@(criteriaLocked ? "true" : "false")">
     <div class="modal-content survey-editor-page">
         <div class="modal-header">
-            <h2 class="h2_modal" data-role="survey-editor-title">@(isEditMode ? "Редактирование анкеты" : "Добавление анкеты")</h2>
+            <h2 class="h2_modal" data-role="survey-editor-title">@(isTemplateSection
+                ? isEditMode ? "Редактирование шаблона" : "Добавление шаблона"
+                : isEditMode ? "Редактирование анкеты" : "Добавление анкеты")</h2>
             <button type="button"
                     class="modal-close"
                     data-click-call="closeSurveyEditorModal">
@@ -20,15 +29,87 @@
         </div>
         <div class="modal-body">
             <section class="app-section app-page__section app-page__stack">
-               <div class="app-field-group">
-                    <label for="surveyTitle">Название анкеты</label>
+                <div class="app-field-group">
+                    <label for="surveyTitle">@(isTemplateSection ? "Название шаблона" : "Название анкеты")</label>
                     <input type="text"
                            class="app-field"
                            id="surveyTitle"
                            value="@(isEditMode ? editPage!.Survey.NameSurvey : string.Empty)"
-                           placeholder="Введите название анкеты"
+                           placeholder="@(isTemplateSection ? "Введите название шаблона" : "Введите название анкеты")"
                            required />
+
+                    @if (!isTemplateSection && !isEditMode)
+                    {
+                        <div class="survey-editor-page__template-field"
+                             data-role="survey-template-field">
+                            <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__template-dropdown"
+                                 data-role="survey-template-dropdown">
+                                <button type="button"
+                                        id="surveyTemplatePickerTrigger"
+                                        class="criteria-btn criteria-btn--info app-multiselect__trigger app-checkbox-dropdown__trigger"
+                                        data-role="survey-template-dropdown-trigger">
+                                    Выбрать шаблон
+                                </button>
+                                <div class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline is-hidden"
+                                     data-role="survey-template-dropdown-menu">
+                                    <div class="survey-loading-block u-hidden"
+                                         data-role="survey-template-loading">
+                                        <div class="spinner"></div>
+                                    </div>
+                                    <div class="app-checkbox-list"
+                                         data-role="survey-template-options"
+                                         role="listbox"
+                                         aria-label="Активные шаблоны анкет"></div>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
+
+                @if (isTemplateSection)
+                {
+                    var isAutoCreationEnabled = isEditMode && editPage!.IsAutoCreationEnabled;
+                    <div class="app-field-group">
+                        <label for="surveyAutoCreationEnabled">Добавлено в автосоздание</label>
+                        <input type="hidden"
+                               id="surveyAutoCreationEnabled"
+                               value="@(isAutoCreationEnabled ? "true" : "false")" />
+                        <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__auto-creation-dropdown"
+                             data-role="survey-auto-creation-enabled-dropdown">
+                            <button type="button"
+                                    class="app-field app-multiselect__trigger app-checkbox-dropdown__trigger survey-editor-page__auto-creation-trigger"
+                                    data-role="survey-auto-creation-enabled-trigger"
+                                    aria-haspopup="listbox"
+                                    aria-expanded="false">
+                                <span data-role="survey-auto-creation-enabled-label">@(isAutoCreationEnabled ? "Да" : "Нет")</span>
+                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                            </button>
+                            <div class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline survey-editor-page__auto-creation-menu is-hidden"
+                                 data-role="survey-auto-creation-enabled-menu"
+                                 role="listbox"
+                                 aria-label="Добавлено в автосоздание">
+                                <button type="button"
+                                        class="app-checkbox-option survey-editor-page__auto-creation-option@(!isAutoCreationEnabled ? " selected" : string.Empty)"
+                                        data-value="false"
+                                        data-click-call="selectSurveyAutoCreationEnabled"
+                                        data-click-pass-element="true"
+                                        role="option"
+                                        aria-selected="@(!isAutoCreationEnabled ? "true" : "false")">
+                                    Нет
+                                </button>
+                                <button type="button"
+                                        class="app-checkbox-option survey-editor-page__auto-creation-option@(isAutoCreationEnabled ? " selected" : string.Empty)"
+                                        data-value="true"
+                                        data-click-call="selectSurveyAutoCreationEnabled"
+                                        data-click-pass-element="true"
+                                        role="option"
+                                        aria-selected="@(isAutoCreationEnabled ? "true" : "false")">
+                                    Да
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
 
                 <div class="app-field-group">
                     <label for="surveyDescription">Описание</label>
@@ -47,27 +128,27 @@
                 </div>
 
                 <div class="app-field-group">
-                    <label for="startDate">Дата начала</label>
+                    <label for="startDate">@(isTemplateSection ? "Дата начала" : "Доступно с")</label>
                     <input type="date"
                            class="app-field"
                            id="startDate"
                            data-date-native="true"
-                           data-date-label="Дата начала"
+                           data-date-label="@(isTemplateSection ? "Дата начала" : "Доступно с")"
                            lang="ru-RU"
                            value="@(isEditMode ? editPage!.Survey.DateBegin.ToString("yyyy-MM-dd") : string.Empty)"
                            required />
                 </div>
 
                 <div class="app-field-group">
-                    <label for="endDate">Дата конца</label>
+                    <label for="endDate">@(isTemplateSection ? "Дата конца" : "Доступно по")</label>
                     <input type="date"
                            class="app-field"
                            id="endDate"
                            data-date-native="true"
-                           data-date-label="Дата конца"
+                           data-date-label="@(isTemplateSection ? "Дата конца" : "Доступно по")"
                            lang="ru-RU"
                            value="@(isEditMode ? editPage!.Survey.DateEnd?.ToString("yyyy-MM-dd") : string.Empty)"
-                           required />
+                           required="@(!isTemplateSection)" />
                 </div>
 
                 <div class="app-field-group survey-editor-page__organization-field">
@@ -75,15 +156,24 @@
                     @if (isEditMode)
                     {
                         <input type="hidden" id="selectedOrganizationIds" value="@string.Join(",", editPage!.SelectedOrganizationIds)" />
+                        <input type="hidden" id="answeredOrganizationIds" value="@string.Join(",", editPage.AnsweredOrganizationIds)" />
                     }
-                    <div class="app-field survey-editor-page__selected-organizations"
-                         role="group"
-                         aria-required="true"
-                         data-role="selected-organizations-container">
-                        <div class="survey-editor-page__selected-organizations-list"
-                             data-role="selected-organizations-list">
-                            <p class="app-field-placeholder survey-editor-page__empty-selection">Организации не выбраны</p>
+                    <div class="app-multi-value-field">
+                        <div class="app-field survey-editor-page__selected-organizations"
+                             role="group"
+                             aria-required="true"
+                             data-role="selected-organizations-container">
+                            <div class="survey-editor-page__selected-organizations-list"
+                                 data-role="selected-organizations-list">
+                                <p class="app-field-placeholder survey-editor-page__empty-selection">Организации не выбраны</p>
+                            </div>
                         </div>
+                        <button type="button"
+                                class="app-multi-value-clear is-hidden"
+                                data-role="selected-organizations-clear"
+                                aria-label="Очистить выбранные организации">
+                            <i class="fas fa-xmark" aria-hidden="true"></i>
+                        </button>
                     </div>
 
                     <div class="survey-editor-page__organization-action">
@@ -103,16 +193,19 @@
                                         @foreach (var organization in editPage!.AllOrganization)
                                         {
                                             var isSelected = editPage.SelectedOrganizationIds.Contains(organization.Id);
+                                            var isProtected = editPage.AnsweredOrganizationIds.Contains(organization.Id);
                                             <div class="app-checkbox-option@(isSelected ? " selected" : string.Empty)"
                                                  data-click-call="surveyEditToggleOrganizationSelection"
                                                  data-click-pass-element="true"
                                                  data-role="organization-option"
                                                  data-id="@organization.Id"
                                                  data-name="@organization.Name"
+                                                 data-protected="@(isProtected ? "true" : "false")"
                                                  data-selected="@(isSelected ? "true" : "false")">
                                                 <input type="checkbox"
                                                        class="app-checkbox-input"
                                                        id="org-@organization.Id"
+                                                       @(isProtected ? "disabled" : null)
                                                        @(isSelected ? "checked" : null) />
                                                 <label class="app-checkbox-text" for="org-@organization.Id">@organization.Name</label>
                                             </div>
@@ -142,63 +235,77 @@
                             var criterion = editPage.Criteria[index];
                             var criterionNumber = index + 1;
                             <div class="app-field-group survey-editor-page__criteria-item">
-                                <label for="criterion@criterionNumber">Критерий №@criterionNumber:</label>
+                                <label for="criterion@criterionNumber">Критерий №@criterionNumber</label>
                                 <div class="survey-editor-page__criteria-control">
                                     <div class="survey-editor-page__criteria-input-wrap">
                                         <input type="text"
                                                class="app-field criteriy"
                                                id="criterion@criterionNumber"
                                                value="@criterion"
+                                               data-original-value="@criterion"
                                                placeholder="Введите критерий оценки"
                                                required />
-                                        <button type="button"
-                                                class="survey-editor-page__criteria-remove"
-                                                aria-label="Удалить критерий №@criterionNumber"
-                                                data-click-call="removeSurveyCriterion"
-                                                data-click-pass-element="true">
-                                            <i class="fas fa-trash" aria-hidden="true"></i>
-                                        </button>
+                                        @if (!criteriaLocked)
+                                        {
+                                            <button type="button"
+                                                    class="survey-editor-page__criteria-remove"
+                                                    aria-label="Удалить критерий №@criterionNumber"
+                                                    data-click-call="removeSurveyCriterion"
+                                                    data-click-pass-element="true">
+                                                <i class="fas fa-trash" aria-hidden="true"></i>
+                                            </button>
+                                        }
                                     </div>
                                 </div>
-                                <div class="survey-editor-page__criteria-action">
-                                    <button type="button"
-                                            class="criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline"
-                                            data-role="criteria-add"
-                                            data-click-call="surveyEditAddCriteria">
-                                        Добавить критерий
-                                    </button>
-                                </div>
+                                @if (!criteriaLocked)
+                                {
+                                    <div class="survey-editor-page__criteria-action">
+                                        <button type="button"
+                                                class="criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline"
+                                                data-role="criteria-add"
+                                                data-click-call="surveyEditAddCriteria">
+                                            Добавить критерий
+                                        </button>
+                                    </div>
+                                }
                             </div>
                         }
                     }
                     else
                     {
                         <div class="app-field-group survey-editor-page__criteria-item">
-                            <label for="criterion1">Критерий №1:</label>
+                            <label for="criterion1">Критерий №1</label>
                             <div class="survey-editor-page__criteria-control">
                                 <div class="survey-editor-page__criteria-input-wrap">
                                     <input type="text"
                                            class="app-field criteriy"
                                            id="criterion1"
+                                           data-original-value=""
                                            placeholder="Введите критерий оценки"
                                            required />
-                                    <button type="button"
-                                            class="survey-editor-page__criteria-remove"
-                                            aria-label="Удалить критерий №1"
-                                            data-click-call="removeSurveyCriterion"
-                                            data-click-pass-element="true">
-                                        <i class="fas fa-trash" aria-hidden="true"></i>
-                                    </button>
+                                    @if (!criteriaLocked)
+                                    {
+                                        <button type="button"
+                                                class="survey-editor-page__criteria-remove"
+                                                aria-label="Удалить критерий №1"
+                                                data-click-call="removeSurveyCriterion"
+                                                data-click-pass-element="true">
+                                            <i class="fas fa-trash" aria-hidden="true"></i>
+                                        </button>
+                                    }
                                 </div>
                             </div>
-                            <div class="survey-editor-page__criteria-action">
-                                <button type="button"
-                                        class="criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline"
-                                        data-role="criteria-add"
-                                        data-click-call="@(isEditMode ? "surveyEditAddCriteria" : "addRowCriteriy")">
-                                    Добавить критерий
-                                </button>
-                            </div>
+                            @if (!criteriaLocked)
+                            {
+                                <div class="survey-editor-page__criteria-action">
+                                    <button type="button"
+                                            class="criteria-btn criteria-btn--info survey-editor-page__criteria-add-inline"
+                                            data-role="criteria-add"
+                                            data-click-call="@(isEditMode ? "surveyEditAddCriteria" : "addRowCriteriy")">
+                                        Добавить критерий
+                                    </button>
+                                </div>
+                            }
                         </div>
                     }
                 </div>

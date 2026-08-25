@@ -68,6 +68,14 @@ What this does:
 - applies `039_restore_survey_base_schedule`
 - applies `040_protect_smtp_password_storage`
 - applies `041_remove_redundant_user_update`
+- applies `042_add_survey_templates`
+- applies `043_remove_redundant_date_update`
+- applies `044_make_email_config_singleton`
+- applies `045_remove_obsolete_user_csp_key`
+- applies `046_store_answer_submitter`
+- applies `047_split_survey_templates`
+- applies `048_allow_open_ended_survey_templates`
+- applies `049_use_templates_for_auto_creation`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -114,5 +122,13 @@ Migration sources:
 - `039_restore_survey_base_schedule` restores the base survey period and keeps organization-specific extensions separate from it
 - `040_protect_smtp_password_storage` redacts the SMTP password in audit snapshots
 - `041_remove_redundant_user_update` moves the remaining legacy answer relation to `answer_participant` and removes `user_update` from current and audit tables
+- `042_add_survey_templates` is the historical transitional migration that first marked templates in `survey`
+- `043_remove_redundant_date_update` keeps update timestamps only for email settings and their audit snapshots
+- `044_make_email_config_singleton` consolidates email settings into `id_config = 1` and removes the final update timestamp metadata
+- `045_remove_obsolete_user_csp_key` removes the unused user-level CSP key column from current and audit user tables
+- `046_store_answer_submitter` stores the single submitting user directly on each final answer and removes obsolete answer participant tables
+- `047_split_survey_templates` moves templates, their criteria, and organization links into dedicated `survey_template*` tables and removes `survey.is_template`
+- `048_allow_open_ended_survey_templates` allows templates without an end date and keeps them active after their start date
+- `049_use_templates_for_auto_creation` replaces survey-based auto-creation selections with links to `survey_template` in `survey_template_auto_creation_config`
 
 `db/bootstrap/001_base_schema.sql` is not an independently executable migration. It is the canonical base schema imported only by `001_unified_schema.sql` when a database has no migration history. Keep schema snapshots and bootstrap files outside `db/migrations` so the migration runner cannot treat them as standalone steps.

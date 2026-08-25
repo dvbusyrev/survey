@@ -64,13 +64,46 @@
 
     function isArchiveSurveyListRoute(path) {
         const currentPath = String(path || window.location.pathname || '').toLowerCase();
-        return currentPath === '/survey/archive'
+        return currentPath === '/survey-templates/archive'
+            || currentPath === '/survey/archive'
             || currentPath === '/surveys/archive'
             || /\/survey\/archive\/\d+\/edit$/.test(currentPath)
             || /\/surveys\/archive\/\d+\/edit$/.test(currentPath);
     }
 
+    function isTemplateSurveyListRoute(path) {
+        const currentPath = String(path || window.location.pathname || '').toLowerCase();
+        const page = document.querySelector(PAGE_SELECTOR);
+        return currentPath === '/survey-templates'
+            || currentPath === '/survey-templates/create'
+            || currentPath === '/survey-templates/archive'
+            || /\/survey-templates\/\d+\/edit$/.test(currentPath)
+            || page?.dataset?.surveyEntity === 'template';
+    }
+
+    function getSurveyEntityLabels(path) {
+        return isTemplateSurveyListRoute(path)
+            ? {
+                singular: 'шаблон',
+                singularTitle: 'Шаблон',
+                genitive: 'шаблона',
+                accusative: 'шаблон'
+            }
+            : {
+                singular: 'анкета',
+                singularTitle: 'Анкета',
+                genitive: 'анкеты',
+                accusative: 'анкету'
+            };
+    }
+
     function resolveSurveyListTarget(path) {
+        if (isTemplateSurveyListRoute(path)) {
+            return isArchiveSurveyListRoute(path)
+                ? { tabName: 'archived_survey_templates', fallbackUrl: '/survey-templates/archive' }
+                : { tabName: 'survey_templates', fallbackUrl: '/survey-templates' };
+        }
+
         return isArchiveSurveyListRoute(path)
             ? { tabName: 'archived_surveys', fallbackUrl: '/survey/archive' }
             : { tabName: 'get_surveys', fallbackUrl: '/survey' };
@@ -80,6 +113,8 @@
         const currentPath = String(path || window.location.pathname || '').toLowerCase();
         return currentPath === '/survey/create'
             || currentPath === '/surveys/create'
+            || currentPath === '/survey-templates/create'
+            || /\/survey-templates\/\d+\/edit$/.test(currentPath)
             || /\/survey\/\d+\/edit$/.test(currentPath)
             || /\/surveys\/\d+\/edit$/.test(currentPath)
             || /\/survey\/archive\/\d+\/edit$/.test(currentPath)
@@ -121,18 +156,22 @@
     }
 
     function openAddSurveyModal() {
+        const isTemplate = isTemplateSurveyListRoute();
+        const createTarget = isTemplate
+            ? { tabName: 'add_survey_template', fallbackUrl: '/survey-templates/create' }
+            : { tabName: 'add_survey', fallbackUrl: '/survey/create' };
         if (document.getElementById('surveyId')) {
             if (typeof window.refreshAdminUi === 'function') {
                 window.refreshAdminUi({
-                    tabName: 'add_survey',
-                    fallbackUrl: '/survey/create',
+                    tabName: createTarget.tabName,
+                    fallbackUrl: createTarget.fallbackUrl,
                     options: {
                         historyMode: 'replace',
                         scrollMode: 'carry'
                     }
                 });
             } else {
-                window.location.assign('/survey/create');
+                window.location.assign(createTarget.fallbackUrl);
             }
             return;
         }
@@ -141,13 +180,16 @@
             window.resetSurveyCreateForm();
         }
 
-        setSurveyEditorModalTitle('Добавление анкеты');
+        setSurveyEditorModalTitle(isTemplate ? 'Добавление шаблона' : 'Добавление анкеты');
         syncSurveyListHistory();
         setSurveyEditorModalVisible(true);
     }
 
     async function fetchSurveyCopyTemplate(surveyId) {
-        const response = await fetch(`/survey/${surveyId}/copy-template`, {
+        const route = isTemplateSurveyListRoute()
+            ? `/survey-templates/${surveyId}/copy-template`
+            : `/survey/${surveyId}/copy-template`;
+        const response = await fetch(route, {
             headers: {
                 Accept: 'application/json'
             }
@@ -163,7 +205,9 @@
         }
 
         if (!response.ok) {
-            throw new Error(payload?.message || responseText || 'Не удалось загрузить данные для копирования анкеты.');
+            throw new Error(payload?.message || responseText || (isTemplateSurveyListRoute()
+                ? 'Не удалось загрузить данные для копирования шаблона.'
+                : 'Не удалось загрузить данные для копирования анкеты.'));
         }
 
         return payload || {};
@@ -214,7 +258,7 @@
 
         window.openAddSurveyModal();
         window.prefillSurveyCreateForm(template);
-        setSurveyEditorModalTitle('Копирование анкеты');
+        setSurveyEditorModalTitle(isTemplateSurveyListRoute() ? 'Копирование шаблона' : 'Копирование анкеты');
     }
 
     async function openCopySurveyModalFromTrigger(trigger) {
@@ -222,7 +266,12 @@
             const survey = buildSurveyData(trigger);
             await openCopySurveyModalById(survey.id_survey);
         } catch (error) {
-            window.AppUi?.notify?.(error.message || 'Не удалось подготовить копирование анкеты.', 'error');
+            window.AppUi?.notify?.(
+                error.message || (isTemplateSurveyListRoute()
+                    ? 'Не удалось подготовить копирование шаблона.'
+                    : 'Не удалось подготовить копирование анкеты.'),
+                'error'
+            );
         }
     }
 
@@ -240,13 +289,17 @@
         try {
             const survey = buildSurveyData(trigger);
 
-            const editUrl = isArchiveSurveyListRoute()
-                ? `/survey/archive/${survey.id_survey}/edit`
-                : `/survey/${survey.id_survey}/edit`;
+            const editUrl = isTemplateSurveyListRoute()
+                ? `/survey-templates/${survey.id_survey}/edit`
+                : isArchiveSurveyListRoute()
+                    ? `/survey/archive/${survey.id_survey}/edit`
+                    : `/survey/${survey.id_survey}/edit`;
 
             if (typeof window.refreshAdminUi === 'function') {
                 window.refreshAdminUi({
-                    tabName: isArchiveSurveyListRoute() ? 'update_archived_survey' : 'update_survey',
+                    tabName: isTemplateSurveyListRoute()
+                        ? 'update_survey_template'
+                        : isArchiveSurveyListRoute() ? 'update_archived_survey' : 'update_survey',
                     id: survey.id_survey,
                     fallbackUrl: editUrl,
                     options: {
@@ -258,7 +311,12 @@
 
             window.location.assign(editUrl);
         } catch (error) {
-            window.AppUi?.notify?.(error.message || 'Не удалось открыть редактирование анкеты.', 'error');
+            window.AppUi?.notify?.(
+                error.message || (isTemplateSurveyListRoute()
+                    ? 'Не удалось открыть редактирование шаблона.'
+                    : 'Не удалось открыть редактирование анкеты.'),
+                'error'
+            );
         }
     }
 
@@ -270,7 +328,7 @@
         const frame = createSurveyModalFrame({
             id: 'surveyDetailsModal',
             className: 'survey-details-modal',
-            title: 'Просмотр анкеты',
+            title: isTemplateSurveyListRoute() ? 'Просмотр шаблона' : 'Просмотр анкеты',
             bodyClassName: 'survey-details-modal__body',
             footer: false,
             onClose: closeSurveyDetailsModal
@@ -339,7 +397,7 @@
         if (values.length === 0) {
             tableParts.appendRow([{
                 className: 'table-empty-cell',
-                text: 'Критерии не добавлены'
+                attrs: { 'aria-hidden': 'true' }
             }]);
         } else {
             values.forEach((criterion) => tableParts.appendRow([{ text: criterion }]));
@@ -350,18 +408,23 @@
     }
 
     function renderSurveyDetails(details, organizationLabel = 'Организации') {
+        const startDateLabel = isTemplateSurveyListRoute() ? 'Дата начала' : 'Доступно с';
+        const endDateLabel = isTemplateSurveyListRoute() ? 'Дата конца' : 'Доступно по';
         detailsHost.replaceChildren(
             createDetailsField('Название анкеты', details?.name),
             createDetailsField('Описание', details?.description),
-            createDetailsField('Дата начала', details?.dateBegin),
-            createDetailsField('Дата конца', details?.dateEnd),
+            createDetailsField(startDateLabel, details?.dateBegin),
+            createDetailsField(endDateLabel, details?.dateEnd),
             createOrganizationField(details?.organizations, organizationLabel),
             createCriteriaTable(details?.criteria)
         );
     }
 
     async function fetchSurveyDetails(surveyId) {
-        const response = await fetch(`/survey/${surveyId}/details`, {
+        const route = isTemplateSurveyListRoute()
+            ? `/survey-templates/${surveyId}/details`
+            : `/survey/${surveyId}/details`;
+        const response = await fetch(route, {
             cache: 'no-store',
             headers: { Accept: 'application/json' }
         });
@@ -386,7 +449,11 @@
             }
 
             ensureDetailsModal();
-            detailsFrame?.setTitle?.(survey.is_extension ? 'Просмотр продления' : 'Просмотр анкеты');
+            detailsFrame?.setTitle?.(
+                survey.is_extension
+                    ? 'Просмотр продления'
+                    : isTemplateSurveyListRoute() ? 'Просмотр шаблона' : 'Просмотр анкеты'
+            );
             renderSurveyDetails(survey.is_extension
                 ? {
                     ...details,
@@ -402,7 +469,12 @@
             detailsFrame?.show?.();
         } catch (error) {
             if (requestToken === detailsRequestToken) {
-                window.AppUi?.notify?.(error.message || 'Не удалось загрузить анкету.', 'error');
+                window.AppUi?.notify?.(
+                    error.message || (isTemplateSurveyListRoute()
+                        ? 'Не удалось загрузить шаблон.'
+                        : 'Не удалось загрузить анкету.'),
+                    'error'
+                );
             }
         }
     }
@@ -412,7 +484,7 @@
         const target = resolveSurveyListTarget();
         if (typeof window.handleAdminMutationSuccess === 'function') {
             window.handleAdminMutationSuccess({
-                message: result?.message || 'Анкета успешно создана.',
+                message: result?.message || (isTemplateSurveyListRoute() ? 'Шаблон успешно создан.' : 'Анкета успешно создана.'),
                 tabName: target.tabName,
                 fallbackUrl: target.fallbackUrl,
                 options: {
@@ -424,7 +496,7 @@
             return;
         }
 
-        window.location.assign('/survey');
+        window.location.assign(target.fallbackUrl);
     }
 
     function handleSurveyUpdateSuccess(result) {
@@ -432,7 +504,7 @@
         const target = resolveSurveyListTarget();
         if (typeof window.handleAdminMutationSuccess === 'function') {
             window.handleAdminMutationSuccess({
-                message: result?.message || 'Анкета успешно обновлена.',
+                message: result?.message || (isTemplateSurveyListRoute() ? 'Шаблон успешно обновлён.' : 'Анкета успешно обновлена.'),
                 tabName: target.tabName,
                 fallbackUrl: target.fallbackUrl,
                 options: {
@@ -444,7 +516,7 @@
             return;
         }
 
-        window.location.assign('/survey');
+        window.location.assign(target.fallbackUrl);
     }
 
     function buildSurveyData(trigger) {
@@ -895,7 +967,7 @@
 
             const dateEndField = createExtensionPeriodDateField(
                 'extensionPeriodDateEnd',
-                'Дата конца',
+                'Доступно по',
                 extension.dateEnd,
                 extension.baseDateEnd || getExtensionEndMinimum(extension.dateBegin)
             );
@@ -927,10 +999,11 @@
         surveyDeletePending = true;
         try {
             const survey = buildSurveyData(trigger);
+            const labels = getSurveyEntityLabels();
             const isConfirmed = await window.siteConfirm(
-                `Удалить анкету "${survey.name_survey || 'Без названия'}"?`,
+                `Удалить ${labels.accusative} "${survey.name_survey || 'Без названия'}"?`,
                 {
-                    title: 'Удаление анкеты',
+                    title: `Удаление ${labels.genitive}`,
                     confirmText: 'Удалить',
                     cancelText: 'Отмена'
                 }
@@ -940,7 +1013,10 @@
                 return;
             }
 
-            const response = await fetch(`/survey/${survey.id_survey}/delete`, {
+            const deleteRoute = isTemplateSurveyListRoute()
+                ? `/survey-templates/${survey.id_survey}/delete`
+                : `/survey/${survey.id_survey}/delete`;
+            const response = await fetch(deleteRoute, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -962,14 +1038,16 @@
                     response,
                     payload,
                     responseText,
-                    'Не удалось удалить анкету.'
+                    `Не удалось удалить ${labels.accusative}.`
                 ));
             }
 
             const target = resolveSurveyListTarget();
             if (typeof window.handleAdminMutationSuccess === 'function') {
                 await window.handleAdminMutationSuccess({
-                    message: payload?.message || 'Анкета успешно удалена.',
+                    message: payload?.message || (labels.singular === 'анкета'
+                        ? 'Анкета успешно удалена.'
+                        : 'Шаблон успешно удалён.'),
                     tabName: target.tabName,
                     fallbackUrl: target.fallbackUrl,
                     preserveCurrentLocation: true
@@ -979,7 +1057,8 @@
 
             window.location.reload();
         } catch (error) {
-            window.AppUi?.notify?.(error.message || 'Не удалось удалить анкету.', 'error');
+            const labels = getSurveyEntityLabels();
+            window.AppUi?.notify?.(error.message || `Не удалось удалить ${labels.accusative}.`, 'error');
         } finally {
             surveyDeletePending = false;
         }
@@ -1061,13 +1140,15 @@
 
     function openEditorFromCurrentRoute() {
         if (window.location.pathname.toLowerCase() === '/survey/create'
-            || window.location.pathname.toLowerCase() === '/surveys/create') {
+            || window.location.pathname.toLowerCase() === '/surveys/create'
+            || window.location.pathname.toLowerCase() === '/survey-templates/create') {
             openAddSurveyModal();
             return;
         }
 
         if (/\/survey\/\d+\/edit$/i.test(window.location.pathname)
             || /\/surveys\/\d+\/edit$/i.test(window.location.pathname)
+            || /\/survey-templates\/\d+\/edit$/i.test(window.location.pathname)
             || /\/survey\/archive\/\d+\/edit$/i.test(window.location.pathname)
             || /\/surveys\/archive\/\d+\/edit$/i.test(window.location.pathname)) {
             openEditSurveyModal();

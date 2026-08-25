@@ -359,10 +359,14 @@
     }
 
     async function refreshSurveyList() {
+        const page = document.querySelector(PAGE_SELECTOR);
+        const isTemplate = page?.dataset?.surveyEntity === 'template';
+        const tabName = page?.dataset?.listTab || (isTemplate ? 'survey_templates' : 'get_surveys');
+        const fallbackUrl = page?.dataset?.listPath || (isTemplate ? '/survey-templates' : '/survey');
         if (typeof window.refreshAdminUi === 'function') {
             await window.refreshAdminUi({
-                tabName: 'get_surveys',
-                fallbackUrl: '/survey',
+                tabName,
+                fallbackUrl,
                 options: {
                     force: true,
                     historyMode: 'replace',
@@ -372,11 +376,13 @@
             return;
         }
 
-        window.location.assign('/survey');
+        window.location.assign(fallbackUrl);
     }
 
     async function saveWorkPeriod(instance) {
         const { state } = instance;
+        const page = document.querySelector(PAGE_SELECTOR);
+        const isTemplate = page?.dataset?.surveyEntity === 'template';
         if (!isValidSelection(state)) {
             let message = 'Выберите дату начала и дату конца периода.';
             if (state.rangeStart && compareIso(state.rangeStart, getTodayIso()) > 0) {
@@ -394,7 +400,7 @@
         render(instance);
 
         try {
-            const response = await fetch('/survey/active/work-period', {
+            const response = await fetch(page?.dataset?.workPeriodPath || '/survey/active/work-period', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
@@ -419,7 +425,12 @@
             }
 
             setPopoverOpen(instance, false);
-            showToast(payload?.message || 'Период работы активных анкет сохранён.', 'success');
+            showToast(
+                payload?.message || (isTemplate
+                    ? 'Период работы активных шаблонов сохранён.'
+                    : 'Период работы активных анкет сохранён.'),
+                'success'
+            );
             await refreshSurveyList();
         } catch (error) {
             showToast(error.message || 'Не удалось сохранить период работы.', 'error');

@@ -19,18 +19,12 @@ public partial class AuditLogService
         "hash_password",
         "password",
         "csp",
-        "key_csp",
         "signature",
         "email",
         "recipient_emails",
         "smtp_user_name",
         "smtp_password",
         "from_address"
-    };
-
-    private static readonly HashSet<string> IgnoredChangedFieldNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "date_update"
     };
 
     private readonly AuditLogRepository _auditLogRepository;

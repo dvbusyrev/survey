@@ -1,11 +1,9 @@
 (function () {
     const normalizeSourceTable = window.AdminLogsData?.normalizeSourceTable || ((value) => String(value || '').trim().toLowerCase());
-    const IGNORED_CHANGED_COLUMNS = new Set(['date_update']);
     const SENSITIVE_RECORD_COLUMNS = new Set([
         'password',
         'hash_password',
         'csp',
-        'key_csp',
         'signature',
         'signed_content_base64',
         'recipient_emails',
@@ -27,7 +25,7 @@
         answer: ['id_survey', 'name_survey', 'completed_by', 'id_organization', 'organization_name', 'id_answer', 'completion_date'],
         answer_item: ['id_survey', 'name_survey', 'completed_by', 'id_organization', 'organization_name', 'id_answer', 'question_order', 'question_text', 'rating', 'comment'],
         auto_creation_config: ['id_config', 'is_enabled'],
-        survey_auto_creation_config: ['id_config', 'id_survey'],
+        survey_template_auto_creation_config: ['id_config', 'id_survey_template'],
         email_config: ['id_config', 'smtp_host', 'smtp_port'],
         theme_config: ['id_config', 'font_color', 'background_color']
     };
@@ -133,10 +131,6 @@
         return JSON.stringify(normalizeComparableValue(left)) === JSON.stringify(normalizeComparableValue(right));
     }
 
-    function isIgnoredChangedColumn(columnName) {
-        return IGNORED_CHANGED_COLUMNS.has(String(columnName || '').trim().toLowerCase());
-    }
-
     function getOperation(extraData) {
         return typeof extraData?.operation === 'string'
             ? extraData.operation.toUpperCase()
@@ -207,7 +201,7 @@
 
     function isHiddenRecordColumn(columnName) {
         const normalizedColumnName = normalizeSourceTable(columnName);
-        if (!normalizedColumnName || IGNORED_CHANGED_COLUMNS.has(normalizedColumnName)) {
+        if (!normalizedColumnName) {
             return true;
         }
 
@@ -289,7 +283,7 @@
 
         changedFields.forEach((change) => {
             const fieldName = String(change?.field || '').trim();
-            if (fieldName && !isIgnoredChangedColumn(fieldName)) {
+            if (fieldName) {
                 changedColumns.add(fieldName.toLowerCase());
             }
         });
@@ -305,10 +299,6 @@
         }
 
         Object.keys({ ...previousRecord, ...currentRecord }).forEach((columnName) => {
-            if (isIgnoredChangedColumn(columnName)) {
-                return;
-            }
-
             if (!areValuesEqual(previousRecord[columnName], currentRecord[columnName])) {
                 changedColumns.add(columnName.toLowerCase());
             }

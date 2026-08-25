@@ -19,6 +19,20 @@ function surveyEditGetElementByRole(role) {
     return document.querySelector(`[data-role="${role}"]`);
 }
 
+function surveyEditCriteriaAreLocked() {
+    return document.getElementById('surveyEditorModal')?.dataset.criteriaLocked === 'true';
+}
+
+function surveyEditCriteriaHaveChanged() {
+    if (!surveyEditCriteriaAreLocked()) {
+        return false;
+    }
+
+    return Array.from(document.querySelectorAll('#surveyEditorModal .criteriy')).some(input => (
+        input.value.trim() !== String(input.dataset.originalValue || '').trim()
+    ));
+}
+
 function surveyEditCreateIconButton(iconClass, label) {
     const button = window.AppUi.createElement('button', {
         type: 'button',
@@ -32,6 +46,13 @@ function surveyEditCreateIconButton(iconClass, label) {
     button.appendChild(icon);
 
     return button;
+}
+
+function surveyEditIsProtectedFieldsError(message) {
+    const normalizedMessage = String(message || '');
+    return normalizedMessage.includes('Нельзя изменить критерии:')
+        || normalizedMessage.includes('Нельзя отменить назначение организации:')
+        || normalizedMessage.includes('Нельзя отменить назначение организаций:');
 }
 
 function surveyEditToggleOrganizationSelection(element) {
@@ -94,6 +115,9 @@ function surveyEditSaveSelectedOrganization() {
         const endDate = document.getElementById('endDate');
         const token = window.AppHttp?.getAntiforgeryToken() || '';
         const surveyId = document.getElementById('surveyId')?.value;
+        const editorModal = document.getElementById('surveyEditorModal');
+        const isTemplate = editorModal?.dataset?.entityKind === 'template';
+        const updateUrl = editorModal?.dataset?.updateUrl || `/survey/${surveyId}/update`;
         try {
             if (typeof window.surveyEditValidateForm === 'function' && !window.surveyEditValidateForm()) {
                 return;
@@ -108,17 +132,19 @@ function surveyEditSaveSelectedOrganization() {
                 Title: surveyTitle.value.trim(),
                 Description: surveyDescription?.value.trim() || '',
                 StartDate: window.AppDate?.getInputIso(startDate) || '',
-                EndDate: window.AppDate?.getInputIso(endDate) || '',
+                EndDate: window.AppDate?.getInputIso(endDate) || (isTemplate ? null : ''),
                 Organizations: (typeof window.getSelectedOrganizations === 'function'
                     ? window.getSelectedOrganizations()
                     : surveyEditSelectedOrganization
                 ).map(org => org.id),
                 Criteria: Array.from(document.querySelectorAll('#surveyEditorModal .criteriy'))
                     .map(input => input.value.trim())
-                    .filter(text => text !== '')
+                    .filter(text => text !== ''),
+                IsAutoCreationEnabled: isTemplate
+                    && document.getElementById('surveyAutoCreationEnabled')?.value === 'true'
             };
 
-            const response = await fetch(`/survey/${surveyId}/update`, {
+            const response = await fetch(updateUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -129,7 +155,7 @@ function surveyEditSaveSelectedOrganization() {
             });
 
             if (!response.ok) {
-                let errorMessage = 'Не удалось обновить анкету.';
+                let errorMessage = isTemplate ? 'Не удалось обновить шаблон.' : 'Не удалось обновить анкету.';
                 try {
                     const errorData = await response.json();
                     errorMessage = errorData.message || errorData.error || errorMessage;
@@ -148,26 +174,30 @@ function surveyEditSaveSelectedOrganization() {
 
                 if (typeof window.handleAdminMutationSuccess === 'function') {
                     await window.handleAdminMutationSuccess({
-                        message: result.message || 'Анкета успешно обновлена.',
-                        tabName: 'get_surveys',
-                        fallbackUrl: '/survey'
+                        message: result.message || (isTemplate ? 'Шаблон успешно обновлён.' : 'Анкета успешно обновлена.'),
+                        tabName: isTemplate ? 'survey_templates' : 'get_surveys',
+                        fallbackUrl: isTemplate ? '/survey-templates' : '/survey'
                     });
                     return;
                 }
 
-                surveyEditNotify(result.message || 'Анкета успешно обновлена.', 'success');
+                surveyEditNotify(result.message || (isTemplate ? 'Шаблон успешно обновлён.' : 'Анкета успешно обновлена.'), 'success');
                 window.location.reload();
             } else {
-                throw new Error(result.message || 'Не удалось обновить анкету.');
+                throw new Error(result.message || (isTemplate ? 'Не удалось обновить шаблон.' : 'Не удалось обновить анкету.'));
             }
 
         } catch (error) {
             console.error('Ошибка при обновлении анкеты:', error);
 
+            if (surveyEditIsProtectedFieldsError(error.message)) {
+                window.restoreSurveyEditProtectedFields?.();
+            }
+
             let userMessage = window.normalizeClientErrorMessage?.(
                 error.message,
-                'Не удалось обновить анкету.'
-            ) || 'Не удалось обновить анкету.';
+                isTemplate ? 'Не удалось обновить шаблон.' : 'Не удалось обновить анкету.'
+            ) || (isTemplate ? 'Не удалось обновить шаблон.' : 'Не удалось обновить анкету.');
 
             if (error.message.includes('jsonb') && error.message.includes('text')) {
                 userMessage = 'Ошибка формата данных.';
@@ -182,14 +212,26 @@ function surveyEditSaveSelectedOrganization() {
     }
 
     function surveyEditValidateForm() {
+        const isTemplate = document.getElementById('surveyEditorModal')?.dataset?.entityKind === 'template';
         let isValid = true;
         const errors = [];
 
+        if (surveyEditCriteriaHaveChanged()) {
+            errors.push('Нельзя изменить критерии: по анкете уже есть ответы.');
+            isValid = false;
+            window.restoreSurveyEditProtectedFields?.();
+        }
+
         const requiredFields = [
-            { element: document.getElementById('surveyTitle'), message: 'Введите название анкеты.' },
-            { element: document.getElementById('startDate'), message: 'Укажите дату начала.' },
-            { element: document.getElementById('endDate'), message: 'Укажите дату конца.' }
+            {
+                element: document.getElementById('surveyTitle'),
+                message: isTemplate ? 'Введите название шаблона.' : 'Введите название анкеты.'
+            },
+            { element: document.getElementById('startDate'), message: 'Укажите дату начала.' }
         ];
+        if (!isTemplate) {
+            requiredFields.push({ element: document.getElementById('endDate'), message: 'Укажите дату конца.' });
+        }
 
         requiredFields.forEach(field => {
             if (!field.element.value.trim()) {

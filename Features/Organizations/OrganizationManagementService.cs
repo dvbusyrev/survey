@@ -508,10 +508,23 @@ public class OrganizationManagementService
     {
         var surveyNames = await connection.QueryAsync<string>(new CommandDefinition(
             """
-            SELECT DISTINCT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || os.id_survey::text) AS survey_name
-            FROM public.organization_survey os
-            LEFT JOIN public.survey s ON s.id_survey = os.id_survey
-            WHERE os.id_organization = @OrganizationId
+            SELECT DISTINCT survey_name
+            FROM (
+                SELECT COALESCE(NULLIF(TRIM(s.name_survey), ''), 'Анкета #' || os.id_survey::text) AS survey_name
+                FROM public.organization_survey os
+                LEFT JOIN public.survey s ON s.id_survey = os.id_survey
+                WHERE os.id_organization = @OrganizationId
+
+                UNION ALL
+
+                SELECT 'Шаблон: ' || COALESCE(
+                    NULLIF(TRIM(template.name_survey_template), ''),
+                    '#' || assignment.id_survey_template::text)
+                FROM public.organization_survey_template assignment
+                LEFT JOIN public.survey_template template
+                    ON template.id_survey_template = assignment.id_survey_template
+                WHERE assignment.id_organization = @OrganizationId
+            ) assigned
             ORDER BY survey_name;
             """,
             new { OrganizationId = organizationId },

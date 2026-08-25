@@ -149,6 +149,7 @@ $$;
 
 CREATE TABLE public.answer (
     id_answer integer NOT NULL,
+    id_user integer NOT NULL,
     csp text,
     completion_date timestamp without time zone,
     id_organization_survey integer NOT NULL,
@@ -258,7 +259,6 @@ CREATE TABLE public.app_user (
     role text NOT NULL,
     password text NOT NULL,
     email text,
-    key_csp text,
     date_begin date DEFAULT now(),
     date_end date,
     date_update timestamp without time zone DEFAULT now() NOT NULL,
@@ -839,6 +839,11 @@ CREATE INDEX idx_answer_completion_date ON public.answer USING btree (completion
 CREATE INDEX idx_answer_id_organization_survey ON public.answer USING btree (id_organization_survey);
 
 
+-- Name: idx_answer_id_user; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX idx_answer_id_user ON public.answer USING btree (id_user);
+
+
 -- Name: idx_answer_item_id_answer; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX idx_answer_item_id_answer ON public.answer_item USING btree (id_answer, question_order);
@@ -1051,6 +1056,12 @@ CREATE TRIGGER trg_week_day_set_update_metadata BEFORE INSERT OR UPDATE ON publi
 
 ALTER TABLE ONLY public.answer
     ADD CONSTRAINT answer_id_organization_survey_fkey FOREIGN KEY (id_organization_survey) REFERENCES public.organization_survey(id_organization_survey) ON DELETE RESTRICT;
+
+
+-- Name: answer answer_id_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.answer
+    ADD CONSTRAINT answer_id_user_fkey FOREIGN KEY (id_user) REFERENCES public.app_user(id_user) ON DELETE RESTRICT;
 
 
 -- Name: app_user app_user_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -

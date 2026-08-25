@@ -20,6 +20,18 @@
         return document.querySelector(`[data-role="${role}"]`);
     }
 
+    function getSurveyEditorContext() {
+        const modal = document.getElementById('surveyEditorModal');
+        const isTemplate = modal?.dataset?.entityKind === 'template';
+        return {
+            isTemplate,
+            createUrl: modal?.dataset?.createUrl || '/survey/create',
+            listTab: isTemplate ? 'survey_templates' : 'get_surveys',
+            listUrl: isTemplate ? '/survey-templates' : '/survey',
+            entityName: isTemplate ? 'шаблон' : 'анкету'
+        };
+    }
+
     function closeModal(modalId) {
         const modal = resolveModal(modalId);
         if (modal) window.AppUi.setModalVisibility(modal, false);
@@ -53,6 +65,278 @@
     });
     const criteria = window.createSurveyCriteriaController({ getElementByRole, showError });
     organizations.bindDismissal();
+    let originalEditModal = null;
+    let originalEditOrganizations = [];
+    let originalEditCriteria = [];
+    let templateDropdownController = null;
+    let autoCreationDropdownController = null;
+    let templateOptions = null;
+    let selectedTemplateId = null;
+
+    function getTemplatePickerElement(role) {
+        return document.querySelector(`[data-role="${role}"]`);
+    }
+
+    function closeTemplatePicker() {
+        templateDropdownController?.controller?.close?.();
+    }
+
+    function updateTemplatePickerSelection(templateId, templateName) {
+        selectedTemplateId = Number.isFinite(templateId) ? templateId : null;
+        const trigger = getTemplatePickerElement('survey-template-dropdown-trigger');
+        if (trigger) {
+            trigger.textContent = selectedTemplateId && templateName
+                ? templateName
+                : 'Выбрать шаблон';
+        }
+        getTemplatePickerElement('survey-template-options')
+            ?.querySelectorAll('[data-role="survey-template-option"]')
+            .forEach((option) => {
+                const isSelected = Number.parseInt(option.dataset.templateId || '', 10) === selectedTemplateId;
+                option.classList.toggle('selected', isSelected);
+                option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            });
+    }
+
+    function resetTemplatePicker() {
+        updateTemplatePickerSelection(null, '');
+        closeTemplatePicker();
+        ensureTemplatePickerController();
+    }
+
+    function getAutoCreationPickerElement(role) {
+        return document.querySelector(`[data-role="${role}"]`);
+    }
+
+    function setSurveyAutoCreationEnabled(value) {
+        const normalizedValue = String(value) === 'true';
+        const field = document.getElementById('surveyAutoCreationEnabled');
+        const label = getAutoCreationPickerElement('survey-auto-creation-enabled-label');
+        if (field) field.value = normalizedValue ? 'true' : 'false';
+        if (label) label.textContent = normalizedValue ? 'Да' : 'Нет';
+
+        getAutoCreationPickerElement('survey-auto-creation-enabled-menu')
+            ?.querySelectorAll('[role="option"]')
+            .forEach((option) => {
+                const isSelected = option.dataset.value === (normalizedValue ? 'true' : 'false');
+                option.classList.toggle('selected', isSelected);
+                option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            });
+    }
+
+    function selectSurveyAutoCreationEnabled(element) {
+        setSurveyAutoCreationEnabled(element?.dataset?.value);
+        autoCreationDropdownController?.controller?.close?.();
+    }
+
+    function ensureAutoCreationPickerController() {
+        const root = getAutoCreationPickerElement('survey-auto-creation-enabled-dropdown');
+        const trigger = getAutoCreationPickerElement('survey-auto-creation-enabled-trigger');
+        const menu = getAutoCreationPickerElement('survey-auto-creation-enabled-menu');
+        if (!root || !trigger || !menu || typeof window.AppUi?.createMultiselect !== 'function') {
+            return null;
+        }
+        if (autoCreationDropdownController?.root === root) {
+            return autoCreationDropdownController;
+        }
+
+        autoCreationDropdownController?.destroy?.();
+        autoCreationDropdownController = window.AppUi.createMultiselect({
+            root,
+            trigger,
+            menu,
+            openClass: 'is-open',
+            hiddenClass: 'is-hidden'
+        });
+        return autoCreationDropdownController;
+    }
+
+    async function parseTemplateResponse(response, fallbackMessage) {
+        const responseText = await response.text();
+        let payload = null;
+        try {
+            payload = responseText ? JSON.parse(responseText) : null;
+        } catch (error) {
+            payload = null;
+        }
+        if (!response.ok) {
+            throw new Error(payload?.message || fallbackMessage);
+        }
+        return payload;
+    }
+
+    async function selectSurveyTemplate(templateId, templateName) {
+        const id = Number.parseInt(String(templateId || ''), 10);
+        if (!Number.isFinite(id) || id <= 0) return;
+
+        try {
+            const response = await fetch(`/survey-templates/${id}/copy-template`, {
+                headers: { Accept: 'application/json' }
+            });
+            const template = await parseTemplateResponse(response, 'Не удалось загрузить выбранный шаблон.');
+            prefillSurveyCreateForm(template, {
+                preserveDates: true,
+                submitLabel: 'Сохранить'
+            });
+            updateTemplatePickerSelection(id, templateName);
+            closeTemplatePicker();
+        } catch (error) {
+            console.error('Ошибка загрузки шаблона анкеты:', error);
+            showError('Ошибка', error.message || 'Не удалось загрузить выбранный шаблон.');
+        }
+    }
+
+    function renderTemplateOptions() {
+        const list = getTemplatePickerElement('survey-template-options');
+        if (!list) return;
+        list.replaceChildren();
+
+        if (!Array.isArray(templateOptions) || templateOptions.length === 0) {
+            list.appendChild(window.AppUi.createElement('p', {
+                className: 'app-checkbox-empty',
+                text: 'Шаблоны не найдены.'
+            }));
+            return;
+        }
+
+        templateOptions.forEach((template) => {
+            const id = Number.parseInt(String(template?.id || ''), 10);
+            const name = String(template?.name || '').trim();
+            if (!Number.isFinite(id) || id <= 0 || !name) return;
+
+            const option = window.AppUi.createElement('button', {
+                type: 'button',
+                className: 'app-checkbox-option survey-editor-page__template-option',
+                text: name,
+                dataset: {
+                    role: 'survey-template-option',
+                    templateId: String(id)
+                },
+                attrs: {
+                    role: 'option',
+                    'aria-selected': id === selectedTemplateId ? 'true' : 'false'
+                }
+            });
+            option.classList.toggle('selected', id === selectedTemplateId);
+            option.addEventListener('click', () => selectSurveyTemplate(id, name));
+            list.appendChild(option);
+        });
+        window.AppCheckboxDropdown?.scheduleListHeightUpdate(
+            getTemplatePickerElement('survey-template-dropdown-menu')
+        );
+    }
+
+    async function loadTemplateOptions() {
+        const loading = getTemplatePickerElement('survey-template-loading');
+        const list = getTemplatePickerElement('survey-template-options');
+        loading?.classList.remove('u-hidden');
+        list?.classList.add('u-hidden');
+        try {
+            const response = await fetch('/survey-templates/options', {
+                headers: { Accept: 'application/json' }
+            });
+            const payload = await parseTemplateResponse(response, 'Не удалось загрузить список шаблонов.');
+            if (!Array.isArray(payload)) {
+                throw new Error('Получены некорректные данные шаблонов.');
+            }
+            templateOptions = payload;
+            renderTemplateOptions();
+        } catch (error) {
+            console.error('Ошибка загрузки списка шаблонов:', error);
+            showError('Ошибка', error.message || 'Не удалось загрузить список шаблонов.');
+        } finally {
+            loading?.classList.add('u-hidden');
+            list?.classList.remove('u-hidden');
+        }
+    }
+
+    function ensureTemplatePickerController() {
+        const root = getTemplatePickerElement('survey-template-dropdown');
+        const trigger = getTemplatePickerElement('survey-template-dropdown-trigger');
+        const menu = getTemplatePickerElement('survey-template-dropdown-menu');
+        if (!root || !trigger || !menu || typeof window.AppUi?.createMultiselect !== 'function') {
+            return null;
+        }
+        if (templateDropdownController?.root === root) {
+            return templateDropdownController;
+        }
+
+        templateDropdownController?.destroy?.();
+        templateDropdownController = window.AppUi.createMultiselect({
+            root,
+            trigger,
+            menu,
+            openClass: 'is-open',
+            hiddenClass: 'is-hidden',
+            onOpen: () => {
+                if (Array.isArray(templateOptions)) {
+                    renderTemplateOptions();
+                    return;
+                }
+                loadTemplateOptions();
+            }
+        });
+        return templateDropdownController;
+    }
+
+    function getEditSelectedOrganizationNames() {
+        const configuredNames = window.selectedOrganizationNames || window.__adminBootstrap?.selectedOrganizationNames;
+        if (Array.isArray(configuredNames)) {
+            return configuredNames;
+        }
+
+        const template = document.getElementById('survey-edit-selected-organization-names');
+        const serializedNames = template?.content?.textContent || template?.textContent || '';
+        if (!serializedNames.trim()) {
+            return [];
+        }
+
+        try {
+            const parsedNames = JSON.parse(serializedNames);
+            return Array.isArray(parsedNames) ? parsedNames : [];
+        } catch (error) {
+            console.error('Не удалось прочитать исходные организации анкеты:', error);
+            return [];
+        }
+    }
+
+    function captureOriginalEditState(modal, selected) {
+        if (!modal || modal === originalEditModal) {
+            return;
+        }
+
+        originalEditModal = modal;
+        originalEditOrganizations = window.SurveyAdminFormState.cloneOrganizations(selected);
+        originalEditCriteria = Array.from(modal.querySelectorAll('.criteriy'))
+            .map((input) => input.value.trim());
+    }
+
+    function restoreSurveyEditProtectedFields() {
+        const modal = document.getElementById('surveyEditorModal');
+        if (!modal || modal !== originalEditModal) {
+            return;
+        }
+
+        const criteriaInputs = Array.from(modal.querySelectorAll('.criteriy'));
+        if (criteriaInputs.length === originalEditCriteria.length) {
+            criteriaInputs.forEach((input, index) => {
+                input.value = originalEditCriteria[index] || '';
+                input.dataset.originalValue = originalEditCriteria[index] || '';
+                window.SurveyAdminValidation?.clearFieldError(input);
+            });
+        } else {
+            criteria.replace(originalEditCriteria);
+            Array.from(modal.querySelectorAll('.criteriy')).forEach((input, index) => {
+                input.dataset.originalValue = originalEditCriteria[index] || '';
+                window.SurveyAdminValidation?.clearFieldError(input);
+            });
+        }
+
+        organizations.setSelected(originalEditOrganizations);
+        organizations.syncList();
+        organizations.updateDisplay();
+        window.SurveyAdminValidation?.clearFieldError(getElementByRole('selected-organizations-container'));
+    }
 
     function setSubmitButtonLabel(label) {
         const submitButton = getElementByRole('survey-submit');
@@ -61,6 +345,7 @@
 
     function resetSurveyCreateForm() {
         setSubmitButtonLabel('Сохранить');
+        resetTemplatePicker();
         window.SurveyAdminValidation?.clearAll(document.getElementById('surveyEditorModal'));
         organizations.setSelected([]);
         organizations.resetAvailable();
@@ -71,6 +356,10 @@
                 field.classList.remove('invalid');
             }
         });
+        const autoCreationField = safeGetElement('surveyAutoCreationEnabled');
+        if (autoCreationField) {
+            setSurveyAutoCreationEnabled(false);
+        }
         getElementByRole('criteria-step')?.classList.remove('confirmed-criteria');
         const organizationField = getElementByRole('selected-organizations-container');
         organizationField?.setAttribute('aria-invalid', 'false');
@@ -95,16 +384,28 @@
         };
     }
 
-    function prefillSurveyCreateForm(rawTemplate) {
+    function prefillSurveyCreateForm(rawTemplate, options = {}) {
         const template = normalizeCopyTemplate(rawTemplate);
+        const preservedStartDate = options.preserveDates
+            ? window.AppDate?.getInputIso?.('startDate') || safeGetValue('startDate')
+            : '';
+        const preservedEndDate = options.preserveDates
+            ? window.AppDate?.getInputIso?.('endDate') || safeGetValue('endDate')
+            : '';
         resetSurveyCreateForm();
-        setSubmitButtonLabel('Копировать');
+        setSubmitButtonLabel(options.submitLabel || 'Копировать');
         const title = safeGetElement('surveyTitle');
         const description = safeGetElement('surveyDescription');
         if (title) title.value = template.title;
         if (description) description.value = template.description;
-        window.AppDate?.setInputValue?.('startDate', template.startDate);
-        window.AppDate?.setInputValue?.('endDate', template.endDate);
+        window.AppDate?.setInputValue?.(
+            'startDate',
+            options.preserveDates ? preservedStartDate : template.startDate
+        );
+        window.AppDate?.setInputValue?.(
+            'endDate',
+            options.preserveDates ? preservedEndDate : template.endDate
+        );
         window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
         criteria.replace(template.criteria);
         organizations.setSelected(template.organizations);
@@ -113,13 +414,16 @@
     }
 
     function validateForm() {
+        const context = getSurveyEditorContext();
         let isValid = true;
         const errors = [];
         const requiredFields = [
-            { id: 'surveyTitle', message: 'Введите название анкеты.' },
-            { id: 'startDate', message: 'Укажите дату начала.' },
-            { id: 'endDate', message: 'Укажите дату конца.' }
+            { id: 'surveyTitle', message: context.isTemplate ? 'Введите название шаблона.' : 'Введите название анкеты.' },
+            { id: 'startDate', message: 'Укажите дату начала.' }
         ];
+        if (!context.isTemplate) {
+            requiredFields.push({ id: 'endDate', message: 'Укажите дату конца.' });
+        }
         requiredFields.forEach(({ id, message }) => {
             const field = safeGetElement(id);
             if (field?.value.trim()) {
@@ -173,9 +477,10 @@
 
     function addSurvey() {
         if (!validateForm()) return;
+        const context = getSurveyEditorContext();
         const loading = safeGetElement('loadingOverlay');
         if (loading) setModalVisible(loading, true);
-        fetch('/survey/create', {
+        fetch(context.createUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -187,20 +492,28 @@
                 StartDate: window.AppDate?.getInputIso('startDate') || '',
                 EndDate: window.AppDate?.getInputIso('endDate') || '',
                 Organizations: organizations.getSelected().map((organization) => organization.id),
-                Criteria: criteria.values()
+                Criteria: criteria.values(),
+                IsAutoCreationEnabled: context.isTemplate
+                    && safeGetElement('surveyAutoCreationEnabled')?.value === 'true'
             })
         })
             .then((response) => response.ok
                 ? response.json()
-                : response.json().then((error) => Promise.reject(new Error(error.message || 'Не удалось создать анкету.'))))
+                : response.json().then((error) => Promise.reject(new Error(
+                    error.message || `Не удалось создать ${context.entityName}.`
+                ))))
             .then((result) => {
-                if (!result.success) throw new Error(result.message || 'Не удалось создать анкету.');
+                if (!result.success) throw new Error(result.message || `Не удалось создать ${context.entityName}.`);
                 if (typeof window.handleSurveyCreateSuccess === 'function') {
                     window.handleSurveyCreateSuccess(result);
                 } else if (typeof window.handleAdminMutationSuccess === 'function') {
-                    window.handleAdminMutationSuccess({ message: result.message || 'Анкета успешно создана.', tabName: 'get_surveys', fallbackUrl: '/survey' });
+                    window.handleAdminMutationSuccess({
+                        message: result.message || (context.isTemplate ? 'Шаблон успешно создан.' : 'Анкета успешно создана.'),
+                        tabName: context.listTab,
+                        fallbackUrl: context.listUrl
+                    });
                 } else {
-                    showSuccess('Успех', 'Анкета успешно создана.');
+                    showSuccess('Успех', context.isTemplate ? 'Шаблон успешно создан.' : 'Анкета успешно создана.');
                     window.setTimeout(() => window.location.reload(), 2000);
                 }
             })
@@ -214,8 +527,9 @@
     }
 
     function surveyEditInit() {
+        const modal = document.getElementById('surveyEditorModal');
         const selectedIds = (document.getElementById('selectedOrganizationIds')?.value || '').split(',');
-        const selectedNames = window.selectedOrganizationNames || window.__adminBootstrap?.selectedOrganizationNames || [];
+        const selectedNames = getEditSelectedOrganizationNames();
         const selected = selectedIds.reduce((items, rawId, index) => {
             const id = Number.parseInt(rawId, 10);
             if (!Number.isFinite(id)) return items;
@@ -231,6 +545,7 @@
                 if (Number.isFinite(id) && name) selected.push({ id, name });
             });
         }
+        captureOriginalEditState(modal, selected);
         organizations.setSelected(selected);
         organizations.syncList();
         organizations.updateDisplay();
@@ -267,6 +582,8 @@
         validateForm,
         resetSurveyCreateForm,
         prefillSurveyCreateForm,
+        selectSurveyAutoCreationEnabled,
+        restoreSurveyEditProtectedFields,
         surveyEditInit,
         surveyEditOpenOrganizationModal: () => {
             organizations.syncList();
@@ -279,4 +596,6 @@
     });
 
     window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
+    ensureTemplatePickerController();
+    ensureAutoCreationPickerController();
 })();

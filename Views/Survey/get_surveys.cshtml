@@ -1,7 +1,9 @@
 ﻿@model MainProject.Web.ViewModels.SurveyListPageViewModel
 @{
-    ViewData["Title"] = "Анкеты";
+    var isTemplateSection = Model?.IsTemplateSection ?? false;
+    ViewData["Title"] = isTemplateSection ? "Шаблоны анкет" : "Анкеты";
     ViewData["SurveySection"] = "list";
+    ViewData["IsTemplateSection"] = isTemplateSection;
     var pageModel = Model ?? new MainProject.Web.ViewModels.SurveyListPageViewModel();
     var openAddSurveyModal = Model?.OpenAddSurveyModal ?? false;
     var editSurveyPage = Model?.EditSurveyPage;
@@ -16,6 +18,12 @@
 <div class="app-page"
              id="default_content"
              data-page="surveys-list"
+             data-survey-entity="@(isTemplateSection ? "template" : "survey")"
+             data-list-path="@(isTemplateSection ? "/survey-templates" : "/survey")"
+             data-create-path="@(isTemplateSection ? "/survey-templates/create" : "/survey/create")"
+             data-work-period-path="@(isTemplateSection ? string.Empty : "/survey/active/work-period")"
+             data-list-tab="@(isTemplateSection ? "survey_templates" : "get_surveys")"
+             data-create-tab="@(isTemplateSection ? "add_survey_template" : "add_survey")"
              data-total-count="@pageModel.TotalCount"
              data-visible-count="@surveyRows.Count"
              data-table-scroll-target="#surveys-table-top"
@@ -30,14 +38,25 @@
                 })
 
             <div class="app-page__toolbar survey-list-toolbar">
-                @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
-
-                <button type="button"
-                        class="btn app-button app-button--primary"
-                        data-click-call="openAddSurveyModal">
-                    Добавить анкету
-                </button>
-                @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyWorkPeriodControl.cshtml")
+                @if (isTemplateSection)
+                {
+                    <button type="button"
+                            class="btn app-button app-button--primary"
+                            data-click-call="openAddSurveyModal">
+                        Добавить шаблон
+                    </button>
+                    @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
+                }
+                else
+                {
+                    @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
+                    <button type="button"
+                            class="btn app-button app-button--primary"
+                            data-click-call="openAddSurveyModal">
+                        Добавить анкету
+                    </button>
+                    @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyWorkPeriodControl.cshtml")
+                }
             </div>
 
             @await Html.PartialAsync(
@@ -46,10 +65,20 @@
                 {
                     Surveys = surveyRows,
                     IsArchive = false,
+                    IsTemplateSection = isTemplateSection,
                     TableId = "surveys-table-top",
                     NameSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyListSortFields.Name),
                     NameSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyListSortFields.Name),
                     NameAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.SurveyListSortFields.Name),
+                    AutoCreationSortUrl = isTemplateSection
+                        ? pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyListSortFields.AutoCreation)
+                        : string.Empty,
+                    AutoCreationSortDirection = isTemplateSection
+                        ? pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyListSortFields.AutoCreation)
+                        : string.Empty,
+                    AutoCreationAriaSort = isTemplateSection
+                        ? pageModel.GetAriaSort(MainProject.Web.ViewModels.SurveyListSortFields.AutoCreation)
+                        : "none",
                     DateBeginSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyListSortFields.DateBegin),
                     DateBeginSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyListSortFields.DateBegin),
                     DateBeginAriaSort = pageModel.GetAriaSort(MainProject.Web.ViewModels.SurveyListSortFields.DateBegin),
@@ -77,7 +106,10 @@
     <script src="~/js/features/survey/survey-checkbox-filter.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-row-filtering.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/survey-admin-date-filter.js" asp-append-version="true"></script>
-    <script src="~/js/features/survey/survey-work-period.js" asp-append-version="true"></script>
+    @if (!isTemplateSection)
+    {
+        <script src="~/js/features/survey/survey-work-period.js" asp-append-version="true"></script>
+    }
     <script src="~/js/features/survey/survey-admin-list.js" asp-append-version="true"></script>
     <script src="~/js/features/survey/surveys-page.js" asp-append-version="true"></script>
 }

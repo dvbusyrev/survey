@@ -22,6 +22,7 @@ public partial class SurveyService
         }
 
         SurveyAutoCreationSettingsRequest normalizedRequest;
+        var isEnabledAfterSave = false;
 
         using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
@@ -42,6 +43,7 @@ public partial class SurveyService
 
             normalizedRequest = normalizeResult.NormalizedRequest;
             var isEnabled = enableOverride ?? current.IsEnabled;
+            isEnabledAfterSave = isEnabled;
 
             await _surveyRepository.SaveAutoCreationConfigAsync(
                 connection,
@@ -51,7 +53,7 @@ public partial class SurveyService
                 normalizedRequest.ReportingOffsetBusinessDays,
                 normalizedRequest.ActivePeriodBusinessDays,
                 isEnabled,
-                normalizedRequest.SurveyIds,
+                normalizedRequest.TemplateIds,
                 cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -61,41 +63,44 @@ public partial class SurveyService
         {
             Success = true,
             Message = enableOverride == true
-                ? "Автосоздание анкет запущено."
-                : "Настройки автосоздания анкет сохранены.",
+                ? "Новые настройки автосоздания применены, автосоздание анкет запущено."
+                : "Новые настройки автосоздания применены.",
             IsEnabled = false,
-            SelectedSurveyCount = normalizedRequest.SurveyIds.Count
+            SelectedTemplateCount = normalizedRequest.TemplateIds.Count
         };
 
-        if (!runImmediately)
+        if (!runImmediately && !isEnabledAfterSave)
         {
             return new SurveyAutoCreationCommandResult
             {
                 Success = true,
                 Message = commandResult.Message,
-                IsEnabled = enableOverride ?? (await GetIsEnabledAsync(cancellationToken)),
-                SelectedSurveyCount = normalizedRequest.SurveyIds.Count
+                IsEnabled = false,
+                SelectedTemplateCount = normalizedRequest.TemplateIds.Count
             };
         }
 
         var runResult = await RunPendingAsync(cancellationToken);
         if (runResult.Processed && runResult.CreatedSurveyCount > 0)
         {
+            var message = enableOverride == true
+                ? $"Новые настройки автосоздания применены, автосоздание анкет запущено. Создано анкет: {runResult.CreatedSurveyCount}."
+                : $"Новые настройки автосоздания применены. Создано анкет: {runResult.CreatedSurveyCount}.";
             return new SurveyAutoCreationCommandResult
             {
                 Success = true,
-                Message = $"Автосоздание анкет запущено. Создано копий: {runResult.CreatedSurveyCount}.",
-                IsEnabled = true,
-                SelectedSurveyCount = normalizedRequest.SurveyIds.Count
+                Message = message,
+                IsEnabled = isEnabledAfterSave,
+                SelectedTemplateCount = normalizedRequest.TemplateIds.Count
             };
         }
 
         return new SurveyAutoCreationCommandResult
         {
             Success = true,
-            Message = "Автосоздание анкет запущено.",
-            IsEnabled = true,
-            SelectedSurveyCount = normalizedRequest.SurveyIds.Count
+            Message = commandResult.Message,
+            IsEnabled = isEnabledAfterSave,
+            SelectedTemplateCount = normalizedRequest.TemplateIds.Count
         };
     }
 }

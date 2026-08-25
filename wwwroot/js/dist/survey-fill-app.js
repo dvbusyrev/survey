@@ -241,6 +241,7 @@
       const isAdmin = userRole === "admin";
       const isModifiedNavigationEvent = (event) => event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
       const isSurveySectionActive = isAdmin ? ["get_surveys", "add_survey", "list_answers_users", "archived_surveys"].includes(activeTab) : ["active", "archived", "answers_tab", "archived_surveys_for_user"].includes(activeTab);
+      const isSurveyTemplateSectionActive = isAdmin && ["survey_templates", "add_survey_template", "archived_survey_templates"].includes(activeTab);
       const isOrganizationSectionActive = ["get_organization", "organization_surveys", "add_organization", "archive_list_organizations"].includes(activeTab);
       const isEmailSectionActive = ["email", "email_new"].includes(activeTab);
       const isSettingsSectionActive = ["email_settings", "theme_settings", "survey_auto_creation"].includes(activeTab);
@@ -276,7 +277,7 @@
       nav.querySelectorAll(".nav-item").forEach((item) => {
         const tab = item.dataset.tab || "";
         const navClass = item.dataset.navClass || "";
-        const isActive = navClass === "surveys" ? isSurveySectionActive : navClass === "organizations" ? isOrganizationSectionActive : navClass === "email" ? isEmailSectionActive : navClass === "settings" ? isSettingsSectionActive : tab === activeTab;
+        const isActive = navClass === "surveys" ? isSurveySectionActive : navClass === "survey-templates" ? isSurveyTemplateSectionActive : navClass === "organizations" ? isOrganizationSectionActive : navClass === "email" ? isEmailSectionActive : navClass === "settings" ? isSettingsSectionActive : tab === activeTab;
         item.classList.toggle("active", isActive);
       });
       nav.querySelectorAll(".submenu-item").forEach((subItem) => {

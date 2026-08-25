@@ -18,7 +18,7 @@
                     new MainProject.Web.ViewModels.PageIntroModel
                     {
                         // Title = "Автоматическое создание анкет",
-                        Description = "Настройте период отчётности и сроки в рабочих днях. Система каждый час проверяет расписание и создаёт пропущенные анкеты с рассчитанными датами."
+                        Description = "Настройте период отчётности и сроки в рабочих днях. Система создаёт анкеты из выбранных активных шаблонов и восстанавливает пропущенный запуск после включения сервера."
                     })
 
                 <section class="app-section app-page__section reports-page__card survey-auto-creation-page__card">
@@ -97,21 +97,29 @@
                     </div>
 
                     <div class="survey-auto-creation-page__selection" data-validation-group>
-                        <div class="survey-auto-creation-page__selection-title" data-validation-label>Анкеты</div>
-                        <div id="surveyAutoCreationSelectedList"
-                             class="app-field survey-auto-creation-page__selected-list"
-                             data-role="survey-auto-creation-selected-list"
-                             role="group"
-                             aria-required="true"
-                             data-required-message="Выберите хотя бы одну анкету."
-                             aria-live="polite"></div>
+                        <div class="survey-auto-creation-page__selection-title" data-validation-label>Шаблоны анкет</div>
+                        <div class="app-multi-value-field">
+                            <div id="surveyAutoCreationSelectedList"
+                                 class="app-field survey-auto-creation-page__selected-list"
+                                 data-role="survey-auto-creation-selected-list"
+                                 role="group"
+                                 aria-required="true"
+                                 data-required-message="Выберите хотя бы один шаблон."
+                                 aria-live="polite"></div>
+                            <button type="button"
+                                    class="app-multi-value-clear is-hidden"
+                                    data-role="survey-auto-creation-selected-clear"
+                                    aria-label="Очистить выбранные шаблоны">
+                                <i class="fas fa-xmark" aria-hidden="true"></i>
+                            </button>
+                        </div>
                         <div class="survey-auto-creation-page__selection-action">
                             <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-auto-creation-page__survey-dropdown"
                                  data-role="survey-auto-creation-dropdown">
                                 <button type="button"
                                         class="app-button app-button--primary app-multiselect__trigger app-checkbox-dropdown__trigger"
                                         data-role="survey-auto-creation-dropdown-trigger">
-                                    Выбрать анкеты
+                                    Выбрать шаблоны
                                 </button>
                                 <div id="surveyAutoCreationDropdownMenu"
                                      class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline is-hidden"
@@ -128,8 +136,8 @@
                 <div class="app-form-actions survey-auto-creation-page__actions">
                     <button type="button"
                             class="app-button app-button--secondary"
-                            data-click-call="saveSurveyAutoCreationSettings">
-                        Сохранить
+                            data-click-call="applySurveyAutoCreationSettings">
+                        Применить
                     </button>
                     @if (Model?.IsEnabled == true)
                     {
@@ -156,7 +164,7 @@
         isEnabled = Model?.IsEnabled ?? false,
         previewYear = Model?.PreviewYear ?? DateTime.Today.Year,
         previewMonth = Model?.PreviewMonth ?? DateTime.Today.Month,
-        selectedSurveys = Model?.SelectedSurveys ?? Array.Empty<MainProject.Web.ViewModels.SurveyAutoCreationSelectedSurveyViewModel>()
+        selectedTemplates = Model?.SelectedTemplates ?? Array.Empty<MainProject.Web.ViewModels.SurveyAutoCreationSelectedTemplateViewModel>()
     }))
 </script>
 

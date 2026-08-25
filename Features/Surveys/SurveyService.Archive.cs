@@ -19,12 +19,63 @@ public partial class SurveyService
         string? month,
         string? dateFrom,
         string? dateTo,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await GetAdminArchivedSurveyPageAsync(
+            currentPage,
+            sortBy,
+            sortDirection,
+            organizationIds,
+            surveyIds,
+            year,
+            month,
+            dateFrom,
+            dateTo,
+            false,
+            cancellationToken);
+
+    public async Task<SurveyArchivePageViewModel> GetAdminArchivedSurveyTemplatesPageAsync(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds,
+        string? surveyIds,
+        string? year,
+        string? month,
+        string? dateFrom,
+        string? dateTo,
+        CancellationToken cancellationToken = default) =>
+        await GetAdminArchivedSurveyPageAsync(
+            currentPage,
+            sortBy,
+            sortDirection,
+            organizationIds,
+            surveyIds,
+            year,
+            month,
+            dateFrom,
+            dateTo,
+            true,
+            cancellationToken);
+
+    private async Task<SurveyArchivePageViewModel> GetAdminArchivedSurveyPageAsync(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds,
+        string? surveyIds,
+        string? year,
+        string? month,
+        string? dateFrom,
+        string? dateTo,
+        bool isTemplate,
+        CancellationToken cancellationToken)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var selectedOrganizationIds = ParseArchiveSelectedIds(organizationIds);
-        var selectedSurveyIds = ParseArchiveSelectedIds(surveyIds);
+        var selectedSurveyIds = isTemplate
+            ? Array.Empty<int>()
+            : ParseArchiveSelectedIds(surveyIds);
         var bounds = ResolveDateBounds(year, month, dateFrom, dateTo);
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeSurveyArchiveSortField(hasExplicitSort ? sortBy : null);
@@ -33,16 +84,22 @@ public partial class SurveyService
             : NormalizeSurveyArchiveSortDirection(null, normalizedSortBy);
 
         var organizationOptions = BuildArchiveSelectionOptions(
-            await _surveyRepository.GetArchivedOrganizationOptionsAsync(connection, cancellationToken));
-        var surveyOptions = SurveyFilterOptions.Build(
-            await _surveyRepository.GetArchivedSurveyOptionsAsync(connection, cancellationToken));
-        selectedSurveyIds = SurveyFilterOptions.ExpandSelectedIds(selectedSurveyIds, surveyOptions);
+            await _surveyRepository.GetArchivedOrganizationOptionsAsync(connection, isTemplate, cancellationToken));
+        var surveyOptions = isTemplate
+            ? Array.Empty<SelectionOption>()
+            : SurveyFilterOptions.Build(
+                await _surveyRepository.GetArchivedSurveyOptionsAsync(connection, false, cancellationToken));
+        if (!isTemplate)
+        {
+            selectedSurveyIds = SurveyFilterOptions.ExpandSelectedIds(selectedSurveyIds, surveyOptions);
+        }
         var totalCount = await _surveyRepository.CountArchivedSurveysAsync(
             connection,
             selectedOrganizationIds,
             selectedSurveyIds,
             bounds.Start,
             bounds.End,
+            isTemplate,
             cancellationToken);
         var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
         var pageRows = await _surveyRepository.GetArchivedSurveyPageAsync(
@@ -55,11 +112,13 @@ public partial class SurveyService
             normalizedSortDirection,
             pageWindow.PageSize,
             pageWindow.Offset,
+            isTemplate,
             cancellationToken);
 
         return new SurveyArchivePageViewModel
         {
             SurveyRows = pageRows.Select(MapSurveyArchiveTablePageRow).ToList(),
+            IsTemplateSection = isTemplate,
             CurrentPage = pageWindow.CurrentPage,
             TotalPages = pageWindow.TotalPages,
             TotalCount = pageWindow.TotalCount,
@@ -69,10 +128,10 @@ public partial class SurveyService
             SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
             FilterState = new ServerTableFilterStateViewModel
             {
-                BasePath = "/surveys/archive",
+                BasePath = isTemplate ? "/survey-templates/archive" : "/surveys/archive",
                 EnableDateFilter = true,
                 EnableOrganizationFilter = true,
-                EnableSurveyFilter = true,
+                EnableSurveyFilter = !isTemplate,
                 OrganizationOptions = organizationOptions,
                 SelectedOrganizationIds = selectedOrganizationIds,
                 SurveyOptions = surveyOptions,

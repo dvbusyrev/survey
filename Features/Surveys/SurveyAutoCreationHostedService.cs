@@ -5,7 +5,6 @@ namespace MainProject.Application.UseCases.Admin;
 
 public sealed class SurveyAutoCreationHostedService : BackgroundService
 {
-    private static readonly TimeSpan RunInterval = TimeSpan.FromHours(1);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<SurveyAutoCreationHostedService> _logger;
 
@@ -23,9 +22,10 @@ public sealed class SurveyAutoCreationHostedService : BackgroundService
         {
             await RunPendingAsync(stoppingToken);
 
-            using var timer = new PeriodicTimer(RunInterval);
-            while (await timer.WaitForNextTickAsync(stoppingToken))
+            while (!stoppingToken.IsCancellationRequested)
             {
+                var delayUntilMidnight = DateTime.Today.AddDays(1) - DateTime.Now;
+                await Task.Delay(delayUntilMidnight, stoppingToken);
                 await RunPendingAsync(stoppingToken);
             }
         }

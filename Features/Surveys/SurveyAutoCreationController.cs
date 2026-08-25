@@ -28,14 +28,14 @@ public class SurveyAutoCreationController : Controller
         return View("~/Views/Survey/view_auto_creation.cshtml", model);
     }
 
-    [HttpGet("settings/survey-creation/surveys")]
-    [HttpGet("survey-auto-creation/surveys")]
-    public async Task<IActionResult> GetSurveyOptions(CancellationToken cancellationToken)
+    [HttpGet("settings/survey-creation/templates")]
+    [HttpGet("survey-auto-creation/templates")]
+    public async Task<IActionResult> GetTemplateOptions(CancellationToken cancellationToken)
     {
-        var surveys = (await _surveyAutoCreationService.GetSurveyOptionsAsync(cancellationToken))
-            .Select(static survey => new { id = survey.Id, name = survey.Name })
+        var templates = (await _surveyAutoCreationService.GetTemplateOptionsAsync(cancellationToken))
+            .Select(static template => new { id = template.Id, name = template.Name })
             .ToArray();
-        return Json(surveys);
+        return Json(templates);
     }
 
     [HttpPost("settings/survey-creation/preview")]
@@ -89,12 +89,12 @@ public class SurveyAutoCreationController : Controller
             return this.SafeError(
                 ex,
                 ProductionCalendarUnavailableException.UserMessage,
-                "Производственный календарь недоступен при сохранении автосоздания анкет",
+                "Производственный календарь недоступен при применении настроек автосоздания анкет",
                 StatusCodes.Status503ServiceUnavailable);
         }
         catch (Exception ex)
         {
-            return this.SafeError(ex, "Не удалось сохранить настройки автосоздания анкет.", "Ошибка при сохранении настроек автосоздания анкет");
+            return this.SafeError(ex, "Не удалось применить настройки автосоздания анкет.", "Ошибка при применении настроек автосоздания анкет");
         }
     }
 

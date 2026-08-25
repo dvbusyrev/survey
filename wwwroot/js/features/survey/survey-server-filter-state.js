@@ -89,6 +89,11 @@
     }
 
     function getTabName(page) {
+        const configuredTab = String(page?.dataset?.listTab || '').trim();
+        if (configuredTab) {
+            return configuredTab;
+        }
+
         switch (page?.dataset?.page) {
             case 'surveys-list':
                 return 'get_surveys';

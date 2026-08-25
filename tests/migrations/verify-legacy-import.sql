@@ -121,12 +121,11 @@ BEGIN
 
     IF NOT EXISTS (
         SELECT 1
-        FROM public.answer_participant
+        FROM public.answer
         WHERE id_answer = imported_answer_id
           AND id_user = imported_user_id
-          AND participation_type = 'legacy'
     ) THEN
-        RAISE EXCEPTION 'The legacy answer participant was not imported correctly.';
+        RAISE EXCEPTION 'The legacy answer submitter was not imported correctly.';
     END IF;
 
     SELECT id_organization

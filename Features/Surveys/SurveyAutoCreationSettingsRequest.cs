@@ -5,7 +5,7 @@ public sealed class SurveyAutoCreationSettingsRequest
     public string ReportingPeriod { get; set; } = "month";
     public int ReportingOffsetBusinessDays { get; set; } = 1;
     public int ActivePeriodBusinessDays { get; set; } = 8;
-    public List<int> SurveyIds { get; set; } = new();
+    public List<int> TemplateIds { get; set; } = new();
 }
 
 public sealed class SurveyAutoCreationPreviewRequest

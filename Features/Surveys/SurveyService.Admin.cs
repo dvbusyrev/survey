@@ -50,20 +50,58 @@ public partial class SurveyService
         string? sortBy,
         string? sortDirection,
         string? organizationIds,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await GetAdminSurveyPageAsync(
+            currentPage,
+            sortBy,
+            sortDirection,
+            organizationIds,
+            false,
+            cancellationToken);
+
+    public async Task<SurveyListPageViewModel> GetSurveyTemplatesPageAsync(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds,
+        CancellationToken cancellationToken = default) =>
+        await GetAdminSurveyPageAsync(
+            currentPage,
+            sortBy,
+            sortDirection,
+            organizationIds,
+            true,
+            cancellationToken);
+
+    private async Task<SurveyListPageViewModel> GetAdminSurveyPageAsync(
+        int currentPage,
+        string? sortBy,
+        string? sortDirection,
+        string? organizationIds,
+        bool isTemplate,
+        CancellationToken cancellationToken)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var selectedOrganizationIds = ParseSelectedIds(organizationIds);
         var hasExplicitSort = AppSortState.HasExplicitSort(sortBy);
         var normalizedSortBy = NormalizeSurveySortField(hasExplicitSort ? sortBy : null);
+        if (!isTemplate && normalizedSortBy == SurveyListSortFields.AutoCreation)
+        {
+            normalizedSortBy = SurveyListSortFields.Default;
+            hasExplicitSort = false;
+        }
         var normalizedSortDirection = hasExplicitSort
             ? AppSortState.NormalizeExplicitDirection(sortDirection)
             : NormalizeSurveySortDirection(null, normalizedSortBy);
 
         var organizationOptions = BuildSelectionOptions(
-            await _surveyRepository.GetActiveOrganizationOptionsAsync(connection, cancellationToken));
-        var totalCount = await _surveyRepository.CountActiveSurveysAsync(connection, selectedOrganizationIds, cancellationToken);
+            await _surveyRepository.GetActiveOrganizationOptionsAsync(connection, isTemplate, cancellationToken));
+        var totalCount = await _surveyRepository.CountActiveSurveysAsync(
+            connection,
+            selectedOrganizationIds,
+            isTemplate,
+            cancellationToken);
         var pageWindow = AppListPaging.CreateWindow(totalCount, currentPage);
         var pageRows = await _surveyRepository.GetActiveSurveyPageAsync(
             connection,
@@ -72,11 +110,13 @@ public partial class SurveyService
             normalizedSortDirection,
             pageWindow.PageSize,
             pageWindow.Offset,
+            isTemplate,
             cancellationToken);
 
         return new SurveyListPageViewModel
         {
             SurveyRows = pageRows.Select(MapSurveyTablePageRow).ToList(),
+            IsTemplateSection = isTemplate,
             CurrentPage = pageWindow.CurrentPage,
             TotalPages = pageWindow.TotalPages,
             TotalCount = pageWindow.TotalCount,
@@ -86,7 +126,7 @@ public partial class SurveyService
             SortDirection = hasExplicitSort ? normalizedSortDirection : string.Empty,
             FilterState = new ServerTableFilterStateViewModel
             {
-                BasePath = "/surveys",
+                BasePath = isTemplate ? "/survey-templates" : "/surveys",
                 EnableOrganizationFilter = true,
                 OrganizationOptions = organizationOptions,
                 SelectedOrganizationIds = selectedOrganizationIds
@@ -102,10 +142,34 @@ public partial class SurveyService
         return surveys;
     }
 
+    public async Task<IReadOnlyList<SelectionOption>> GetActiveSurveyTemplateOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        return BuildSelectionOptions(
+            await _surveyRepository.GetActiveSurveyTemplateOptionsAsync(connection, cancellationToken));
+    }
+
     public async Task<SurveyCommandResult> CreateSurveyAsync(SurveyAddRequest? request, CancellationToken cancellationToken = default)
+    {
+        return await CreateSurveyAsync(request, false, cancellationToken);
+    }
+
+    public async Task<SurveyCommandResult> CreateSurveyTemplateAsync(
+        SurveyAddRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        return await CreateSurveyAsync(request, true, cancellationToken);
+    }
+
+    private async Task<SurveyCommandResult> CreateSurveyAsync(
+        SurveyAddRequest? request,
+        bool isTemplate,
+        CancellationToken cancellationToken)
     {
         if (!TryValidateCreateRequest(
                 request,
+                isTemplate,
                 out var title,
                 out var description,
                 out var startDate,
@@ -125,38 +189,96 @@ public partial class SurveyService
 
         try
         {
-            var newSurveyId = await _surveyRepository.CreateSurveyAsync(
-                connection,
-                transaction,
-                title,
-                description,
-                startDate,
-                endDate,
-                cancellationToken);
+            var newSurveyId = isTemplate
+                ? await _surveyRepository.CreateSurveyTemplateAsync(
+                    connection,
+                    transaction,
+                    title,
+                    description,
+                    startDate,
+                    endDate,
+                    cancellationToken)
+                : await _surveyRepository.CreateSurveyAsync(
+                    connection,
+                    transaction,
+                    title,
+                    description,
+                    startDate,
+                    endDate!.Value,
+                    cancellationToken);
 
-            await _surveyRepository.ReplaceSurveyQuestionsAsync(
-                connection,
-                transaction,
-                newSurveyId,
-                questionRows.Select(question => new SurveyQuestionItem
-                {
-                    Id = question.QuestionOrder,
-                    Text = question.QuestionText
-                }).ToArray(), cancellationToken);
-            await _surveyRepository.UpsertSurveyAssignmentsAsync(
-                connection,
-                transaction,
-                newSurveyId,
-                organizationIds,
-                startDate,
-                endDate,
-                cancellationToken);
+            var questions = questionRows.Select(question => new SurveyQuestionItem
+            {
+                Id = question.QuestionOrder,
+                Text = question.QuestionText
+            }).ToArray();
+
+            if (isTemplate)
+            {
+                await _surveyRepository.ReplaceSurveyTemplateQuestionsAsync(
+                    connection,
+                    transaction,
+                    newSurveyId,
+                    questions,
+                    cancellationToken);
+                await _surveyRepository.UpsertSurveyTemplateAssignmentsAsync(
+                    connection,
+                    transaction,
+                    newSurveyId,
+                    organizationIds,
+                    cancellationToken);
+                await GetOrCreateConfigurationAsync(
+                    connection,
+                    transaction,
+                    cancellationToken,
+                    lockRow: false);
+                await _surveyRepository.SetSurveyTemplateAutoCreationAsync(
+                    connection,
+                    transaction,
+                    SingletonConfigId,
+                    newSurveyId,
+                    request!.IsAutoCreationEnabled,
+                    cancellationToken);
+            }
+            else
+            {
+                await _surveyRepository.ReplaceSurveyQuestionsAsync(
+                    connection,
+                    transaction,
+                    newSurveyId,
+                    questions,
+                    cancellationToken);
+                await _surveyRepository.UpsertSurveyAssignmentsAsync(
+                    connection,
+                    transaction,
+                    newSurveyId,
+                    organizationIds,
+                    startDate,
+                    endDate!.Value,
+                    cancellationToken);
+            }
             await transaction.CommitAsync(cancellationToken);
+
+            var createdByAutoCreation = isTemplate && request!.IsAutoCreationEnabled
+                ? await TryRunPendingAfterTemplateSelectionAsync(cancellationToken)
+                : 0;
+
+            var successMessage = isTemplate
+                ? "Шаблон успешно создан."
+                : "Анкета успешно создана.";
+            if (isTemplate && request!.IsAutoCreationEnabled)
+            {
+                successMessage += " Шаблон успешно добавлен в автосоздание.";
+            }
+            if (createdByAutoCreation > 0)
+            {
+                successMessage += $" Создано анкет: {createdByAutoCreation}.";
+            }
 
             return new SurveyCommandResult
             {
                 Success = true,
-                Message = "Анкета успешно создана.",
+                Message = successMessage,
                 SurveyId = newSurveyId
             };
         }
@@ -182,6 +304,10 @@ public partial class SurveyService
 
         var allOrganization = await _surveyRepository.GetAvailableOrganizationsForSurveyAsync(connection, id, cancellationToken);
         var selectedOrganization = await _surveyRepository.GetSelectedOrganizationsForSurveyAsync(connection, id, cancellationToken);
+        var answeredOrganizationIds = await _surveyRepository.GetAnsweredOrganizationIdsForSurveyAsync(
+            connection,
+            id,
+            cancellationToken: cancellationToken);
 
         return new SurveyEditPageViewModel
         {
@@ -189,7 +315,45 @@ public partial class SurveyService
             AllOrganization = allOrganization,
             SelectedOrganizationIds = selectedOrganization.Select(o => o.Id).ToList(),
             SelectedOrganizationNames = selectedOrganization.Select(o => o.Name).ToList(),
-            Criteria = await _surveyRepository.GetSurveyCriteriaAsync(connection, id, cancellationToken)
+            AnsweredOrganizationIds = answeredOrganizationIds,
+            Criteria = await _surveyRepository.GetSurveyCriteriaAsync(connection, id, cancellationToken),
+            HasAnswers = answeredOrganizationIds.Count > 0
+        };
+    }
+
+    public async Task<SurveyEditPageViewModel?> GetSurveyTemplateEditPageAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var template = await _surveyRepository.GetSurveyTemplateWithScheduleAsync(connection, id, cancellationToken);
+        if (template == null)
+        {
+            return null;
+        }
+
+        var organizations = await _surveyRepository.GetAvailableOrganizationsForSurveyTemplateAsync(
+            connection,
+            id,
+            cancellationToken);
+        var selectedOrganizations = await _surveyRepository.GetSelectedOrganizationsForSurveyTemplateAsync(
+            connection,
+            id,
+            cancellationToken);
+
+        return new SurveyEditPageViewModel
+        {
+            Survey = template,
+            AllOrganization = organizations,
+            SelectedOrganizationIds = selectedOrganizations.Select(item => item.Id).ToList(),
+            SelectedOrganizationNames = selectedOrganizations.Select(item => item.Name).ToList(),
+            Criteria = await _surveyRepository.GetSurveyTemplateCriteriaAsync(connection, id, cancellationToken),
+            HasAnswers = false,
+            IsAutoCreationEnabled = await _surveyRepository.IsSurveyTemplateSelectedForAutoCreationAsync(
+                connection,
+                null,
+                id,
+                cancellationToken)
         };
     }
 
@@ -212,10 +376,24 @@ public partial class SurveyService
     public async Task<SurveyCommandResult> UpdateSurveyAsync(
         int id,
         SurveyUpdateRequest? model,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await UpdateSurveyAsync(id, model, false, cancellationToken);
+
+    public async Task<SurveyCommandResult> UpdateSurveyTemplateAsync(
+        int id,
+        SurveyUpdateRequest? model,
+        CancellationToken cancellationToken = default) =>
+        await UpdateSurveyAsync(id, model, true, cancellationToken);
+
+    private async Task<SurveyCommandResult> UpdateSurveyAsync(
+        int id,
+        SurveyUpdateRequest? model,
+        bool isTemplate,
+        CancellationToken cancellationToken)
     {
         if (!TryValidateUpdateRequest(
                 model,
+                isTemplate,
                 out var title,
                 out var description,
                 out var startDate,
@@ -235,15 +413,105 @@ public partial class SurveyService
 
         try
         {
-            var affectedRows = await _surveyRepository.UpdateSurveyAsync(
-                connection,
-                transaction,
-                id,
-                title,
-                description,
-                startDate,
-                endDate,
-                cancellationToken);
+            var currentSurvey = isTemplate
+                ? await _surveyRepository.GetSurveyTemplateByIdAsync(
+                    connection,
+                    transaction,
+                    id,
+                    cancellationToken)
+                : await _surveyRepository.GetSurveyByIdAsync(
+                    connection,
+                    transaction,
+                    id,
+                    cancellationToken);
+            if (currentSurvey == null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new SurveyCommandResult
+                {
+                    NotFound = true,
+                    Message = isTemplate ? "Шаблон не найден." : "Анкета не найдена."
+                };
+            }
+
+            var wasTemplateSelectedForAutoCreation = isTemplate
+                && await _surveyRepository.IsSurveyTemplateSelectedForAutoCreationAsync(
+                    connection,
+                    transaction,
+                    id,
+                    cancellationToken);
+            var isTemplateSelectedForAutoCreation = false;
+
+            var currentQuestions = isTemplate
+                ? await _surveyRepository.GetSurveyTemplateQuestionsAsync(
+                    connection,
+                    transaction,
+                    id,
+                    cancellationToken)
+                : await _surveyRepository.GetSurveyQuestionsAsync(
+                    connection,
+                    transaction,
+                    id,
+                    cancellationToken);
+            var answeredOrganizationIds = isTemplate
+                ? Array.Empty<int>()
+                : await _surveyRepository.GetAnsweredOrganizationIdsForSurveyAsync(
+                    connection,
+                    id,
+                    transaction,
+                    cancellationToken);
+            var requestedCriteria = questionRows
+                .OrderBy(question => question.QuestionOrder)
+                .Select(question => question.QuestionText)
+                .ToArray();
+            var currentCriteria = currentQuestions
+                .OrderBy(question => question.Id)
+                .Select(question => question.Text?.Trim() ?? string.Empty)
+                .ToArray();
+            var criteriaChanged = !currentCriteria.SequenceEqual(requestedCriteria, StringComparer.Ordinal);
+
+            if (answeredOrganizationIds.Count > 0 && criteriaChanged)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new SurveyCommandResult
+                {
+                    Message = "Нельзя изменить критерии: по анкете уже есть ответы."
+                };
+            }
+
+            var removedAnsweredOrganizations = answeredOrganizationIds
+                .Except(organizationIds)
+                .ToArray();
+            if (removedAnsweredOrganizations.Length > 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new SurveyCommandResult
+                {
+                    Message = removedAnsweredOrganizations.Length == 1
+                        ? "Нельзя отменить назначение организации: по анкете уже есть ответ."
+                        : "Нельзя отменить назначение организаций: по анкете уже есть ответы."
+                };
+            }
+
+            var affectedRows = isTemplate
+                ? await _surveyRepository.UpdateSurveyTemplateAsync(
+                    connection,
+                    transaction,
+                    id,
+                    title,
+                    description,
+                    startDate,
+                    endDate,
+                    cancellationToken)
+                : await _surveyRepository.UpdateSurveyAsync(
+                    connection,
+                    transaction,
+                    id,
+                    title,
+                    description,
+                    startDate,
+                    endDate!.Value,
+                    cancellationToken);
 
             if (affectedRows == 0)
             {
@@ -251,34 +519,95 @@ public partial class SurveyService
                 return new SurveyCommandResult
                 {
                     NotFound = true,
-                    Message = "Анкета не найдена."
+                    Message = isTemplate ? "Шаблон не найден." : "Анкета не найдена."
                 };
             }
 
-            await _surveyRepository.ReplaceSurveyQuestionsAsync(
-                connection,
-                transaction,
-                id,
-                questionRows.Select(question => new SurveyQuestionItem
+            if (criteriaChanged)
+            {
+                var questions = questionRows.Select(question => new SurveyQuestionItem
                 {
                     Id = question.QuestionOrder,
                     Text = question.QuestionText
-                }).ToArray(),
-                cancellationToken);
-            await _surveyRepository.ReplaceSurveyOrganizationsPreservingSchedulesAsync(
-                connection,
-                transaction,
-                id,
-                organizationIds,
-                startDate,
-                endDate,
-                cancellationToken);
+                }).ToArray();
+                if (isTemplate)
+                {
+                    await _surveyRepository.ReplaceSurveyTemplateQuestionsAsync(
+                        connection,
+                        transaction,
+                        id,
+                        questions,
+                        cancellationToken);
+                }
+                else
+                {
+                    await _surveyRepository.ReplaceSurveyQuestionsAsync(
+                        connection,
+                        transaction,
+                        id,
+                        questions,
+                        cancellationToken);
+                }
+            }
+            if (isTemplate)
+            {
+                await _surveyRepository.ReplaceSurveyTemplateOrganizationsAsync(
+                    connection,
+                    transaction,
+                    id,
+                    organizationIds,
+                    cancellationToken);
+                await GetOrCreateConfigurationAsync(
+                    connection,
+                    transaction,
+                    cancellationToken,
+                    lockRow: false);
+                var templateIsActive = startDate.Date <= _clock.Today.Date
+                    && (!endDate.HasValue || endDate.Value.Date >= _clock.Today.Date);
+                isTemplateSelectedForAutoCreation = templateIsActive && model!.IsAutoCreationEnabled;
+                await _surveyRepository.SetSurveyTemplateAutoCreationAsync(
+                    connection,
+                    transaction,
+                    SingletonConfigId,
+                    id,
+                    isTemplateSelectedForAutoCreation,
+                    cancellationToken);
+            }
+            else
+            {
+                await _surveyRepository.ReplaceSurveyOrganizationsPreservingSchedulesAsync(
+                    connection,
+                    transaction,
+                    id,
+                    organizationIds,
+                    startDate,
+                    endDate!.Value,
+                    cancellationToken);
+            }
             await transaction.CommitAsync(cancellationToken);
+
+            var createdByAutoCreation = isTemplate && isTemplateSelectedForAutoCreation
+                ? await TryRunPendingAfterTemplateSelectionAsync(cancellationToken)
+                : 0;
+
+            var successMessage = isTemplate
+                ? "Шаблон успешно обновлён."
+                : "Анкета успешно обновлена.";
+            if (isTemplate && wasTemplateSelectedForAutoCreation != isTemplateSelectedForAutoCreation)
+            {
+                successMessage += isTemplateSelectedForAutoCreation
+                    ? " Шаблон успешно добавлен в автосоздание."
+                    : " Шаблон успешно удалён из автосоздания.";
+            }
+            if (createdByAutoCreation > 0)
+            {
+                successMessage += $" Создано анкет: {createdByAutoCreation}.";
+            }
 
             return new SurveyCommandResult
             {
                 Success = true,
-                Message = "Анкета успешно обновлена.",
+                Message = successMessage,
                 SurveyId = id
             };
         }
@@ -289,9 +618,31 @@ public partial class SurveyService
         }
     }
 
+    private async Task<int> TryRunPendingAfterTemplateSelectionAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await RunPendingAsync(cancellationToken);
+            return result.Processed ? result.CreatedSurveyCount : 0;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Не удалось выполнить автосоздание сразу после изменения шаблона. Фоновая служба повторит попытку.");
+            return 0;
+        }
+    }
+
     public async Task<SurveyCommandResult> UpdateActiveSurveysWorkPeriodAsync(
         SurveyWorkPeriodRequest? request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        await UpdateActiveSurveyWorkPeriodAsync(request, false, cancellationToken);
+
+    private async Task<SurveyCommandResult> UpdateActiveSurveyWorkPeriodAsync(
+        SurveyWorkPeriodRequest? request,
+        bool isTemplate,
+        CancellationToken cancellationToken)
     {
         if (request == null)
         {
@@ -335,6 +686,7 @@ public partial class SurveyService
                 transaction,
                 request.DateBegin,
                 request.DateEnd,
+                isTemplate,
                 cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
@@ -343,8 +695,8 @@ public partial class SurveyService
             {
                 Success = true,
                 Message = affectedSurveyCount == 0
-                    ? "Активные анкеты не найдены."
-                    : "Период работы активных анкет сохранён."
+                    ? isTemplate ? "Активные шаблоны не найдены." : "Активные анкеты не найдены."
+                    : isTemplate ? "Период работы активных шаблонов сохранён." : "Период работы активных анкет сохранён."
             };
         }
         catch
@@ -843,7 +1195,9 @@ public partial class SurveyService
         {
             var survey = await connection.QueryFirstOrDefaultAsync<SurveyDeletionCandidate>(new CommandDefinition(
                 """
-                SELECT id_survey AS SurveyId, name_survey AS SurveyName
+                SELECT
+                    id_survey AS SurveyId,
+                    name_survey AS SurveyName
                 FROM public.survey
                 WHERE id_survey = @SurveyId
                 FOR UPDATE;
@@ -938,6 +1292,51 @@ public partial class SurveyService
                 Success = false,
                 Message = $"Нельзя удалить анкету \"{surveyId}\": она связана с сохранёнными данными.",
                 Code = "survey_in_use"
+            };
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<OperationResult> DeleteSurveyTemplateAsync(
+        int templateId,
+        CancellationToken cancellationToken = default)
+    {
+        if (templateId <= 0)
+        {
+            return new OperationResult
+            {
+                Message = "Некорректный идентификатор шаблона.",
+                Code = "survey_template_not_found"
+            };
+        }
+
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            if (!await _surveyRepository.DeleteSurveyTemplateAsync(
+                    connection,
+                    transaction,
+                    templateId,
+                    cancellationToken))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OperationResult
+                {
+                    Message = "Шаблон не найден.",
+                    Code = "survey_template_not_found"
+                };
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return new OperationResult
+            {
+                Success = true,
+                Message = "Шаблон успешно удалён."
             };
         }
         catch

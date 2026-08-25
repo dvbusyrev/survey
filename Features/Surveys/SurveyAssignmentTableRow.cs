@@ -12,4 +12,5 @@ public sealed class SurveyAssignmentTableRow
     public string[]? OrganizationNames { get; init; }
     public bool IsExtension { get; init; }
     public int? ExtensionOrganizationId { get; init; }
+    public bool IsAutoCreationEnabled { get; init; }
 }

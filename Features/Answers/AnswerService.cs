@@ -114,24 +114,21 @@ public partial class AnswerService
         int organizationId,
         string signature,
         byte[]? signedContent,
-        int userId,
         CancellationToken cancellationToken = default)
-        => _answerRepository.TrySaveAnswerSignatureAsync(surveyId, organizationId, signature, signedContent, userId, cancellationToken);
+        => _answerRepository.TrySaveAnswerSignatureAsync(surveyId, organizationId, signature, signedContent, cancellationToken);
 
     private Task<AnswerStorageResult> SaveDraftRecordAsync(
         AnswerRecord answerRecord,
-        int userId,
         CancellationToken cancellationToken = default)
-        => _answerRepository.SaveDraftAsync(answerRecord, userId, cancellationToken);
+        => _answerRepository.SaveDraftAsync(answerRecord, cancellationToken);
 
     private Task<AnswerStorageResult> UpdateDraftSignatureAsync(
         int surveyId,
         int organizationId,
         string signature,
         byte[]? signedContent,
-        int userId,
         CancellationToken cancellationToken = default)
-        => _answerRepository.TrySaveDraftSignatureAsync(surveyId, organizationId, signature, signedContent, userId, cancellationToken);
+        => _answerRepository.TrySaveDraftSignatureAsync(surveyId, organizationId, signature, signedContent, cancellationToken);
 
     private int GetRequiredCurrentUserId()
         => UserId ?? throw new InvalidOperationException("Не удалось определить текущего пользователя.");

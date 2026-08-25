@@ -140,8 +140,16 @@
                     <div class="app-field-group theme-settings-page__form-group theme-settings-page__form-group--effects">
                         <label>Эффекты</label>
                         <div class="app-multiselect app-checkbox-dropdown app-multiselect--inline app-checkbox-dropdown--inline theme-settings-page__effects-picker">
-                            <div class="app-field theme-settings-page__selected-effects" id="theme-effects-summary" aria-live="polite">
-                                <span class="app-field-placeholder theme-settings-page__empty-selection">Эффекты не выбраны</span>
+                            <div class="app-multi-value-field">
+                                <div class="app-field theme-settings-page__selected-effects" id="theme-effects-summary" aria-live="polite">
+                                    <span class="app-field-placeholder theme-settings-page__empty-selection">Эффекты не выбраны</span>
+                                </div>
+                                <button type="button"
+                                        class="app-multi-value-clear is-hidden"
+                                        id="theme-effects-clear"
+                                        aria-label="Очистить выбранные эффекты">
+                                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                                </button>
                             </div>
                             <button type="button"
                                     class="app-button app-button--primary theme-settings-page__field-button theme-settings-page__effects-trigger"

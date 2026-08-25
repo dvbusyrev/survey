@@ -66,7 +66,7 @@ public partial class AnswerService
         }
 
         var storageResult = await UpdateSignatureAsync(
-            surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken);
+            surveyId, organizationId, signature, signedContent, cancellationToken);
         if (storageResult.SubmissionClosed)
         {
             throw new AnswerSigningClosedException();
@@ -130,7 +130,7 @@ public partial class AnswerService
         }
 
         var storageResult = await UpdateDraftSignatureAsync(
-            surveyId, organizationId, signature, signedContent, GetRequiredCurrentUserId(), cancellationToken);
+            surveyId, organizationId, signature, signedContent, cancellationToken);
         if (storageResult.SubmissionClosed)
         {
             throw new AnswerSigningClosedException();

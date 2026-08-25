@@ -41,7 +41,7 @@ public sealed class AuditLogServiceTests
             "survey_question_l",
             "answer_item_l",
             "auto_creation_config_l",
-            "survey_auto_creation_config_l",
+            "survey_template_auto_creation_config_l",
             "email_config_l",
             "theme_config_l"
         ]);
@@ -50,7 +50,7 @@ public sealed class AuditLogServiceTests
         Assert.Contains("FROM public.survey_question_l", result);
         Assert.Contains("FROM public.answer_item_l", result);
         Assert.Contains("FROM public.auto_creation_config_l", result);
-        Assert.Contains("FROM public.survey_auto_creation_config_l", result);
+        Assert.Contains("FROM public.survey_template_auto_creation_config_l", result);
         Assert.Contains("FROM public.email_config_l", result);
         Assert.Contains("FROM public.theme_config_l", result);
     }

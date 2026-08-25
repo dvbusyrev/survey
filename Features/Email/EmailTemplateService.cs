@@ -9,6 +9,8 @@ namespace MainProject.Application.UseCases.Admin;
 
 public sealed class EmailTemplateService
 {
+    private const int DefaultConfigId = 1;
+
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly SmtpEmailSender _emailSender;
     private readonly SmtpPasswordProtector _smtpPasswordProtector;
@@ -33,9 +35,10 @@ public sealed class EmailTemplateService
                 subject_text AS Subject,
                 body_text AS Content
             FROM public.email_config
-            ORDER BY date_update DESC, id_config DESC
+            WHERE id_config = @ConfigId
             LIMIT 1;
             """,
+            new { ConfigId = DefaultConfigId },
             cancellationToken: cancellationToken)) ?? new EmailMessageSettings();
     }
 
@@ -56,28 +59,23 @@ public sealed class EmailTemplateService
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            WITH current_config AS
-            (
-                SELECT id_config
-                FROM public.email_config
-                ORDER BY date_update DESC, id_config DESC
-                LIMIT 1
-            ),
-            updated AS
-            (
-                UPDATE public.email_config
-                SET
-                    recipient_emails = @To,
-                    subject_text = @Subject,
-                    body_text = @Content
-                WHERE id_config = (SELECT id_config FROM current_config)
-                RETURNING id_config
-            )
-            INSERT INTO public.email_config (recipient_emails, subject_text, body_text)
-            SELECT @To, @Subject, @Content
-            WHERE NOT EXISTS (SELECT 1 FROM updated);
+            INSERT INTO public.email_config
+                (id_config, recipient_emails, subject_text, body_text)
+            VALUES
+                (@ConfigId, @To, @Subject, @Content)
+            ON CONFLICT (id_config) DO UPDATE
+            SET
+                recipient_emails = EXCLUDED.recipient_emails,
+                subject_text = EXCLUDED.subject_text,
+                body_text = EXCLUDED.body_text;
             """,
-            new { normalized.To, normalized.Subject, normalized.Content },
+            new
+            {
+                ConfigId = DefaultConfigId,
+                normalized.To,
+                normalized.Subject,
+                normalized.Content
+            },
             cancellationToken: cancellationToken));
     }
 
@@ -110,39 +108,29 @@ public sealed class EmailTemplateService
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            WITH current_config AS
-            (
-                SELECT id_config
-                FROM public.email_config
-                ORDER BY date_update DESC, id_config DESC
-                LIMIT 1
-            ),
-            updated AS
-            (
-                UPDATE public.email_config
-                SET
-                    smtp_host = @SmtpHost,
-                    smtp_port = @SmtpPort,
-                    smtp_enable_ssl = @SmtpEnableSsl,
-                    smtp_user_name = @SmtpUserName,
-                    smtp_password = @SmtpPassword,
-                    from_address = @FromAddress,
-                    from_display_name = @FromDisplayName
-                WHERE id_config = (SELECT id_config FROM current_config)
-                RETURNING id_config
-            )
             INSERT INTO public.email_config
             (
-                smtp_host, smtp_port, smtp_enable_ssl,
+                id_config, smtp_host, smtp_port, smtp_enable_ssl,
                 smtp_user_name, smtp_password, from_address, from_display_name
             )
-            SELECT
-                @SmtpHost, @SmtpPort, @SmtpEnableSsl,
+            VALUES
+            (
+                @ConfigId, @SmtpHost, @SmtpPort, @SmtpEnableSsl,
                 @SmtpUserName, @SmtpPassword, @FromAddress, @FromDisplayName
-            WHERE NOT EXISTS (SELECT 1 FROM updated);
+            )
+            ON CONFLICT (id_config) DO UPDATE
+            SET
+                smtp_host = EXCLUDED.smtp_host,
+                smtp_port = EXCLUDED.smtp_port,
+                smtp_enable_ssl = EXCLUDED.smtp_enable_ssl,
+                smtp_user_name = EXCLUDED.smtp_user_name,
+                smtp_password = EXCLUDED.smtp_password,
+                from_address = EXCLUDED.from_address,
+                from_display_name = EXCLUDED.from_display_name;
             """,
             new
             {
+                ConfigId = DefaultConfigId,
                 normalized.SmtpHost,
                 normalized.SmtpPort,
                 normalized.SmtpEnableSsl,
@@ -191,9 +179,10 @@ public sealed class EmailTemplateService
                 from_address AS FromAddress,
                 from_display_name AS FromDisplayName
             FROM public.email_config
-            ORDER BY date_update DESC, id_config DESC
+            WHERE id_config = @ConfigId
             LIMIT 1;
             """,
+            new { ConfigId = DefaultConfigId },
             cancellationToken: cancellationToken));
     }
 

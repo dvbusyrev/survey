@@ -729,6 +729,46 @@ a.btn:focus,
   width: min(22rem, 100%);
 }
 
+.app-multi-value-field {
+  position: relative;
+  min-width: 0;
+}
+
+.app-multi-value-field > .app-field,
+.app-field.app-multi-value-field {
+  padding-right: calc(0.9rem + var(--app-compact-control-size));
+}
+
+.app-multi-value-clear,
+.survey-period-filter__inline-clear {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--app-compact-control-size);
+  height: var(--app-compact-control-size);
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--app-button-radius);
+  cursor: pointer;
+}
+
+.app-multi-value-clear {
+  position: absolute;
+  top: 25%;
+  right: 0.45rem;
+  z-index: 2;
+}
+
+.app-multi-value-clear:hover,
+.survey-period-filter__inline-clear:hover {
+  color: var(--text-main);
+  background: rgba(15, 23, 42, 0.06);
+}
+
 .app-multiselect__trigger,
 .app-checkbox-dropdown__trigger {
   display: inline-flex;

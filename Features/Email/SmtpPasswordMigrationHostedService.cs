@@ -8,6 +8,8 @@ namespace MainProject.Infrastructure.External.Email;
 
 public sealed class SmtpPasswordMigrationHostedService : IHostedService
 {
+    private const int DefaultConfigId = 1;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<SmtpPasswordMigrationHostedService> _logger;
 
@@ -31,8 +33,10 @@ public sealed class SmtpPasswordMigrationHostedService : IHostedService
                 """
                 SELECT id_config AS IdConfig, smtp_password AS Password
                 FROM public.email_config
-                WHERE smtp_password <> '';
+                WHERE id_config = @ConfigId
+                  AND smtp_password <> '';
                 """,
+                new { ConfigId = DefaultConfigId },
                 cancellationToken: cancellationToken))).ToArray();
 
             foreach (var storedPassword in storedPasswords)

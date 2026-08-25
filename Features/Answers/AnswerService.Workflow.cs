@@ -58,7 +58,7 @@ public partial class AnswerService
         }
 
         var storageResult = await SaveDraftRecordAsync(
-            answerRecord, GetRequiredCurrentUserId(), cancellationToken);
+            answerRecord, cancellationToken);
         if (storageResult.SubmissionClosed)
         {
             throw new AnswerSubmissionClosedException();
@@ -175,7 +175,7 @@ public partial class AnswerService
                 IsSigned = true,
                 IsValid = null,
                 Status = "Проверка недоступна",
-                SignedBy = GetSignerDisplayName(null, answer.SignerName),
+                SignedBy = GetSignerDisplayName(null),
                 ValidationMessage = "Подпись сохранена, но её не удалось прочитать."
             };
         }
@@ -188,7 +188,7 @@ public partial class AnswerService
                 IsSigned = true,
                 IsValid = null,
                 Status = "Проверка недоступна",
-                SignedBy = GetSignerDisplayName(null, answer.SignerName),
+                SignedBy = GetSignerDisplayName(null),
                 ValidationMessage = "Подпись сохранена, но проверить её не удалось."
             };
         }
@@ -201,7 +201,7 @@ public partial class AnswerService
             IsSigned = true,
             IsValid = verification.IsValid,
             Status = verification.Status,
-            SignedBy = GetSignerDisplayName(signerCertificate, answer.SignerName),
+            SignedBy = GetSignerDisplayName(signerCertificate),
             Subject = signerCertificate?.Subject ?? string.Empty,
             Issuer = signerCertificate?.Issuer ?? string.Empty,
             SerialNumber = signerCertificate?.SerialNumber ?? string.Empty,
@@ -358,7 +358,7 @@ public partial class AnswerService
             || message.Contains("содержим", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetSignerDisplayName(X509Certificate2? certificate, string? participantName)
+    private static string GetSignerDisplayName(X509Certificate2? certificate)
     {
         if (certificate != null)
         {
@@ -394,9 +394,7 @@ public partial class AnswerService
             }
         }
 
-        return string.IsNullOrWhiteSpace(participantName)
-            ? "Не удалось определить"
-            : participantName.Trim();
+        return "Не удалось определить";
     }
 
     private static string ExtractFirstDistinguishedNameValue(

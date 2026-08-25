@@ -21,6 +21,16 @@
         return page?.dataset?.filterHideCountSummary === 'true';
     }
 
+    function updateInlineClearButton(instance, hasSelection) {
+        const button = instance.refs.inlineClearButton;
+        if (!button) {
+            return;
+        }
+
+        button.disabled = !hasSelection;
+        button.classList.toggle('is-hidden', !hasSelection);
+    }
+
     function getOrganizationFilterLabel(selectedOrganizations) {
         if (!Array.isArray(selectedOrganizations) || selectedOrganizations.length === 0) {
             return 'Фильтр по организациям';
@@ -99,9 +109,11 @@
         if (instance.refs.summary) {
             instance.refs.summary.textContent = summary;
         }
-        instance.refs.clearButton.disabled = instance.state.serverMode
-            ? instance.state.selectedOrganizationIds.length === 0
-            : selectedOrganizations.length === 0;
+        const hasSelection = instance.state.serverMode
+            ? instance.state.selectedOrganizationIds.length > 0
+            : selectedOrganizations.length > 0;
+        instance.refs.clearButton.disabled = !hasSelection;
+        updateInlineClearButton(instance, hasSelection);
     }
 
     function updateSurveyName(instance, visibleCount, totalCount, serverFilters) {
@@ -127,9 +139,11 @@
         if (instance.refs.summary) {
             instance.refs.summary.textContent = summary;
         }
-        instance.refs.clearButton.disabled = instance.state.serverMode
-            ? instance.state.selectedSurveyIds.length === 0
-            : selectedSurveyNames.length === 0;
+        const hasSelection = instance.state.serverMode
+            ? instance.state.selectedSurveyIds.length > 0
+            : selectedSurveyNames.length > 0;
+        instance.refs.clearButton.disabled = !hasSelection;
+        updateInlineClearButton(instance, hasSelection);
     }
 
     window.SurveyFilterSummary = {

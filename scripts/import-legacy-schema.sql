@@ -133,7 +133,16 @@ VALUES
     ('table public.organization_survey', to_regclass('public.organization_survey') IS NOT NULL),
     ('table public.answer', to_regclass('public.answer') IS NOT NULL),
     ('table public.answer_item', to_regclass('public.answer_item') IS NOT NULL),
-    ('table public.answer_participant', to_regclass('public.answer_participant') IS NOT NULL),
+    (
+        'column public.answer.id_user',
+        EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'answer'
+              AND column_name = 'id_user'
+        )
+    ),
     (
         'column public.survey.date_begin',
         EXISTS (
@@ -908,16 +917,20 @@ BEGIN
     FOR source_row IN SELECT * FROM _legacy_response ORDER BY old_id LOOP
         INSERT INTO public.answer (
             id_organization_survey,
+            id_user,
             completion_date,
             csp,
             signed_content
         )
         SELECT
             assignment_map.new_id,
+            user_map.new_id,
             source_row.completion_date,
             signature.signature,
             NULLIF(signature.signed_content, ''::bytea)
         FROM _legacy_assignment_map assignment_map
+        INNER JOIN _legacy_user_map user_map
+          ON user_map.old_id = source_row.old_user_id
         LEFT JOIN _legacy_csp signature
           ON signature.old_id = source_row.old_csp_id
         WHERE assignment_map.old_survey_id = source_row.old_survey_id
@@ -925,11 +938,6 @@ BEGIN
         RETURNING id_answer INTO inserted_id;
 
         INSERT INTO _legacy_response_map VALUES (source_row.old_id, inserted_id);
-
-        INSERT INTO public.answer_participant (id_answer, id_user, participation_type)
-        SELECT inserted_id, user_map.new_id, 'legacy'
-        FROM _legacy_user_map user_map
-        WHERE user_map.old_id = source_row.old_user_id;
     END LOOP;
 END;
 $$;

@@ -24,6 +24,18 @@
   line-height: 1;
 }
 
+.survey-period-filter:has(.survey-period-filter__inline-clear:not(.is-hidden)) .survey-period-filter__trigger {
+  padding-right: calc(0.8rem + var(--app-compact-control-size));
+}
+
+.survey-period-filter__inline-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
 .survey-period-filter__trigger span {
   min-width: 0;
 }
@@ -451,6 +463,82 @@
   margin-top: 0;
 }
 
+.survey-editor-page__template-field {
+  min-width: 0;
+}
+
+.survey-editor-page__template-dropdown {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  width: min(22rem, 100%);
+}
+
+.survey-editor-page__template-dropdown > :is(
+  .app-multiselect__menu,
+  .app-checkbox-dropdown__menu
+) {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  max-width: 100%;
+  margin-top: var(--app-gap-sm);
+  transform: none;
+}
+
+.survey-editor-page__template-option {
+  width: 100%;
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+}
+
+.survey-editor-page__template-option[aria-selected="true"] {
+  border-color: var(--app-theme-button-color);
+}
+
+.survey-editor-page__auto-creation-dropdown {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.survey-editor-page__auto-creation-trigger {
+  width: 100%;
+}
+
+.survey-editor-page__auto-creation-trigger i {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.survey-editor-page__auto-creation-dropdown.is-open .survey-editor-page__auto-creation-trigger i {
+  transform: rotate(180deg);
+}
+
+.survey-editor-page__auto-creation-menu {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  max-width: 100%;
+  margin-top: var(--app-gap-sm);
+  transform: none;
+}
+
+.survey-editor-page__auto-creation-option {
+  width: 100%;
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+}
+
+.survey-editor-page__auto-creation-option[aria-selected="true"] {
+  border-color: var(--app-theme-button-color);
+}
+
 .survey-editor-page__criteria-list {
   display: flex;
   flex-direction: column;
@@ -596,4 +684,8 @@
     gap: var(--app-gap-sm);
   }
 
+}
+.survey-table__auto-creation-column {
+    width: 13rem;
+    text-align: center;
 }

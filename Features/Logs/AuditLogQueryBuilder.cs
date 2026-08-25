@@ -10,7 +10,6 @@ internal static class AuditLogQueryBuilder
         - 'changed_at'
         - 'changed_by_user_id'
         - 'parent_audit_id'
-        - 'date_update'
         """;
 
     public static string? BuildAuditSql(IReadOnlyCollection<string> availableAuditTables)

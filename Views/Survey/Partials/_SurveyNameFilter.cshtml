@@ -1,3 +1,10 @@
+@{
+    var isTemplateSection = ViewData["IsTemplateSection"] as bool? == true;
+    var entityPlural = isTemplateSection ? "шаблонам" : "анкетам";
+    var entityTitle = isTemplateSection ? "Шаблоны" : "Анкеты";
+    var entityGenitive = isTemplateSection ? "шаблонов" : "анкет";
+}
+
 <div class="survey-period-filter" data-role="survey-name-filter">
     <button type="button"
             class="app-button app-button--secondary survey-period-filter__trigger"
@@ -5,22 +12,28 @@
             aria-expanded="false"
             aria-haspopup="dialog">
         <i class="fas fa-clipboard" aria-hidden="true"></i>
-        <span data-role="survey-name-filter-label">Фильтр по анкетам</span>
+        <span data-role="survey-name-filter-label">Фильтр по @entityPlural</span>
+    </button>
+    <button type="button"
+            class="survey-period-filter__inline-clear is-hidden"
+            data-role="survey-name-filter-inline-clear"
+            aria-label="Очистить выбранные @entityGenitive">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
     </button>
 
     <div class="app-dropdown survey-period-filter__popover survey-name-filter__popover is-hidden"
          data-role="survey-name-filter-popover"
          role="dialog"
-         aria-label="Фильтр по анкетам">
+         aria-label="Фильтр по @entityPlural">
         <div class="survey-period-filter__header">
             <div class="survey-period-filter__mode-switch">
-                <span class="survey-period-filter__section-label">Анкеты</span>
+                <span class="survey-period-filter__section-label">@entityTitle</span>
             </div>
 
             <button type="button"
                     class="survey-period-filter__close-button modal-close"
                     data-role="survey-name-filter-close"
-                    aria-label="Закрыть фильтр анкет">
+                    aria-label="Закрыть фильтр @entityGenitive">
                 <i class="fas fa-xmark" aria-hidden="true"></i>
             </button>
         </div>

@@ -8,4 +8,5 @@ public sealed class SurveyAddRequest
     public string EndDate { get; set; } = string.Empty;
     public List<int> Organizations { get; set; } = new();
     public List<string> Criteria { get; set; } = new();
+    public bool IsAutoCreationEnabled { get; set; }
 }

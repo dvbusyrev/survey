@@ -19,12 +19,22 @@
             return String(item?.dataset?.name || item?.querySelector('label')?.textContent || item?.textContent || '').trim();
         }
 
+        function getProtectedIds() {
+            return new Set((document.getElementById('answeredOrganizationIds')?.value || '')
+                .split(',')
+                .map((value) => Number.parseInt(value, 10))
+                .filter(Number.isFinite));
+        }
+
         function syncItem(item, isSelected) {
             if (!item) return;
             item.dataset.selected = isSelected ? 'true' : 'false';
             item.classList.toggle('selected', isSelected);
             const checkbox = item.querySelector('input[type="checkbox"]');
-            if (checkbox) checkbox.checked = isSelected;
+            if (checkbox) {
+                checkbox.checked = isSelected;
+                checkbox.disabled = getProtectedIds().has(Number.parseInt(item.dataset.id || '', 10));
+            }
         }
 
         function ensureDropdownController() {
@@ -166,10 +176,15 @@
             const container = getElementByRole('selected-organizations-container');
             const list = getElementByRole('selected-organizations-list');
             const idsInput = document.getElementById('selectedOrganizationIds');
+            const clearButton = getElementByRole('selected-organizations-clear');
             if (!container || !list) return;
             container.classList.remove('u-hidden');
             list.replaceChildren();
             const selected = state.getSelected();
+            if (clearButton) {
+                clearButton.classList.toggle('is-hidden', selected.length === 0);
+                clearButton.onclick = clear;
+            }
             if (selected.length === 0) {
                 const empty = window.AppUi.createElement('p', {
                     className: 'app-field-placeholder survey-editor-page__empty-selection',
@@ -194,6 +209,9 @@
         function toggle(id, name) {
             const selected = state.getSelected();
             const index = selected.findIndex((organization) => organization.id === id);
+            if (index >= 0 && getProtectedIds().has(id)) {
+                return;
+            }
             if (index < 0) selected.push({ id, name });
             else selected.splice(index, 1);
             state.setSelected(selected);
@@ -202,7 +220,17 @@
         }
 
         function remove(id) {
+            if (getProtectedIds().has(id)) {
+                return;
+            }
             state.setSelected(state.getSelected().filter((organization) => organization.id !== id));
+            updateDisplay();
+            syncList();
+        }
+
+        function clear() {
+            const protectedIds = getProtectedIds();
+            state.setSelected(state.getSelected().filter((organization) => protectedIds.has(organization.id)));
             updateDisplay();
             syncList();
         }
@@ -211,6 +239,6 @@
             ensureDropdownController();
         }
 
-        return { open, close, load, toggle, save: () => { close(); updateDisplay(); }, updateDisplay, remove, getSelected: state.getSelected, setSelected: state.setSelected, syncList, getItemName, resetAvailable: state.resetAvailable, bindDismissal };
+        return { open, close, load, toggle, save: () => { close(); updateDisplay(); }, updateDisplay, remove, clear, getSelected: state.getSelected, setSelected: state.setSelected, syncList, getItemName, resetAvailable: state.resetAvailable, bindDismissal };
     };
 })();

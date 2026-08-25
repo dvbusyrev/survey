@@ -78,4 +78,47 @@ VALUES (
 
 INSERT INTO public.survey_question (id_survey, question_order, question_text)
 VALUES (:smoke_survey_id, 1, 'Smoke question');
+
+INSERT INTO public.survey_template (name_survey_template, description, date_begin, date_end)
+VALUES (
+    'Smoke active template',
+    'Active template used only by browser smoke tests',
+    CURRENT_DATE - 1,
+    CURRENT_DATE + 14
+)
+RETURNING id_survey_template AS smoke_active_template_id \\gset
+
+INSERT INTO public.organization_survey_template (id_organization, id_survey_template)
+VALUES (:smoke_organization_id, :smoke_active_template_id);
+
+INSERT INTO public.survey_template_question (id_survey_template, question_order, question_text)
+VALUES (:smoke_active_template_id, 1, 'Smoke template question');
+
+INSERT INTO public.auto_creation_config (
+    id_config,
+    reporting_period,
+    reporting_offset_business_days,
+    working_period,
+    is_enabled
+)
+VALUES (1, 'month', 1, 8, FALSE)
+ON CONFLICT (id_config) DO UPDATE SET is_enabled = FALSE;
+
+INSERT INTO public.survey_template_auto_creation_config (id_config, id_survey_template)
+VALUES (1, :smoke_active_template_id);
+
+INSERT INTO public.survey_template (name_survey_template, description, date_begin, date_end)
+VALUES (
+    'Smoke archived template',
+    'Archived template used only by browser smoke tests',
+    CURRENT_DATE - 30,
+    CURRENT_DATE - 1
+)
+RETURNING id_survey_template AS smoke_archived_template_id \\gset
+
+INSERT INTO public.organization_survey_template (id_organization, id_survey_template)
+VALUES (:smoke_organization_id, :smoke_archived_template_id);
+
+INSERT INTO public.survey_template_question (id_survey_template, question_order, question_text)
+VALUES (:smoke_archived_template_id, 1, 'Smoke archived template question');
 `);

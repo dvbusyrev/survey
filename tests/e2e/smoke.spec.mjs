@@ -22,6 +22,7 @@ async function login(page, loginName) {
     await page.locator('#password').fill(password);
     await page.getByRole('button', { name: 'Войти', exact: true }).click();
     await expect(page).toHaveURL(/\/survey$/);
+    await page.waitForLoadState('load');
 }
 
 async function expectPastEndDateToast(page) {
@@ -256,9 +257,9 @@ test('администратор проходит основные раздел�
     await expect(page).toHaveURL(/organizationIds=\d+/);
     await expect(page.locator('[data-role="survey-organization-filter-label"]')).toHaveText('Организации: 1');
 
-    await page.locator('[data-role="survey-organization-filter-trigger"]').click();
-    await page.locator('[data-role="survey-organization-filter-clear"]').click();
-    await page.locator('[data-role="survey-organization-filter-close"]').click();
+    const organizationInlineClear = page.locator('[data-role="survey-organization-filter-inline-clear"]');
+    await expect(organizationInlineClear).toBeVisible();
+    await organizationInlineClear.click();
     await expect(page).not.toHaveURL(/organizationIds=/);
 
     await page.locator('[data-click-call="openAddSurveyModal"]').click();
@@ -418,7 +419,7 @@ test('администратор проходит основные раздел�
     await expect(page.locator('[data-page="survey-auto-creation"]')).toBeVisible();
     await page.locator('#surveyAutoCreationReportingOffset').fill('');
     await page.locator('#surveyAutoCreationActivePeriod').fill('');
-    await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+    await page.getByRole('button', { name: 'Применить', exact: true }).click();
     const autoCreationRequiredToast = page.locator('.site-toast--error').last();
     await expect(autoCreationRequiredToast).toContainText('Введите срок подготовки отчёта.');
     await expect(autoCreationRequiredToast).toContainText('Введите срок доступности анкет.');
@@ -660,6 +661,8 @@ test('клиент проходит доступные анкеты, черно�
     await page.locator('[data-role="survey-name-filter-close"]').click();
     await expect(page).toHaveURL(/surveyIds=\d+/);
     await expect(page.locator('[data-role="survey-name-filter-label"]')).toHaveText('Анкеты: 1');
+    const surveyInlineClear = page.locator('[data-role="survey-name-filter-inline-clear"]');
+    await expect(surveyInlineClear).toBeVisible();
 
     const currentMonthIndex = new Date().getMonth();
     const currentMonth = `${new Date().getFullYear()}-${String(currentMonthIndex + 1).padStart(2, '0')}`;

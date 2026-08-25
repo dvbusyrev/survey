@@ -25,7 +25,9 @@ public partial class SurveyService
         }
 
         var config = await GetOrCreateConfigurationAsync(connection, null, cancellationToken, lockRow: false);
-        var selectedSurveys = await _surveyRepository.GetSelectedAutoCreationSurveysAsync(
+        await _surveyRepository.RemoveInactiveAutoCreationTemplatesAsync(
+            connection, null, SingletonConfigId, cancellationToken);
+        var selectedTemplates = await _surveyRepository.GetSelectedAutoCreationTemplatesAsync(
             connection, null, SingletonConfigId, cancellationToken);
 
         return new SurveyAutoCreationPageViewModel
@@ -36,20 +38,20 @@ public partial class SurveyService
             PreviewYear = _clock.Today.Year,
             PreviewMonth = _clock.Today.Month,
             IsEnabled = config.IsEnabled,
-            SelectedSurveys = selectedSurveys
-                .Select(static survey => new SurveyAutoCreationSelectedSurveyViewModel
+            SelectedTemplates = selectedTemplates
+                .Select(static template => new SurveyAutoCreationSelectedTemplateViewModel
                 {
-                    Id = survey.Id,
-                    Name = survey.Name
+                    Id = template.Id,
+                    Name = template.Name
                 })
                 .ToArray()
         };
     }
 
-    public async Task<IReadOnlyList<SurveySelectionItem>> GetSurveyOptionsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<SelectionOption>> GetTemplateOptionsAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        return await _surveyRepository.GetAutoCreationSurveySelectionOptionsAsync(
+        return await _surveyRepository.GetAutoCreationTemplateSelectionOptionsAsync(
             connection,
             cancellationToken);
     }
@@ -143,7 +145,7 @@ public partial class SurveyService
             Success = true,
             Message = "Автосоздание анкет остановлено.",
             IsEnabled = false,
-            SelectedSurveyCount = await _surveyRepository.GetSelectedAutoCreationSurveyCountAsync(connection, SingletonConfigId, cancellationToken)
+            SelectedTemplateCount = await _surveyRepository.GetSelectedAutoCreationTemplateCountAsync(connection, SingletonConfigId, cancellationToken)
         };
     }
 
@@ -162,6 +164,8 @@ public partial class SurveyService
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
         var config = await GetOrCreateConfigurationAsync(connection, transaction, cancellationToken, lockRow: true);
+        await _surveyRepository.RemoveInactiveAutoCreationTemplatesAsync(
+            connection, transaction, SingletonConfigId, cancellationToken);
         if (!config.IsEnabled)
         {
             await transaction.CommitAsync(cancellationToken);
@@ -171,9 +175,9 @@ public partial class SurveyService
             };
         }
 
-        var surveyIdArray = (await _surveyRepository.GetSelectedAutoCreationSurveyIdsAsync(
+        var templateIdArray = (await _surveyRepository.GetSelectedAutoCreationTemplateIdsAsync(
             connection, transaction, SingletonConfigId, cancellationToken)).ToArray();
-        if (surveyIdArray.Length == 0)
+        if (templateIdArray.Length == 0)
         {
             await transaction.CommitAsync(cancellationToken);
             return new SurveyAutoCreationRunResult
@@ -208,12 +212,12 @@ public partial class SurveyService
         }
 
         var createdCount = 0;
-        foreach (var surveyId in surveyIdArray)
+        foreach (var templateId in templateIdArray)
         {
             var created = await CopySurveyTemplateAsync(
                 connection,
                 transaction,
-                surveyId,
+                templateId,
                 schedule.StartDate,
                 schedule.EndDate,
                 cancellationToken);

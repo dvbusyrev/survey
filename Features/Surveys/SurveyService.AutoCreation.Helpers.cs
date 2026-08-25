@@ -35,35 +35,35 @@ public partial class SurveyService
                 "Срок доступности анкет должен быть положительным целым числом.");
         }
 
-        var surveyIds = (request.SurveyIds ?? [])
+        var templateIds = (request.TemplateIds ?? [])
             .Where(static id => id > 0)
             .Distinct()
             .OrderBy(static id => id)
             .ToArray();
-        if (surveyIds.Length == 0)
+        if (templateIds.Length == 0)
         {
-            return InvalidAutoCreationRequest("Выберите хотя бы одну анкету.");
+            return InvalidAutoCreationRequest("Выберите хотя бы один шаблон.");
         }
 
         var availableTemplateIds = await _surveyRepository.GetAvailableAutoCreationTemplateIdsAsync(
             connection,
             transaction,
-            surveyIds,
+            templateIds,
             cancellationToken);
-        if (availableTemplateIds.Count != surveyIds.Length)
+        if (availableTemplateIds.Count != templateIds.Length)
         {
             return InvalidAutoCreationRequest(
-                "Одна или несколько выбранных анкет не найдены или не назначены организациям.");
+                "Один или несколько выбранных шаблонов не найдены, не активны или не назначены организациям.");
         }
 
-        var distinctNameCount = await _surveyRepository.GetDistinctSurveyNameCountAsync(
+        var distinctNameCount = await _surveyRepository.GetDistinctSurveyTemplateNameCountAsync(
             connection,
             transaction,
-            surveyIds,
+            templateIds,
             cancellationToken);
-        if (distinctNameCount != surveyIds.Length)
+        if (distinctNameCount != templateIds.Length)
         {
-            return InvalidAutoCreationRequest("Анкеты с одинаковым названием нельзя выбирать несколько раз.");
+            return InvalidAutoCreationRequest("Шаблоны с одинаковым названием нельзя выбирать несколько раз.");
         }
 
         return new NormalizeSurveyAutoCreationRequestResult
@@ -74,7 +74,7 @@ public partial class SurveyService
                 ReportingPeriod = reportingPeriod,
                 ReportingOffsetBusinessDays = request.ReportingOffsetBusinessDays,
                 ActivePeriodBusinessDays = request.ActivePeriodBusinessDays,
-                SurveyIds = surveyIds.ToList()
+                TemplateIds = templateIds.ToList()
             }
         };
     }
@@ -93,13 +93,6 @@ public partial class SurveyService
             DefaultActivePeriodBusinessDays,
             lockRow,
             cancellationToken);
-
-    private async Task<bool> GetIsEnabledAsync(CancellationToken cancellationToken)
-    {
-        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        var config = await GetOrCreateConfigurationAsync(connection, null, cancellationToken, lockRow: false);
-        return config.IsEnabled;
-    }
 
     private static bool IsValidBusinessDayPeriod(int value)
         => value >= SurveyAutoCreationScheduleHelper.MinBusinessDayPeriod;
@@ -127,27 +120,26 @@ public partial class SurveyService
     private async Task<bool> CopySurveyTemplateAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
-        int surveyId,
+        int templateId,
         DateTime startDate,
         DateTime endDate,
         CancellationToken cancellationToken)
     {
-        var originalSurvey = await _surveyRepository.GetSurveyByIdAsync(
+        var template = await _surveyRepository.GetSurveyTemplateByIdAsync(
             connection,
             transaction,
-            surveyId,
+            templateId,
             cancellationToken);
-        if (originalSurvey == null)
+        if (template == null)
         {
-            throw new InvalidOperationException($"Анкета {surveyId} не найдена для автосоздания.");
+            throw new InvalidOperationException($"Шаблон {templateId} не найден для автосоздания.");
         }
 
-        var alreadyCreated = await _surveyRepository.HasSurveyWithScheduleAsync(
+        var alreadyCreated = await _surveyRepository.HasSurveyForReportingMonthAsync(
             connection,
             transaction,
-            originalSurvey.NameSurvey,
+            template.NameSurvey,
             startDate,
-            endDate,
             cancellationToken);
         if (alreadyCreated)
         {
@@ -157,22 +149,27 @@ public partial class SurveyService
         var newSurveyId = await _surveyRepository.CreateSurveyAsync(
             connection,
             transaction,
-            originalSurvey.NameSurvey,
-            originalSurvey.Description,
+            template.NameSurvey,
+            template.Description,
             startDate,
             endDate,
             cancellationToken);
-        await _surveyRepository.CopySurveyQuestionsAsync(
+        var questions = await _surveyRepository.GetSurveyTemplateQuestionsAsync(
             connection,
             transaction,
-            surveyId,
+            templateId,
+            cancellationToken);
+        await _surveyRepository.ReplaceSurveyQuestionsAsync(
+            connection,
+            transaction,
             newSurveyId,
+            questions,
             cancellationToken);
 
-        var organizationIds = await _surveyRepository.GetOrganizationIdsAsync(
+        var organizationIds = await _surveyRepository.GetOrganizationIdsForSurveyTemplateAsync(
             connection,
             transaction,
-            surveyId,
+            templateId,
             cancellationToken);
         await _surveyRepository.UpsertSurveyAssignmentsAsync(
             connection,

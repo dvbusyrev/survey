@@ -189,7 +189,8 @@
                 popover: root.querySelector(`[data-role="${definition.popoverRole}"]`),
                 options: root.querySelector(`[data-role="${definition.optionsRole}"]`),
                 summary: root.querySelector(`[data-role="${definition.summaryRole}"]`),
-                clearButton: root.querySelector(`[data-role="${definition.clearRole}"]`)
+                clearButton: root.querySelector(`[data-role="${definition.clearRole}"]`),
+                inlineClearButton: root.querySelector(`[data-role="${definition.inlineClearRole}"]`)
             },
             handlers: {},
             dropdownController: null
@@ -253,6 +254,13 @@
             if (target.closest(`[data-role="${definition.clearRole}"]`)) {
                 event.preventDefault();
                 clear(instance, config, callbacks);
+                return;
+            }
+
+            if (target.closest(`[data-role="${definition.inlineClearRole}"]`)) {
+                event.preventDefault();
+                clear(instance, config, callbacks);
+                commitServerFilter();
             }
         };
 
