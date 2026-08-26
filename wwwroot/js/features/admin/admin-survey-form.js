@@ -88,19 +88,26 @@
         closeTemplatePicker();
         selectedTemplateId = null;
         const ancestorField = document.getElementById('plannedTemplateAncestorId');
-        if (ancestorField) ancestorField.value = '';
+        if (ancestorField) {
+            ancestorField.value = '';
+            ancestorField.dataset.dateEnd = '';
+        }
         const label = getTemplatePickerElement('survey-template-dropdown-label');
         if (label) label.textContent = 'Не выбран';
         ensureTemplatePickerController();
     }
 
-    function setParentTemplateSelection(templateId, templateName) {
+    function setParentTemplateSelection(templateId, templateName, templateDateEnd = '') {
         const id = Number.parseInt(String(templateId || ''), 10);
         selectedTemplateId = Number.isFinite(id) && id > 0 ? id : null;
         const ancestorField = document.getElementById('plannedTemplateAncestorId');
         const label = getTemplatePickerElement('survey-template-dropdown-label');
-        if (ancestorField) ancestorField.value = selectedTemplateId ? String(selectedTemplateId) : '';
+        if (ancestorField) {
+            ancestorField.value = selectedTemplateId ? String(selectedTemplateId) : '';
+            ancestorField.dataset.dateEnd = selectedTemplateId ? String(templateDateEnd || '').trim() : '';
+        }
         if (label) label.textContent = selectedTemplateId ? String(templateName || '').trim() : 'Не выбран';
+        configureEditorDateBounds();
     }
 
     function getAutoCreationPickerElement(role) {
@@ -176,9 +183,11 @@
             const context = getSurveyEditorContext();
             prefillSurveyCreateForm(template, {
                 preserveDates: true,
+                fillEmptyOnly: context.isPlannedTemplate,
                 submitLabel: 'Сохранить',
                 ancestorId: context.isPlannedTemplate ? id : null,
-                ancestorName: context.isPlannedTemplate ? templateName : ''
+                ancestorName: context.isPlannedTemplate ? templateName : '',
+                ancestorDateEnd: context.isPlannedTemplate ? template.endDate : ''
             });
             closeTemplatePicker();
         } catch (error) {
@@ -391,7 +400,12 @@
         const tomorrow = new Date();
         tomorrow.setHours(0, 0, 0, 0);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        startDate.min = formatLocalIso(tomorrow);
+        const tomorrowIso = formatLocalIso(tomorrow);
+        const ancestorDateEnd = window.AppDate?.toIso?.(
+            document.getElementById('plannedTemplateAncestorId')?.dataset?.dateEnd || ''
+        ) || '';
+        const firstDateAfterAncestor = addIsoDays(ancestorDateEnd, 1);
+        startDate.min = firstDateAfterAncestor > tomorrowIso ? firstDateAfterAncestor : tomorrowIso;
         startDate.removeAttribute('max');
         endDate.removeAttribute('max');
 
@@ -453,34 +467,51 @@
 
     function prefillSurveyCreateForm(rawTemplate, options = {}) {
         const template = normalizeCopyTemplate(rawTemplate);
+        const fillEmptyOnly = options.fillEmptyOnly === true;
         const preservedStartDate = options.preserveDates
             ? window.AppDate?.getInputIso?.('startDate') || safeGetValue('startDate')
             : '';
         const preservedEndDate = options.preserveDates
             ? window.AppDate?.getInputIso?.('endDate') || safeGetValue('endDate')
             : '';
-        resetSurveyCreateForm();
+        if (!fillEmptyOnly) {
+            resetSurveyCreateForm();
+        }
         setSubmitButtonLabel(options.submitLabel || 'Копировать');
         const title = safeGetElement('surveyTitle');
         const description = safeGetElement('surveyDescription');
-        if (title) title.value = template.title;
-        if (description) description.value = template.description;
-        window.AppDate?.setInputValue?.(
-            'startDate',
-            options.preserveDates ? preservedStartDate : template.startDate
-        );
-        window.AppDate?.setInputValue?.(
-            'endDate',
-            options.preserveDates ? preservedEndDate : template.endDate
-        );
+        if (title && (!fillEmptyOnly || !title.value.trim())) title.value = template.title;
+        if (description && (!fillEmptyOnly || !description.value.trim())) {
+            description.value = template.description;
+        }
+        if (!fillEmptyOnly) {
+            window.AppDate?.setInputValue?.(
+                'startDate',
+                options.preserveDates ? preservedStartDate : template.startDate
+            );
+            window.AppDate?.setInputValue?.(
+                'endDate',
+                options.preserveDates ? preservedEndDate : template.endDate
+            );
+        }
         configureEditorDateBounds();
-        criteria.replace(template.criteria);
-        organizations.setSelected(template.organizations);
-        organizations.updateDisplay();
-        organizations.syncList();
-        setSurveyAutoCreationEnabled(template.isAutoCreationEnabled);
+        if (!fillEmptyOnly || !criteria.values().some((value) => value.trim())) {
+            criteria.replace(template.criteria);
+        }
+        if (!fillEmptyOnly || organizations.getSelected().length === 0) {
+            organizations.setSelected(template.organizations);
+            organizations.updateDisplay();
+            organizations.syncList();
+        }
+        if (!fillEmptyOnly) {
+            setSurveyAutoCreationEnabled(template.isAutoCreationEnabled);
+        }
         if (options.ancestorId) {
-            setParentTemplateSelection(options.ancestorId, options.ancestorName);
+            setParentTemplateSelection(
+                options.ancestorId,
+                options.ancestorName,
+                options.ancestorDateEnd
+            );
         }
     }
 
@@ -525,6 +556,15 @@
             today.setHours(0, 0, 0, 0);
             if (startDate && startDate <= formatLocalIso(today)) {
                 const message = 'Дата начала планового шаблона должна быть позже сегодняшней даты.';
+                window.SurveyAdminValidation?.setFieldError(safeGetElement('startDate'), message);
+                errors.push(message);
+                isValid = false;
+            }
+            const ancestorDateEnd = window.AppDate?.toIso?.(
+                document.getElementById('plannedTemplateAncestorId')?.dataset?.dateEnd || ''
+            ) || '';
+            if (startDate && ancestorDateEnd && startDate <= ancestorDateEnd) {
+                const message = 'Дата начала планового шаблона должна быть позже даты окончания шаблона-родителя.';
                 window.SurveyAdminValidation?.setFieldError(safeGetElement('startDate'), message);
                 errors.push(message);
                 isValid = false;

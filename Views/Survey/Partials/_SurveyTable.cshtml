@@ -20,6 +20,7 @@
     }
 }
 
+<div class="survey-table-scroll">
 <table id="@Model?.TableId"
        class="surveys-table"
        data-role="main-table"
@@ -36,7 +37,9 @@
                 <th class="survey-table__auto-creation-column table-sortable @(string.IsNullOrWhiteSpace(Model?.AutoCreationSortDirection) ? string.Empty : "is-sorted")"
                     data-sort-direction="@Model?.AutoCreationSortDirection"
                     aria-sort="@Model?.AutoCreationAriaSort">
-                    <a class="logs-table__sort-link" href="@Model?.AutoCreationSortUrl">Добавлено в автосоздание</a>
+                    <a class="logs-table__sort-link" href="@Model?.AutoCreationSortUrl">@(isPlannedTemplateSection
+                        ? "Будет добавлено в автосоздание"
+                        : "Добавлено в автосоздание")</a>
                 </th>
             }
             <th class="table-col--date table-sortable @(string.IsNullOrWhiteSpace(Model?.DateBeginSortDirection) ? string.Empty : "is-sorted")"
@@ -208,3 +211,4 @@
         }
     </tbody>
 </table>
+</div>

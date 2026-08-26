@@ -395,6 +395,13 @@
   cursor: pointer;
 }
 
+.survey-table-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border-radius: var(--app-table-radius);
+}
+
 .survey-table__name-cell {
   min-width: 0;
 }
@@ -536,6 +543,9 @@
 }
 
 .survey-editor-page__auto-creation-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-checkbox-list-gap);
   position: static;
   inset: auto;
   z-index: auto;
@@ -659,6 +669,10 @@
 }
 
 @media (max-width: 720px) {
+  .survey-table-scroll .surveys-table {
+    min-width: 47.5rem;
+  }
+
   .survey-list-toolbar {
     align-items: stretch;
   }
@@ -703,6 +717,7 @@
 
 }
 .survey-table__auto-creation-column {
-    width: 13rem;
-    text-align: center;
+  width: 13rem;
+  min-width: 13rem;
+  text-align: center;
 }

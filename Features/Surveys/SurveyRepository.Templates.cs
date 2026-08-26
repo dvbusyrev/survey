@@ -482,6 +482,70 @@ public sealed partial class SurveyRepository
             transaction,
             cancellationToken: cancellationToken));
 
+    public Task<Survey?> GetSurveyTemplateByIdForUpdateAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int templateId,
+        CancellationToken cancellationToken = default) =>
+        connection.QueryFirstOrDefaultAsync<Survey>(new CommandDefinition(
+            """
+            SELECT
+                id_survey_template AS IdSurvey,
+                name_survey_template AS NameSurvey,
+                description AS Description,
+                date_begin AS DateBegin,
+                date_end AS DateEnd,
+                ancestor_id AS AncestorId
+            FROM public.survey_template
+            WHERE id_survey_template = @TemplateId
+            FOR UPDATE;
+            """,
+            new { TemplateId = templateId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+    public Task<int> SetSurveyTemplateEndDateIfOpenAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int templateId,
+        DateTime dateEnd,
+        CancellationToken cancellationToken = default) =>
+        connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE public.survey_template
+            SET date_end = @DateEnd
+            WHERE id_survey_template = @TemplateId
+              AND date_end IS NULL;
+            """,
+            new { TemplateId = templateId, DateEnd = dateEnd.Date },
+            transaction,
+            cancellationToken: cancellationToken));
+
+    public async Task<IReadOnlyList<Survey>> GetPlannedSurveyTemplateDescendantsAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int ancestorId,
+        CancellationToken cancellationToken = default)
+    {
+        var templates = await connection.QueryAsync<Survey>(new CommandDefinition(
+            """
+            SELECT
+                id_survey_template AS IdSurvey,
+                name_survey_template AS NameSurvey,
+                description AS Description,
+                date_begin AS DateBegin,
+                date_end AS DateEnd,
+                ancestor_id AS AncestorId
+            FROM public.survey_template
+            WHERE ancestor_id = @AncestorId
+            ORDER BY date_begin, id_survey_template;
+            """,
+            new { AncestorId = ancestorId },
+            transaction,
+            cancellationToken: cancellationToken));
+        return templates.AsList();
+    }
+
     public Task<string?> GetSurveyTemplateNameAsync(
         NpgsqlConnection connection,
         int templateId,

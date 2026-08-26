@@ -69,6 +69,14 @@ test('шаблоны отделены от анкет и открывают со
     expect(autoCreationMenuBox.y).toBeGreaterThanOrEqual(
         autoCreationTriggerBox.y + autoCreationTriggerBox.height
     );
+    const autoCreationChoiceOptions = autoCreationMenu.getByRole('option');
+    const firstAutoCreationOptionBox = await autoCreationChoiceOptions.nth(0).boundingBox();
+    const secondAutoCreationOptionBox = await autoCreationChoiceOptions.nth(1).boundingBox();
+    expect(firstAutoCreationOptionBox).not.toBeNull();
+    expect(secondAutoCreationOptionBox).not.toBeNull();
+    expect(secondAutoCreationOptionBox.y).toBeGreaterThan(
+        firstAutoCreationOptionBox.y + firstAutoCreationOptionBox.height
+    );
     await autoCreationMenu.getByRole('option', { name: 'Да', exact: true }).click();
     await expect(editor.locator('#surveyAutoCreationEnabled')).toHaveValue('true');
     await expect(autoCreationTrigger).toContainText('Да');
@@ -106,14 +114,24 @@ test('шаблоны отделены от анкет и открывают со
     await expect(plannedRow).toHaveCount(1);
     await expect(plannedRow).toContainText('Smoke planned template');
     await expect(plannedRow).toContainText('Да');
+    await expect(page.locator('thead')).toContainText('Будет добавлено в автосоздание');
+    await expect(page.locator('thead')).not.toContainText(/^Добавлено в автосоздание$/);
     await expect(page.getByText('Smoke active template', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Создать плановый шаблон', exact: true })).toBeVisible();
     const plannedEditLink = page.getByRole('link', { name: 'Редактировать', exact: true });
     await expect(plannedEditLink).toHaveAttribute('href', /\/survey-templates\/planned\/\d+\/edit$/);
 
+    await plannedEditLink.click();
+    const plannedEditEditor = page.locator('#surveyEditorModal');
+    await expect(plannedEditEditor.getByRole('heading', { name: 'Редактирование планового шаблона', exact: true })).toBeVisible();
+    await expect(plannedEditEditor.locator('#startDate')).toHaveAttribute('min', localIsoDaysFromToday(7));
+    await plannedEditEditor.getByRole('button', { name: 'Отмена', exact: true }).click();
+
     await page.getByRole('button', { name: 'Создать плановый шаблон', exact: true }).click();
     const plannedEditor = page.locator('#surveyEditorModal');
     await expect(plannedEditor.getByRole('heading', { name: 'Создание планового шаблона', exact: true })).toBeVisible();
+    await expect(plannedEditor.getByText('Будет добавлено в автосоздание', { exact: true })).toBeVisible();
+    await expect(plannedEditor.getByText('Добавлено в автосоздание', { exact: true })).toHaveCount(0);
     const parentField = plannedEditor.locator('[data-role="survey-template-field"]');
     const titleGroup = plannedEditor.locator('#surveyTitle').locator('..');
     expect(await parentField.evaluate((parent, title) => (
@@ -129,16 +147,20 @@ test('шаблоны отделены от анкет и открывают со
     expect(parentMenuBox.y).toBeGreaterThanOrEqual(parentTriggerBox.y + parentTriggerBox.height);
     await expect(parentMenu.getByRole('option', { name: 'Smoke active template', exact: true })).toBeVisible();
     await expect(parentMenu.getByRole('option', { name: 'Smoke planned template', exact: true })).toHaveCount(0);
+    await plannedEditor.locator('#surveyTitle').fill('Ручное название планового шаблона');
+    await plannedEditor.locator('.criteriy').fill('Ручной критерий');
     await parentMenu.getByRole('option', { name: 'Smoke active template', exact: true }).click();
     await expect(plannedEditor.locator('#plannedTemplateAncestorId')).not.toHaveValue('');
     await expect(parentTrigger).toContainText('Smoke active template');
-    await expect(plannedEditor.locator('#surveyTitle')).toHaveValue('Smoke active template');
+    await expect(plannedEditor.locator('#surveyTitle')).toHaveValue('Ручное название планового шаблона');
     await expect(plannedEditor.locator('#surveyDescription'))
         .toHaveValue('Active template used only by browser smoke tests');
-    await expect(plannedEditor.locator('.criteriy')).toHaveValue('Smoke template question');
+    await expect(plannedEditor.locator('.criteriy')).toHaveValue('Ручной критерий');
+    await expect(plannedEditor.locator('[data-role="selected-organizations-list"]')).toContainText('Smoke org');
+    await expect(plannedEditor.locator('#surveyAutoCreationEnabled')).toHaveValue('false');
     await expect(plannedEditor.locator('#startDate')).toHaveValue('');
     await expect(plannedEditor.locator('#endDate')).toHaveValue('');
-    await expect(plannedEditor.locator('#startDate')).toHaveAttribute('min', localIsoDaysFromToday(1));
+    await expect(plannedEditor.locator('#startDate')).toHaveAttribute('min', localIsoDaysFromToday(7));
     await plannedEditor.getByRole('button', { name: 'Отмена', exact: true }).click();
 
     await page.goto('/survey-templates/archive');

@@ -5,6 +5,9 @@
     var isEditMode = editPage != null;
     var isTemplateSection = Model?.IsTemplateSection ?? false;
     var isPlannedTemplateSection = Model?.IsPlannedTemplateSection ?? false;
+    var autoCreationLabel = isPlannedTemplateSection
+        ? "Будет добавлено в автосоздание"
+        : "Добавлено в автосоздание";
     var criteriaLocked = isEditMode && editPage!.HasAnswers;
     var selectedOrganizationNamesJson = isEditMode
         ? System.Text.Json.JsonSerializer.Serialize(editPage!.SelectedOrganizationNames)
@@ -41,6 +44,7 @@
                         <label for="plannedTemplateAncestorId">Шаблон-родитель</label>
                         <input type="hidden"
                                id="plannedTemplateAncestorId"
+                               data-date-end="@(isEditMode ? editPage!.AncestorDateEnd?.ToString("yyyy-MM-dd") : string.Empty)"
                                value="@(isEditMode ? editPage!.AncestorId?.ToString() : string.Empty)" />
                         <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__template-dropdown survey-editor-page__parent-template-dropdown"
                              data-role="survey-template-dropdown">
@@ -111,7 +115,7 @@
                 {
                     var isAutoCreationEnabled = isEditMode && editPage!.IsAutoCreationEnabled;
                     <div class="app-field-group">
-                        <label for="surveyAutoCreationEnabled">Добавлено в автосоздание</label>
+                        <label for="surveyAutoCreationEnabled">@autoCreationLabel</label>
                         <input type="hidden"
                                id="surveyAutoCreationEnabled"
                                value="@(isAutoCreationEnabled ? "true" : "false")" />
@@ -128,7 +132,7 @@
                             <div class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline survey-editor-page__auto-creation-menu is-hidden"
                                  data-role="survey-auto-creation-enabled-menu"
                                  role="listbox"
-                                 aria-label="Добавлено в автосоздание">
+                                 aria-label="@autoCreationLabel">
                                 <button type="button"
                                         class="app-checkbox-option survey-editor-page__auto-creation-option@(!isAutoCreationEnabled ? " selected" : string.Empty)"
                                         data-value="false"

@@ -257,18 +257,25 @@ public partial class SurveyService
         try
         {
             var ancestorId = isPlannedTemplate ? request!.AncestorId : null;
-            if (ancestorId.HasValue
-                && !await _surveyRepository.IsActiveSurveyTemplateAsync(
+            string? plannedAncestorGap = null;
+            if (ancestorId.HasValue)
+            {
+                var ancestorPeriod = await PreparePlannedTemplateAncestorAsync(
                     connection,
                     transaction,
                     ancestorId.Value,
-                    cancellationToken))
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                return new SurveyCommandResult
+                    startDate,
+                    cancellationToken);
+                if (!ancestorPeriod.Success)
                 {
-                    Message = "Выбранный шаблон-родитель уже не активен. Выберите другой шаблон."
-                };
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new SurveyCommandResult
+                    {
+                        Message = ancestorPeriod.Message
+                    };
+                }
+
+                plannedAncestorGap = ancestorPeriod.GapDescription;
             }
 
             var newSurveyId = isTemplate
@@ -349,6 +356,14 @@ public partial class SurveyService
             var successMessage = isTemplate
                 ? isPlannedTemplate ? "Плановый шаблон успешно создан." : "Шаблон успешно создан."
                 : "Анкета успешно создана.";
+            if (isPlannedTemplate)
+            {
+                successMessage += " В дату начала плановый шаблон будет автоматически перенесён в активные шаблоны.";
+                if (!string.IsNullOrWhiteSpace(plannedAncestorGap))
+                {
+                    successMessage += $" Между периодами шаблона-родителя и планового шаблона есть промежуток: {plannedAncestorGap}.";
+                }
+            }
             if (isTemplate && request!.IsAutoCreationEnabled)
             {
                 successMessage += " Шаблон успешно добавлен в автосоздание.";
@@ -423,8 +438,12 @@ public partial class SurveyService
             connection,
             id,
             cancellationToken);
-        var ancestorName = template.AncestorId.HasValue
-            ? await _surveyRepository.GetSurveyTemplateNameAsync(connection, template.AncestorId.Value, cancellationToken)
+        var ancestor = template.AncestorId.HasValue
+            ? await _surveyRepository.GetSurveyTemplateByIdAsync(
+                connection,
+                null,
+                template.AncestorId.Value,
+                cancellationToken)
             : null;
 
         return new SurveyEditPageViewModel
@@ -436,7 +455,8 @@ public partial class SurveyService
             Criteria = await _surveyRepository.GetSurveyTemplateCriteriaAsync(connection, id, cancellationToken),
             HasAnswers = false,
             AncestorId = template.AncestorId,
-            AncestorName = ancestorName,
+            AncestorName = ancestor?.NameSurvey,
+            AncestorDateEnd = ancestor?.DateEnd,
             IsAutoCreationEnabled = await _surveyRepository.IsSurveyTemplateSelectedForAutoCreationAsync(
                 connection,
                 null,
@@ -522,11 +542,17 @@ public partial class SurveyService
         try
         {
             var currentSurvey = isTemplate
-                ? await _surveyRepository.GetSurveyTemplateByIdAsync(
-                    connection,
-                    transaction,
-                    id,
-                    cancellationToken)
+                ? await (isPlannedTemplate
+                    ? _surveyRepository.GetSurveyTemplateByIdAsync(
+                        connection,
+                        transaction,
+                        id,
+                        cancellationToken)
+                    : _surveyRepository.GetSurveyTemplateByIdForUpdateAsync(
+                        connection,
+                        transaction,
+                        id,
+                        cancellationToken))
                 : await _surveyRepository.GetSurveyByIdAsync(
                     connection,
                     transaction,
@@ -552,6 +578,10 @@ public partial class SurveyService
             }
 
             var ancestorId = isPlannedTemplate ? model!.AncestorId : null;
+            string? plannedAncestorGap = null;
+            var plannedStartMovedLater = false;
+            string? plannedDescendantGap = null;
+            string? nearestPlannedDescendantName = null;
             if (ancestorId == id)
             {
                 await transaction.RollbackAsync(cancellationToken);
@@ -560,18 +590,67 @@ public partial class SurveyService
                     Message = "Шаблон не может быть родителем для самого себя."
                 };
             }
-            if (ancestorId.HasValue
-                && !await _surveyRepository.IsActiveSurveyTemplateAsync(
+            if (ancestorId.HasValue)
+            {
+                var ancestorPeriod = await PreparePlannedTemplateAncestorAsync(
                     connection,
                     transaction,
                     ancestorId.Value,
-                    cancellationToken))
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                return new SurveyCommandResult
+                    startDate,
+                    cancellationToken);
+                if (!ancestorPeriod.Success)
                 {
-                    Message = "Выбранный шаблон-родитель уже не активен. Выберите другой шаблон."
-                };
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new SurveyCommandResult
+                    {
+                        Message = ancestorPeriod.Message
+                    };
+                }
+
+                plannedAncestorGap = ancestorPeriod.GapDescription;
+                plannedStartMovedLater = startDate.Date > currentSurvey.DateBegin.Date;
+            }
+
+            if (isTemplate && !isPlannedTemplate)
+            {
+                var plannedDescendants = await _surveyRepository.GetPlannedSurveyTemplateDescendantsAsync(
+                    connection,
+                    transaction,
+                    id,
+                    cancellationToken);
+                var nearestDescendant = plannedDescendants.FirstOrDefault();
+                if (nearestDescendant != null)
+                {
+                    if (!endDate.HasValue)
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        return new SurveyCommandResult
+                        {
+                            Message = "Укажите дату конца: у шаблона есть плановые шаблоны-потомки."
+                        };
+                    }
+
+                    if (plannedDescendants.Any(descendant => endDate.Value.Date >= descendant.DateBegin.Date))
+                    {
+                        var firstOverlap = plannedDescendants
+                            .First(descendant => endDate.Value.Date >= descendant.DateBegin.Date);
+                        await transaction.RollbackAsync(cancellationToken);
+                        return new SurveyCommandResult
+                        {
+                            Message = $"Дата конца шаблона-родителя должна быть раньше даты начала планового шаблона «{firstOverlap.NameSurvey}» ({firstOverlap.DateBegin:dd.MM.yyyy})."
+                        };
+                    }
+
+                    var periodWasShortened = !currentSurvey.DateEnd.HasValue
+                        || endDate.Value.Date < currentSurvey.DateEnd.Value.Date;
+                    if (periodWasShortened)
+                    {
+                        plannedDescendantGap = FormatPlannedTemplateGap(
+                            endDate.Value.Date,
+                            nearestDescendant.DateBegin.Date);
+                        nearestPlannedDescendantName = nearestDescendant.NameSurvey;
+                    }
+                }
             }
 
             var wasTemplateSelectedForAutoCreation = isTemplate
@@ -732,6 +811,24 @@ public partial class SurveyService
             var successMessage = isTemplate
                 ? isPlannedTemplate ? "Плановый шаблон успешно обновлён." : "Шаблон успешно обновлён."
                 : "Анкета успешно обновлена.";
+            if (isPlannedTemplate)
+            {
+                successMessage += " В дату начала плановый шаблон будет автоматически перенесён в активные шаблоны.";
+                if (plannedStartMovedLater)
+                {
+                    successMessage += string.IsNullOrWhiteSpace(plannedAncestorGap)
+                        ? " После изменения даты начала разрыва между шаблоном-родителем и плановым шаблоном нет."
+                        : $" После изменения даты начала разрыв между шаблоном-родителем и плановым шаблоном составляет: {plannedAncestorGap}.";
+                }
+                else if (!string.IsNullOrWhiteSpace(plannedAncestorGap))
+                {
+                    successMessage += $" Между периодами шаблона-родителя и планового шаблона есть промежуток: {plannedAncestorGap}.";
+                }
+            }
+            else if (isTemplate && !string.IsNullOrWhiteSpace(plannedDescendantGap))
+            {
+                successMessage += $" Теперь между шаблоном и плановым шаблоном-потомком «{nearestPlannedDescendantName}» образовался разрыв в работе: {plannedDescendantGap}.";
+            }
             if (isTemplate && wasTemplateSelectedForAutoCreation != isTemplateSelectedForAutoCreation)
             {
                 successMessage += isTemplateSelectedForAutoCreation
@@ -755,6 +852,112 @@ public partial class SurveyService
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
+    }
+
+    private async Task<(bool Success, string Message, string? GapDescription)> PreparePlannedTemplateAncestorAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        int ancestorId,
+        DateTime plannedStartDate,
+        CancellationToken cancellationToken)
+    {
+        var ancestor = await _surveyRepository.GetSurveyTemplateByIdForUpdateAsync(
+            connection,
+            transaction,
+            ancestorId,
+            cancellationToken);
+        var today = _clock.Today.Date;
+        if (ancestor == null
+            || ancestor.DateBegin.Date > today
+            || (ancestor.DateEnd.HasValue && ancestor.DateEnd.Value.Date < today))
+        {
+            return (
+                false,
+                "Выбранный шаблон-родитель уже не активен. Выберите другой шаблон.",
+                null);
+        }
+
+        var childStart = plannedStartDate.Date;
+        var ancestorEnd = ancestor.DateEnd?.Date;
+        if (ancestorEnd.HasValue && childStart <= ancestorEnd.Value)
+        {
+            return (
+                false,
+                "Дата начала планового шаблона должна быть позже даты окончания шаблона-родителя.",
+                null);
+        }
+
+        if (!ancestorEnd.HasValue)
+        {
+            ancestorEnd = childStart.AddDays(-1);
+            await _surveyRepository.SetSurveyTemplateEndDateIfOpenAsync(
+                connection,
+                transaction,
+                ancestorId,
+                ancestorEnd.Value,
+                cancellationToken);
+        }
+
+        return (
+            true,
+            string.Empty,
+            FormatPlannedTemplateGap(ancestorEnd.Value, childStart));
+    }
+
+    private static string? FormatPlannedTemplateGap(DateTime ancestorEnd, DateTime plannedStart)
+    {
+        var cursor = ancestorEnd.Date.AddDays(1);
+        var end = plannedStart.Date;
+        if (cursor >= end)
+        {
+            return null;
+        }
+
+        var years = 0;
+        while (cursor.AddYears(1) <= end)
+        {
+            cursor = cursor.AddYears(1);
+            years += 1;
+        }
+
+        var months = 0;
+        while (cursor.AddMonths(1) <= end)
+        {
+            cursor = cursor.AddMonths(1);
+            months += 1;
+        }
+
+        var days = (end - cursor).Days;
+        var parts = new List<string>(3);
+        if (years > 0)
+        {
+            parts.Add(FormatRussianCount(years, "год", "года", "лет"));
+        }
+        if (months > 0)
+        {
+            parts.Add(FormatRussianCount(months, "месяц", "месяца", "месяцев"));
+        }
+        if (days > 0)
+        {
+            parts.Add(FormatRussianCount(days, "день", "дня", "дней"));
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    private static string FormatRussianCount(int value, string singular, string few, string many)
+    {
+        var lastTwoDigits = value % 100;
+        var lastDigit = value % 10;
+        var word = lastTwoDigits is >= 11 and <= 14
+            ? many
+            : lastDigit switch
+            {
+                1 => singular,
+                2 or 3 or 4 => few,
+                _ => many
+            };
+        return $"{value} {word}";
     }
 
     private async Task<int> TryRunPendingAfterTemplateSelectionAsync(CancellationToken cancellationToken)

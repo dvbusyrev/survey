@@ -84,7 +84,7 @@ VALUES (
     'Smoke active template',
     'Active template used only by browser smoke tests',
     CURRENT_DATE - 1,
-    CURRENT_DATE + 14
+    CURRENT_DATE + 6
 )
 RETURNING id_survey_template AS smoke_active_template_id \\gset
 

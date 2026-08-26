@@ -15,4 +15,5 @@ public sealed class SurveyEditPageViewModel
     public bool IsAutoCreationEnabled { get; init; }
     public int? AncestorId { get; init; }
     public string? AncestorName { get; init; }
+    public DateTime? AncestorDateEnd { get; init; }
 }

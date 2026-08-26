@@ -417,6 +417,25 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             && row.IsAutoCreationEnabled);
         Assert.DoesNotContain(archiveBeforeStart.SurveyRows, row => row.IdSurvey == planned.SurveyId);
 
+        await using (var beforePromotionConnection = _fixture.CreateConnection())
+        {
+            Assert.Equal(plannedStart.AddDays(-1), await beforePromotionConnection.ExecuteScalarAsync<DateTime?>(
+                "SELECT date_end FROM public.survey_template WHERE id_survey_template = @TemplateId;",
+                new { TemplateId = parent.SurveyId }));
+            Assert.DoesNotContain(
+                planned.SurveyId!.Value,
+                await _surveyRepository.GetSelectedAutoCreationTemplateIdsAsync(
+                    beforePromotionConnection,
+                    null,
+                    1));
+            Assert.Contains(
+                await _surveyRepository.GetSelectedAutoCreationTemplatesAsync(
+                    beforePromotionConnection,
+                    null,
+                    1),
+                item => item.Id == planned.SurveyId);
+        }
+
         var promotionClock = new FixedClock(plannedStart);
         var promotionRepository = new SurveyRepository(promotionClock);
         var promotionService = new SurveyService(_connectionFactory, promotionRepository, promotionClock);
@@ -455,6 +474,188 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             );
             """,
             new { TemplateId = planned.SurveyId }));
+    }
+
+    [RequiresPostgresFact]
+    public async Task PlannedSurveyTemplate_RejectsOverlapAndReportsGapAfterParent()
+    {
+        var today = DateTime.Today.Date;
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var parentEnd = today.AddDays(4);
+        var parent = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Ограниченный родительский шаблон",
+            StartDate = today.ToString("yyyy-MM-dd"),
+            EndDate = parentEnd.ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий родителя"]
+        });
+
+        var overlap = await service.CreatePlannedSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Пересекающийся плановый шаблон",
+            StartDate = parentEnd.ToString("yyyy-MM-dd"),
+            EndDate = parentEnd.AddDays(10).ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий"],
+            AncestorId = parent.SurveyId
+        });
+        var plannedStart = parentEnd.AddDays(4);
+        var withGap = await service.CreatePlannedSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Плановый шаблон с промежутком",
+            StartDate = plannedStart.ToString("yyyy-MM-dd"),
+            EndDate = plannedStart.AddDays(10).ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий"],
+            AncestorId = parent.SurveyId
+        });
+
+        Assert.True(parent.Success, parent.Message);
+        Assert.False(overlap.Success);
+        Assert.Equal(
+            "Дата начала планового шаблона должна быть позже даты окончания шаблона-родителя.",
+            overlap.Message);
+        Assert.True(withGap.Success, withGap.Message);
+        Assert.Contains("будет автоматически перенесён в активные шаблоны", withGap.Message);
+        Assert.Contains("промежуток: 3 дня", withGap.Message);
+    }
+
+    [RequiresPostgresFact]
+    public async Task PlannedSurveyTemplate_EditRejectsAncestorOverlapAndReportsChangedGap()
+    {
+        var today = DateTime.Today.Date;
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var parentEnd = today.AddDays(4);
+        var parent = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Родитель редактируемого планового шаблона",
+            StartDate = today.ToString("yyyy-MM-dd"),
+            EndDate = parentEnd.ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий родителя"]
+        });
+        var initialStart = parentEnd.AddDays(1);
+        var planned = await service.CreatePlannedSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Редактируемый плановый шаблон",
+            StartDate = initialStart.ToString("yyyy-MM-dd"),
+            EndDate = initialStart.AddDays(10).ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий планового шаблона"],
+            AncestorId = parent.SurveyId
+        });
+
+        Assert.True(parent.Success, parent.Message);
+        Assert.True(planned.Success, planned.Message);
+        Assert.NotNull(parent.SurveyId);
+        Assert.NotNull(planned.SurveyId);
+
+        SurveyUpdateRequest BuildPlannedUpdate(DateTime startDate, DateTime endDate) => new()
+        {
+            Title = "Редактируемый плановый шаблон",
+            StartDate = startDate,
+            EndDate = endDate,
+            Organizations = [organizationId],
+            Criteria = ["Критерий планового шаблона"],
+            AncestorId = parent.SurveyId
+        };
+
+        var overlap = await service.UpdatePlannedSurveyTemplateAsync(
+            planned.SurveyId.Value,
+            BuildPlannedUpdate(parentEnd, parentEnd.AddDays(10)));
+        var movedStart = parentEnd.AddDays(4);
+        var moved = await service.UpdatePlannedSurveyTemplateAsync(
+            planned.SurveyId.Value,
+            BuildPlannedUpdate(movedStart, movedStart.AddDays(10)));
+
+        Assert.False(overlap.Success);
+        Assert.Equal(
+            "Дата начала планового шаблона должна быть позже даты окончания шаблона-родителя.",
+            overlap.Message);
+        Assert.True(moved.Success, moved.Message);
+        Assert.Contains("После изменения даты начала", moved.Message);
+        Assert.Contains("разрыв между шаблоном-родителем и плановым шаблоном составляет: 3 дня", moved.Message);
+
+        await using var connection = _fixture.CreateConnection();
+        var updatedPeriod = await connection.QuerySingleAsync<(DateTime DateBegin, DateTime? DateEnd)>(
+            """
+            SELECT date_begin AS DateBegin, date_end AS DateEnd
+            FROM public.survey_template
+            WHERE id_survey_template = @TemplateId;
+            """,
+            new { TemplateId = planned.SurveyId });
+        Assert.Equal(movedStart, updatedPeriod.DateBegin);
+        Assert.Equal(movedStart.AddDays(10), updatedPeriod.DateEnd);
+    }
+
+    [RequiresPostgresFact]
+    public async Task ParentSurveyTemplate_EditProtectsPlannedDescendantPeriodAndReportsNewGap()
+    {
+        var today = DateTime.Today.Date;
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var parent = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Редактируемый родительский шаблон",
+            StartDate = today.ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий родителя"]
+        });
+        var plannedStart = today.AddDays(10);
+        var planned = await service.CreatePlannedSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Плановый потомок",
+            StartDate = plannedStart.ToString("yyyy-MM-dd"),
+            EndDate = plannedStart.AddDays(10).ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий потомка"],
+            AncestorId = parent.SurveyId
+        });
+
+        Assert.True(parent.Success, parent.Message);
+        Assert.True(planned.Success, planned.Message);
+        Assert.NotNull(parent.SurveyId);
+
+        SurveyUpdateRequest BuildParentUpdate(DateTime? endDate) => new()
+        {
+            Title = "Редактируемый родительский шаблон",
+            StartDate = today,
+            EndDate = endDate,
+            Organizations = [organizationId],
+            Criteria = ["Критерий родителя"]
+        };
+
+        var openEnded = await service.UpdateSurveyTemplateAsync(
+            parent.SurveyId.Value,
+            BuildParentUpdate(null));
+        var overlap = await service.UpdateSurveyTemplateAsync(
+            parent.SurveyId.Value,
+            BuildParentUpdate(plannedStart));
+        var shortenedEnd = plannedStart.AddDays(-4);
+        var shortened = await service.UpdateSurveyTemplateAsync(
+            parent.SurveyId.Value,
+            BuildParentUpdate(shortenedEnd));
+
+        Assert.False(openEnded.Success);
+        Assert.Equal(
+            "Укажите дату конца: у шаблона есть плановые шаблоны-потомки.",
+            openEnded.Message);
+        Assert.False(overlap.Success);
+        Assert.Equal(
+            $"Дата конца шаблона-родителя должна быть раньше даты начала планового шаблона «Плановый потомок» ({plannedStart:dd.MM.yyyy}).",
+            overlap.Message);
+        Assert.True(shortened.Success, shortened.Message);
+        Assert.Contains("Шаблон успешно обновлён.", shortened.Message);
+        Assert.Contains("плановым шаблоном-потомком «Плановый потомок»", shortened.Message);
+        Assert.Contains("разрыв в работе: 3 дня", shortened.Message);
+
+        await using var connection = _fixture.CreateConnection();
+        Assert.Equal(shortenedEnd, await connection.ExecuteScalarAsync<DateTime?>(
+            "SELECT date_end FROM public.survey_template WHERE id_survey_template = @TemplateId;",
+            new { TemplateId = parent.SurveyId }));
     }
 
     [RequiresPostgresFact]
