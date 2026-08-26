@@ -44,7 +44,7 @@
                     <button type="button"
                             class="btn app-button app-button--primary"
                             data-click-call="openAddSurveyModal">
-                        @(isPlannedTemplateSection ? "Создать плановый шаблон" : "Добавить шаблон")
+                        @(isPlannedTemplateSection ? "Добавить плановый шаблон" : "Добавить шаблон")
                     </button>
                     @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
                 }
