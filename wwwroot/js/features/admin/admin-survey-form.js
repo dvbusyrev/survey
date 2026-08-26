@@ -81,25 +81,7 @@
         templateDropdownController?.controller?.close?.();
     }
 
-    function updateTemplatePickerSelection(templateId, templateName) {
-        selectedTemplateId = Number.isFinite(templateId) ? templateId : null;
-        const trigger = getTemplatePickerElement('survey-template-dropdown-trigger');
-        if (trigger) {
-            trigger.textContent = selectedTemplateId && templateName
-                ? templateName
-                : 'Выбрать шаблон';
-        }
-        getTemplatePickerElement('survey-template-options')
-            ?.querySelectorAll('[data-role="survey-template-option"]')
-            .forEach((option) => {
-                const isSelected = Number.parseInt(option.dataset.templateId || '', 10) === selectedTemplateId;
-                option.classList.toggle('selected', isSelected);
-                option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
-            });
-    }
-
     function resetTemplatePicker() {
-        updateTemplatePickerSelection(null, '');
         closeTemplatePicker();
         ensureTemplatePickerController();
     }
@@ -178,7 +160,6 @@
                 preserveDates: true,
                 submitLabel: 'Сохранить'
             });
-            updateTemplatePickerSelection(id, templateName);
             closeTemplatePicker();
         } catch (error) {
             console.error('Ошибка загрузки шаблона анкеты:', error);
