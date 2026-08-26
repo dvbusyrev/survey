@@ -2,6 +2,7 @@
     var activeSection = (ViewData["SurveySection"] as string ?? "list").ToLowerInvariant();
     var isTemplateSection = ViewData["IsTemplateSection"] as bool? == true;
     var listActive = activeSection == "list";
+    var plannedActive = activeSection == "planned";
     var answersActive = activeSection == "answers";
     var archiveActive = activeSection == "archive";
 }
@@ -15,6 +16,17 @@
         data-tab-target="@(isTemplateSection ? "survey_templates" : "get_surveys")">
         @(isTemplateSection ? "Активные шаблоны" : "Активные анкеты")
     </a>
+    @if (isTemplateSection)
+    {
+        <a
+            href="/survey-templates/planned"
+            class="app-tab @(plannedActive ? "active-tab" : "")"
+            role="tab"
+            aria-selected="@(plannedActive ? "true" : "false")"
+            data-tab-target="planned_survey_templates">
+            Плановые шаблоны
+        </a>
+    }
     @if (!isTemplateSection)
     {
         <a

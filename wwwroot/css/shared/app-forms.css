@@ -758,9 +758,12 @@ a.btn:focus,
 
 .app-multi-value-clear {
   position: absolute;
-  top: 25%;
+  top: 0;
   right: 0.45rem;
+  bottom: 0;
   z-index: 2;
+  margin-block: auto;
+  transform: none;
 }
 
 .app-multi-value-clear:hover,

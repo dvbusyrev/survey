@@ -2,7 +2,7 @@
 @{
     var activeTab = Model?.ActiveTab ?? string.Empty;
     var isAdmin = Model?.IsAdmin == true;
-    var surveyTemplateSectionActive = new[] { "survey_templates", "add_survey_template", "archived_survey_templates" }.Contains(activeTab);
+    var surveyTemplateSectionActive = new[] { "survey_templates", "add_survey_template", "planned_survey_templates", "add_planned_survey_template", "archived_survey_templates" }.Contains(activeTab);
     var surveySectionActive = isAdmin
         ? new[] { "get_surveys", "add_survey", "list_answers_users", "archived_surveys" }.Contains(activeTab)
         : new[] { "active", "archived", "answers_tab", "archived_surveys_for_user" }.Contains(activeTab);
@@ -22,6 +22,7 @@
                 <a href="/survey-templates" class="nav-link"><i class="fas fa-file-lines"></i>Шаблоны анкет</a>
                 <ul class="submenu-list">
                     <li class="submenu-item survey-template-list@(ActiveClass(activeTab == "survey_templates"))" data-tab="survey_templates"><a href="/survey-templates" class="submenu-link"><i class="fas fa-list-ul"></i>Активные шаблоны</a></li>
+                    <li class="submenu-item survey-template-planned@(ActiveClass(activeTab is "planned_survey_templates" or "add_planned_survey_template"))" data-tab="planned_survey_templates"><a href="/survey-templates/planned" class="submenu-link"><i class="fas fa-calendar-days"></i>Плановые шаблоны</a></li>
                     <li class="submenu-item survey-template-add@(ActiveClass(activeTab == "add_survey_template"))" data-tab="add_survey_template"><a href="/survey-templates/create" class="submenu-link"><i class="fas fa-plus"></i>Добавить шаблон</a></li>
                     <li class="submenu-item survey-template-archive@(ActiveClass(activeTab == "archived_survey_templates"))" data-tab="archived_survey_templates"><a href="/survey-templates/archive" class="submenu-link"><i class="fas fa-archive-docs"></i>Архивные шаблоны</a></li>
                 </ul>

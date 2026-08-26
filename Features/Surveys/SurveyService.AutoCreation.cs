@@ -17,6 +17,7 @@ public partial class SurveyService
 
     public async Task<SurveyAutoCreationPageViewModel> GetPageModelAsync(CancellationToken cancellationToken = default)
     {
+        await PromotePlannedSurveyTemplatesAsync(cancellationToken);
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         if (!await _surveyRepository.HasCurrentAutoCreationStorageAsync(connection, null, cancellationToken))
         {
@@ -50,6 +51,7 @@ public partial class SurveyService
 
     public async Task<IReadOnlyList<SelectionOption>> GetTemplateOptionsAsync(CancellationToken cancellationToken = default)
     {
+        await PromotePlannedSurveyTemplatesAsync(cancellationToken);
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         return await _surveyRepository.GetAutoCreationTemplateSelectionOptionsAsync(
             connection,
@@ -163,6 +165,11 @@ public partial class SurveyService
 
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        await _surveyRepository.PromotePlannedSurveyTemplatesAsync(
+            connection,
+            transaction,
+            _clock.Today.Date,
+            cancellationToken);
         var config = await GetOrCreateConfigurationAsync(connection, transaction, cancellationToken, lockRow: true);
         await _surveyRepository.RemoveInactiveAutoCreationTemplatesAsync(
             connection, transaction, SingletonConfigId, cancellationToken);
@@ -243,5 +250,39 @@ public partial class SurveyService
             CreatedSurveyCount = createdCount,
             ScheduleDate = schedule.StartDate
         };
+    }
+
+    public virtual async Task<int> PromotePlannedSurveyTemplatesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var promotedCount = await _surveyRepository.PromotePlannedSurveyTemplatesAsync(
+                connection,
+                transaction,
+                _clock.Today.Date,
+                cancellationToken);
+            if (promotedCount > 0
+                && await _surveyRepository.HasCurrentAutoCreationStorageAsync(connection, transaction, cancellationToken))
+            {
+                await GetOrCreateConfigurationAsync(connection, transaction, cancellationToken, lockRow: false);
+                await _surveyRepository.RemoveInactiveAutoCreationTemplatesAsync(
+                    connection,
+                    transaction,
+                    SingletonConfigId,
+                    cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return promotedCount;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 }

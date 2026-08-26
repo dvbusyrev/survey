@@ -116,7 +116,9 @@ function surveyEditSaveSelectedOrganization() {
         const token = window.AppHttp?.getAntiforgeryToken() || '';
         const surveyId = document.getElementById('surveyId')?.value;
         const editorModal = document.getElementById('surveyEditorModal');
-        const isTemplate = editorModal?.dataset?.entityKind === 'template';
+        const entityKind = editorModal?.dataset?.entityKind || 'survey';
+        const isPlannedTemplate = entityKind === 'planned-template';
+        const isTemplate = entityKind === 'template' || isPlannedTemplate;
         const updateUrl = editorModal?.dataset?.updateUrl || `/survey/${surveyId}/update`;
         try {
             if (typeof window.surveyEditValidateForm === 'function' && !window.surveyEditValidateForm()) {
@@ -141,7 +143,10 @@ function surveyEditSaveSelectedOrganization() {
                     .map(input => input.value.trim())
                     .filter(text => text !== ''),
                 IsAutoCreationEnabled: isTemplate
-                    && document.getElementById('surveyAutoCreationEnabled')?.value === 'true'
+                    && document.getElementById('surveyAutoCreationEnabled')?.value === 'true',
+                AncestorId: isPlannedTemplate
+                    ? Number.parseInt(document.getElementById('plannedTemplateAncestorId')?.value || '', 10) || null
+                    : null
             };
 
             const response = await fetch(updateUrl, {
@@ -174,9 +179,11 @@ function surveyEditSaveSelectedOrganization() {
 
                 if (typeof window.handleAdminMutationSuccess === 'function') {
                     await window.handleAdminMutationSuccess({
-                        message: result.message || (isTemplate ? 'Шаблон успешно обновлён.' : 'Анкета успешно обновлена.'),
-                        tabName: isTemplate ? 'survey_templates' : 'get_surveys',
-                        fallbackUrl: isTemplate ? '/survey-templates' : '/survey'
+                        message: result.message || (isPlannedTemplate
+                            ? 'Плановый шаблон успешно обновлён.'
+                            : isTemplate ? 'Шаблон успешно обновлён.' : 'Анкета успешно обновлена.'),
+                        tabName: isPlannedTemplate ? 'planned_survey_templates' : isTemplate ? 'survey_templates' : 'get_surveys',
+                        fallbackUrl: isPlannedTemplate ? '/survey-templates/planned' : isTemplate ? '/survey-templates' : '/survey'
                     });
                     return;
                 }
@@ -212,7 +219,9 @@ function surveyEditSaveSelectedOrganization() {
     }
 
     function surveyEditValidateForm() {
-        const isTemplate = document.getElementById('surveyEditorModal')?.dataset?.entityKind === 'template';
+        const entityKind = document.getElementById('surveyEditorModal')?.dataset?.entityKind || 'survey';
+        const isPlannedTemplate = entityKind === 'planned-template';
+        const isTemplate = entityKind === 'template' || isPlannedTemplate;
         let isValid = true;
         const errors = [];
 
@@ -262,11 +271,28 @@ function surveyEditSaveSelectedOrganization() {
             isValid = false;
         }
 
-        const periodError = window.AppDate?.getPeriodError?.(startDate, endDate);
-        if (periodError) {
-            window.SurveyAdminValidation?.setFieldError(periodError.target, periodError.message);
-            errors.push(periodError.message);
-            isValid = false;
+        if (isPlannedTemplate) {
+            const now = new Date();
+            const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            if (startDateIso && startDateIso <= todayIso) {
+                const message = 'Дата начала планового шаблона должна быть позже сегодняшней даты.';
+                window.SurveyAdminValidation?.setFieldError(startDate, message);
+                errors.push(message);
+                isValid = false;
+            }
+            if (startDateIso && endDateIso && endDateIso <= startDateIso) {
+                const message = 'Дата конца должна быть позже даты начала.';
+                window.SurveyAdminValidation?.setFieldError(endDate, message);
+                errors.push(message);
+                isValid = false;
+            }
+        } else {
+            const periodError = window.AppDate?.getPeriodError?.(startDate, endDate);
+            if (periodError) {
+                window.SurveyAdminValidation?.setFieldError(periodError.target, periodError.message);
+                errors.push(periodError.message);
+                isValid = false;
+            }
         }
 
         const selectedOrganizations = typeof window.getSelectedOrganizations === 'function'
@@ -303,4 +329,6 @@ window.surveyEditRemoveOrganization = surveyEditRemoveOrganization;
 window.surveyEditAddCriteria = surveyEditAddCriteria;
 window.surveyEditUpdate = surveyEditUpdate;
 window.surveyEditValidateForm = surveyEditValidateForm;
-window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
+if (document.getElementById('surveyEditorModal')?.dataset?.entityKind !== 'planned-template') {
+    window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
+}

@@ -13,11 +13,14 @@ public sealed class SurveyListPageViewModel : ServerSortablePageViewModelBase
 {
     public IReadOnlyList<SurveyTableRowViewModel> SurveyRows { get; init; } = Array.Empty<SurveyTableRowViewModel>();
     public bool IsTemplateSection { get; init; }
+    public bool IsPlannedTemplateSection { get; init; }
     public bool OpenAddSurveyModal { get; init; }
     public SurveyEditPageViewModel? EditSurveyPage { get; init; }
     public ServerTableFilterStateViewModel FilterState { get; init; } = new();
 
-    protected override string BasePath => IsTemplateSection ? "/survey-templates" : "/surveys";
+    protected override string BasePath => IsPlannedTemplateSection
+        ? "/survey-templates/planned"
+        : IsTemplateSection ? "/survey-templates" : "/surveys";
     protected override string DefaultSortField => SurveyListSortFields.Default;
     protected override string DefaultSortDirection => "desc";
     protected override string PaginationAriaLabel => IsTemplateSection

@@ -70,6 +70,11 @@ public partial class SurveyService
         bool isTemplate,
         CancellationToken cancellationToken)
     {
+        if (isTemplate)
+        {
+            await PromotePlannedSurveyTemplatesAsync(cancellationToken);
+        }
+
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var selectedOrganizationIds = ParseArchiveSelectedIds(organizationIds);

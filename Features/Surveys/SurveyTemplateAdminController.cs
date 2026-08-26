@@ -24,19 +24,28 @@ public sealed class SurveyTemplateAdminController : Controller
         string? organizationIds = null,
         bool openAddTemplateModal = false,
         SurveyEditPageViewModel? editSurveyPage = null,
+        bool isPlannedTemplateSection = false,
         CancellationToken cancellationToken = default)
     {
-        var pageModel = await _surveyService.GetSurveyTemplatesPageAsync(
-            currentPage,
-            sortBy,
-            sortDirection,
-            organizationIds,
-            cancellationToken);
+        var pageModel = isPlannedTemplateSection
+            ? await _surveyService.GetPlannedSurveyTemplatesPageAsync(
+                currentPage,
+                sortBy,
+                sortDirection,
+                organizationIds,
+                cancellationToken)
+            : await _surveyService.GetSurveyTemplatesPageAsync(
+                currentPage,
+                sortBy,
+                sortDirection,
+                organizationIds,
+                cancellationToken);
 
         return new SurveyListPageViewModel
         {
             SurveyRows = pageModel.SurveyRows,
             IsTemplateSection = true,
+            IsPlannedTemplateSection = isPlannedTemplateSection,
             CurrentPage = pageModel.CurrentPage,
             TotalPages = pageModel.TotalPages,
             TotalCount = pageModel.TotalCount,
@@ -48,6 +57,45 @@ public sealed class SurveyTemplateAdminController : Controller
             OpenAddSurveyModal = openAddTemplateModal,
             EditSurveyPage = editSurveyPage
         };
+    }
+
+    [HttpGet("survey-templates/planned")]
+    public async Task<IActionResult> GetPlannedTemplates(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null,
+        CancellationToken cancellationToken = default)
+    {
+        return View(
+            "~/Views/Survey/get_surveys.cshtml",
+            await BuildTemplateListPageAsync(
+                page,
+                sortBy,
+                sortDirection,
+                organizationIds,
+                isPlannedTemplateSection: true,
+                cancellationToken: cancellationToken));
+    }
+
+    [HttpGet("survey-templates/planned/create")]
+    public async Task<IActionResult> AddPlannedTemplate(
+        int page = 1,
+        string? sortBy = null,
+        string? sortDirection = null,
+        string? organizationIds = null,
+        CancellationToken cancellationToken = default)
+    {
+        return View(
+            "~/Views/Survey/get_surveys.cshtml",
+            await BuildTemplateListPageAsync(
+                page,
+                sortBy,
+                sortDirection,
+                organizationIds,
+                openAddTemplateModal: true,
+                isPlannedTemplateSection: true,
+                cancellationToken: cancellationToken));
     }
 
     [HttpGet("survey-templates")]
@@ -131,6 +179,32 @@ public sealed class SurveyTemplateAdminController : Controller
         }
     }
 
+    [HttpPost("survey-templates/planned/create")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreatePlannedTemplate(
+        [FromBody] SurveyAddRequest? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _surveyService.CreatePlannedSurveyTemplateAsync(request, cancellationToken);
+            if (!result.Success)
+            {
+                return BadRequest(new { success = false, message = result.Message });
+            }
+
+            return Ok(new { success = true, message = result.Message, surveyId = result.SurveyId });
+        }
+        catch (PostgresException ex)
+        {
+            return this.SafeError(ex, "Не удалось создать плановый шаблон.", "Ошибка PostgreSQL при создании планового шаблона анкеты");
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(ex, "Не удалось создать плановый шаблон.", "Ошибка при создании планового шаблона анкеты");
+        }
+    }
+
     [HttpGet("survey-templates/{id:int}/edit")]
     public async Task<IActionResult> EditTemplate(int id, CancellationToken cancellationToken)
     {
@@ -184,6 +258,55 @@ public sealed class SurveyTemplateAdminController : Controller
         catch (Exception ex)
         {
             return this.SafeError(ex, "Не удалось обновить шаблон.", $"Ошибка при обновлении шаблона анкеты {id}");
+        }
+    }
+
+    [HttpGet("survey-templates/planned/{id:int}/edit")]
+    public async Task<IActionResult> EditPlannedTemplate(int id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var editPage = await _surveyService.GetPlannedSurveyTemplateEditPageAsync(id, cancellationToken);
+            if (editPage == null)
+            {
+                return NotFound("Плановый шаблон не найден.");
+            }
+
+            return View(
+                "~/Views/Survey/get_surveys.cshtml",
+                await BuildTemplateListPageAsync(
+                    editSurveyPage: editPage,
+                    isPlannedTemplateSection: true,
+                    cancellationToken: cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(ex, "Не удалось загрузить плановый шаблон.", $"Ошибка при получении планового шаблона {id} для редактирования");
+        }
+    }
+
+    [HttpPost("survey-templates/planned/{id:int}/update")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdatePlannedTemplate(
+        int id,
+        [FromBody] SurveyUpdateRequest? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _surveyService.UpdatePlannedSurveyTemplateAsync(id, request, cancellationToken);
+            if (!result.Success)
+            {
+                return result.NotFound
+                    ? NotFound(new { success = false, message = result.Message })
+                    : BadRequest(new { success = false, message = result.Message });
+            }
+
+            return Ok(new { success = true, message = result.Message, surveyId = result.SurveyId });
+        }
+        catch (Exception ex)
+        {
+            return this.SafeError(ex, "Не удалось обновить плановый шаблон.", $"Ошибка при обновлении планового шаблона {id}");
         }
     }
 
@@ -242,7 +365,8 @@ public sealed class SurveyTemplateAdminController : Controller
                 StartDate = pageModel.Survey.DateBegin.ToString("yyyy-MM-dd"),
                 EndDate = pageModel.Survey.DateEnd?.ToString("yyyy-MM-dd") ?? string.Empty,
                 Organizations = organizations,
-                Criteria = pageModel.Criteria
+                Criteria = pageModel.Criteria,
+                IsAutoCreationEnabled = pageModel.IsAutoCreationEnabled
             });
         }
         catch (Exception ex)

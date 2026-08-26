@@ -52,6 +52,24 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 047_split_survey_templates.sql", script);
         Assert.Contains(@"\ir 048_allow_open_ended_survey_templates.sql", script);
         Assert.Contains(@"\ir 049_use_templates_for_auto_creation.sql", script);
+        Assert.Contains(@"\ir 050_add_planned_survey_templates.sql", script);
+    }
+
+    [Fact]
+    public void PlannedSurveyTemplatesMigration_AddsParentRelationAndFutureIndexes()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "050_add_planned_survey_templates.sql"));
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS ancestor_id integer", script);
+        Assert.Contains("survey_template_ancestor_id_fkey", script);
+        Assert.Contains("REFERENCES public.survey_template(id_survey_template)", script);
+        Assert.Contains("ON DELETE RESTRICT", script);
+        Assert.Contains("idx_survey_template_planned", script);
+        Assert.Contains("VALUES ('050', 'add_planned_survey_templates')", script);
     }
 
     [Fact]

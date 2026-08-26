@@ -42,6 +42,7 @@
 
     const adminListTabs = new Set([
         'survey_templates',
+        'planned_survey_templates',
         'archived_survey_templates',
         'get_surveys',
         'list_answers_users',
@@ -55,8 +56,10 @@
 
     const adminRoutes = {
         survey_templates: '/survey-templates',
+        planned_survey_templates: '/survey-templates/planned',
         archived_survey_templates: '/survey-templates/archive',
         add_survey_template: '/survey-templates/create',
+        add_planned_survey_template: '/survey-templates/planned/create',
         get_surveys: '/survey',
         list_answers_users: '/survey/answer',
         archived_surveys: '/survey/archive',
@@ -106,6 +109,10 @@
 
         if (tab === 'update_survey_template') {
             return hasId ? `/survey-templates/${id}/edit` : '';
+        }
+
+        if (tab === 'update_planned_survey_template') {
+            return hasId ? `/survey-templates/planned/${id}/edit` : '';
         }
 
         if (tab === 'update_archived_survey') {
@@ -169,6 +176,15 @@
 
         if (normalizedPath === '/survey-templates/archive') {
             return 'archived_survey_templates';
+        }
+
+        if (normalizedPath === '/survey-templates/planned/create') {
+            return 'add_planned_survey_template';
+        }
+
+        if (normalizedPath === '/survey-templates/planned'
+            || /^\/survey-templates\/planned\/\d+\/edit$/.test(normalizedPath)) {
+            return 'planned_survey_templates';
         }
 
         if (normalizedPath === '/survey-templates/create') {

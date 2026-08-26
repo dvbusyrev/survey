@@ -9,4 +9,5 @@ public sealed class SurveyUpdateRequest
     public List<int> Organizations { get; set; } = new();
     public List<string> Criteria { get; set; } = new();
     public bool IsAutoCreationEnabled { get; set; }
+    public int? AncestorId { get; set; }
 }

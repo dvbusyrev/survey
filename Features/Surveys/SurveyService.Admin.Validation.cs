@@ -14,6 +14,7 @@ public partial class SurveyService
     private bool TryValidateCreateRequest(
         SurveyAddRequest? request,
         bool allowOpenEndDate,
+        bool requireFutureStartDate,
         out string title,
         out string description,
         out DateTime startDate,
@@ -75,7 +76,15 @@ public partial class SurveyService
             endDate = requiredEndDate;
         }
 
-        if (!TryValidateStartDateNotFuture(startDate, out validationError))
+        if (requireFutureStartDate)
+        {
+            if (startDate.Date <= _clock.Today.Date)
+            {
+                validationError = "Дата начала планового шаблона должна быть позже сегодняшней даты.";
+                return false;
+            }
+        }
+        else if (!TryValidateStartDateNotFuture(startDate, out validationError))
         {
             return false;
         }
@@ -96,6 +105,7 @@ public partial class SurveyService
     private bool TryValidateUpdateRequest(
         SurveyUpdateRequest? request,
         bool allowOpenEndDate,
+        bool requireFutureStartDate,
         out string title,
         out string description,
         out DateTime startDate,
@@ -152,7 +162,15 @@ public partial class SurveyService
             return false;
         }
 
-        if (!TryValidateStartDateNotFuture(startDate, out validationError))
+        if (requireFutureStartDate)
+        {
+            if (startDate.Date <= _clock.Today.Date)
+            {
+                validationError = "Дата начала планового шаблона должна быть позже сегодняшней даты.";
+                return false;
+            }
+        }
+        else if (!TryValidateStartDateNotFuture(startDate, out validationError))
         {
             return false;
         }

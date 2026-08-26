@@ -107,6 +107,31 @@ ON CONFLICT (id_config) DO UPDATE SET is_enabled = FALSE;
 INSERT INTO public.survey_template_auto_creation_config (id_config, id_survey_template)
 VALUES (1, :smoke_active_template_id);
 
+INSERT INTO public.survey_template (
+    name_survey_template,
+    description,
+    date_begin,
+    date_end,
+    ancestor_id
+)
+VALUES (
+    'Smoke planned template',
+    'Planned template used only by browser smoke tests',
+    CURRENT_DATE + 7,
+    CURRENT_DATE + 30,
+    :smoke_active_template_id
+)
+RETURNING id_survey_template AS smoke_planned_template_id \\gset
+
+INSERT INTO public.organization_survey_template (id_organization, id_survey_template)
+VALUES (:smoke_organization_id, :smoke_planned_template_id);
+
+INSERT INTO public.survey_template_question (id_survey_template, question_order, question_text)
+VALUES (:smoke_planned_template_id, 1, 'Smoke planned template question');
+
+INSERT INTO public.survey_template_auto_creation_config (id_config, id_survey_template)
+VALUES (1, :smoke_planned_template_id);
+
 INSERT INTO public.survey_template (name_survey_template, description, date_begin, date_end)
 VALUES (
     'Smoke archived template',

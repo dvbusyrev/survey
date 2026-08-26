@@ -74,6 +74,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains("044", versions);
         Assert.Contains("047", versions);
         Assert.Contains("049", versions);
+        Assert.Contains("050", versions);
         Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT to_regclass('public.week_day')::text;"));
         var auditColumnsWithoutGenerator = (await connection.QueryAsync<string>(
             """
@@ -175,6 +176,21 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
             WHERE table_schema = 'public'
               AND table_name = 'organization_survey_template'
               AND column_name IN ('date_begin', 'date_end');
+            """));
+        Assert.Equal("YES", await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'survey_template'
+              AND column_name = 'ancestor_id';
+            """));
+        Assert.Equal("RESTRICT", await connection.ExecuteScalarAsync<string>(
+            """
+            SELECT delete_rule
+            FROM information_schema.referential_constraints
+            WHERE constraint_schema = 'public'
+              AND constraint_name = 'survey_template_ancestor_id_fkey';
             """));
     }
 
@@ -360,6 +376,85 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Equal("desc", descendingPage.SortDirection);
         Assert.Equal(SurveyListSortFields.AutoCreation, ascendingPage.SortBy);
         Assert.Equal("asc", ascendingPage.SortDirection);
+    }
+
+    [RequiresPostgresFact]
+    public async Task PlannedSurveyTemplate_PromotesAndArchivesItsParentOnStartDate()
+    {
+        var today = DateTime.Today.Date;
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var service = new SurveyService(_connectionFactory, _surveyRepository, _clock);
+        var parent = await service.CreateSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Действующий родительский шаблон",
+            StartDate = today.ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий родителя"],
+            IsAutoCreationEnabled = true
+        });
+        var plannedStart = today.AddDays(2);
+        var planned = await service.CreatePlannedSurveyTemplateAsync(new SurveyAddRequest
+        {
+            Title = "Плановый шаблон",
+            StartDate = plannedStart.ToString("yyyy-MM-dd"),
+            EndDate = plannedStart.AddDays(20).ToString("yyyy-MM-dd"),
+            Organizations = [organizationId],
+            Criteria = ["Критерий планового шаблона"],
+            IsAutoCreationEnabled = true,
+            AncestorId = parent.SurveyId
+        });
+
+        Assert.True(parent.Success, parent.Message);
+        Assert.True(planned.Success, planned.Message);
+        Assert.NotNull(parent.SurveyId);
+        Assert.NotNull(planned.SurveyId);
+
+        var plannedPage = await service.GetPlannedSurveyTemplatesPageAsync(1, null, null, null);
+        var archiveBeforeStart = await service.GetAdminArchivedSurveyTemplatesPageAsync(
+            1, null, null, null, null, null, null, null, null);
+        Assert.Contains(plannedPage.SurveyRows, row => row.IdSurvey == planned.SurveyId
+            && row.AncestorId == parent.SurveyId
+            && row.IsAutoCreationEnabled);
+        Assert.DoesNotContain(archiveBeforeStart.SurveyRows, row => row.IdSurvey == planned.SurveyId);
+
+        var promotionClock = new FixedClock(plannedStart);
+        var promotionRepository = new SurveyRepository(promotionClock);
+        var promotionService = new SurveyService(_connectionFactory, promotionRepository, promotionClock);
+        var promotedCount = await promotionService.PromotePlannedSurveyTemplatesAsync();
+        var activeAfterStart = await promotionService.GetSurveyTemplatesPageAsync(1, null, null, null);
+        var archiveAfterStart = await promotionService.GetAdminArchivedSurveyTemplatesPageAsync(
+            1, null, null, null, null, null, null, null, null);
+
+        Assert.Equal(1, promotedCount);
+        Assert.Contains(activeAfterStart.SurveyRows, row => row.IdSurvey == planned.SurveyId
+            && row.AncestorId == null
+            && row.IsAutoCreationEnabled);
+        Assert.Contains(archiveAfterStart.SurveyRows, row => row.IdSurvey == parent.SurveyId
+            && row.DateEnd == plannedStart.AddDays(-1));
+        Assert.DoesNotContain(activeAfterStart.SurveyRows, row => row.IdSurvey == parent.SurveyId);
+
+        await using var connection = _fixture.CreateConnection();
+        Assert.Null(await connection.ExecuteScalarAsync<int?>(
+            "SELECT ancestor_id FROM public.survey_template WHERE id_survey_template = @TemplateId;",
+            new { TemplateId = planned.SurveyId }));
+        Assert.False(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey_template_auto_creation_config
+                WHERE id_survey_template = @TemplateId
+            );
+            """,
+            new { TemplateId = parent.SurveyId }));
+        Assert.True(await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey_template_auto_creation_config
+                WHERE id_survey_template = @TemplateId
+            );
+            """,
+            new { TemplateId = planned.SurveyId }));
     }
 
     [RequiresPostgresFact]

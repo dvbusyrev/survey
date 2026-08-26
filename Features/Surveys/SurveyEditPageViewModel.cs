@@ -13,4 +13,6 @@ public sealed class SurveyEditPageViewModel
     public IReadOnlyList<string> Criteria { get; init; } = Array.Empty<string>();
     public bool HasAnswers { get; init; }
     public bool IsAutoCreationEnabled { get; init; }
+    public int? AncestorId { get; init; }
+    public string? AncestorName { get; init; }
 }

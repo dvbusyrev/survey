@@ -26,6 +26,17 @@ public static class AppNavigationRouteResolver
             return "archived_survey_templates";
         }
 
+        if (path == "/survey-templates/planned/create")
+        {
+            return "add_planned_survey_template";
+        }
+
+        if (path == "/survey-templates/planned"
+            || IsNumberedAction(path, "/survey-templates/planned/", "/edit"))
+        {
+            return "planned_survey_templates";
+        }
+
         if (path == "/survey-templates/create")
         {
             return "add_survey_template";

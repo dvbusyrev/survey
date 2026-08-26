@@ -1763,7 +1763,6 @@ public sealed partial class SurveyRepository
             SELECT template.id_survey_template
             FROM public.survey_template template
             WHERE template.id_survey_template = ANY(@TemplateIds)
-              AND template.date_begin <= @Today
               AND (template.date_end IS NULL OR template.date_end >= @Today)
               AND EXISTS (
                     SELECT 1
@@ -1777,16 +1776,24 @@ public sealed partial class SurveyRepository
         return ids.ToHashSet();
     }
 
-    public Task<int> GetDistinctSurveyTemplateNameCountAsync(
+    public Task<bool> HasConflictingAutoCreationTemplateNamesAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction? transaction,
         IReadOnlyCollection<int> templateIds,
         CancellationToken cancellationToken = default) =>
-        connection.ExecuteScalarAsync<int>(new CommandDefinition(
+        connection.ExecuteScalarAsync<bool>(new CommandDefinition(
             """
-            SELECT COUNT(DISTINCT lower(btrim(name_survey_template)))
-            FROM public.survey_template
-            WHERE id_survey_template = ANY(@TemplateIds);
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.survey_template first_template
+                INNER JOIN public.survey_template second_template
+                    ON second_template.id_survey_template > first_template.id_survey_template
+                   AND lower(btrim(second_template.name_survey_template)) = lower(btrim(first_template.name_survey_template))
+                WHERE first_template.id_survey_template = ANY(@TemplateIds)
+                  AND second_template.id_survey_template = ANY(@TemplateIds)
+                  AND first_template.ancestor_id IS DISTINCT FROM second_template.id_survey_template
+                  AND second_template.ancestor_id IS DISTINCT FROM first_template.id_survey_template
+            );
             """,
             new { TemplateIds = templateIds.ToArray() },
             transaction,
@@ -1978,7 +1985,6 @@ public sealed partial class SurveyRepository
             INNER JOIN public.survey_template template
                 ON template.id_survey_template = selected.id_survey_template
             WHERE selected.id_config = @ConfigId
-              AND template.date_begin <= @Today
               AND (template.date_end IS NULL OR template.date_end >= @Today)
               AND EXISTS (
                     SELECT 1
@@ -2004,7 +2010,6 @@ public sealed partial class SurveyRepository
             INNER JOIN public.survey_template template
                 ON template.id_survey_template = selected.id_survey_template
             WHERE selected.id_config = @ConfigId
-              AND template.date_begin <= @Today
               AND (template.date_end IS NULL OR template.date_end >= @Today)
               AND EXISTS (
                     SELECT 1

@@ -5,6 +5,7 @@ public sealed class SurveyTableViewModel
     public IReadOnlyList<SurveyTableRowViewModel> Surveys { get; init; } = Array.Empty<SurveyTableRowViewModel>();
     public bool IsArchive { get; init; }
     public bool IsTemplateSection { get; init; }
+    public bool IsPlannedTemplateSection { get; init; }
     public string TableId { get; init; } = "surveys-table-top";
     public string NameSortUrl { get; init; } = string.Empty;
     public string NameSortDirection { get; init; } = string.Empty;

@@ -56,12 +56,12 @@ public partial class SurveyService
                 "Один или несколько выбранных шаблонов не найдены, не активны или не назначены организациям.");
         }
 
-        var distinctNameCount = await _surveyRepository.GetDistinctSurveyTemplateNameCountAsync(
+        var hasConflictingNames = await _surveyRepository.HasConflictingAutoCreationTemplateNamesAsync(
             connection,
             transaction,
             templateIds,
             cancellationToken);
-        if (distinctNameCount != templateIds.Length)
+        if (hasConflictingNames)
         {
             return InvalidAutoCreationRequest("Шаблоны с одинаковым названием нельзя выбирать несколько раз.");
         }

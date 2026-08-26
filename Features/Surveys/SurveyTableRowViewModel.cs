@@ -13,4 +13,5 @@ public sealed class SurveyTableRowViewModel
     public bool IsExtension { get; init; }
     public int? ExtensionOrganizationId { get; init; }
     public bool IsAutoCreationEnabled { get; init; }
+    public int? AncestorId { get; init; }
 }

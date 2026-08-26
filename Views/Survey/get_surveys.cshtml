@@ -1,8 +1,9 @@
 ﻿@model MainProject.Web.ViewModels.SurveyListPageViewModel
 @{
     var isTemplateSection = Model?.IsTemplateSection ?? false;
+    var isPlannedTemplateSection = Model?.IsPlannedTemplateSection ?? false;
     ViewData["Title"] = isTemplateSection ? "Шаблоны анкет" : "Анкеты";
-    ViewData["SurveySection"] = "list";
+    ViewData["SurveySection"] = isPlannedTemplateSection ? "planned" : "list";
     ViewData["IsTemplateSection"] = isTemplateSection;
     var pageModel = Model ?? new MainProject.Web.ViewModels.SurveyListPageViewModel();
     var openAddSurveyModal = Model?.OpenAddSurveyModal ?? false;
@@ -18,12 +19,12 @@
 <div class="app-page"
              id="default_content"
              data-page="surveys-list"
-             data-survey-entity="@(isTemplateSection ? "template" : "survey")"
-             data-list-path="@(isTemplateSection ? "/survey-templates" : "/survey")"
-             data-create-path="@(isTemplateSection ? "/survey-templates/create" : "/survey/create")"
+             data-survey-entity="@(isPlannedTemplateSection ? "planned-template" : isTemplateSection ? "template" : "survey")"
+             data-list-path="@(isPlannedTemplateSection ? "/survey-templates/planned" : isTemplateSection ? "/survey-templates" : "/survey")"
+             data-create-path="@(isPlannedTemplateSection ? "/survey-templates/planned/create" : isTemplateSection ? "/survey-templates/create" : "/survey/create")"
              data-work-period-path="@(isTemplateSection ? string.Empty : "/survey/active/work-period")"
-             data-list-tab="@(isTemplateSection ? "survey_templates" : "get_surveys")"
-             data-create-tab="@(isTemplateSection ? "add_survey_template" : "add_survey")"
+             data-list-tab="@(isPlannedTemplateSection ? "planned_survey_templates" : isTemplateSection ? "survey_templates" : "get_surveys")"
+             data-create-tab="@(isPlannedTemplateSection ? "add_planned_survey_template" : isTemplateSection ? "add_survey_template" : "add_survey")"
              data-total-count="@pageModel.TotalCount"
              data-visible-count="@surveyRows.Count"
              data-table-scroll-target="#surveys-table-top"
@@ -43,7 +44,7 @@
                     <button type="button"
                             class="btn app-button app-button--primary"
                             data-click-call="openAddSurveyModal">
-                        Добавить шаблон
+                        @(isPlannedTemplateSection ? "Создать плановый шаблон" : "Добавить шаблон")
                     </button>
                     @await Html.PartialAsync("~/Views/Survey/Partials/_SurveyOrganizationFilter.cshtml")
                 }
@@ -66,6 +67,7 @@
                     Surveys = surveyRows,
                     IsArchive = false,
                     IsTemplateSection = isTemplateSection,
+                    IsPlannedTemplateSection = isPlannedTemplateSection,
                     TableId = "surveys-table-top",
                     NameSortUrl = pageModel.BuildSortUrl(MainProject.Web.ViewModels.SurveyListSortFields.Name),
                     NameSortDirection = pageModel.GetHeaderSortDirection(MainProject.Web.ViewModels.SurveyListSortFields.Name),

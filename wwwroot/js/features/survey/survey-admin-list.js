@@ -76,9 +76,22 @@
         const page = document.querySelector(PAGE_SELECTOR);
         return currentPath === '/survey-templates'
             || currentPath === '/survey-templates/create'
+            || currentPath === '/survey-templates/planned'
+            || currentPath === '/survey-templates/planned/create'
             || currentPath === '/survey-templates/archive'
+            || /\/survey-templates\/planned\/\d+\/edit$/.test(currentPath)
             || /\/survey-templates\/\d+\/edit$/.test(currentPath)
-            || page?.dataset?.surveyEntity === 'template';
+            || page?.dataset?.surveyEntity === 'template'
+            || page?.dataset?.surveyEntity === 'planned-template';
+    }
+
+    function isPlannedTemplateSurveyListRoute(path) {
+        const currentPath = String(path || window.location.pathname || '').toLowerCase();
+        const page = document.querySelector(PAGE_SELECTOR);
+        return currentPath === '/survey-templates/planned'
+            || currentPath === '/survey-templates/planned/create'
+            || /\/survey-templates\/planned\/\d+\/edit$/.test(currentPath)
+            || page?.dataset?.surveyEntity === 'planned-template';
     }
 
     function getSurveyEntityLabels(path) {
@@ -98,6 +111,9 @@
     }
 
     function resolveSurveyListTarget(path) {
+        if (isPlannedTemplateSurveyListRoute(path)) {
+            return { tabName: 'planned_survey_templates', fallbackUrl: '/survey-templates/planned' };
+        }
         if (isTemplateSurveyListRoute(path)) {
             return isArchiveSurveyListRoute(path)
                 ? { tabName: 'archived_survey_templates', fallbackUrl: '/survey-templates/archive' }
@@ -114,6 +130,8 @@
         return currentPath === '/survey/create'
             || currentPath === '/surveys/create'
             || currentPath === '/survey-templates/create'
+            || currentPath === '/survey-templates/planned/create'
+            || /\/survey-templates\/planned\/\d+\/edit$/.test(currentPath)
             || /\/survey-templates\/\d+\/edit$/.test(currentPath)
             || /\/survey\/\d+\/edit$/.test(currentPath)
             || /\/surveys\/\d+\/edit$/.test(currentPath)
@@ -157,8 +175,11 @@
 
     function openAddSurveyModal() {
         const isTemplate = isTemplateSurveyListRoute();
-        const createTarget = isTemplate
-            ? { tabName: 'add_survey_template', fallbackUrl: '/survey-templates/create' }
+        const isPlannedTemplate = isPlannedTemplateSurveyListRoute();
+        const createTarget = isPlannedTemplate
+            ? { tabName: 'add_planned_survey_template', fallbackUrl: '/survey-templates/planned/create' }
+            : isTemplate
+                ? { tabName: 'add_survey_template', fallbackUrl: '/survey-templates/create' }
             : { tabName: 'add_survey', fallbackUrl: '/survey/create' };
         if (document.getElementById('surveyId')) {
             if (typeof window.refreshAdminUi === 'function') {
@@ -180,7 +201,9 @@
             window.resetSurveyCreateForm();
         }
 
-        setSurveyEditorModalTitle(isTemplate ? 'Добавление шаблона' : 'Добавление анкеты');
+        setSurveyEditorModalTitle(isPlannedTemplate
+            ? 'Создание планового шаблона'
+            : isTemplate ? 'Добавление шаблона' : 'Добавление анкеты');
         syncSurveyListHistory();
         setSurveyEditorModalVisible(true);
     }
@@ -289,16 +312,20 @@
         try {
             const survey = buildSurveyData(trigger);
 
-            const editUrl = isTemplateSurveyListRoute()
-                ? `/survey-templates/${survey.id_survey}/edit`
+            const editUrl = isPlannedTemplateSurveyListRoute()
+                ? `/survey-templates/planned/${survey.id_survey}/edit`
+                : isTemplateSurveyListRoute()
+                    ? `/survey-templates/${survey.id_survey}/edit`
                 : isArchiveSurveyListRoute()
                     ? `/survey/archive/${survey.id_survey}/edit`
                     : `/survey/${survey.id_survey}/edit`;
 
             if (typeof window.refreshAdminUi === 'function') {
                 window.refreshAdminUi({
-                    tabName: isTemplateSurveyListRoute()
-                        ? 'update_survey_template'
+                    tabName: isPlannedTemplateSurveyListRoute()
+                        ? 'update_planned_survey_template'
+                        : isTemplateSurveyListRoute()
+                            ? 'update_survey_template'
                         : isArchiveSurveyListRoute() ? 'update_archived_survey' : 'update_survey',
                     id: survey.id_survey,
                     fallbackUrl: editUrl,
@@ -484,7 +511,9 @@
         const target = resolveSurveyListTarget();
         if (typeof window.handleAdminMutationSuccess === 'function') {
             window.handleAdminMutationSuccess({
-                message: result?.message || (isTemplateSurveyListRoute() ? 'Шаблон успешно создан.' : 'Анкета успешно создана.'),
+                message: result?.message || (isPlannedTemplateSurveyListRoute()
+                    ? 'Плановый шаблон успешно создан.'
+                    : isTemplateSurveyListRoute() ? 'Шаблон успешно создан.' : 'Анкета успешно создана.'),
                 tabName: target.tabName,
                 fallbackUrl: target.fallbackUrl,
                 options: {
@@ -504,7 +533,9 @@
         const target = resolveSurveyListTarget();
         if (typeof window.handleAdminMutationSuccess === 'function') {
             window.handleAdminMutationSuccess({
-                message: result?.message || (isTemplateSurveyListRoute() ? 'Шаблон успешно обновлён.' : 'Анкета успешно обновлена.'),
+                message: result?.message || (isPlannedTemplateSurveyListRoute()
+                    ? 'Плановый шаблон успешно обновлён.'
+                    : isTemplateSurveyListRoute() ? 'Шаблон успешно обновлён.' : 'Анкета успешно обновлена.'),
                 tabName: target.tabName,
                 fallbackUrl: target.fallbackUrl,
                 options: {
@@ -1141,13 +1172,15 @@
     function openEditorFromCurrentRoute() {
         if (window.location.pathname.toLowerCase() === '/survey/create'
             || window.location.pathname.toLowerCase() === '/surveys/create'
-            || window.location.pathname.toLowerCase() === '/survey-templates/create') {
+            || window.location.pathname.toLowerCase() === '/survey-templates/create'
+            || window.location.pathname.toLowerCase() === '/survey-templates/planned/create') {
             openAddSurveyModal();
             return;
         }
 
         if (/\/survey\/\d+\/edit$/i.test(window.location.pathname)
             || /\/surveys\/\d+\/edit$/i.test(window.location.pathname)
+            || /\/survey-templates\/planned\/\d+\/edit$/i.test(window.location.pathname)
             || /\/survey-templates\/\d+\/edit$/i.test(window.location.pathname)
             || /\/survey\/archive\/\d+\/edit$/i.test(window.location.pathname)
             || /\/surveys\/archive\/\d+\/edit$/i.test(window.location.pathname)) {

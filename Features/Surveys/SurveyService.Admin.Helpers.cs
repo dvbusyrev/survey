@@ -25,7 +25,8 @@ public partial class SurveyService
             OrganizationNames = row.OrganizationNames ?? Array.Empty<string>(),
             IsExtension = row.IsExtension,
             ExtensionOrganizationId = row.ExtensionOrganizationId,
-            IsAutoCreationEnabled = row.IsAutoCreationEnabled
+            IsAutoCreationEnabled = row.IsAutoCreationEnabled,
+            AncestorId = row.AncestorId
         };
     }
 

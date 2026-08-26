@@ -4,6 +4,7 @@
     var editPage = Model?.EditSurveyPage;
     var isEditMode = editPage != null;
     var isTemplateSection = Model?.IsTemplateSection ?? false;
+    var isPlannedTemplateSection = Model?.IsPlannedTemplateSection ?? false;
     var criteriaLocked = isEditMode && editPage!.HasAnswers;
     var selectedOrganizationNamesJson = isEditMode
         ? System.Text.Json.JsonSerializer.Serialize(editPage!.SelectedOrganizationNames)
@@ -12,14 +13,18 @@
 
 <div id="surveyEditorModal"
      class="modal survey-editor-modal"
-     data-entity-kind="@(isTemplateSection ? "template" : "survey")"
-     data-create-url="@(isTemplateSection ? "/survey-templates/create" : "/survey/create")"
-     data-update-url="@(isTemplateSection && isEditMode ? $"/survey-templates/{editPage!.Survey.IdSurvey}/update" : isEditMode ? $"/survey/{editPage!.Survey.IdSurvey}/update" : string.Empty)"
+     data-entity-kind="@(isPlannedTemplateSection ? "planned-template" : isTemplateSection ? "template" : "survey")"
+     data-create-url="@(isPlannedTemplateSection ? "/survey-templates/planned/create" : isTemplateSection ? "/survey-templates/create" : "/survey/create")"
+     data-update-url="@(isPlannedTemplateSection && isEditMode
+         ? $"/survey-templates/planned/{editPage!.Survey.IdSurvey}/update"
+         : isTemplateSection && isEditMode ? $"/survey-templates/{editPage!.Survey.IdSurvey}/update" : isEditMode ? $"/survey/{editPage!.Survey.IdSurvey}/update" : string.Empty)"
      data-criteria-locked="@(criteriaLocked ? "true" : "false")">
     <div class="modal-content survey-editor-page">
         <div class="modal-header">
             <h2 class="h2_modal" data-role="survey-editor-title">@(isTemplateSection
-                ? isEditMode ? "Редактирование шаблона" : "Добавление шаблона"
+                ? isPlannedTemplateSection
+                    ? isEditMode ? "Редактирование планового шаблона" : "Создание планового шаблона"
+                    : isEditMode ? "Редактирование шаблона" : "Добавление шаблона"
                 : isEditMode ? "Редактирование анкеты" : "Добавление анкеты")</h2>
             <button type="button"
                     class="modal-close"
@@ -29,6 +34,42 @@
         </div>
         <div class="modal-body">
             <section class="app-section app-page__section app-page__stack">
+                @if (isPlannedTemplateSection)
+                {
+                    <div class="app-field-group survey-editor-page__template-field"
+                         data-role="survey-template-field">
+                        <label for="plannedTemplateAncestorId">Шаблон-родитель</label>
+                        <input type="hidden"
+                               id="plannedTemplateAncestorId"
+                               value="@(isEditMode ? editPage!.AncestorId?.ToString() : string.Empty)" />
+                        <div class="app-multiselect app-multiselect--inline app-checkbox-dropdown app-checkbox-dropdown--inline survey-editor-page__template-dropdown survey-editor-page__parent-template-dropdown"
+                             data-role="survey-template-dropdown">
+                            <button type="button"
+                                    id="surveyTemplatePickerTrigger"
+                                    class="app-field app-multiselect__trigger app-checkbox-dropdown__trigger survey-editor-page__parent-template-trigger"
+                                    data-role="survey-template-dropdown-trigger"
+                                    aria-haspopup="listbox"
+                                    aria-expanded="false">
+                                <span data-role="survey-template-dropdown-label">@(isEditMode && !string.IsNullOrWhiteSpace(editPage!.AncestorName)
+                                    ? editPage.AncestorName
+                                    : "Не выбран")</span>
+                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                            </button>
+                            <div class="app-multiselect__menu app-checkbox-dropdown__menu app-multiselect__menu--inline app-checkbox-dropdown__menu--inline is-hidden"
+                                 data-role="survey-template-dropdown-menu">
+                                <div class="survey-loading-block u-hidden"
+                                     data-role="survey-template-loading">
+                                    <div class="spinner"></div>
+                                </div>
+                                <div class="app-checkbox-list"
+                                     data-role="survey-template-options"
+                                     role="listbox"
+                                     aria-label="Активные шаблоны-родители"></div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 <div class="app-field-group">
                     <label for="surveyTitle">@(isTemplateSection ? "Название шаблона" : "Название анкеты")</label>
                     <input type="text"
@@ -148,7 +189,7 @@
                            data-date-label="@(isTemplateSection ? "Дата конца" : "Доступно по")"
                            lang="ru-RU"
                            value="@(isEditMode ? editPage!.Survey.DateEnd?.ToString("yyyy-MM-dd") : string.Empty)"
-                           required="@(!isTemplateSection)" />
+                           required="@(isTemplateSection ? null : "required")" />
                 </div>
 
                 <div class="app-field-group survey-editor-page__organization-field">

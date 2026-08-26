@@ -34,6 +34,9 @@ namespace MainProject.Domain.Entities
         [JsonConverter(typeof(DateOnlyDateTimeJsonConverter))]
         public DateTime? DateEnd { get; set; }
 
+        [JsonPropertyName("ancestor_id")]
+        public int? AncestorId { get; set; }
+
         [JsonPropertyName("id_answer")]
         public int IdAnswer { get; set; }
 

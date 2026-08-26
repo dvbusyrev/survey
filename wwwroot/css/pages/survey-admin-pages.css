@@ -30,10 +30,12 @@
 
 .survey-period-filter__inline-clear {
   position: absolute;
-  top: 50%;
+  top: 0;
   right: 0.35rem;
+  bottom: 0;
   z-index: 2;
-  transform: translateY(-50%);
+  margin-block: auto;
+  transform: none;
 }
 
 .survey-period-filter__trigger span {
@@ -472,6 +474,21 @@
   grid-template-columns: minmax(0, 1fr);
   justify-items: start;
   width: min(22rem, 100%);
+}
+
+.survey-editor-page__parent-template-dropdown,
+.survey-editor-page__parent-template-trigger {
+  width: 100%;
+}
+
+.survey-editor-page__parent-template-trigger i {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.survey-editor-page__parent-template-dropdown.is-open .survey-editor-page__parent-template-trigger i {
+  transform: rotate(180deg);
 }
 
 .survey-editor-page__template-dropdown > :is(

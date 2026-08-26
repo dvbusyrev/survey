@@ -22,13 +22,16 @@
 
     function getSurveyEditorContext() {
         const modal = document.getElementById('surveyEditorModal');
-        const isTemplate = modal?.dataset?.entityKind === 'template';
+        const entityKind = modal?.dataset?.entityKind || 'survey';
+        const isPlannedTemplate = entityKind === 'planned-template';
+        const isTemplate = entityKind === 'template' || isPlannedTemplate;
         return {
             isTemplate,
+            isPlannedTemplate,
             createUrl: modal?.dataset?.createUrl || '/survey/create',
-            listTab: isTemplate ? 'survey_templates' : 'get_surveys',
-            listUrl: isTemplate ? '/survey-templates' : '/survey',
-            entityName: isTemplate ? 'шаблон' : 'анкету'
+            listTab: isPlannedTemplate ? 'planned_survey_templates' : isTemplate ? 'survey_templates' : 'get_surveys',
+            listUrl: isPlannedTemplate ? '/survey-templates/planned' : isTemplate ? '/survey-templates' : '/survey',
+            entityName: isPlannedTemplate ? 'плановый шаблон' : isTemplate ? 'шаблон' : 'анкету'
         };
     }
 
@@ -83,7 +86,21 @@
 
     function resetTemplatePicker() {
         closeTemplatePicker();
+        selectedTemplateId = null;
+        const ancestorField = document.getElementById('plannedTemplateAncestorId');
+        if (ancestorField) ancestorField.value = '';
+        const label = getTemplatePickerElement('survey-template-dropdown-label');
+        if (label) label.textContent = 'Не выбран';
         ensureTemplatePickerController();
+    }
+
+    function setParentTemplateSelection(templateId, templateName) {
+        const id = Number.parseInt(String(templateId || ''), 10);
+        selectedTemplateId = Number.isFinite(id) && id > 0 ? id : null;
+        const ancestorField = document.getElementById('plannedTemplateAncestorId');
+        const label = getTemplatePickerElement('survey-template-dropdown-label');
+        if (ancestorField) ancestorField.value = selectedTemplateId ? String(selectedTemplateId) : '';
+        if (label) label.textContent = selectedTemplateId ? String(templateName || '').trim() : 'Не выбран';
     }
 
     function getAutoCreationPickerElement(role) {
@@ -156,9 +173,12 @@
                 headers: { Accept: 'application/json' }
             });
             const template = await parseTemplateResponse(response, 'Не удалось загрузить выбранный шаблон.');
+            const context = getSurveyEditorContext();
             prefillSurveyCreateForm(template, {
                 preserveDates: true,
-                submitLabel: 'Сохранить'
+                submitLabel: 'Сохранить',
+                ancestorId: context.isPlannedTemplate ? id : null,
+                ancestorName: context.isPlannedTemplate ? templateName : ''
             });
             closeTemplatePicker();
         } catch (error) {
@@ -171,6 +191,21 @@
         const list = getTemplatePickerElement('survey-template-options');
         if (!list) return;
         list.replaceChildren();
+
+        if (getSurveyEditorContext().isPlannedTemplate) {
+            const emptyOption = window.AppUi.createElement('button', {
+                type: 'button',
+                className: 'app-checkbox-option survey-editor-page__template-option',
+                text: 'Не выбран',
+                attrs: { role: 'option', 'aria-selected': selectedTemplateId ? 'false' : 'true' }
+            });
+            emptyOption.classList.toggle('selected', !selectedTemplateId);
+            emptyOption.addEventListener('click', () => {
+                setParentTemplateSelection(null, '');
+                closeTemplatePicker();
+            });
+            list.appendChild(emptyOption);
+        }
 
         if (!Array.isArray(templateOptions) || templateOptions.length === 0) {
             list.appendChild(window.AppUi.createElement('p', {
@@ -237,6 +272,10 @@
         const menu = getTemplatePickerElement('survey-template-dropdown-menu');
         if (!root || !trigger || !menu || typeof window.AppUi?.createMultiselect !== 'function') {
             return null;
+        }
+        if (getSurveyEditorContext().isPlannedTemplate && selectedTemplateId === null) {
+            const initialAncestorId = Number.parseInt(document.getElementById('plannedTemplateAncestorId')?.value || '', 10);
+            selectedTemplateId = Number.isFinite(initialAncestorId) && initialAncestorId > 0 ? initialAncestorId : null;
         }
         if (templateDropdownController?.root === root) {
             return templateDropdownController;
@@ -324,6 +363,52 @@
         if (submitButton) submitButton.textContent = label;
     }
 
+    function formatLocalIso(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function addIsoDays(value, days) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+        if (!match) return '';
+        const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+        date.setDate(date.getDate() + days);
+        return formatLocalIso(date);
+    }
+
+    function configureEditorDateBounds() {
+        const startDate = safeGetElement('startDate');
+        const endDate = safeGetElement('endDate');
+        if (!startDate || !endDate) return;
+
+        if (!getSurveyEditorContext().isPlannedTemplate) {
+            window.AppDate?.bindPeriodBounds?.(startDate, endDate);
+            return;
+        }
+
+        const tomorrow = new Date();
+        tomorrow.setHours(0, 0, 0, 0);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        startDate.min = formatLocalIso(tomorrow);
+        startDate.removeAttribute('max');
+        endDate.removeAttribute('max');
+
+        const updateEndMinimum = () => {
+            const startIso = window.AppDate?.getInputIso?.(startDate) || window.AppDate?.toIso?.(startDate.value) || '';
+            const minimumEnd = addIsoDays(startIso, 1);
+            if (minimumEnd) endDate.min = minimumEnd;
+            else endDate.removeAttribute('min');
+        };
+        updateEndMinimum();
+        if (startDate.dataset.plannedBoundsBound !== 'true') {
+            startDate.dataset.plannedBoundsBound = 'true';
+            startDate.addEventListener('change', updateEndMinimum);
+            startDate.addEventListener('input', updateEndMinimum);
+        }
+    }
+
     function resetSurveyCreateForm() {
         setSubmitButtonLabel('Сохранить');
         resetTemplatePicker();
@@ -349,7 +434,7 @@
         organizations.updateDisplay();
         organizations.close();
         setModalVisible('loadingOverlay', false);
-        window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
+        configureEditorDateBounds();
     }
 
     function normalizeCopyTemplate(rawTemplate) {
@@ -361,7 +446,8 @@
             organizations: window.SurveyAdminFormState.cloneOrganizations(rawTemplate?.organizations),
             criteria: Array.isArray(rawTemplate?.criteria)
                 ? rawTemplate.criteria.map((item) => String(item || '').trim()).filter(Boolean)
-                : []
+                : [],
+            isAutoCreationEnabled: rawTemplate?.isAutoCreationEnabled === true
         };
     }
 
@@ -387,11 +473,15 @@
             'endDate',
             options.preserveDates ? preservedEndDate : template.endDate
         );
-        window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
+        configureEditorDateBounds();
         criteria.replace(template.criteria);
         organizations.setSelected(template.organizations);
         organizations.updateDisplay();
         organizations.syncList();
+        setSurveyAutoCreationEnabled(template.isAutoCreationEnabled);
+        if (options.ancestorId) {
+            setParentTemplateSelection(options.ancestorId, options.ancestorName);
+        }
     }
 
     function validateForm() {
@@ -430,11 +520,28 @@
             errors.push(message);
             isValid = false;
         }
-        const periodError = window.AppDate?.getPeriodError?.('startDate', 'endDate');
-        if (periodError) {
-            window.SurveyAdminValidation?.setFieldError(periodError.target, periodError.message);
-            errors.push(periodError.message);
-            isValid = false;
+        if (context.isPlannedTemplate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (startDate && startDate <= formatLocalIso(today)) {
+                const message = 'Дата начала планового шаблона должна быть позже сегодняшней даты.';
+                window.SurveyAdminValidation?.setFieldError(safeGetElement('startDate'), message);
+                errors.push(message);
+                isValid = false;
+            }
+            if (startDate && endDate && endDate <= startDate) {
+                const message = 'Дата конца должна быть позже даты начала.';
+                window.SurveyAdminValidation?.setFieldError(safeGetElement('endDate'), message);
+                errors.push(message);
+                isValid = false;
+            }
+        } else {
+            const periodError = window.AppDate?.getPeriodError?.('startDate', 'endDate');
+            if (periodError) {
+                window.SurveyAdminValidation?.setFieldError(periodError.target, periodError.message);
+                errors.push(periodError.message);
+                isValid = false;
+            }
         }
         const organizationField = getElementByRole('selected-organizations-container');
         if (organizations.getSelected().length === 0) {
@@ -475,7 +582,10 @@
                 Organizations: organizations.getSelected().map((organization) => organization.id),
                 Criteria: criteria.values(),
                 IsAutoCreationEnabled: context.isTemplate
-                    && safeGetElement('surveyAutoCreationEnabled')?.value === 'true'
+                    && safeGetElement('surveyAutoCreationEnabled')?.value === 'true',
+                AncestorId: context.isPlannedTemplate
+                    ? Number.parseInt(safeGetElement('plannedTemplateAncestorId')?.value || '', 10) || null
+                    : null
             })
         })
             .then((response) => response.ok
@@ -489,12 +599,16 @@
                     window.handleSurveyCreateSuccess(result);
                 } else if (typeof window.handleAdminMutationSuccess === 'function') {
                     window.handleAdminMutationSuccess({
-                        message: result.message || (context.isTemplate ? 'Шаблон успешно создан.' : 'Анкета успешно создана.'),
+                        message: result.message || (context.isPlannedTemplate
+                            ? 'Плановый шаблон успешно создан.'
+                            : context.isTemplate ? 'Шаблон успешно создан.' : 'Анкета успешно создана.'),
                         tabName: context.listTab,
                         fallbackUrl: context.listUrl
                     });
                 } else {
-                    showSuccess('Успех', context.isTemplate ? 'Шаблон успешно создан.' : 'Анкета успешно создана.');
+                    showSuccess('Успех', context.isPlannedTemplate
+                        ? 'Плановый шаблон успешно создан.'
+                        : context.isTemplate ? 'Шаблон успешно создан.' : 'Анкета успешно создана.');
                     window.setTimeout(() => window.location.reload(), 2000);
                 }
             })
@@ -576,7 +690,7 @@
         safeGetValue
     });
 
-    window.AppDate?.bindPeriodBounds?.('startDate', 'endDate');
+    configureEditorDateBounds();
     ensureTemplatePickerController();
     ensureAutoCreationPickerController();
 })();

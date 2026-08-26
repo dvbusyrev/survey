@@ -76,6 +76,7 @@ What this does:
 - applies `047_split_survey_templates`
 - applies `048_allow_open_ended_survey_templates`
 - applies `049_use_templates_for_auto_creation`
+- applies `050_add_planned_survey_templates`
 
 Each migration records its version in `public.schema_migrations` and is skipped on the next run.
 
@@ -130,5 +131,6 @@ Migration sources:
 - `047_split_survey_templates` moves templates, their criteria, and organization links into dedicated `survey_template*` tables and removes `survey.is_template`
 - `048_allow_open_ended_survey_templates` allows templates without an end date and keeps them active after their start date
 - `049_use_templates_for_auto_creation` replaces survey-based auto-creation selections with links to `survey_template` in `survey_template_auto_creation_config`
+- `050_add_planned_survey_templates` adds planned templates, their optional parent link, and database protection for the parent-child relationship
 
 `db/bootstrap/001_base_schema.sql` is not an independently executable migration. It is the canonical base schema imported only by `001_unified_schema.sql` when a database has no migration history. Keep schema snapshots and bootstrap files outside `db/migrations` so the migration runner cannot treat them as standalone steps.

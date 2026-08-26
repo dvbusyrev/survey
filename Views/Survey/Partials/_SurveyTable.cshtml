@@ -5,6 +5,7 @@
     var surveys = Model?.Surveys ?? Array.Empty<MainProject.Web.ViewModels.SurveyTableRowViewModel>();
     var isArchive = Model?.IsArchive ?? false;
     var isTemplateSection = Model?.IsTemplateSection ?? false;
+    var isPlannedTemplateSection = Model?.IsPlannedTemplateSection ?? false;
     var showAutoCreationColumn = isTemplateSection && !isArchive;
     var columnCount = showAutoCreationColumn ? 5 : 4;
 
@@ -143,7 +144,9 @@
                                 @if (!isArchive)
                                 {
                                     <a class="icon-container"
-                                       href="@(isTemplateSection ? $"/survey-templates/{survey.IdSurvey}/edit" : $"/survey/{survey.IdSurvey}/edit")"
+                                       href="@(isPlannedTemplateSection
+                                           ? $"/survey-templates/planned/{survey.IdSurvey}/edit"
+                                           : isTemplateSection ? $"/survey-templates/{survey.IdSurvey}/edit" : $"/survey/{survey.IdSurvey}/edit")"
                                        aria-label="Редактировать">
                                         <span aria-hidden="true"><i class="fas fa-pen-to-square"></i></span>
                                         <span class="icon-tooltip">Редактировать</span>
