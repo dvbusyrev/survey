@@ -202,7 +202,7 @@
         }
 
         setSurveyEditorModalTitle(isPlannedTemplate
-            ? 'Создание планового шаблона'
+            ? 'Добавление планового шаблона'
             : isTemplate ? 'Добавление шаблона' : 'Добавление анкеты');
         syncSurveyListHistory();
         setSurveyEditorModalVisible(true);
