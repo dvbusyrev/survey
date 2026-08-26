@@ -71,15 +71,19 @@ public abstract class ServerSortablePageViewModelBase
     public string BuildSortUrl(string field)
     {
         var normalizedField = NormalizeSortField(field);
+        var initialDirection = NormalizeSortDirection(null, normalizedField);
         if (!IsSortedBy(normalizedField))
         {
-            return BuildUrl(1, normalizedField, "asc", includeSort: true);
+            return BuildUrl(1, normalizedField, initialDirection, includeSort: true);
         }
 
         var currentDirection = NormalizeSortDirection(SortDirection, normalizedField);
-        if (string.Equals(currentDirection, "asc", StringComparison.Ordinal))
+        if (string.Equals(currentDirection, initialDirection, StringComparison.Ordinal))
         {
-            return BuildUrl(1, normalizedField, "desc", includeSort: true);
+            var oppositeDirection = string.Equals(initialDirection, "asc", StringComparison.Ordinal)
+                ? "desc"
+                : "asc";
+            return BuildUrl(1, normalizedField, oppositeDirection, includeSort: true);
         }
 
         return BuildUrl(1, normalizedField, string.Empty, includeSort: false);

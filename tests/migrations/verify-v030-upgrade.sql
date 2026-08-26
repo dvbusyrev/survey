@@ -1,6 +1,8 @@
 \set ON_ERROR_STOP on
 
-INSERT INTO public.email_config DEFAULT VALUES;
+UPDATE public.email_config
+SET subject_text = subject_text
+WHERE id_config = 1;
 
 DO $verification$
 DECLARE
@@ -8,6 +10,7 @@ DECLARE
     obsolete_schedule_column_count integer;
     applied_migration_count integer;
     audit_column_without_generator_count integer;
+    email_config_count integer;
     redundant_user_update_column_count integer;
 BEGIN
     IF NOT EXISTS (
@@ -97,6 +100,16 @@ BEGIN
     END IF;
 
     SELECT COUNT(*)
+    INTO email_config_count
+    FROM public.email_config
+    WHERE id_config = 1;
+
+    IF email_config_count <> 1
+       OR (SELECT COUNT(*) FROM public.email_config) <> 1 THEN
+        RAISE EXCEPTION 'Email settings were not converted to a singleton';
+    END IF;
+
+    SELECT COUNT(*)
     INTO audit_column_without_generator_count
     FROM information_schema.columns
     WHERE table_schema = 'public'
@@ -108,9 +121,12 @@ BEGIN
           'email_config_l',
           'organization_l',
           'organization_survey_l',
-          'survey_auto_creation_config_l',
+          'organization_survey_template_l',
           'survey_l',
           'survey_question_l',
+          'survey_template_auto_creation_config_l',
+          'survey_template_l',
+          'survey_template_question_l',
           'theme_config_l'
       )
       AND column_name = 'id_audit'
@@ -124,10 +140,28 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM public.email_config_l
-        WHERE operation = 'INSERT'
-          AND id_config IS NOT NULL
+        WHERE operation = 'UPDATE'
+          AND id_config = 1
     ) THEN
-        RAISE EXCEPTION 'Email settings audit insert failed after the upgrade';
+        RAISE EXCEPTION 'Email settings audit update failed after the upgrade';
+    END IF;
+
+    IF to_regclass('public.survey_template') IS NULL
+       OR to_regclass('public.survey_template_question') IS NULL
+       OR to_regclass('public.organization_survey_template') IS NULL
+       OR to_regclass('public.survey_template_auto_creation_config') IS NULL
+       OR to_regclass('public.survey_auto_creation_config') IS NOT NULL THEN
+        RAISE EXCEPTION 'Survey template schema is inconsistent after the upgrade';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'survey_template'
+          AND column_name = 'ancestor_id'
+    ) THEN
+        RAISE EXCEPTION 'Planned survey template ancestry was not created';
     END IF;
 
     SELECT COUNT(*)
@@ -135,10 +169,12 @@ BEGIN
     FROM public.schema_migrations
     WHERE version IN (
         '028', '029', '030', '031', '032', '033', '034',
-        '035', '036', '037', '038', '039', '040', '041'
+        '035', '036', '037', '038', '039', '040', '041',
+        '042', '043', '044', '045', '046', '047', '048',
+        '049', '050'
     );
 
-    IF applied_migration_count <> 14 THEN
+    IF applied_migration_count <> 23 THEN
         RAISE EXCEPTION 'Not all current migrations were applied';
     END IF;
 END;

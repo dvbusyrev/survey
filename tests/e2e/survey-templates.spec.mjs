@@ -35,6 +35,14 @@ test('шаблоны отделены от анкет и открывают со
     await expect(page.locator('[data-role="admin-survey-row"]')).not.toContainText('Smoke survey');
     await expect(page.locator('thead a.logs-table__sort-link', { hasText: 'Дата начала' })).toBeVisible();
     await expect(page.locator('thead a.logs-table__sort-link', { hasText: 'Дата конца' })).toBeVisible();
+    await expect(page.locator('thead a.logs-table__sort-link', { hasText: 'Дата начала' }))
+        .toHaveAttribute('href', /sortBy=dateBegin&sortDirection=desc/);
+    await expect(page.locator('thead a.logs-table__sort-link', { hasText: 'Дата конца' }))
+        .toHaveAttribute('href', /sortBy=dateEnd&sortDirection=desc/);
+    await expect(page.locator('.survey-table-scroll')).toHaveCount(0);
+    expect(await page.evaluate(() => (
+        document.documentElement.scrollWidth <= document.documentElement.clientWidth
+    ))).toBe(true);
     await expect(page.getByRole('button', { name: 'Проверить прохождение', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Продлить доступ', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Период работы', exact: true })).toHaveCount(0);
