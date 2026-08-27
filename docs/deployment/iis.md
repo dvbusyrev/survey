@@ -113,6 +113,30 @@ SURVEY_CONFIG_PATH=C:\ProgramData\AIS-Anketirovanie\Config\server-config.json
 dotnet publish .\main_project.csproj -c Release -r win-x64 --self-contained false -o C:\Deploy\AIS-Anketirovanie
 ```
 
+До запуска новой публикации применить все отсутствующие миграции из корня исходного
+проекта. Скрипт сам определяет уже установленные версии по таблице
+`public.schema_migrations`:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\apply-migrations.ps1 `
+  -Psql "C:\Program Files\PostgreSQL\16\bin\psql.exe" `
+  -ConnectionString "Host=DB-SERVER;Port=5432;Database=surveys;Username=survey_app;Password=<DB_PASSWORD>;SSL Mode=Require"
+```
+
+После выполнения проверить последние версии:
+
+```sql
+SELECT version, name, applied_at
+FROM public.schema_migrations
+ORDER BY version DESC
+LIMIT 10;
+```
+
+Для редакции от 27.08.2026 последняя миграция —
+`050_add_planned_survey_templates`. В последующих поставках ориентироваться нужно на
+актуальный состав `db\migrations\000_apply_all.sql`, а не на зафиксированный здесь номер.
+
 Содержимое каталога публикации переносится в физический каталог сайта. .NET Web SDK
 сам создаёт корректный `web.config`; он должен оставаться в корне сайта. В него нельзя
 добавлять строку подключения или другие секреты.
