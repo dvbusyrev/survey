@@ -24,7 +24,9 @@
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
     <title>Анкетирование</title>
     @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
+    <meta id="app-page-styles-start" />
     @RenderSection("PageStyles", required: false)
+    <meta id="app-page-styles-end" />
     <link rel="stylesheet" href="~/css/shared/app-theme.css" asp-append-version="true" />
     <style id="app-theme-inline">
         :root {
@@ -224,6 +226,8 @@
     {
         @await Html.PartialAsync("~/Views/Shared/_AdminAppTemplates.cshtml")
     }
-    @RenderSection("Scripts", required: false)
+    <div id="app-page-scripts" hidden aria-hidden="true">
+        @RenderSection("Scripts", required: false)
+    </div>
 </body>
 </html>

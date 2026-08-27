@@ -390,5 +390,15 @@
         bindEmailAction('email-send-button', window.sendEmailMessage);
     };
 
-    window.initEmailSettingsPage();
+    if (window.AppPageLifecycle?.register) {
+        window.AppPageLifecycle.register(
+            'email-settings-page',
+            '[data-page="mail-compose"], [data-page="mail-settings-page"]',
+            () => {
+                window.initEmailSettingsPage();
+            }
+        );
+    } else {
+        window.initEmailSettingsPage();
+    }
 })();

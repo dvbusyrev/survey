@@ -259,6 +259,14 @@
             return;
         }
 
+        if (window.AppNavigationRouter?.navigate) {
+            window.AppNavigationRouter.navigate(url, {
+                historyMode: 'push',
+                scrollMode: 'carry'
+            });
+            return;
+        }
+
         window.AppScrollState?.prepareNavigation?.({ carry: true });
         window.location.assign(url);
     }

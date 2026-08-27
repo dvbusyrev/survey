@@ -225,6 +225,14 @@ function renderNavigation(host, { activeTab, userRole }) {
             return;
         }
 
+        if (window.AppNavigationRouter?.navigate) {
+            window.AppNavigationRouter.navigate(href, {
+                historyMode: 'push',
+                scrollMode: 'carry'
+            });
+            return;
+        }
+
         window.AppScrollState?.prepareNavigation({ carry: true });
         window.location.href = href;
     };

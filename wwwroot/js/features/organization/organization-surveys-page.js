@@ -340,8 +340,16 @@
         });
     }
 
-    updateAllOrganizationCheckboxes();
-
     window.resetOrganizationSurveyAssignments = resetOrganizationSurveyAssignments;
     window.saveOrganizationSurveyEndDates = saveOrganizationSurveyEndDates;
+
+    if (window.AppPageLifecycle?.register) {
+        window.AppPageLifecycle.register(
+            'organization-surveys-page',
+            '.organization-surveys-page',
+            updateAllOrganizationCheckboxes
+        );
+    } else {
+        updateAllOrganizationCheckboxes();
+    }
 })();

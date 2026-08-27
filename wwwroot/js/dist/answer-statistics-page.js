@@ -14761,7 +14761,16 @@
     window.initAnswerStatisticsPage = init;
     window.destroyAnswerStatisticsPage = destroyCharts;
     window.addEventListener("beforeunload", destroyCharts);
-    if (hasAllCanvases) {
+    if (window.AppPageLifecycle?.register) {
+      window.AppPageLifecycle.register(
+        "answer-statistics-page",
+        '[data-page="answers-statistics"]',
+        () => {
+          init();
+          return destroyCharts;
+        }
+      );
+    } else if (hasAllCanvases) {
       init();
     }
   })();

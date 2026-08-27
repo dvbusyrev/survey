@@ -12,6 +12,7 @@ DECLARE
     audit_column_without_generator_count integer;
     email_config_count integer;
     redundant_user_update_column_count integer;
+    redundant_date_update_column_count integer;
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -73,20 +74,18 @@ BEGIN
         RAISE EXCEPTION 'Obsolete week_day table remains after the upgrade';
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'answer'
-          AND column_name = 'date_update'
-    ) OR EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'auto_creation_config'
-          AND column_name = 'date_update'
-    ) THEN
-        RAISE EXCEPTION 'Update metadata columns are inconsistent';
+    SELECT COUNT(*)
+    INTO redundant_date_update_column_count
+    FROM information_schema.columns column_definition
+    INNER JOIN information_schema.tables table_definition
+        ON table_definition.table_schema = column_definition.table_schema
+       AND table_definition.table_name = column_definition.table_name
+    WHERE column_definition.table_schema = 'public'
+      AND column_definition.column_name = 'date_update'
+      AND table_definition.table_type = 'BASE TABLE';
+
+    IF redundant_date_update_column_count <> 0 THEN
+        RAISE EXCEPTION 'Redundant date_update columns remain after the upgrade';
     END IF;
 
     SELECT COUNT(*)

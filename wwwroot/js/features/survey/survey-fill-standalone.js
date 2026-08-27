@@ -253,7 +253,19 @@ function getStandaloneBootstrapData() {
     }
 }
 
-const standaloneBootstrapData = getStandaloneBootstrapData();
-if (document.querySelector('[data-page="survey-fill-standalone"]') && standaloneBootstrapData) {
-    window.bindStandaloneSurveyFillPage(standaloneBootstrapData);
+function mountStandaloneSurveyFillPage() {
+    const standaloneBootstrapData = getStandaloneBootstrapData();
+    if (standaloneBootstrapData) {
+        window.bindStandaloneSurveyFillPage(standaloneBootstrapData);
+    }
+}
+
+if (window.AppPageLifecycle?.register) {
+    window.AppPageLifecycle.register(
+        'survey-fill-standalone',
+        '[data-page="survey-fill-standalone"]',
+        mountStandaloneSurveyFillPage
+    );
+} else if (document.querySelector('[data-page="survey-fill-standalone"]')) {
+    mountStandaloneSurveyFillPage();
 }

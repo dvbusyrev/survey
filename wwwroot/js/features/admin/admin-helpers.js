@@ -156,6 +156,13 @@
             && targetUrl.search === currentUrl.search
             && targetUrl.hash === currentUrl.hash;
 
+        if (window.AppNavigationRouter?.navigate && targetUrl.origin === currentUrl.origin) {
+            return window.AppNavigationRouter.navigate(targetUrl.href, {
+                historyMode: targetsCurrentDocument || options.historyMode === 'replace' ? 'replace' : 'push',
+                scrollMode: options.scrollMode || 'carry'
+            });
+        }
+
         if (targetsCurrentDocument) {
             window.location.reload();
         } else if (options.historyMode === 'replace') {

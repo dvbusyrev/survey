@@ -151,6 +151,14 @@
         }
 
         if (fallbackUrl) {
+            if (window.AppNavigationRouter?.navigate) {
+                window.AppNavigationRouter.navigate(fallbackUrl, {
+                    historyMode: 'push',
+                    scrollMode: 'carry'
+                });
+                return;
+            }
+
             window.AppScrollState?.prepareNavigation({ carry: true });
             window.location.assign(fallbackUrl);
         }
@@ -212,6 +220,14 @@
 
         if (element.dataset.redirectUrl) {
             event.preventDefault();
+            if (window.AppNavigationRouter?.navigate) {
+                window.AppNavigationRouter.navigate(element.dataset.redirectUrl, {
+                    historyMode: 'push',
+                    scrollMode: 'carry'
+                });
+                return;
+            }
+
             window.AppScrollState?.prepareNavigation({ carry: true });
             window.location.assign(element.dataset.redirectUrl);
         }

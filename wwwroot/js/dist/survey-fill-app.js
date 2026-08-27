@@ -250,6 +250,13 @@
         if (!href || href === "#") {
           return;
         }
+        if (window.AppNavigationRouter?.navigate) {
+          window.AppNavigationRouter.navigate(href, {
+            historyMode: "push",
+            scrollMode: "carry"
+          });
+          return;
+        }
         window.AppScrollState?.prepareNavigation({ carry: true });
         window.location.href = href;
       };
@@ -681,9 +688,20 @@
       return null;
     }
   }
-  var standaloneBootstrapData = getStandaloneBootstrapData();
-  if (document.querySelector('[data-page="survey-fill-standalone"]') && standaloneBootstrapData) {
-    window.bindStandaloneSurveyFillPage(standaloneBootstrapData);
+  function mountStandaloneSurveyFillPage() {
+    const standaloneBootstrapData = getStandaloneBootstrapData();
+    if (standaloneBootstrapData) {
+      window.bindStandaloneSurveyFillPage(standaloneBootstrapData);
+    }
+  }
+  if (window.AppPageLifecycle?.register) {
+    window.AppPageLifecycle.register(
+      "survey-fill-standalone",
+      '[data-page="survey-fill-standalone"]',
+      mountStandaloneSurveyFillPage
+    );
+  } else if (document.querySelector('[data-page="survey-fill-standalone"]')) {
+    mountStandaloneSurveyFillPage();
   }
 })();
 //# sourceMappingURL=survey-fill-app.js.map
