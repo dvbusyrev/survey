@@ -421,6 +421,8 @@
     }
 
     function handleAdminMutationSuccess({ message, notificationType = 'success', ...refreshOptions } = {}) {
+        window.AppNavigationRouter?.invalidatePrefetches?.();
+
         if (message) {
             if (!storePendingNotification(message, notificationType)) {
                 window.AppUi?.notify?.(message, notificationType);

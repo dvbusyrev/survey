@@ -170,6 +170,10 @@
         promise.catch(() => {});
     }
 
+    function invalidatePrefetches() {
+        prefetchedDocuments.clear();
+    }
+
     function copyElementAttributes(target, source) {
         Array.from(target.attributes).forEach((attribute) => target.removeAttribute(attribute.name));
         Array.from(source.attributes).forEach((attribute) => target.setAttribute(attribute.name, attribute.value));
@@ -531,7 +535,8 @@
 
     window.AppNavigationRouter = {
         navigate,
-        prefetch
+        prefetch,
+        invalidatePrefetches
     };
 
     document.addEventListener('click', handleDocumentClick);
