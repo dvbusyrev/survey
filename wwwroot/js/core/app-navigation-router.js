@@ -118,6 +118,7 @@
         const response = await fetch(url.href, {
             method: 'GET',
             credentials: 'same-origin',
+            cache: 'no-store',
             headers: {
                 Accept: 'text/html',
                 'X-Requested-With': 'AppNavigation'
@@ -358,6 +359,9 @@
 
         try {
             const prefetched = getPrefetchedDocument(requestedUrl);
+            if (prefetched) {
+                prefetchedDocuments.delete(requestedUrl.href);
+            }
             const { nextDocument, responseUrl } = prefetched
                 ? await prefetched
                 : await fetchPageDocument(requestedUrl, activeController.signal);
@@ -391,6 +395,7 @@
             window.AppDate?.enhanceDateInputs?.(content);
             window.AppPassword?.mount?.(content);
             window.AppPageLifecycle?.mount?.(content);
+            window.showPendingAdminNotification?.();
             window.queueNavigationLayoutEvaluation?.();
             restoreScroll(responseUrl, options.historyMode === 'none' ? 'restore' : scrollMode);
             document.dispatchEvent(new CustomEvent('app:navigation-complete', {
@@ -481,6 +486,9 @@
 
         const timerId = window.setTimeout(() => {
             prefetchTimers.delete(target.link);
+            if (!target.link.isConnected || activeController) {
+                return;
+            }
             prefetch(target.url);
         }, 80);
         prefetchTimers.set(target.link, timerId);

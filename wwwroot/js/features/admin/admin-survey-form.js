@@ -440,6 +440,7 @@
         if (autoCreationField) {
             setSurveyAutoCreationEnabled(false);
         }
+        ensureAutoCreationPickerController();
         getElementByRole('criteria-step')?.classList.remove('confirmed-criteria');
         const organizationField = getElementByRole('selected-organizations-container');
         organizationField?.setAttribute('aria-invalid', 'false');
@@ -662,6 +663,10 @@
     }
 
     function surveyEditInit() {
+        ensureTemplatePickerController();
+        ensureAutoCreationPickerController();
+        configureEditorDateBounds();
+
         const modal = document.getElementById('surveyEditorModal');
         const selectedIds = (document.getElementById('selectedOrganizationIds')?.value || '').split(',');
         const selectedNames = getEditSelectedOrganizationNames();

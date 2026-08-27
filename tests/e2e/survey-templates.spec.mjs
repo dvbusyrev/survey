@@ -125,7 +125,7 @@ test('шаблоны отделены от анкет и открывают со
     await expect(page.locator('thead')).toContainText('Будет добавлено в автосоздание');
     await expect(page.locator('thead')).not.toContainText(/^Добавлено в автосоздание$/);
     await expect(page.getByText('Smoke active template', { exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Создать плановый шаблон', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Добавить плановый шаблон', exact: true })).toBeVisible();
     const plannedEditLink = page.getByRole('link', { name: 'Редактировать', exact: true });
     await expect(plannedEditLink).toHaveAttribute('href', /\/survey-templates\/planned\/\d+\/edit$/);
 
@@ -135,9 +135,9 @@ test('шаблоны отделены от анкет и открывают со
     await expect(plannedEditEditor.locator('#startDate')).toHaveAttribute('min', localIsoDaysFromToday(7));
     await plannedEditEditor.getByRole('button', { name: 'Отмена', exact: true }).click();
 
-    await page.getByRole('button', { name: 'Создать плановый шаблон', exact: true }).click();
+    await page.getByRole('button', { name: 'Добавить плановый шаблон', exact: true }).click();
     const plannedEditor = page.locator('#surveyEditorModal');
-    await expect(plannedEditor.getByRole('heading', { name: 'Создание планового шаблона', exact: true })).toBeVisible();
+    await expect(plannedEditor.getByRole('heading', { name: 'Добавление планового шаблона', exact: true })).toBeVisible();
     await expect(plannedEditor.getByText('Будет добавлено в автосоздание', { exact: true })).toBeVisible();
     await expect(plannedEditor.getByText('Добавлено в автосоздание', { exact: true })).toHaveCount(0);
     const parentField = plannedEditor.locator('[data-role="survey-template-field"]');

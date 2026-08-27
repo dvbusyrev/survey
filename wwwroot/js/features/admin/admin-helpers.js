@@ -449,6 +449,7 @@
     window.syncAdminChromeContextFromDocument = syncAdminChromeContextFromDocument;
     window.refreshAdminUi = refreshAdminUi;
     window.handleAdminMutationSuccess = handleAdminMutationSuccess;
+    window.showPendingAdminNotification = showPendingNotification;
 
     showPendingNotification();
 })();
