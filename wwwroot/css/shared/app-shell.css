@@ -715,12 +715,3 @@ body.nav-layout-sync #chrome-navigation .admin-nav {
 
 @media (max-width: 640px) {
 }
-
-@media (max-height: 820px) {
-  .admin-nav ul li a,
-  .nav-link,
-  .submenu-link {
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
-  }
-}

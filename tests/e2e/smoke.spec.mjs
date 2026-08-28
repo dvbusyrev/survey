@@ -133,6 +133,29 @@ test('каркас переключается только между обычн
     });
 });
 
+test('уменьшение высоты окна не меняет версию навигации', async ({ page }) => {
+    await page.setViewportSize({ width: 1221, height: 821 });
+    await login(page, 'smoke-admin');
+
+    const readNavigationLayout = () => page.evaluate(() => {
+        const navigationLink = document.querySelector('.admin-nav .nav-link');
+        const navigationStyle = getComputedStyle(navigationLink);
+        const navigationHostStyle = getComputedStyle(document.querySelector('#chrome-navigation'));
+
+        return {
+            compactClass: document.body.classList.contains('compact-nav-mode'),
+            navigationPosition: navigationHostStyle.position,
+            paddingTop: navigationStyle.paddingTop,
+            paddingBottom: navigationStyle.paddingBottom,
+            rootFontSize: document.documentElement.style.getPropertyValue('--app-root-font-size')
+        };
+    });
+
+    const regularHeightLayout = await readNavigationLayout();
+    await page.setViewportSize({ width: 1221, height: 819 });
+    await expect.poll(readNavigationLayout).toEqual(regularHeightLayout);
+});
+
 test('в настройках отправителя поле называется Пароль', async ({ page }) => {
     await login(page, 'smoke-admin');
     await page.goto('/settings/email');
