@@ -6,11 +6,7 @@
 
     const DEFAULT_ROOT_FONT_SIZE = 149.25;
     const ROOT_FONT_SIZE_BREAKPOINTS = [
-        { maxWidth: 900, fontSize: 118 },
-        { maxWidth: 1080, fontSize: 126 },
-        { maxWidth: 1220, fontSize: 134 },
-        { maxWidth: 1366, fontSize: 140 },
-        { maxWidth: 1536, fontSize: 145 }
+        { maxWidth: 1220, fontSize: 118 }
     ];
 
     let applyFrameId = 0;
@@ -24,20 +20,9 @@
         return window.innerWidth || document.documentElement.clientWidth || 0;
     }
 
-    function getDeviceScaleFactor() {
-        const ratio = Number(window.devicePixelRatio || 1);
-        return Number.isFinite(ratio) && ratio > 0
-            ? ratio
-            : 1;
-    }
-
-    function getNormalizedViewportWidth() {
-        return getCssViewportWidth() * getDeviceScaleFactor();
-    }
-
-    function resolveRootFontSize(normalizedWidth) {
+    function resolveRootFontSize(viewportWidth) {
         for (const breakpoint of ROOT_FONT_SIZE_BREAKPOINTS) {
-            if (normalizedWidth <= breakpoint.maxWidth) {
+            if (viewportWidth <= breakpoint.maxWidth) {
                 return breakpoint.fontSize;
             }
         }
@@ -48,7 +33,7 @@
     function applyRootFontSize() {
         applyFrameId = 0;
 
-        const nextFontSize = `${resolveRootFontSize(getNormalizedViewportWidth())}%`;
+        const nextFontSize = `${resolveRootFontSize(getCssViewportWidth())}%`;
         if (document.documentElement.style.getPropertyValue('--app-root-font-size') === nextFontSize) {
             return;
         }
@@ -86,8 +71,6 @@
     window.AppViewportScale = {
         apply: applyRootFontSize,
         getCssViewportWidth,
-        getDeviceScaleFactor,
-        getNormalizedViewportWidth,
         queueApply
     };
 

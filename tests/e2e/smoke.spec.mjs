@@ -102,6 +102,47 @@ test('общий каркас виден до загрузки скриптов 
     expect(Math.abs(afterLoad.height - beforeLoad.height)).toBeLessThan(1);
 });
 
+test('каркас переключается только между обычной и компактной версиями', async ({ page }) => {
+    await page.setViewportSize({ width: 1221, height: 900 });
+    await login(page, 'smoke-admin');
+
+    await expect.poll(() => page.evaluate(() => ({
+        rootFontSize: document.documentElement.style.getPropertyValue('--app-root-font-size'),
+        compactClass: document.body.classList.contains('compact-nav-mode'),
+        menuToggleDisplay: getComputedStyle(document.querySelector('.header-menu-toggle')).display,
+        navigationPosition: getComputedStyle(document.querySelector('#chrome-navigation')).position
+    }))).toEqual({
+        rootFontSize: '149.25%',
+        compactClass: false,
+        menuToggleDisplay: 'none',
+        navigationPosition: 'relative'
+    });
+
+    await page.setViewportSize({ width: 1220, height: 900 });
+
+    await expect.poll(() => page.evaluate(() => ({
+        rootFontSize: document.documentElement.style.getPropertyValue('--app-root-font-size'),
+        compactClass: document.body.classList.contains('compact-nav-mode'),
+        menuToggleDisplay: getComputedStyle(document.querySelector('.header-menu-toggle')).display,
+        navigationPosition: getComputedStyle(document.querySelector('#chrome-navigation')).position
+    }))).toEqual({
+        rootFontSize: '118%',
+        compactClass: true,
+        menuToggleDisplay: 'flex',
+        navigationPosition: 'fixed'
+    });
+});
+
+test('в настройках отправителя поле называется Пароль', async ({ page }) => {
+    await login(page, 'smoke-admin');
+    await page.goto('/settings/email');
+
+    const passwordField = page.locator('#email-smtp-password');
+    await expect(page.locator('label[for="email-smtp-password"]')).toHaveText('Пароль');
+    await expect(passwordField).toHaveAttribute('placeholder', 'Введите пароль или оставьте поле пустым');
+    await expect(page.getByText('Новый пароль', { exact: true })).toHaveCount(0);
+});
+
 test('подсказки строк и кнопок действий остаются у цели и в границах экрана', async ({ page }) => {
     await login(page, 'smoke-admin');
     await page.goto('/users');

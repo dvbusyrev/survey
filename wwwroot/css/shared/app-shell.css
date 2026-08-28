@@ -524,7 +524,7 @@ body.app-navigation-pending .app-shell::before {
   display: block;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1220px) {
   .admin-nav ul li a,
   .nav-link,
   .submenu-link {
