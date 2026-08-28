@@ -10,6 +10,7 @@ const MOBILE_NAV_OPEN_CLASS = 'mobile-nav-open';
 const COMPACT_NAVIGATION_CLASS = 'compact-nav-mode';
 const PREPAINT_COMPACT_NAVIGATION_CLASS = 'app-compact-shell';
 const NAVIGATION_LAYOUT_SYNC_CLASS = 'nav-layout-sync';
+const NAVIGATION_SCROLL_CLASS = 'admin-nav--scrolling';
 const MOBILE_NAV_MEDIA_QUERY = '(max-width: 900px)';
 const COMPACT_NAVIGATION_BREAKPOINT_PX = 1220;
 let navigationLayoutFrameId = 0;
@@ -65,6 +66,70 @@ function getViewportWidth() {
 
 function measureCompactNavigationNeed() {
     return getViewportWidth() <= COMPACT_NAVIGATION_BREAKPOINT_PX;
+}
+
+function syncNavigationHostBounds(host) {
+    const content = document.querySelector('#content_admin, #content_user');
+    if (!host || !content) {
+        return;
+    }
+
+    const contentRect = content.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    host.style.setProperty('--app-navigation-content-top', `${Math.max(0, contentRect.top)}px`);
+    host.style.setProperty(
+        '--app-navigation-content-bottom-gap',
+        `${Math.max(0, viewportHeight - contentRect.bottom)}px`
+    );
+}
+
+function clearNavigationSubmenuPlacement(nav) {
+    nav?.querySelectorAll('.submenu-list').forEach((submenu) => {
+        submenu.style.removeProperty('--app-nav-submenu-top');
+        submenu.style.removeProperty('--app-nav-submenu-left');
+    });
+}
+
+function syncNavigationSubmenuPlacement(nav, item) {
+    const submenu = item?.querySelector(':scope > .submenu-list');
+    if (!submenu) {
+        return;
+    }
+
+    if (!nav.classList.contains(NAVIGATION_SCROLL_CLASS) || isMobileNavigationViewport()) {
+        submenu.style.removeProperty('--app-nav-submenu-top');
+        submenu.style.removeProperty('--app-nav-submenu-left');
+        return;
+    }
+
+    const viewportGap = 8;
+    const navigationRect = nav.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const submenuWidth = submenu.offsetWidth;
+    const submenuHeight = submenu.offsetHeight;
+    const viewportWidth = document.documentElement.clientWidth;
+    const viewportHeight = document.documentElement.clientHeight;
+    const maximumLeft = Math.max(viewportGap, viewportWidth - submenuWidth - viewportGap);
+    const maximumTop = Math.max(viewportGap, viewportHeight - submenuHeight - viewportGap);
+    const left = Math.max(viewportGap, Math.min(navigationRect.right - 4, maximumLeft));
+    const top = Math.max(viewportGap, Math.min(itemRect.top, maximumTop));
+
+    submenu.style.setProperty('--app-nav-submenu-top', `${top}px`);
+    submenu.style.setProperty('--app-nav-submenu-left', `${left}px`);
+}
+
+function syncNavigationOverflowState(nav) {
+    if (!nav || isMobileNavigationViewport()) {
+        nav?.classList.remove(NAVIGATION_SCROLL_CLASS);
+        clearNavigationSubmenuPlacement(nav);
+        return;
+    }
+
+    const shouldScroll = nav.scrollHeight > nav.clientHeight + 1;
+    nav.classList.toggle(NAVIGATION_SCROLL_CLASS, shouldScroll);
+    if (!shouldScroll) {
+        clearNavigationSubmenuPlacement(nav);
+    }
 }
 
 function syncNavigationLayoutWithoutAnimation() {
@@ -258,6 +323,29 @@ function renderNavigation(host, { activeTab, userRole }) {
     nav.dataset.navigationMounted = 'true';
     syncMobileNavigationToggleButtons();
 
+    let navigationOverflowFrameId = 0;
+    const queueNavigationOverflowSync = () => {
+        if (navigationOverflowFrameId) {
+            window.cancelAnimationFrame(navigationOverflowFrameId);
+        }
+
+        navigationOverflowFrameId = window.requestAnimationFrame(() => {
+            navigationOverflowFrameId = 0;
+            syncNavigationHostBounds(host);
+            syncNavigationOverflowState(nav);
+        });
+    };
+    const navigationResizeObserver = typeof ResizeObserver === 'function'
+        ? new ResizeObserver(queueNavigationOverflowSync)
+        : null;
+    navigationResizeObserver?.observe(host);
+    navigationResizeObserver?.observe(nav);
+    const content = document.querySelector('#content_admin, #content_user');
+    if (content) {
+        navigationResizeObserver?.observe(content);
+    }
+    queueNavigationOverflowSync();
+
     const closeSubmenus = () => closeNavigationSubmenus(nav);
     const closeMobileNavIfNeeded = () => {
         if (isMobileNavigationViewport()) {
@@ -304,6 +392,7 @@ function renderNavigation(host, { activeTab, userRole }) {
             }
 
             item.classList.add('submenu-open');
+            syncNavigationSubmenuPlacement(nav, item);
         };
         const onLeave = () => {
             if (isMobileNavigationViewport()) {
@@ -341,6 +430,7 @@ function renderNavigation(host, { activeTab, userRole }) {
                 closeSubmenus();
                 if (shouldOpen) {
                     item.classList.add('submenu-open');
+                    syncNavigationSubmenuPlacement(nav, item);
                 }
                 return;
             }
@@ -424,8 +514,20 @@ function renderNavigation(host, { activeTab, userRole }) {
         }
         syncMobileNavigationToggleButtons();
         queueNavigationLayoutEvaluation();
+        queueNavigationOverflowSync();
+        const openItem = nav.querySelector('.nav-item.has-submenu.submenu-open');
+        if (openItem) {
+            window.requestAnimationFrame(() => syncNavigationSubmenuPlacement(nav, openItem));
+        }
+    };
+    const onNavigationScroll = () => {
+        const openItem = nav.querySelector('.nav-item.has-submenu.submenu-open');
+        if (openItem) {
+            syncNavigationSubmenuPlacement(nav, openItem);
+        }
     };
     window.addEventListener('resize', onResize);
+    nav.addEventListener('scroll', onNavigationScroll, { passive: true });
     attachViewportObservers(onResize);
 
     return () => {
@@ -436,6 +538,12 @@ function renderNavigation(host, { activeTab, userRole }) {
         document.removeEventListener('keydown', onEscape);
         document.removeEventListener('pointerdown', onPointerDown);
         window.removeEventListener('resize', onResize);
+        nav.removeEventListener('scroll', onNavigationScroll);
+        navigationResizeObserver?.disconnect();
+        if (navigationOverflowFrameId) {
+            window.cancelAnimationFrame(navigationOverflowFrameId);
+            navigationOverflowFrameId = 0;
+        }
         if (visualViewportResizeHandler && window.visualViewport) {
             window.visualViewport.removeEventListener('resize', visualViewportResizeHandler);
             window.visualViewport.removeEventListener('scroll', visualViewportResizeHandler);

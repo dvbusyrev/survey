@@ -44,7 +44,7 @@ body {
   color: var(--text-main);
   font-family: "Inter", sans-serif;
   line-height: 1.5;
-  overflow: hidden;
+  overflow: visible;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -113,7 +113,7 @@ option,
   align-items: stretch;
   flex: 1;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   width: min(100%, var(--content-max-width));
   margin: 0 auto;
   padding: 0 var(--page-gap) var(--page-gap);
@@ -146,9 +146,9 @@ option,
 #chrome-navigation {
   position: relative;
   z-index: 2400;
+  height: 100%;
   min-height: 0;
   overflow: visible;
-  padding-bottom: var(--page-gap);
 }
 
 .content {
@@ -291,16 +291,16 @@ option,
 
   #chrome-navigation {
     position: fixed;
-    top: 0;
+    top: var(--app-navigation-content-top, calc(max(var(--header-height), var(--app-button-min-height, 2rem)) + 0.375rem + var(--page-gap)));
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--app-navigation-content-bottom-gap, calc(1.25rem + var(--page-gap)));
     z-index: 120;
     display: flex;
     align-items: flex-start;
     width: 100vw;
-    height: 100dvh;
-    padding: calc(var(--header-height) + var(--page-gap)) var(--page-gap) var(--page-gap);
+    height: auto;
+    padding: 0 var(--page-gap);
     overflow: hidden;
     pointer-events: none;
     opacity: 0;
@@ -354,16 +354,16 @@ html.app-compact-shell .admin-container {
 body.compact-nav-mode #chrome-navigation,
 html.app-compact-shell #chrome-navigation {
   position: fixed;
-  top: 0;
+  top: var(--app-navigation-content-top, calc(max(var(--header-height), var(--app-button-min-height, 2rem)) + 0.375rem + var(--page-gap)));
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--app-navigation-content-bottom-gap, calc(1.25rem + var(--page-gap)));
   z-index: 120;
   display: flex;
   align-items: flex-start;
   width: 100vw;
-  height: 100dvh;
-  padding: calc(var(--header-height) + var(--page-gap)) var(--page-gap) var(--page-gap);
+  height: auto;
+  padding: 0 var(--page-gap);
   overflow: hidden;
   pointer-events: none;
   opacity: 0;

@@ -351,17 +351,33 @@ body.app-navigation-pending .app-shell::before {
 
 .admin-nav {
   position: sticky;
-  top: var(--page-gap);
+  top: 0;
   z-index: 2400;
   align-self: start;
   width: 100%;
-  max-height: none;
+  max-height: 100%;
   overflow: visible;
   margin-top: 0;
   color: var(--text-main);
   background-color: #ffffff;
-  border-radius: var(--app-nav-panel-radius);
+  border-radius: var(--app-table-radius);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.admin-nav.admin-nav--scrolling {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.admin-nav.admin-nav--scrolling .submenu-list {
+  position: fixed;
+  top: var(--app-nav-submenu-top, 0);
+  left: var(--app-nav-submenu-left, 0);
+  max-height: calc(100dvh - (var(--page-gap) * 2));
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .admin-nav ul {
@@ -580,9 +596,9 @@ body.app-navigation-pending .app-shell::before {
     width: min(15rem, calc(100vw - (var(--page-gap) * 2)));
     max-width: 100%;
     height: auto;
-    max-height: calc(100dvh - var(--header-height) - (var(--page-gap) * 3));
+    max-height: 100%;
     overflow-y: auto;
-    border-radius: 18px;
+    border-radius: var(--app-table-radius);
     box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
     transform: translate3d(calc(-100% - var(--page-gap)), 0, 0);
   }
@@ -603,10 +619,7 @@ body.app-navigation-pending .app-shell::before {
   }
 
   .submenu-list li a {
-    padding-top: 0.65rem;
-    padding-bottom: 0.65rem;
     padding-left: 2.25rem;
-    font-size: 0.92rem;
     white-space: normal;
   }
 
@@ -670,9 +683,9 @@ html.app-compact-shell .admin-nav {
   width: min(15rem, calc(100vw - (var(--page-gap) * 2)));
   max-width: 100%;
   height: auto;
-  max-height: calc(100dvh - var(--header-height) - (var(--page-gap) * 3));
+  max-height: 100%;
   overflow-y: auto;
-  border-radius: 18px;
+  border-radius: var(--app-table-radius);
   box-shadow: 0 20px 44px rgba(15, 23, 42, 0.24);
   transform: translate3d(calc(-100% - var(--page-gap)), 0, 0);
 }
@@ -696,10 +709,7 @@ html.app-compact-shell .submenu-list {
 
 body.compact-nav-mode .submenu-list li a,
 html.app-compact-shell .submenu-list li a {
-  padding-top: 0.65rem;
-  padding-bottom: 0.65rem;
   padding-left: 2.25rem;
-  font-size: 0.92rem;
   white-space: normal;
 }
 

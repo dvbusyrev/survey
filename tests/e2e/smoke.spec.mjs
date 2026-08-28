@@ -131,20 +131,72 @@ test('каркас переключается только между обычн
         menuToggleDisplay: 'flex',
         navigationPosition: 'fixed'
     });
+
+    await page.locator('.header-menu-toggle').click();
+    const compactSurveyLink = page.locator('.nav-item[data-nav-class="surveys"] > .nav-link').first();
+    await compactSurveyLink.click();
+    const compactSurveySubmenuLink = compactSurveyLink.locator('xpath=..').locator('.submenu-link').first();
+    await expect(compactSurveySubmenuLink).toBeVisible();
+
+    expect(await page.evaluate(() => {
+        const item = document.querySelector('.nav-item[data-nav-class="surveys"] > .nav-link');
+        const subItem = item.closest('.nav-item').querySelector('.submenu-link');
+        const navigation = document.querySelector('.admin-nav');
+        const content = document.querySelector('#content_admin');
+        const itemStyle = getComputedStyle(item);
+        const subItemStyle = getComputedStyle(subItem);
+        const navigationRect = navigation.getBoundingClientRect();
+        const contentRect = content.getBoundingClientRect();
+        return {
+            fontSize: subItemStyle.fontSize === itemStyle.fontSize,
+            lineHeight: subItemStyle.lineHeight === itemStyle.lineHeight,
+            paddingTop: subItemStyle.paddingTop === itemStyle.paddingTop,
+            paddingBottom: subItemStyle.paddingBottom === itemStyle.paddingBottom,
+            matchingTop: Math.abs(navigationRect.top - contentRect.top) <= 1,
+            fitsContentHeight: navigationRect.bottom <= contentRect.bottom + 1
+        };
+    })).toEqual({
+        fontSize: true,
+        lineHeight: true,
+        paddingTop: true,
+        paddingBottom: true,
+        matchingTop: true,
+        fitsContentHeight: true
+    });
 });
 
-test('уменьшение высоты окна не меняет версию навигации', async ({ page }) => {
+test('навигация плавно уменьшается по высоте и не перекрывает футер', async ({ page }) => {
     await page.setViewportSize({ width: 1221, height: 821 });
     await login(page, 'smoke-admin');
 
     const readNavigationLayout = () => page.evaluate(() => {
+        const navigation = document.querySelector('.admin-nav');
         const navigationLink = document.querySelector('.admin-nav .nav-link');
         const navigationStyle = getComputedStyle(navigationLink);
         const navigationHostStyle = getComputedStyle(document.querySelector('#chrome-navigation'));
+        const navigationPanelStyle = getComputedStyle(navigation);
+        const navigationRect = navigation.getBoundingClientRect();
+        const content = document.querySelector('#content_admin');
+        const contentRect = content.getBoundingClientRect();
+        const contentStyle = getComputedStyle(content);
+        const headerRect = document.querySelector('#chrome-header').getBoundingClientRect();
+        const footerRect = document.querySelector('#chrome-footer').getBoundingClientRect();
 
         return {
+            contentBottom: contentRect.bottom,
+            contentRadius: contentStyle.borderTopLeftRadius,
+            contentTop: contentRect.top,
             compactClass: document.body.classList.contains('compact-nav-mode'),
+            footerTop: footerRect.top,
+            headerBottom: headerRect.bottom,
+            hasVerticalOverflow: navigation.scrollHeight > navigation.clientHeight + 1,
+            navigationBottom: navigationRect.bottom,
+            navigationHeight: navigationRect.height,
             navigationPosition: navigationHostStyle.position,
+            navigationRadius: navigationPanelStyle.borderTopLeftRadius,
+            navigationScrolling: navigation.classList.contains('admin-nav--scrolling'),
+            navigationTop: navigationRect.top,
+            navigationOverflowY: navigationPanelStyle.overflowY,
             paddingTop: navigationStyle.paddingTop,
             paddingBottom: navigationStyle.paddingBottom,
             rootFontSize: document.documentElement.style.getPropertyValue('--app-root-font-size')
@@ -152,8 +204,71 @@ test('уменьшение высоты окна не меняет версию 
     });
 
     const regularHeightLayout = await readNavigationLayout();
-    await page.setViewportSize({ width: 1221, height: 819 });
-    await expect.poll(readNavigationLayout).toEqual(regularHeightLayout);
+    expect(Math.abs(
+        (regularHeightLayout.navigationTop - regularHeightLayout.headerBottom)
+        - (regularHeightLayout.contentTop - regularHeightLayout.headerBottom)
+    )).toBeLessThanOrEqual(1);
+    await page.setViewportSize({ width: 1221, height: 520 });
+
+    await expect.poll(async () => {
+        const compactHeightLayout = await readNavigationLayout();
+        return {
+            compactClass: compactHeightLayout.compactClass,
+            matchingFooterGap: Math.abs(
+                (compactHeightLayout.footerTop - compactHeightLayout.navigationBottom)
+                - (compactHeightLayout.footerTop - compactHeightLayout.contentBottom)
+            ) <= 1,
+            matchingHeaderGap: Math.abs(
+                (compactHeightLayout.navigationTop - compactHeightLayout.headerBottom)
+                - (compactHeightLayout.contentTop - compactHeightLayout.headerBottom)
+            ) <= 1,
+            matchingRadius: compactHeightLayout.navigationRadius === compactHeightLayout.contentRadius,
+            hasVerticalOverflow: compactHeightLayout.hasVerticalOverflow,
+            navigationFitsAboveFooter: compactHeightLayout.navigationBottom <= compactHeightLayout.footerTop,
+            navigationHeightReduced: compactHeightLayout.navigationHeight < regularHeightLayout.navigationHeight,
+            navigationPosition: compactHeightLayout.navigationPosition,
+            navigationScrolling: compactHeightLayout.navigationScrolling,
+            navigationOverflowY: compactHeightLayout.navigationOverflowY,
+            paddingTop: compactHeightLayout.paddingTop,
+            paddingBottom: compactHeightLayout.paddingBottom,
+            rootFontSize: compactHeightLayout.rootFontSize
+        };
+    }).toEqual({
+        compactClass: regularHeightLayout.compactClass,
+        matchingFooterGap: true,
+        matchingHeaderGap: true,
+        matchingRadius: true,
+        hasVerticalOverflow: true,
+        navigationFitsAboveFooter: true,
+        navigationHeightReduced: true,
+        navigationPosition: regularHeightLayout.navigationPosition,
+        navigationScrolling: true,
+        navigationOverflowY: 'auto',
+        paddingTop: regularHeightLayout.paddingTop,
+        paddingBottom: regularHeightLayout.paddingBottom,
+        rootFontSize: regularHeightLayout.rootFontSize
+    });
+
+    const surveyNavigationItem = page.locator('.nav-item[data-nav-class="surveys"]').first();
+    await surveyNavigationItem.hover();
+    const surveySubmenu = surveyNavigationItem.locator(':scope > .submenu-list');
+    await expect(surveySubmenu).toBeVisible();
+
+    expect(await page.evaluate(() => {
+        const navigation = document.querySelector('.admin-nav');
+        const submenu = document.querySelector('.nav-item[data-nav-class="surveys"] > .submenu-list');
+        const navigationRect = navigation.getBoundingClientRect();
+        const submenuRect = submenu.getBoundingClientRect();
+        return {
+            position: getComputedStyle(submenu).position,
+            opensBesideNavigation: submenuRect.left >= navigationRect.right - 5,
+            visibleInViewport: submenuRect.top >= 0 && submenuRect.bottom <= window.innerHeight
+        };
+    })).toEqual({
+        position: 'fixed',
+        opensBesideNavigation: true,
+        visibleInViewport: true
+    });
 });
 
 test('в настройках отправителя поле называется Пароль', async ({ page }) => {
