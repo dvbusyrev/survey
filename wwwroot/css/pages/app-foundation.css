@@ -108,7 +108,7 @@ option,
 
 .admin-container {
   display: grid;
-  grid-template-columns: minmax(220px, var(--nav-width)) minmax(0, 1fr);
+  grid-template-columns: minmax(250px, var(--nav-width)) minmax(0, 1fr);
   gap: var(--page-gap);
   align-items: stretch;
   flex: 1;
