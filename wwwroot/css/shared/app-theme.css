@@ -41,7 +41,8 @@
   --app-gap-lg: 1rem;
   --app-gap-xl: 1.5rem;
   --app-button-min-height: 2rem;
-  --app-button-padding: 0.45rem 1.0rem 0.45rem 0.3rem;
+  --app-button-padding: 0.45rem 0.3rem 0.45rem 0.3rem;
+  --app-navigation-button-padding: 0.45rem 1.0rem 0.45rem 0.3rem;
   --app-button-font-size: 0.72rem;
   --app-button-font-weight: 400;
   --app-button-radius: 0.335rem;
