@@ -520,6 +520,12 @@ test('администратор проходит основные раздел�
     await page.getByRole('link', { name: 'Редактировать', exact: true }).first().click();
     await expect(page.locator('#surveyEditorModal')).toBeVisible();
     await expect(page.locator('#surveyEditorModal')).toContainText('Редактирование анкеты');
+    await page.locator('#surveyEditorModal [data-role="organization-dropdown-trigger"]').click();
+    const unrelatedOrganizationOption = page.locator('#surveyEditorModal [data-role="organization-option"]')
+        .filter({ hasText: 'Smoke unrelated org' });
+    await unrelatedOrganizationOption.locator('label').click();
+    await expect(page.locator('#surveyEditorModal [data-role="selected-organizations-list"]'))
+        .toContainText('Smoke unrelated org');
     await page.locator('#startDate').fill(localIsoDaysAgo(2));
     await page.locator('#endDate').fill(localIsoDaysAgo(1));
     await page.locator('[data-role="survey-submit"]').click();
@@ -545,6 +551,26 @@ test('администратор проходит основные раздел�
     await expect(page.locator('#surveyEditorModal .criteriy')).toHaveValue('Edited smoke question');
     await expect(page.locator('#startDate')).toHaveValue(localDisplayDaysAgo(0));
     await expect(page.locator('#endDate')).toHaveValue(localDisplayDaysAgo(-14));
+    await expect(page.locator('#surveyEditorModal [data-role="selected-organizations-list"]'))
+        .toContainText('Smoke unrelated org');
+    await page.locator('#surveyEditorModal [data-role="organization-dropdown-trigger"]').click();
+    await page.locator('#surveyEditorModal [data-role="organization-option"]')
+        .filter({ hasText: 'Smoke unrelated org' })
+        .locator('label')
+        .click();
+    await expect(page.locator('#surveyEditorModal [data-role="selected-organizations-list"]'))
+        .not.toContainText('Smoke unrelated org');
+    const restoreOrganizationsResponsePromise = page.waitForResponse((response) => (
+        response.request().method() === 'POST'
+        && /\/survey\/\d+\/update$/.test(new URL(response.url()).pathname)
+    ));
+    await page.locator('[data-role="survey-submit"]').click();
+    const restoreOrganizationsResponse = await restoreOrganizationsResponsePromise;
+    expect(restoreOrganizationsResponse.status()).toBe(200);
+    await page.getByRole('link', { name: 'Редактировать', exact: true }).first().click();
+    await expect(page.locator('#surveyEditorModal')).toBeVisible();
+    await expect(page.locator('#surveyEditorModal [data-role="selected-organizations-list"]'))
+        .not.toContainText('Smoke unrelated org');
     await page.locator('#surveyEditorModal .modal-close').click();
 
     await page.locator('a.nav-link[href="/users"]').click();

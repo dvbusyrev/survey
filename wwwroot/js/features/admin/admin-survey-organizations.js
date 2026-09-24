@@ -1,6 +1,7 @@
 (function () {
     window.createSurveyOrganizationController = function createSurveyOrganizationController({ safeGetElement, getElementByRole, showError }) {
         const state = window.SurveyAdminFormState;
+        const interactionOwner = Symbol('survey-organization-interactions');
         let dropdownController = null;
 
         function getDropdown() {
@@ -13,6 +14,10 @@
 
         function getMenu() {
             return getElementByRole('organization-dropdown-menu') || document.getElementById('organizationDropdownMenu');
+        }
+
+        function getList() {
+            return document.getElementById('organizationList');
         }
 
         function getItemName(item) {
@@ -37,6 +42,50 @@
             }
         }
 
+        function bindListInteractions() {
+            const list = getList();
+            if (!list || list._surveyOrganizationInteractionOwner === interactionOwner) {
+                return;
+            }
+
+            list._surveyOrganizationInteractionCleanup?.();
+
+            const handleChange = (event) => {
+                const checkbox = event.target.closest('input[type="checkbox"]');
+                const item = checkbox?.closest('[data-role="organization-option"]');
+                if (!item) {
+                    return;
+                }
+
+                const id = Number.parseInt(item.dataset.id || '', 10);
+                const name = getItemName(item);
+                if (Number.isFinite(id) && name) {
+                    toggle(id, name);
+                }
+            };
+            const handleClick = (event) => {
+                if (event.target.closest('input, label')) {
+                    return;
+                }
+
+                const item = event.target.closest('[data-role="organization-option"]');
+                const checkbox = item?.querySelector('input[type="checkbox"]');
+                if (checkbox && !checkbox.disabled) {
+                    checkbox.click();
+                }
+            };
+
+            list.addEventListener('change', handleChange);
+            list.addEventListener('click', handleClick);
+            list._surveyOrganizationInteractionOwner = interactionOwner;
+            list._surveyOrganizationInteractionCleanup = () => {
+                list.removeEventListener('change', handleChange);
+                list.removeEventListener('click', handleClick);
+                delete list._surveyOrganizationInteractionOwner;
+                delete list._surveyOrganizationInteractionCleanup;
+            };
+        }
+
         function ensureDropdownController() {
             const dropdown = getDropdown();
             const trigger = getTrigger();
@@ -52,6 +101,7 @@
             }
 
             dropdownController?.destroy?.();
+            dropdown._surveyOrganizationDropdownController?.destroy?.();
             trigger.removeAttribute('data-click-call');
             dropdownController = window.AppUi.createMultiselect({
                 root: dropdown,
@@ -76,11 +126,13 @@
                     window.surveyEditModalOpen = false;
                 }
             });
+            dropdown._surveyOrganizationDropdownController = dropdownController;
 
             return dropdownController;
         }
 
         function syncList() {
+            bindListInteractions();
             const selectedIds = new Set(state.getSelected().map((organization) => organization.id));
             document.querySelectorAll('#organizationList [data-role="organization-option"]').forEach((item) => {
                 const id = Number.parseInt(item.dataset.id || '', 10);
@@ -129,7 +181,6 @@
                 item.dataset.name = organization.name;
                 item.dataset.selected = isSelected ? 'true' : 'false';
                 checkbox.id = `org-${organization.id}`;
-                checkbox.addEventListener('change', () => toggle(organization.id, organization.name));
                 label.htmlFor = checkbox.id;
                 list.appendChild(item);
             });
@@ -237,6 +288,7 @@
 
         function bindDismissal() {
             ensureDropdownController();
+            bindListInteractions();
         }
 
         return { open, close, load, toggle, save: () => { close(); updateDisplay(); }, updateDisplay, remove, clear, getSelected: state.getSelected, setSelected: state.setSelected, syncList, getItemName, resetAvailable: state.resetAvailable, bindDismissal };

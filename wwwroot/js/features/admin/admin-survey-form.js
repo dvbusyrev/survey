@@ -665,6 +665,7 @@
     function surveyEditInit() {
         ensureTemplatePickerController();
         ensureAutoCreationPickerController();
+        organizations.bindDismissal();
         configureEditorDateBounds();
 
         const modal = document.getElementById('surveyEditorModal');

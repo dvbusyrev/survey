@@ -240,8 +240,6 @@
                                             var isSelected = editPage.SelectedOrganizationIds.Contains(organization.Id);
                                             var isProtected = editPage.AnsweredOrganizationIds.Contains(organization.Id);
                                             <div class="app-checkbox-option@(isSelected ? " selected" : string.Empty)"
-                                                 data-click-call="surveyEditToggleOrganizationSelection"
-                                                 data-click-pass-element="true"
                                                  data-role="organization-option"
                                                  data-id="@organization.Id"
                                                  data-name="@organization.Name"
