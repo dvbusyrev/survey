@@ -12,14 +12,15 @@ const PREPAINT_COMPACT_NAVIGATION_CLASS = 'app-compact-shell';
 const NAVIGATION_LAYOUT_SYNC_CLASS = 'nav-layout-sync';
 const NAVIGATION_SCROLL_CLASS = 'admin-nav--scrolling';
 const MOBILE_NAV_MEDIA_QUERY = '(max-width: 900px)';
-const COMPACT_NAVIGATION_BREAKPOINT_PX = 1220;
+const COMPACT_NAVIGATION_MEDIA_QUERY = '(max-width: 1220px)';
 let navigationLayoutFrameId = 0;
 let navigationLayoutSyncFrameId = 0;
-let visualViewportResizeHandler = null;
 
 function isMobileNavigationViewport() {
     return typeof window.matchMedia === 'function'
-        ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches || document.body.classList.contains(COMPACT_NAVIGATION_CLASS)
+        ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches
+            || document.body.classList.contains(COMPACT_NAVIGATION_CLASS)
+            || document.documentElement.classList.contains(PREPAINT_COMPACT_NAVIGATION_CLASS)
         : window.innerWidth <= 900;
 }
 
@@ -56,16 +57,10 @@ function toggleMobileNavigation() {
     setMobileNavigationOpen(!isMobileNavigationOpen());
 }
 
-function getViewportWidth() {
-    if (window.visualViewport?.width) {
-        return window.visualViewport.width;
-    }
-
-    return window.innerWidth || document.documentElement.clientWidth || 0;
-}
-
 function measureCompactNavigationNeed() {
-    return getViewportWidth() <= COMPACT_NAVIGATION_BREAKPOINT_PX;
+    return typeof window.matchMedia === 'function'
+        ? window.matchMedia(COMPACT_NAVIGATION_MEDIA_QUERY).matches
+        : window.innerWidth <= 1220;
 }
 
 function syncNavigationHostBounds(host) {
@@ -155,7 +150,8 @@ function evaluateNavigationLayout() {
         return;
     }
 
-    const wasCompact = document.body.classList.contains(COMPACT_NAVIGATION_CLASS);
+    const wasCompact = document.body.classList.contains(COMPACT_NAVIGATION_CLASS)
+        || document.documentElement.classList.contains(PREPAINT_COMPACT_NAVIGATION_CLASS);
     const isNarrowViewport = typeof window.matchMedia === 'function'
         ? window.matchMedia(MOBILE_NAV_MEDIA_QUERY).matches
         : window.innerWidth <= 900;
@@ -168,10 +164,6 @@ function evaluateNavigationLayout() {
         document.documentElement.classList.remove(PREPAINT_COMPACT_NAVIGATION_CLASS);
         syncMobileNavigationToggleButtons();
         return;
-    }
-
-    if (wasCompact) {
-        document.body.classList.remove(COMPACT_NAVIGATION_CLASS);
     }
 
     const shouldCompact = measureCompactNavigationNeed();
@@ -198,19 +190,6 @@ function queueNavigationLayoutEvaluation() {
         navigationLayoutFrameId = 0;
         evaluateNavigationLayout();
     });
-}
-
-function attachViewportObservers(onResize) {
-    if (!window.visualViewport) {
-        return;
-    }
-
-    visualViewportResizeHandler = () => {
-        onResize();
-    };
-
-    window.visualViewport.addEventListener('resize', visualViewportResizeHandler);
-    window.visualViewport.addEventListener('scroll', visualViewportResizeHandler);
 }
 
 function getNavigationSuppressedTab() {
@@ -528,7 +507,6 @@ function renderNavigation(host, { activeTab, userRole }) {
     };
     window.addEventListener('resize', onResize);
     nav.addEventListener('scroll', onNavigationScroll, { passive: true });
-    attachViewportObservers(onResize);
 
     return () => {
         if (menuToggleButton) {
@@ -543,11 +521,6 @@ function renderNavigation(host, { activeTab, userRole }) {
         if (navigationOverflowFrameId) {
             window.cancelAnimationFrame(navigationOverflowFrameId);
             navigationOverflowFrameId = 0;
-        }
-        if (visualViewportResizeHandler && window.visualViewport) {
-            window.visualViewport.removeEventListener('resize', visualViewportResizeHandler);
-            window.visualViewport.removeEventListener('scroll', visualViewportResizeHandler);
-            visualViewportResizeHandler = null;
         }
         nav.removeEventListener('mouseleave', navLeaveHandler);
         closeMobileNavigation();

@@ -102,18 +102,64 @@ test('общий каркас виден до загрузки скриптов 
     expect(Math.abs(afterLoad.height - beforeLoad.height)).toBeLessThan(1);
 });
 
+test('каркас не меняет масштаб во время начальной загрузки', async ({ page }) => {
+    await page.setViewportSize({ width: 1220, height: 900 });
+    await page.addInitScript(() => {
+        window.__appShellLoadSamples = [];
+        const startedAt = performance.now();
+
+        const sampleShell = () => {
+            const content = document.getElementById('content_admin');
+            const navigation = document.getElementById('chrome-navigation');
+            if (content && navigation) {
+                const contentRect = content.getBoundingClientRect();
+                window.__appShellLoadSamples.push({
+                    contentLeft: contentRect.left,
+                    contentTop: contentRect.top,
+                    contentWidth: contentRect.width,
+                    rootFontSize: getComputedStyle(document.documentElement).fontSize,
+                    navigationPosition: getComputedStyle(navigation).position
+                });
+            }
+
+            if (performance.now() - startedAt < 2_000) {
+                requestAnimationFrame(sampleShell);
+            }
+        };
+
+        requestAnimationFrame(sampleShell);
+    });
+
+    await login(page, 'smoke-admin');
+    await page.goto('/users');
+    await page.waitForLoadState('load');
+    await page.evaluate(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+    }));
+
+    const samples = await page.evaluate(() => window.__appShellLoadSamples || []);
+    expect(samples.length).toBeGreaterThan(0);
+    expect(new Set(samples.map((sample) => sample.rootFontSize)).size).toBe(1);
+    expect(new Set(samples.map((sample) => sample.navigationPosition))).toEqual(new Set(['fixed']));
+
+    for (const property of ['contentLeft', 'contentTop', 'contentWidth']) {
+        const values = samples.map((sample) => sample[property]);
+        expect(Math.max(...values) - Math.min(...values)).toBeLessThan(1);
+    }
+});
+
 test('каркас переключается только между обычной и компактной версиями', async ({ page }) => {
     await page.setViewportSize({ width: 1221, height: 900 });
     await login(page, 'smoke-admin');
 
     await expect.poll(() => page.evaluate(() => ({
-        rootFontSize: document.documentElement.style.getPropertyValue('--app-root-font-size'),
         compactClass: document.body.classList.contains('compact-nav-mode'),
+        prepaintClass: document.documentElement.classList.contains('app-compact-shell'),
         menuToggleDisplay: getComputedStyle(document.querySelector('.header-menu-toggle')).display,
         navigationPosition: getComputedStyle(document.querySelector('#chrome-navigation')).position
     }))).toEqual({
-        rootFontSize: '149.25%',
         compactClass: false,
+        prepaintClass: false,
         menuToggleDisplay: 'none',
         navigationPosition: 'relative'
     });
@@ -121,13 +167,13 @@ test('каркас переключается только между обычн
     await page.setViewportSize({ width: 1220, height: 900 });
 
     await expect.poll(() => page.evaluate(() => ({
-        rootFontSize: document.documentElement.style.getPropertyValue('--app-root-font-size'),
         compactClass: document.body.classList.contains('compact-nav-mode'),
+        prepaintClass: document.documentElement.classList.contains('app-compact-shell'),
         menuToggleDisplay: getComputedStyle(document.querySelector('.header-menu-toggle')).display,
         navigationPosition: getComputedStyle(document.querySelector('#chrome-navigation')).position
     }))).toEqual({
-        rootFontSize: '118%',
         compactClass: true,
+        prepaintClass: false,
         menuToggleDisplay: 'flex',
         navigationPosition: 'fixed'
     });
@@ -198,8 +244,7 @@ test('навигация плавно уменьшается по высоте �
             navigationTop: navigationRect.top,
             navigationOverflowY: navigationPanelStyle.overflowY,
             paddingTop: navigationStyle.paddingTop,
-            paddingBottom: navigationStyle.paddingBottom,
-            rootFontSize: document.documentElement.style.getPropertyValue('--app-root-font-size')
+            paddingBottom: navigationStyle.paddingBottom
         };
     });
 
@@ -230,8 +275,7 @@ test('навигация плавно уменьшается по высоте �
             navigationScrolling: compactHeightLayout.navigationScrolling,
             navigationOverflowY: compactHeightLayout.navigationOverflowY,
             paddingTop: compactHeightLayout.paddingTop,
-            paddingBottom: compactHeightLayout.paddingBottom,
-            rootFontSize: compactHeightLayout.rootFontSize
+            paddingBottom: compactHeightLayout.paddingBottom
         };
     }).toEqual({
         compactClass: regularHeightLayout.compactClass,
@@ -245,8 +289,7 @@ test('навигация плавно уменьшается по высоте �
         navigationScrolling: true,
         navigationOverflowY: 'auto',
         paddingTop: regularHeightLayout.paddingTop,
-        paddingBottom: regularHeightLayout.paddingBottom,
-        rootFontSize: regularHeightLayout.rootFontSize
+        paddingBottom: regularHeightLayout.paddingBottom
     });
 
     const surveyNavigationItem = page.locator('.nav-item[data-nav-class="surveys"]').first();
