@@ -71,8 +71,10 @@
                                     <span class="icon-tooltip">Редактировать</span>
                                 </div>
                                 <div class="icon-container"
+                                     data-organization-id="@organization.OrganizationId"
+                                     data-organization-name="@(organization.OrganizationName ?? string.Empty)"
                                      data-click-call="deleteOrganization"
-                                     data-click-args='[@organization.OrganizationId]'
+                                     data-click-pass-element="true"
                                      aria-label="Удалить">
                                     <span><i class="fas fa-trash"></i></span>
                                     <span class="icon-tooltip">Удалить</span>

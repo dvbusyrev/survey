@@ -759,6 +759,7 @@ test('ошибка удаления сохраняет текущий списо
         });
     });
     await page.locator('[data-click-call="deleteOrganization"]').first().click();
+    await expect(page.locator('.site-confirm__message')).toContainText('Smoke organization');
     await page.locator('.site-confirm__button--confirm').click();
     const organizationToast = page.locator('.site-toast--error')
         .filter({ hasText: 'Нельзя удалить организацию' })
@@ -931,6 +932,9 @@ test('клиент проходит доступные анкеты, черно�
 
     await archivedSurveyRow.click();
     await expect(page.locator('[data-role="survey-answers-page"]')).toBeVisible();
+    const clientAnswerInfoBlocks = page.locator('[data-role="survey-answers-page"] .answers-modal__info-block');
+    await expect(clientAnswerInfoBlocks.filter({ hasText: 'Организация' })).toContainText('Smoke org');
+    await expect(page.locator('[data-role="survey-answers-page"] .answers-modal__field-label').filter({ hasText: 'Статус' })).toHaveCount(0);
 
     await page.evaluate(() => {
         const certificate = {
@@ -1021,6 +1025,9 @@ test('клиент проходит доступные анкеты, черно�
     await answerJournalRow.click();
     await expect(page.locator('#answersModal')).toBeVisible();
     await expect(page.locator('#surveyAnswersTitle')).toHaveText('Просмотр ответов');
+    const answerInfoBlocks = page.locator('#answersContainer .answers-modal__info-block');
+    await expect(answerInfoBlocks.filter({ hasText: 'Организация' })).toContainText('Smoke org');
+    await expect(page.locator('#answersContainer .answers-modal__field-label').filter({ hasText: 'Статус' })).toHaveCount(0);
     await expect(page.locator('#answersContainer .answers-modal__table tbody tr')).toHaveCount(1);
     await expect(page.locator('#answersContainer .answers-modal__table-wrap')).toHaveCSS('padding-bottom', '0px');
     await expect(page.locator('#answersContainer .answers-modal__table')).toHaveCSS('margin-bottom', '0px');

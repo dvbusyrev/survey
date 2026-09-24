@@ -70,10 +70,15 @@ window.AdminArchives = (function () {
     renderInfoBlock('Описание', createInfoContent(survey?.description, 'Описание не указано'), container);
   }
 
-  function renderStatusBlock(answers, container) {
-    const hasAnswers = Array.isArray(answers)
-      && answers.some(answer => Array.isArray(answer?.answers) && answer.answers.length > 0);
-    renderInfoBlock('Статус', createInfoContent(hasAnswers ? 'Пройдена' : 'Не пройдена', 'Не пройдена'), container);
+  function renderOrganizationBlock(answers, container) {
+    const organizationNames = Array.from(new Set((Array.isArray(answers) ? answers : [])
+      .map(answer => String(answer?.organization_name || '').trim())
+      .filter(Boolean)));
+    renderInfoBlock(
+      'Организация',
+      createInfoContent(organizationNames.join(', '), 'Не указана'),
+      container
+    );
   }
 
   function appendSignatureLine(parent, labelText, valueText) {
@@ -160,7 +165,7 @@ window.AdminArchives = (function () {
     clearNode(container);
     renderNameBlock(data.survey, container);
     renderDescriptionBlock(data.survey, container);
-    renderStatusBlock(data.answers, container);
+    renderOrganizationBlock(data.answers, container);
     renderDateBlock(data.answers, container);
     renderSignatureBlock(data.answers, container);
 

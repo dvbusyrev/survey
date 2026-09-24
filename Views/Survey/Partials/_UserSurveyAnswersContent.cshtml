@@ -13,7 +13,11 @@
     var nameText = string.IsNullOrWhiteSpace(survey.Name) ? "Без названия" : survey.Name;
     var descriptionText = string.IsNullOrWhiteSpace(survey.Description) ? "Описание не указано" : survey.Description;
     var dateText = !string.IsNullOrWhiteSpace(firstAnswerGroup?.Date) ? firstAnswerGroup!.Date : "Дата не указана";
-    var statusText = answerGroups.Any(group => group.Answers.Count > 0) ? "Пройдена" : "Не пройдена";
+    var organizationText = string.Join(", ", answerGroups
+        .Select(group => group.OrganizationName?.Trim())
+        .Where(name => !string.IsNullOrWhiteSpace(name))
+        .Distinct(StringComparer.OrdinalIgnoreCase));
+    organizationText = string.IsNullOrWhiteSpace(organizationText) ? "Не указана" : organizationText;
     var signatureStatusText = isSigned ? "Подписана" : "Нет подписи";
     var signedByText = !string.IsNullOrWhiteSpace(signatureInfo?.SignedBy) ? signatureInfo!.SignedBy : "Не удалось определить";
     var signatureCheckText = !string.IsNullOrWhiteSpace(signatureInfo?.Status) ? signatureInfo!.Status : "Проверка недоступна";
@@ -37,8 +41,8 @@
     </div>
 
     <div class="answers-modal__info-block">
-        <div class="answers-modal__field-label">Статус</div>
-        <div class="app-field answers-modal__info-text">@statusText</div>
+        <div class="answers-modal__field-label">Организация</div>
+        <div class="app-field answers-modal__info-text">@organizationText</div>
     </div>
 
     <div class="answers-modal__info-block answers-modal__date-block">

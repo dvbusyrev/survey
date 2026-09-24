@@ -369,12 +369,14 @@
         }
     }
 
-    async function deleteOrganization(id) {
-        if (!id || organizationDeletePending) return;
+    async function deleteOrganization(trigger) {
+        const id = Number.parseInt(trigger?.dataset?.organizationId || '', 10);
+        const organizationName = String(trigger?.dataset?.organizationName || '').trim();
+        if (!Number.isFinite(id) || id <= 0 || organizationDeletePending) return;
 
         organizationDeletePending = true;
         try {
-            if (!await window.siteConfirm('Удалить организацию?', {
+            if (!await window.siteConfirm(`Вы уверены, что хотите удалить организацию «${organizationName || 'Без названия'}»?`, {
                 title: 'Удаление организации',
                 confirmText: 'Удалить',
                 cancelText: 'Отмена'
