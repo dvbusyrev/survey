@@ -2,8 +2,15 @@
 @using MainProject.Infrastructure.Security
 @inject MainProject.Application.UseCases.UserChromeContextService UserChromeContextService
 @inject MainProject.Application.UseCases.Admin.ThemeSettingsService ThemeSettingsService
+@{
+    var isAuthenticated = User?.Identity?.IsAuthenticated == true;
+    var requestedBodyClass = ViewData["BodyClass"] as string ?? string.Empty;
+    var layoutBodyClass = isAuthenticated
+        ? $"{requestedBodyClass} app-authenticated-page".Trim()
+        : requestedBodyClass;
+}
 <!DOCTYPE html>
-<html lang="ru-RU">
+<html lang="ru-RU" class="@(isAuthenticated ? "app-authenticated-root" : string.Empty)">
 <head>
     @{
         var layoutThemeSettings = await ThemeSettingsService.GetAsync();
@@ -16,11 +23,23 @@
     }
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-        if (window.matchMedia('(max-width: 1220px)').matches) {
-            document.documentElement.classList.add('app-compact-shell');
-        }
-    </script>
+    @if (isAuthenticated)
+    {
+        <style>
+            html.app-authenticated-root,
+            html.app-authenticated-root body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+            }
+        </style>
+        <script>
+            document.documentElement.classList.toggle(
+                'app-compact-shell',
+                window.matchMedia('(max-width: 1220px)').matches
+            );
+        </script>
+    }
     <link rel="icon" type="image/svg+xml" href="~/images/icon.svg" asp-append-version="true" />
     <title>Анкетирование</title>
     @await Html.PartialAsync("~/Views/Shared/_BaseStyles.cshtml")
@@ -59,11 +78,10 @@
     <script src="~/js/core/app-theme.js" asp-append-version="true"></script>
     @RenderSection("Head", required: false)
 </head>
-    <body class="@(ViewData["BodyClass"] as string ?? string.Empty)">
+    <body class="@layoutBodyClass">
     <div id="app-theme-background" aria-hidden="true"></div>
     <div id="app-theme-effects-root" aria-hidden="true"></div>
     @{
-        var isAuthenticated = User?.Identity?.IsAuthenticated == true;
         var chromeContext = isAuthenticated
             ? await UserChromeContextService.GetCurrentContextAsync()
             : new MainProject.Application.DTO.UserChromeContext();

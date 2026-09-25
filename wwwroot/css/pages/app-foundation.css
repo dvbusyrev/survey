@@ -50,6 +50,12 @@ body {
   -webkit-touch-callout: none;
 }
 
+html.app-authenticated-root,
+html.app-authenticated-root body,
+body.app-authenticated-page {
+  overflow: hidden;
+}
+
 img,
 svg,
 button,

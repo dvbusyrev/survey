@@ -103,7 +103,7 @@ test('общий каркас виден до загрузки скриптов 
 });
 
 test('каркас не меняет масштаб во время начальной загрузки', async ({ page }) => {
-    await page.setViewportSize({ width: 1220, height: 900 });
+    await page.setViewportSize({ width: 1221, height: 900 });
     await page.addInitScript(() => {
         window.__appShellLoadSamples = [];
         const startedAt = performance.now();
@@ -117,6 +117,9 @@ test('каркас не меняет масштаб во время началь
                     contentLeft: contentRect.left,
                     contentTop: contentRect.top,
                     contentWidth: contentRect.width,
+                    rootClientWidth: document.documentElement.clientWidth,
+                    rootOverflow: getComputedStyle(document.documentElement).overflow,
+                    bodyOverflow: getComputedStyle(document.body).overflow,
                     rootFontSize: getComputedStyle(document.documentElement).fontSize,
                     navigationPosition: getComputedStyle(navigation).position
                 });
@@ -140,7 +143,10 @@ test('каркас не меняет масштаб во время началь
     const samples = await page.evaluate(() => window.__appShellLoadSamples || []);
     expect(samples.length).toBeGreaterThan(0);
     expect(new Set(samples.map((sample) => sample.rootFontSize)).size).toBe(1);
-    expect(new Set(samples.map((sample) => sample.navigationPosition))).toEqual(new Set(['fixed']));
+    expect(new Set(samples.map((sample) => sample.navigationPosition))).toEqual(new Set(['relative']));
+    expect(new Set(samples.map((sample) => sample.rootClientWidth))).toEqual(new Set([1221]));
+    expect(new Set(samples.map((sample) => sample.rootOverflow))).toEqual(new Set(['hidden']));
+    expect(new Set(samples.map((sample) => sample.bodyOverflow))).toEqual(new Set(['hidden']));
 
     for (const property of ['contentLeft', 'contentTop', 'contentWidth']) {
         const values = samples.map((sample) => sample[property]);
