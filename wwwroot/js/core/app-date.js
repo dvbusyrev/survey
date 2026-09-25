@@ -1351,6 +1351,7 @@
         enhanceDateInputs,
         focusInput,
         getBounds: () => ({ ...GLOBAL_DATE_BOUNDS }),
+        getTodayIso: todayIso,
         getInputError,
         getInputIso,
         getPeriodError,

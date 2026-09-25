@@ -98,19 +98,6 @@ public sealed class RequiredCreationFieldsTests
     }
 
     [Fact]
-    public async Task CreateUser_RejectsPastEndDate()
-    {
-        var service = new UserManagementService(_connectionFactory, _clock);
-
-        var result = await service.CreateUserAsync(CreateUserRequest(
-            dateBegin: "2026-08-02",
-            dateEnd: "2026-08-03"));
-
-        Assert.False(result.Success);
-        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
-    }
-
-    [Fact]
     public async Task UpdateUser_RejectsPastEndDate()
     {
         var service = new UserManagementService(_connectionFactory, _clock);
@@ -129,17 +116,15 @@ public sealed class RequiredCreationFieldsTests
         Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
     }
 
-    [Theory]
-    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
-    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
-    public async Task CreateUser_RejectsInvalidPeriod(string dateBegin, string dateEnd, string expectedMessage)
+    [Fact]
+    public async Task CreateUser_RejectsFutureStartDate()
     {
         var service = new UserManagementService(_connectionFactory, _clock);
 
-        var result = await service.CreateUserAsync(CreateUserRequest(dateBegin: dateBegin, dateEnd: dateEnd));
+        var result = await service.CreateUserAsync(CreateUserRequest(dateBegin: "2026-08-05"));
 
         Assert.False(result.Success);
-        Assert.Equal(expectedMessage, result.Message);
+        Assert.Equal("Дата начала не может быть позже сегодняшней даты.", result.Message);
     }
 
     [Theory]
@@ -435,22 +420,6 @@ public sealed class RequiredCreationFieldsTests
     }
 
     [Fact]
-    public async Task CreateOrganization_RejectsPastEndDate()
-    {
-        var service = new OrganizationManagementService(_connectionFactory, _clock);
-
-        var result = await service.CreateOrganizationAsync(new OrganizationSaveRequest
-        {
-            Name = "Организация",
-            DateBegin = "2026-08-02",
-            DateEnd = "2026-08-03"
-        });
-
-        Assert.False(result.Success);
-        Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
-    }
-
-    [Fact]
     public async Task UpdateOrganization_RejectsPastEndDate()
     {
         var service = new OrganizationManagementService(_connectionFactory, _clock);
@@ -466,22 +435,19 @@ public sealed class RequiredCreationFieldsTests
         Assert.Equal("Дата конца не может быть раньше сегодняшней даты.", result.Message);
     }
 
-    [Theory]
-    [InlineData("2026-08-05", "2026-08-06", "Дата начала не может быть позже сегодняшней даты.")]
-    [InlineData("2026-08-04", "2026-08-04", "Дата конца должна быть позже даты начала.")]
-    public async Task CreateOrganization_RejectsInvalidPeriod(string dateBegin, string dateEnd, string expectedMessage)
+    [Fact]
+    public async Task CreateOrganization_RejectsFutureStartDate()
     {
         var service = new OrganizationManagementService(_connectionFactory, _clock);
 
         var result = await service.CreateOrganizationAsync(new OrganizationSaveRequest
         {
             Name = "Организация",
-            DateBegin = dateBegin,
-            DateEnd = dateEnd
+            DateBegin = "2026-08-05"
         });
 
         Assert.False(result.Success);
-        Assert.Equal(expectedMessage, result.Message);
+        Assert.Equal("Дата начала не может быть позже сегодняшней даты.", result.Message);
     }
 
     [Theory]

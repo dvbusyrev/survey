@@ -209,6 +209,15 @@ public class OrganizationController : Controller
             var result = await _organizationManagementService.UpdateOrganizationAsync(id, request, cancellationToken);
             if (!result.Success)
             {
+                if (string.Equals(result.Code, "organization_has_active_users", StringComparison.Ordinal))
+                {
+                    return Conflict(new
+                    {
+                        success = false,
+                        message = result.Message
+                    });
+                }
+
                 if (!string.IsNullOrWhiteSpace(result.Error))
                 {
                     return BadRequest(result.Message);

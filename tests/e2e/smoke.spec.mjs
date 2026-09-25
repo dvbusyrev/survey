@@ -577,9 +577,13 @@ test('администратор проходит основные раздел�
     await expect(page).toHaveURL(/\/users$/);
     await expect(page.locator('[data-page="users-list"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Добавить пользователя', exact: true })).toBeVisible();
+    await expect(page.locator('[data-role="user-row"][data-user-name="smoke-admin"]')
+        .locator('[data-click-call="deleteUserFromTrigger"]'))
+        .toHaveCount(0);
 
     await page.getByRole('button', { name: 'Добавить пользователя', exact: true }).click();
     await expect(page.locator('#addUserModal')).toBeVisible();
+    await expect(page.locator('#addUserModal #dateEnd')).toHaveCount(0);
     await page.locator('#addUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
     const userRequiredToast = page.locator('.site-toast--error').last();
     await expect(userRequiredToast).toContainText('Введите ФИО.');
@@ -600,15 +604,6 @@ test('администратор проходит основные раздел�
         .last();
     await expect(duplicateCreateToast).toBeVisible();
     await duplicateCreateToast.locator('.site-toast__close').click();
-    await page.locator('#fullName').fill('Просроченный пользователь');
-    await page.locator('#username').fill('expired-user');
-    await page.locator('#password').fill('SmokePassword1!');
-    await page.locator('#userOrganization').selectOption({ index: 1 });
-    await page.locator('#userRole').selectOption('user');
-    await page.locator('#dateBegin').fill(localIsoDaysAgo(2));
-    await page.locator('#dateEnd').fill(localIsoDaysAgo(1));
-    await page.locator('#addUserModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
-    await expectPastEndDateToast(page);
     await page.locator('#addUserModal .modal-close').click();
 
     await page.locator('[data-role="user-row"][data-user-name="smoke-client"]')
@@ -635,16 +630,12 @@ test('администратор проходит основные раздел�
 
     await page.getByRole('button', { name: 'Добавить организацию', exact: true }).click();
     await expect(page.locator('#addOrganizationModal')).toBeVisible();
+    await expect(page.locator('#addOrganizationModal #DateEnd')).toHaveCount(0);
     await page.locator('#addOrganizationModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
     const organizationRequiredToast = page.locator('.site-toast--error').last();
     await expect(organizationRequiredToast).toContainText('Введите название организации.');
     await expect(organizationRequiredToast).toContainText('Укажите дату начала.');
     await organizationRequiredToast.locator('.site-toast__close').click();
-    await page.locator('#Name').fill('Просроченная организация');
-    await page.locator('#DateBegin').fill(localIsoDaysAgo(2));
-    await page.locator('#DateEnd').fill(localIsoDaysAgo(1));
-    await page.locator('#addOrganizationModal').getByRole('button', { name: 'Сохранить', exact: true }).click();
-    await expectPastEndDateToast(page);
     await page.locator('#addOrganizationModal .modal-close').click();
 
     await page.locator('[data-click-call="openEditOrganizationModalFromTrigger"]').first().click();

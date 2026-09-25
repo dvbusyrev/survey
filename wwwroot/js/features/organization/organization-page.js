@@ -178,15 +178,7 @@
             return;
         }
 
-        if (!ensureOrganizationPeriodValid('DateBegin', 'DateEnd')) {
-            return;
-        }
-
         if (!ensureValidDateInput('DateBegin', 'Дата начала', { required: true })) {
-            return;
-        }
-
-        if (!ensureValidDateInput('DateEnd', 'Дата конца')) {
             return;
         }
 
@@ -194,8 +186,7 @@
             Name: byId('Name')?.value?.trim() || '',
             ShortName: byId('ShortName')?.value?.trim() || '',
             Email: byId('organization_email')?.value?.trim() || '',
-            DateBegin: window.AppDate?.getInputIso('DateBegin') || '',
-            DateEnd: window.AppDate?.getInputIso('DateEnd') || ''
+            DateBegin: window.AppDate?.getInputIso('DateBegin') || ''
         };
 
         try {
@@ -433,7 +424,7 @@
             .forEach(mountOrganizationRowViewer);
     }
 
-    window.AppDate?.bindPeriodBounds?.('DateBegin', 'DateEnd');
+    window.AppDate?.setInputBounds?.('DateBegin', { max: window.AppDate?.getTodayIso?.() || '' });
     window.AppDate?.bindPeriodBounds?.('organizationDateBegin', 'organizationDateEnd');
     window.AppDate?.bindPeriodBounds?.('date_begin', 'date_end');
 })();

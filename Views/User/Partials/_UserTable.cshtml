@@ -89,15 +89,19 @@
                                     <span><i class="fas fa-pen-to-square"></i></span>
                                     <span class="icon-tooltip">Редактировать</span>
                                 </div>
-                                <div class="icon-container"
-                                     data-user-id="@user.IdUser"
-                                     data-user-full-name="@(user.FullName ?? string.Empty)"
-                                     data-click-call="deleteUserFromTrigger"
-                                     data-click-pass-element="true"
-                                     aria-label="Удалить">
-                                    <span><i class="fas fa-trash"></i></span>
-                                    <span class="icon-tooltip">Удалить</span>
-                                </div>
+                                @if (!string.Equals(AppRoles.Normalize(user.NameRole), AppRoles.Admin, StringComparison.Ordinal)
+                                    || (user.DateEnd.HasValue && user.DateEnd.Value.Date < DateTime.Today))
+                                {
+                                    <div class="icon-container"
+                                         data-user-id="@user.IdUser"
+                                         data-user-full-name="@(user.FullName ?? string.Empty)"
+                                         data-click-call="deleteUserFromTrigger"
+                                         data-click-pass-element="true"
+                                         aria-label="Удалить">
+                                        <span><i class="fas fa-trash"></i></span>
+                                        <span class="icon-tooltip">Удалить</span>
+                                    </div>
+                                }
                             </div>
                         }
                     </td>

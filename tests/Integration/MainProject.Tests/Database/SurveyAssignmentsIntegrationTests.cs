@@ -75,6 +75,7 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains("047", versions);
         Assert.Contains("049", versions);
         Assert.Contains("050", versions);
+        Assert.Contains("051", versions);
         Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT to_regclass('public.week_day')::text;"));
         var auditColumnsWithoutGenerator = (await connection.QueryAsync<string>(
             """
@@ -1164,6 +1165,154 @@ public sealed class SurveyAssignmentsIntegrationTests : IAsyncLifetime
         Assert.Contains(surveyDeleteException.SqlState, protectedDeletionSqlStates);
         Assert.Contains(organizationDeleteException.SqlState, protectedDeletionSqlStates);
         Assert.Contains(userDeleteException.SqlState, protectedDeletionSqlStates);
+    }
+
+    [RequiresPostgresFact]
+    public async Task AdministratorProtection_PreservesPermanentAdminAndDeletesOnlyClosedAdmins()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        await using var connection = _fixture.CreateConnection();
+        var firstAdminId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin)
+            VALUES (@OrganizationId, 'first-protected-admin', 'Первый администратор', 'admin', 'hash', CURRENT_DATE)
+            RETURNING id_user;
+            """,
+            new { OrganizationId = organizationId });
+        var userService = new UserManagementService(_connectionFactory, _clock);
+        var closeDate = DateTime.Today.AddDays(1).ToString("yyyy-MM-dd");
+
+        var soleAdminUpdate = await userService.UpdateUserAsync(firstAdminId, new UserUpdateRequest
+        {
+            Username = "first-protected-admin",
+            FullName = "Первый администратор",
+            OrganizationId = organizationId.ToString(),
+            Role = "admin",
+            DateBegin = DateTime.Today.ToString("yyyy-MM-dd"),
+            DateEnd = closeDate
+        });
+
+        Assert.False(soleAdminUpdate.Success);
+        Assert.Equal("required_administrator", soleAdminUpdate.Code);
+        Assert.Contains("должен оставаться хотя бы один", soleAdminUpdate.Message);
+
+        var soleAdminRoleChange = await userService.UpdateUserAsync(firstAdminId, new UserUpdateRequest
+        {
+            Username = "first-protected-admin",
+            FullName = "Первый администратор",
+            OrganizationId = organizationId.ToString(),
+            Role = "user",
+            DateBegin = DateTime.Today.ToString("yyyy-MM-dd")
+        });
+        Assert.False(soleAdminRoleChange.Success);
+        Assert.Equal("required_administrator", soleAdminRoleChange.Code);
+
+        var secondAdminId = await connection.ExecuteScalarAsync<int>(
+            """
+            INSERT INTO public.app_user (id_organization, login, full_name, role, password, date_begin)
+            VALUES (@OrganizationId, 'second-protected-admin', 'Второй администратор', 'admin', 'hash', CURRENT_DATE)
+            RETURNING id_user;
+            """,
+            new { OrganizationId = organizationId });
+        var directActiveDeleteException = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            "DELETE FROM public.app_user WHERE id_user = @UserId;",
+            new { UserId = firstAdminId }));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, directActiveDeleteException.SqlState);
+        Assert.Equal("ck_app_user_delete_closed_admin_only", directActiveDeleteException.ConstraintName);
+
+        var closeFirstAdmin = await userService.UpdateUserAsync(firstAdminId, new UserUpdateRequest
+        {
+            Username = "first-protected-admin",
+            FullName = "Первый администратор",
+            OrganizationId = organizationId.ToString(),
+            Role = "admin",
+            DateBegin = DateTime.Today.ToString("yyyy-MM-dd"),
+            DateEnd = closeDate
+        });
+        var activeAdminDeletion = await userService.DeleteUserAsync(firstAdminId);
+
+        Assert.True(closeFirstAdmin.Success, closeFirstAdmin.Message);
+        Assert.False(activeAdminDeletion.Success);
+        Assert.Equal("active_administrator", activeAdminDeletion.Code);
+
+        await connection.ExecuteAsync(
+            "UPDATE public.app_user SET date_end = CURRENT_DATE - 1 WHERE id_user = @UserId;",
+            new { UserId = firstAdminId });
+        var closedAdminDeletion = await userService.DeleteUserAsync(firstAdminId);
+        Assert.True(closedAdminDeletion.Success, closedAdminDeletion.Message);
+
+        var databaseException = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            "UPDATE public.app_user SET date_end = CURRENT_DATE + 1 WHERE id_user = @UserId;",
+            new { UserId = secondAdminId }));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, databaseException.SqlState);
+        Assert.Equal("ck_app_user_required_permanent_admin", databaseException.ConstraintName);
+    }
+
+    [RequiresPostgresFact]
+    public async Task OrganizationClosure_BlocksWhileOrganizationHasActiveUsers()
+    {
+        var organizationId = Assert.Single(await CreateOrganizationsAsync(1));
+        var userId = await CreateUserAsync(organizationId, "organization-close-client");
+        var organizationService = new OrganizationManagementService(_connectionFactory, _clock);
+        var updateRequest = new OrganizationSaveRequest
+        {
+            Name = "Организация 1",
+            ShortName = "Орг 1",
+            DateBegin = DateTime.Today.ToString("yyyy-MM-dd"),
+            DateEnd = DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")
+        };
+
+        var serviceResult = await organizationService.UpdateOrganizationAsync(organizationId, updateRequest);
+
+        Assert.False(serviceResult.Success);
+        Assert.Equal("organization_has_active_users", serviceResult.Code);
+        Assert.Contains("Тестовый клиент", serviceResult.Message);
+
+        await using var connection = _fixture.CreateConnection();
+        var databaseException = await Assert.ThrowsAsync<PostgresException>(() => connection.ExecuteAsync(
+            "UPDATE public.organization SET date_end = CURRENT_DATE + 1 WHERE id_organization = @OrganizationId;",
+            new { OrganizationId = organizationId }));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, databaseException.SqlState);
+        Assert.Equal("ck_organization_close_without_active_users", databaseException.ConstraintName);
+
+        await connection.ExecuteAsync(
+            "UPDATE public.app_user SET date_end = CURRENT_DATE - 1 WHERE id_user = @UserId;",
+            new { UserId = userId });
+        var successfulUpdate = await organizationService.UpdateOrganizationAsync(organizationId, updateRequest);
+        Assert.True(successfulUpdate.Success, successfulUpdate.Message);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Creation_AlwaysStoresOpenEndedUserAndOrganization()
+    {
+        var organizationService = new OrganizationManagementService(_connectionFactory, _clock);
+        var requestedEndDate = DateTime.Today.AddDays(30).ToString("yyyy-MM-dd");
+        var organizationResult = await organizationService.CreateOrganizationAsync(new OrganizationSaveRequest
+        {
+            Name = "Организация без даты конца",
+            DateBegin = DateTime.Today.ToString("yyyy-MM-dd"),
+            DateEnd = requestedEndDate
+        });
+        Assert.True(organizationResult.Success, organizationResult.Message);
+
+        var userResult = await new UserManagementService(_connectionFactory, _clock).CreateUserAsync(new UserSaveRequest
+        {
+            OrganizationId = organizationResult.EntityId!.Value.ToString(),
+            Username = "open-ended-client",
+            FullName = "Бессрочный пользователь",
+            Role = "user",
+            Password = "OpenEndedPassword1!",
+            DateBegin = DateTime.Today.ToString("yyyy-MM-dd"),
+            DateEnd = requestedEndDate
+        });
+        Assert.True(userResult.Success, userResult.Message);
+
+        await using var connection = _fixture.CreateConnection();
+        Assert.Null(await connection.ExecuteScalarAsync<DateTime?>(
+            "SELECT date_end FROM public.organization WHERE id_organization = @OrganizationId;",
+            new { OrganizationId = organizationResult.EntityId.Value }));
+        Assert.Null(await connection.ExecuteScalarAsync<DateTime?>(
+            "SELECT date_end FROM public.app_user WHERE login = 'open-ended-client';"));
     }
 
     [RequiresPostgresFact]

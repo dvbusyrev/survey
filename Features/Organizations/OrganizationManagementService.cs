@@ -5,12 +5,15 @@ using MainProject.Application.DTO;
 using MainProject.Application.Support;
 using MainProject.Domain.Entities;
 using MainProject.Infrastructure.Persistence;
+using Npgsql;
 using MainProject.Web.ViewModels;
 
 namespace MainProject.Application.UseCases.Admin;
 
 public class OrganizationManagementService
 {
+    private const string ActiveUsersMessage = "Нельзя закрыть организацию: в ней есть действующие пользователи.";
+    private const string ActiveUsersConstraint = "ck_organization_close_without_active_users";
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly IClock _clock;
 
@@ -131,7 +134,7 @@ public class OrganizationManagementService
 
     public virtual async Task<OperationResult> CreateOrganizationAsync(OrganizationSaveRequest request, CancellationToken cancellationToken = default)
     {
-        if (!TryValidateOrganizationRequest(request, out var dateBegin, out var dateEnd, out var validationError))
+        if (!TryValidateOrganizationRequest(request, allowDateEnd: false, out var dateBegin, out var dateEnd, out var validationError))
         {
             return new OperationResult
             {
@@ -154,7 +157,7 @@ public class OrganizationManagementService
 
     public virtual async Task<OperationResult> UpdateOrganizationAsync(int id, OrganizationSaveRequest request, CancellationToken cancellationToken = default)
     {
-        if (!TryValidateOrganizationRequest(request, out var dateBegin, out var dateEnd, out var validationError))
+        if (!TryValidateOrganizationRequest(request, allowDateEnd: true, out var dateBegin, out var dateEnd, out var validationError))
         {
             return new OperationResult
             {
@@ -164,12 +167,26 @@ public class OrganizationManagementService
             };
         }
 
-        var affectedRows = await UpdateAsync(id, ToWriteModel(request, dateBegin, dateEnd), cancellationToken);
+        OrganizationUpdateResult updateResult;
+        try
+        {
+            updateResult = await UpdateIfAllowedAsync(id, ToWriteModel(request, dateBegin, dateEnd), cancellationToken);
+        }
+        catch (PostgresException ex) when (IsActiveUsersConstraintViolation(ex))
+        {
+            return BusinessConflict(ActiveUsersMessage, "organization_has_active_users");
+        }
+
+        if (updateResult.ActiveUserNames.Count > 0)
+        {
+            var message = BuildActiveUsersMessage(updateResult.ActiveUserNames);
+            return BusinessConflict(message, "organization_has_active_users");
+        }
 
         return new OperationResult
         {
-            Success = affectedRows > 0,
-            Message = affectedRows > 0
+            Success = updateResult.Updated,
+            Message = updateResult.Updated
                 ? "Организация успешно обновлена."
                 : "Организация не найдена."
         };
@@ -380,10 +397,46 @@ public class OrganizationManagementService
             cancellationToken: cancellationToken));
     }
 
-    private async Task<int> UpdateAsync(int organizationId, OrganizationWriteModel organization, CancellationToken cancellationToken)
+    private async Task<OrganizationUpdateResult> UpdateIfAllowedAsync(
+        int organizationId,
+        OrganizationWriteModel organization,
+        CancellationToken cancellationToken)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-        return await connection.ExecuteAsync(new CommandDefinition(
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var existingDateEnd = await connection.ExecuteScalarAsync<DateTime?>(new CommandDefinition(
+            "SELECT date_end FROM public.organization WHERE id_organization = @OrganizationId FOR UPDATE;",
+            new { OrganizationId = organizationId },
+            transaction,
+            cancellationToken: cancellationToken));
+        var organizationExists = existingDateEnd.HasValue
+            || await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                "SELECT EXISTS (SELECT 1 FROM public.organization WHERE id_organization = @OrganizationId);",
+                new { OrganizationId = organizationId },
+                transaction,
+                cancellationToken: cancellationToken));
+        if (!organizationExists)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return new OrganizationUpdateResult(false, []);
+        }
+
+        if (organization.DateEnd.HasValue && existingDateEnd?.Date != organization.DateEnd.Value.Date)
+        {
+            var activeUserNames = await GetActiveUserNamesAsync(
+                connection,
+                organizationId,
+                _clock.Today.Date,
+                transaction,
+                cancellationToken);
+            if (activeUserNames.Count > 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new OrganizationUpdateResult(false, activeUserNames);
+            }
+        }
+
+        var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE public.organization
             SET organization_name = @Name, organization_short_name = @ShortName, email = @Email,
@@ -391,7 +444,10 @@ public class OrganizationManagementService
             WHERE id_organization = @OrganizationId;
             """,
             new { OrganizationId = organizationId, organization.Name, organization.ShortName, organization.Email, organization.DateBegin, organization.DateEnd },
+            transaction,
             cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return new OrganizationUpdateResult(affectedRows > 0, []);
     }
 
     private async Task<OrganizationDeletionResult> DeleteIfUnusedAsync(int organizationId, CancellationToken cancellationToken)
@@ -552,6 +608,31 @@ public class OrganizationManagementService
             cancellationToken: cancellationToken));
         return userNames
             .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static async Task<IReadOnlyList<string>> GetActiveUserNamesAsync(
+        System.Data.IDbConnection connection,
+        int organizationId,
+        DateTime today,
+        System.Data.IDbTransaction? transaction,
+        CancellationToken cancellationToken)
+    {
+        var userNames = await connection.QueryAsync<string>(new CommandDefinition(
+            """
+            SELECT DISTINCT COALESCE(NULLIF(TRIM(full_name), ''), NULLIF(TRIM(login), ''), 'Пользователь #' || id_user::text) AS user_name
+            FROM public.app_user
+            WHERE id_organization = @OrganizationId
+              AND (date_begin IS NULL OR date_begin <= @Today)
+              AND (date_end IS NULL OR date_end >= @Today)
+            ORDER BY user_name;
+            """,
+            new { OrganizationId = organizationId, Today = today },
+            transaction,
+            cancellationToken: cancellationToken));
+        return userNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static string GetArchivePredicate(bool includeArchived) => includeArchived
@@ -727,11 +808,14 @@ public class OrganizationManagementService
 
     private bool TryValidateOrganizationRequest(
         OrganizationSaveRequest request,
+        bool allowDateEnd,
         out DateTime? dateBegin,
         out DateTime? dateEnd,
         out string validationError)
     {
         validationError = string.Empty;
+        dateBegin = null;
+        dateEnd = null;
 
         if (string.IsNullOrWhiteSpace(request.Name))
         {
@@ -755,9 +839,14 @@ public class OrganizationManagementService
             return false;
         }
 
-        if (!TryParseOptionalDate(request.DateEnd, out dateEnd, out validationError))
+        if (allowDateEnd && !TryParseOptionalDate(request.DateEnd, out dateEnd, out validationError))
         {
             return false;
+        }
+
+        if (!allowDateEnd)
+        {
+            dateEnd = null;
         }
 
         if (dateBegin.HasValue && dateBegin.Value.Date > _clock.Today.Date)
@@ -779,6 +868,28 @@ public class OrganizationManagementService
         }
 
         return true;
+    }
+
+    private static bool IsActiveUsersConstraintViolation(PostgresException exception)
+    {
+        return exception.SqlState == PostgresErrorCodes.CheckViolation
+            && string.Equals(exception.ConstraintName, ActiveUsersConstraint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static OperationResult BusinessConflict(string message, string code)
+    {
+        return new OperationResult
+        {
+            Success = false,
+            Message = message,
+            Error = message,
+            Code = code
+        };
+    }
+
+    private static string BuildActiveUsersMessage(IReadOnlyList<string> activeUserNames)
+    {
+        return $"{ActiveUsersMessage} Пользователи: {string.Join(", ", activeUserNames)}.";
     }
 
     private static OrganizationWriteModel ToWriteModel(
@@ -822,6 +933,10 @@ public sealed record OrganizationWriteModel(
     string? Email,
     DateTime? DateBegin,
     DateTime? DateEnd);
+
+internal sealed record OrganizationUpdateResult(
+    bool Updated,
+    IReadOnlyList<string> ActiveUserNames);
 
 public sealed class OrganizationSurveyAssignmentRecord
 {

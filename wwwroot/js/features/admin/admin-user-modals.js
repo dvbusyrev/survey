@@ -130,20 +130,11 @@ function submitFormAdd() {
         return;
     }
 
-    if (!ensureUserPeriodValid('dateBegin', 'dateEnd')) {
-        return;
-    }
-
     if (!ensureValidDateInput('dateBegin', 'Дата начала', { required: true })) {
         return;
     }
 
-    if (!ensureValidDateInput('dateEnd', 'Дата конца')) {
-        return;
-    }
-
     const dateBegin = window.AppDate?.getInputIso('dateBegin') || '';
-    const dateEnd = window.AppDate?.getInputIso('dateEnd') || '';
 
     const formData = {
         username: document.getElementById('username')?.value || '',
@@ -152,8 +143,7 @@ function submitFormAdd() {
         email: document.getElementById('email_input')?.value || '', // Используем value, а не innerHTML
         organizationId: document.getElementById('userOrganization')?.value || '0',
         role: document.getElementById('userRole')?.value || '',
-        dateBegin,
-        dateEnd
+        dateBegin
     };
 
     fetch('/users/create', {
@@ -489,7 +479,7 @@ if (window.AppPageLifecycle?.register) {
         .forEach(mountUserRowViewer);
 }
 
-window.AppDate?.bindPeriodBounds?.('dateBegin', 'dateEnd');
+window.AppDate?.setInputBounds?.('dateBegin', { max: window.AppDate?.getTodayIso?.() || '' });
 window.AppDate?.bindPeriodBounds?.('editDateBegin', 'editDateEnd');
 
 document.dispatchEvent(new CustomEvent('admin:user-modal-ready'));

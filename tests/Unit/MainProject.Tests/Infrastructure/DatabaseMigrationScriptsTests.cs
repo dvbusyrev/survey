@@ -53,6 +53,25 @@ public sealed class DatabaseMigrationScriptsTests
         Assert.Contains(@"\ir 048_allow_open_ended_survey_templates.sql", script);
         Assert.Contains(@"\ir 049_use_templates_for_auto_creation.sql", script);
         Assert.Contains(@"\ir 050_add_planned_survey_templates.sql", script);
+        Assert.Contains(@"\ir 051_protect_administrator_and_organization_closure.sql", script);
+    }
+
+    [Fact]
+    public void AdministratorAndOrganizationClosureMigration_AddsDatabaseGuards()
+    {
+        var script = File.ReadAllText(Path.Combine(
+            GetRepositoryRoot(),
+            "db",
+            "migrations",
+            "051_protect_administrator_and_organization_closure.sql"));
+
+        Assert.Contains("ck_app_user_delete_closed_admin_only", script);
+        Assert.Contains("ck_app_user_required_permanent_admin", script);
+        Assert.Contains("ck_organization_close_without_active_users", script);
+        Assert.Contains("BEFORE DELETE ON public.app_user", script);
+        Assert.Contains("BEFORE UPDATE OF role, id_organization, date_begin, date_end ON public.app_user", script);
+        Assert.Contains("BEFORE UPDATE OF date_end ON public.organization", script);
+        Assert.Contains("VALUES ('051', 'protect_administrator_and_organization_closure')", script);
     }
 
     [Fact]

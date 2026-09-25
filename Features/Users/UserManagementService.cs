@@ -16,6 +16,10 @@ namespace MainProject.Application.UseCases.Admin;
 public sealed class UserManagementService
 {
     private const string DuplicateLoginMessage = "Пользователь с таким логином существует.";
+    private const string RequiredAdministratorMessage = "Нельзя закрыть администратора: в системе должен оставаться хотя бы один действующий администратор без даты конца.";
+    private const string ActiveAdministratorDeleteMessage = "Нельзя удалить действующего администратора. Сначала закройте его учётную запись.";
+    private const string RequiredAdministratorConstraint = "ck_app_user_required_permanent_admin";
+    private const string ActiveAdministratorDeleteConstraint = "ck_app_user_delete_closed_admin_only";
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly IClock _clock;
     private static readonly PasswordHasher<string> PasswordHasher = new();
@@ -103,7 +107,6 @@ public sealed class UserManagementService
             out var organizationId,
             out var normalizedRole,
             out var dateBegin,
-            out var dateEnd,
             out var validationError))
         {
             return new OperationResult
@@ -125,7 +128,7 @@ public sealed class UserManagementService
                 PasswordHasher.HashPassword(request.Username.Trim(), request.Password),
                 string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
                 dateBegin,
-                dateEnd), cancellationToken);
+                null), cancellationToken);
         }
         catch (PostgresException ex) when (IsDuplicateLoginViolation(ex))
         {
@@ -158,10 +161,10 @@ public sealed class UserManagementService
             };
         }
 
-        int affectedRows;
+        UserUpdateResult updateResult;
         try
         {
-            affectedRows = await UpdateAsync(id, new UserWriteModel(
+            updateResult = await UpdateIfAllowedAsync(id, new UserWriteModel(
                 organizationId,
                 request.Username.Trim(),
                 request.FullName.Trim(),
@@ -180,11 +183,30 @@ public sealed class UserManagementService
                 Error = DuplicateLoginMessage
             };
         }
+        catch (PostgresException ex) when (IsRequiredAdministratorViolation(ex))
+        {
+            return BusinessConflict(RequiredAdministratorMessage, "required_administrator");
+        }
+
+        if (!updateResult.Found)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = "Пользователь не найден.",
+                Code = "user_not_found"
+            };
+        }
+
+        if (updateResult.RequiredAdministratorBlocked)
+        {
+            return BusinessConflict(RequiredAdministratorMessage, "required_administrator");
+        }
 
         return new OperationResult
         {
-            Success = affectedRows > 0,
-            Message = affectedRows > 0
+            Success = updateResult.Updated,
+            Message = updateResult.Updated
                 ? "Данные пользователя успешно обновлены."
                 : "Пользователь не найден или данные не изменились."
         };
@@ -208,6 +230,10 @@ public sealed class UserManagementService
                 Code = "user_in_use"
             };
         }
+        catch (PostgresException ex) when (IsActiveAdministratorDeleteViolation(ex))
+        {
+            return BusinessConflict(ActiveAdministratorDeleteMessage, "active_administrator");
+        }
 
         if (!result.Found || result.User == null)
         {
@@ -229,6 +255,11 @@ public sealed class UserManagementService
                     result.AnsweredSurveyNames),
                 Code = "user_in_use"
             };
+        }
+
+        if (result.ActiveAdministratorBlocked)
+        {
+            return BusinessConflict(ActiveAdministratorDeleteMessage, "active_administrator");
         }
 
         return new OperationResult
@@ -335,9 +366,52 @@ public sealed class UserManagementService
             cancellationToken: cancellationToken));
     }
 
-    private async Task<int> UpdateAsync(int userId, UserWriteModel user, CancellationToken cancellationToken)
+    private async Task<UserUpdateResult> UpdateIfAllowedAsync(int userId, UserWriteModel user, CancellationToken cancellationToken)
     {
         await using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var existingUser = await connection.QueryFirstOrDefaultAsync<UserUpdateCandidate>(new CommandDefinition(
+            """
+            SELECT id_user AS IdUser, id_organization AS OrganizationId, role AS Role,
+                   date_begin AS DateBegin, date_end AS DateEnd
+            FROM public.app_user
+            WHERE id_user = @UserId
+            FOR UPDATE;
+            """,
+            new { UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+        if (existingUser == null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return new UserUpdateResult(false, false, false);
+        }
+
+        var protectedFieldsChanged = existingUser.OrganizationId != user.OrganizationId
+            || !string.Equals(AppRoles.Normalize(existingUser.Role), user.Role, StringComparison.Ordinal)
+            || existingUser.DateBegin?.Date != user.DateBegin?.Date
+            || existingUser.DateEnd?.Date != user.DateEnd?.Date;
+        var changesPermanentAdministrator = protectedFieldsChanged
+            && string.Equals(AppRoles.Normalize(existingUser.Role), AppRoles.Admin, StringComparison.Ordinal)
+            && existingUser.DateEnd == null;
+        if (changesPermanentAdministrator)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "SELECT pg_advisory_xact_lock(hashtext('app_user_required_permanent_admin'));",
+                transaction: transaction,
+                cancellationToken: cancellationToken));
+            var proposedAdministratorIsActive = string.Equals(user.Role, AppRoles.Admin, StringComparison.Ordinal)
+                && user.DateEnd == null
+                && (!user.DateBegin.HasValue || user.DateBegin.Value.Date <= _clock.Today.Date)
+                && await IsOrganizationActiveAsync(connection, transaction, user.OrganizationId, _clock.Today.Date, cancellationToken);
+            if (!proposedAdministratorIsActive
+                && !await HasOtherActivePermanentAdministratorAsync(connection, transaction, userId, _clock.Today.Date, cancellationToken))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new UserUpdateResult(true, false, true);
+            }
+        }
+
         var sql = """
             UPDATE public.app_user
             SET login = @Login, full_name = @FullName, id_organization = @OrganizationId,
@@ -349,10 +423,13 @@ public sealed class UserManagementService
         }
 
         sql += " WHERE id_user = @UserId;";
-        return await connection.ExecuteAsync(new CommandDefinition(
+        var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
             sql,
             new { UserId = userId, user.OrganizationId, user.Login, user.FullName, user.Role, user.Email, user.DateBegin, user.DateEnd, user.PasswordHash },
+            transaction,
             cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return new UserUpdateResult(true, affectedRows > 0, false);
     }
 
     private async Task<UserDeletionResult> DeleteIfAllowedAsync(int userId, CancellationToken cancellationToken)
@@ -361,7 +438,8 @@ public sealed class UserManagementService
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var user = await connection.QueryFirstOrDefaultAsync<UserDeleteCandidate>(new CommandDefinition(
             """
-            SELECT id_user AS IdUser, full_name AS FullName, login AS UserName
+            SELECT id_user AS IdUser, full_name AS FullName, login AS UserName,
+                   role AS Role, date_end AS DateEnd
             FROM public.app_user
             WHERE id_user = @UserId
             FOR UPDATE;
@@ -372,14 +450,21 @@ public sealed class UserManagementService
         if (user == null)
         {
             await transaction.CommitAsync(cancellationToken);
-            return new UserDeletionResult(false, false, null, []);
+            return new UserDeletionResult(false, false, false, null, []);
+        }
+
+        if (string.Equals(AppRoles.Normalize(user.Role), AppRoles.Admin, StringComparison.Ordinal)
+            && (!user.DateEnd.HasValue || user.DateEnd.Value.Date >= _clock.Today.Date))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new UserDeletionResult(true, false, true, user, []);
         }
 
         var answeredSurveyNames = await GetSurveyNamesAsync(connection, transaction, userId, cancellationToken);
         if (answeredSurveyNames.Count > 0)
         {
             await transaction.CommitAsync(cancellationToken);
-            return new UserDeletionResult(true, false, user, answeredSurveyNames);
+            return new UserDeletionResult(true, false, false, user, answeredSurveyNames);
         }
 
         var affectedRows = await connection.ExecuteAsync(new CommandDefinition(
@@ -388,7 +473,56 @@ public sealed class UserManagementService
             transaction,
             cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
-        return new UserDeletionResult(true, affectedRows > 0, user, []);
+        return new UserDeletionResult(true, affectedRows > 0, false, user, []);
+    }
+
+    private static Task<bool> IsOrganizationActiveAsync(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction transaction,
+        int organizationId,
+        DateTime today,
+        CancellationToken cancellationToken)
+    {
+        return connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.organization
+                WHERE id_organization = @OrganizationId
+                  AND (date_begin IS NULL OR date_begin <= @Today)
+                  AND (date_end IS NULL OR date_end >= @Today)
+            );
+            """,
+            new { OrganizationId = organizationId, Today = today },
+            transaction,
+            cancellationToken: cancellationToken));
+    }
+
+    private static Task<bool> HasOtherActivePermanentAdministratorAsync(
+        System.Data.IDbConnection connection,
+        System.Data.IDbTransaction transaction,
+        int excludedUserId,
+        DateTime today,
+        CancellationToken cancellationToken)
+    {
+        return connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.app_user administrator
+                INNER JOIN public.organization organization
+                    ON organization.id_organization = administrator.id_organization
+                WHERE administrator.id_user <> @ExcludedUserId
+                  AND LOWER(BTRIM(administrator.role)) = 'admin'
+                  AND administrator.date_end IS NULL
+                  AND (administrator.date_begin IS NULL OR administrator.date_begin <= @Today)
+                  AND (organization.date_begin IS NULL OR organization.date_begin <= @Today)
+                  AND (organization.date_end IS NULL OR organization.date_end >= @Today)
+            );
+            """,
+            new { ExcludedUserId = excludedUserId, Today = today },
+            transaction,
+            cancellationToken: cancellationToken));
     }
 
     private static async Task<IReadOnlyList<string>> GetSurveyNamesAsync(
@@ -497,13 +631,11 @@ public sealed class UserManagementService
         out int organizationId,
         out string normalizedRole,
         out DateTime? dateBegin,
-        out DateTime? dateEnd,
         out string validationError)
     {
         normalizedRole = AppRoles.Normalize(request.Role);
         validationError = string.Empty;
         dateBegin = null;
-        dateEnd = null;
 
         if (!TryParseOrganizationId(request.OrganizationId, out organizationId))
         {
@@ -543,28 +675,11 @@ public sealed class UserManagementService
 
         if (!TryParseOptionalDate(request.DateBegin, out dateBegin, out validationError))
         {
-            dateEnd = null;
-            return false;
-        }
-
-        if (!TryParseOptionalDate(request.DateEnd, out dateEnd, out validationError))
-        {
             return false;
         }
 
         if (!TryValidateStartDateNotFuture(dateBegin, out validationError))
         {
-            return false;
-        }
-
-        if (!TryValidateEndDateNotPast(dateEnd, out validationError))
-        {
-            return false;
-        }
-
-        if (dateBegin.HasValue && dateEnd.HasValue && dateEnd.Value.Date <= dateBegin.Value.Date)
-        {
-            validationError = "Дата конца должна быть позже даты начала.";
             return false;
         }
 
@@ -778,6 +893,29 @@ public sealed class UserManagementService
                 || string.Equals(exception.ConstraintName, "app_user_name_user_key", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool IsRequiredAdministratorViolation(PostgresException exception)
+    {
+        return exception.SqlState == PostgresErrorCodes.CheckViolation
+            && string.Equals(exception.ConstraintName, RequiredAdministratorConstraint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsActiveAdministratorDeleteViolation(PostgresException exception)
+    {
+        return exception.SqlState == PostgresErrorCodes.CheckViolation
+            && string.Equals(exception.ConstraintName, ActiveAdministratorDeleteConstraint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static OperationResult BusinessConflict(string message, string code)
+    {
+        return new OperationResult
+        {
+            Success = false,
+            Message = message,
+            Error = message,
+            Code = code
+        };
+    }
+
     private static string ResolveUserDisplayName(UserDeleteCandidate user)
     {
         if (!string.IsNullOrWhiteSpace(user.FullName))
@@ -817,6 +955,17 @@ internal sealed class UserDeleteCandidate
     public int IdUser { get; init; }
     public string? FullName { get; init; }
     public string? UserName { get; init; }
+    public string? Role { get; init; }
+    public DateTime? DateEnd { get; init; }
+}
+
+internal sealed class UserUpdateCandidate
+{
+    public int IdUser { get; init; }
+    public int OrganizationId { get; init; }
+    public string? Role { get; init; }
+    public DateTime? DateBegin { get; init; }
+    public DateTime? DateEnd { get; init; }
 }
 
 internal sealed record UserWriteModel(
@@ -832,5 +981,11 @@ internal sealed record UserWriteModel(
 internal sealed record UserDeletionResult(
     bool Found,
     bool Deleted,
+    bool ActiveAdministratorBlocked,
     UserDeleteCandidate? User,
     IReadOnlyList<string> AnsweredSurveyNames);
+
+internal sealed record UserUpdateResult(
+    bool Found,
+    bool Updated,
+    bool RequiredAdministratorBlocked);

@@ -61,3 +61,4 @@ COMMIT;
 \ir 048_allow_open_ended_survey_templates.sql
 \ir 049_use_templates_for_auto_creation.sql
 \ir 050_add_planned_survey_templates.sql
+\ir 051_protect_administrator_and_organization_closure.sql

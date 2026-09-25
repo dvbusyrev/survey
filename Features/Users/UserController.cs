@@ -97,11 +97,23 @@ public class UserController : Controller
             var result = await _userManagementService.UpdateUserAsync(id, request, cancellationToken);
             if (!result.Success)
             {
-                return BadRequest(new
+                var error = new
                 {
                     success = false,
                     message = result.Message
-                });
+                };
+
+                if (string.Equals(result.Code, "user_not_found", StringComparison.Ordinal))
+                {
+                    return NotFound(error);
+                }
+
+                if (string.Equals(result.Code, "required_administrator", StringComparison.Ordinal))
+                {
+                    return Conflict(error);
+                }
+
+                return BadRequest(error);
             }
 
             return Json(new
@@ -135,7 +147,8 @@ public class UserController : Controller
                     return NotFound(error);
                 }
 
-                if (string.Equals(result.Code, "user_in_use", StringComparison.Ordinal))
+                if (string.Equals(result.Code, "user_in_use", StringComparison.Ordinal)
+                    || string.Equals(result.Code, "active_administrator", StringComparison.Ordinal))
                 {
                     return Conflict(error);
                 }
