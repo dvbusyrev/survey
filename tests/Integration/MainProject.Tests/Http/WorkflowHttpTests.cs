@@ -31,14 +31,14 @@ public sealed class WorkflowHttpTests
     private const string WorkflowIdentityRole = "csrf-test-user";
 
     [Fact]
-    public async Task Login_WithAntiforgeryToken_SetsCookieAndRedirectsAuthenticatedVisitor()
+    public async Task Login_OverHttp_WithAntiforgeryToken_SetsCookieAndRedirectsAuthenticatedVisitor()
     {
         await using var factory = new LoginApplicationFactory();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
             HandleCookies = true,
-            BaseAddress = new Uri("https://localhost")
+            BaseAddress = new Uri("http://localhost")
         });
 
         var antiforgery = await GetAntiforgeryTokenAsync(client);
@@ -56,6 +56,7 @@ public sealed class WorkflowHttpTests
         var authCookieHeader = response.Headers.GetValues("Set-Cookie")
             .Single(value => value.StartsWith(".AIS.Anketirovanie.Auth=", StringComparison.Ordinal));
         Assert.Contains("expires=", authCookieHeader, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("; secure", authCookieHeader, StringComparison.OrdinalIgnoreCase);
         var authCookie = authCookieHeader.Split(';', 2)[0];
 
         using var authenticatedRequest = new HttpRequestMessage(HttpMethod.Get, "/");

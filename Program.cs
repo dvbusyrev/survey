@@ -38,6 +38,10 @@ var externalConfigurationPath = ExternalConfigurationLoader.Add(
     Environment.GetEnvironmentVariable(ExternalConfigurationLoader.PathEnvironmentVariable));
 
 _ = DefaultConnectionStringResolver.Resolve(builder.Configuration);
+var requireHttps = builder.Configuration.GetValue<bool>("TransportSecurity:RequireHttps");
+var cookieSecurePolicy = requireHttps
+    ? CookieSecurePolicy.Always
+    : CookieSecurePolicy.SameAsRequest;
 
 var configuredUrls = builder.Configuration["urls"];
 builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls)
@@ -84,9 +88,7 @@ builder.Services
         options.Cookie.IsEssential = true;
         options.Cookie.Name = ".AIS.Anketirovanie.Auth";
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-            ? CookieSecurePolicy.SameAsRequest
-            : CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.EventsType = typeof(ApplicationCookieAuthenticationEvents);
     });
 
@@ -101,9 +103,7 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
 {
     options.HttpOnly = HttpOnlyPolicy.Always;
     options.MinimumSameSitePolicy = SameSiteMode.Lax;
-    options.Secure = builder.Environment.IsDevelopment()
-        ? CookieSecurePolicy.SameAsRequest
-        : CookieSecurePolicy.Always;
+    options.Secure = cookieSecurePolicy;
 });
 
 builder.Services.AddHostedService<SurveyAutoCreationHostedService>();
@@ -245,12 +245,15 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-if (!app.Environment.IsDevelopment())
+if (requireHttps)
 {
-    app.UseHsts();
-}
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
 
-app.UseHttpsRedirection();
+    app.UseHttpsRedirection();
+}
 app.UseRequestLocalization();
 app.UseResponseCompression();
 app.UseStaticFiles();
