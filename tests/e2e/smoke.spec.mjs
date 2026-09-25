@@ -29,7 +29,12 @@ test('страница авторизации не меняет размер п�
     await page.goto('/');
 
     const panel = page.locator('.auth-modal-content');
+    const form = page.locator('#loginForm');
+    const submitButton = page.getByRole('button', { name: 'Войти', exact: true });
     await expect(panel).toBeVisible();
+    await expect(form).toHaveAttribute('method', 'post');
+    await expect(form).toHaveAttribute('action', '/auth/login-form');
+    await expect(submitButton).toBeEnabled();
     const initialBox = await panel.boundingBox();
     await page.waitForTimeout(400);
     const settledBox = await panel.boundingBox();
@@ -52,6 +57,26 @@ test('страница авторизации не меняет размер п�
     expect(viewportState.clientWidth).toBe(viewportState.innerWidth);
     expect(viewportState.scrollWidth).toBeLessThanOrEqual(viewportState.clientWidth);
     expect(viewportState.scrollHeight).toBeLessThanOrEqual(viewportState.clientHeight);
+});
+
+test('форма входа работает без JavaScript и не отправляет пароль через URL', async ({ page }) => {
+    await page.route('**/js/dist/auth-page.js*', route => route.abort());
+    await page.goto('/');
+
+    const form = page.locator('#loginForm');
+    const submitButton = page.getByRole('button', { name: 'Войти', exact: true });
+    await expect(form).toHaveAttribute('method', 'post');
+    await expect(form).toHaveAttribute('action', '/auth/login-form');
+    await expect(submitButton).toBeEnabled();
+    await expect(page.locator('.password-toggle-btn svg')).toBeVisible();
+
+    await page.locator('#username').fill('smoke-admin');
+    await page.locator('#password').fill(password);
+    await submitButton.click();
+
+    await expect(page).toHaveURL(/\/survey$/);
+    expect(page.url()).not.toContain('username=');
+    expect(page.url()).not.toContain('password=');
 });
 
 async function expectPastEndDateToast(page) {
@@ -86,6 +111,11 @@ test('ошибка входа использует актуальное назв
         .last();
     await expect(toast).toBeVisible();
     await expect(toast).not.toContainText('имя пользователя');
+});
+
+test('действующий администратор входит через форму авторизации', async ({ page }) => {
+    await login(page, 'smoke-admin');
+    await expect(page.locator('[data-page="surveys-list"]')).toBeVisible();
 });
 
 test('архивный пользователь и пользователь архивной организации не могут войти', async ({ page }) => {

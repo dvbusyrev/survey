@@ -37,6 +37,9 @@
     const passwordInput = loginContent.querySelector("#password");
     const submitButton = loginContent.querySelector('button[type="submit"]');
     const toggleButton = loginContent.querySelector(".password-toggle-btn");
+    if (!form || !usernameInput || !passwordInput || !submitButton) {
+      return;
+    }
     let isSubmitting = false;
     let isPasswordVisible = false;
     function notifyAuthError(message) {
@@ -48,10 +51,17 @@
     }
     function showAuthenticationStatus() {
       const url = new URL(window.location.href);
-      if (url.searchParams.get("auth") !== "blocked") {
+      const status = url.searchParams.get("auth");
+      const messages = {
+        blocked: "Пользователь заблокирован.",
+        invalid: "Неверный логин или пароль.",
+        missing: "Введите логин и пароль.",
+        error: "Не удалось выполнить вход."
+      };
+      if (!status || !messages[status]) {
         return;
       }
-      notifyAuthError("Пользователь заблокирован.");
+      notifyAuthError(messages[status]);
       url.searchParams.delete("auth");
       window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
     }
@@ -95,7 +105,7 @@
         }
       });
     });
-    form?.addEventListener("reset", (event) => {
+    form.addEventListener("reset", (event) => {
       event.preventDefault();
       setSubmittingState(false);
       window.AppValidation?.clearAll?.(form);
@@ -107,9 +117,9 @@
       }
       setPasswordVisibility(false);
     });
-    form?.addEventListener("submit", async (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!usernameInput || !passwordInput || isSubmitting) {
+      if (isSubmitting) {
         return;
       }
       const validation = window.AppValidation?.validateRequiredFields?.(form);
@@ -148,6 +158,7 @@
         setSubmittingState(false);
       }
     });
+    setSubmittingState(false);
     setPasswordVisibility(false);
     showAuthenticationStatus();
   })();

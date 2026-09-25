@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
+using MainProject.Application.DTO;
 using MainProject.Application.UseCases;
 using MainProject.Infrastructure.Security;
 using MainProject.Web.Infrastructure;
@@ -62,31 +63,11 @@ public class AuthController : Controller
 
         try
         {
-            var loginResult = await _authService.AuthenticateAsync(username, password, cancellationToken);
+            var loginResult = await AuthenticateAndSignInAsync(username, password, cancellationToken);
             if (!loginResult.Success)
             {
                 return StatusCode(loginResult.StatusCode, loginResult.ErrorMessage);
             }
-
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, loginResult.UserId.ToString()),
-                new Claim(ClaimTypes.Name, loginResult.UserName),
-                new Claim(ClaimTypes.Role, loginResult.Role),
-                new Claim("organization_name", loginResult.OrganizationName)
-            };
-
-            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-            var principal = new ClaimsPrincipal(identity);
-
-            await HttpContext.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                principal,
-                new AuthenticationProperties
-                {
-                    IsPersistent = true,
-                    AllowRefresh = true
-                });
 
             return Json(new
             {
@@ -100,5 +81,75 @@ public class AuthController : Controller
         {
             return this.SafeError(ex, "Не удалось выполнить вход.", "Ошибка при попытке авторизации");
         }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("auth/login-form")]
+    public async Task<IActionResult> LoginForm(
+        [FromForm] string username,
+        [FromForm] string password,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            return Redirect("/?auth=missing");
+        }
+
+        try
+        {
+            var loginResult = await AuthenticateAndSignInAsync(username, password, cancellationToken);
+            if (loginResult.Success)
+            {
+                return Redirect("/survey");
+            }
+
+            var status = loginResult.StatusCode switch
+            {
+                StatusCodes.Status403Forbidden => "blocked",
+                StatusCodes.Status401Unauthorized => "invalid",
+                _ => "error"
+            };
+
+            return Redirect($"/?auth={status}");
+        }
+        catch (Exception ex)
+        {
+            _ = this.SafeError(ex, "Не удалось выполнить вход.", "Ошибка при попытке авторизации");
+            return Redirect("/?auth=error");
+        }
+    }
+
+    private async Task<LoginResult> AuthenticateAndSignInAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        var loginResult = await _authService.AuthenticateAsync(username, password, cancellationToken);
+        if (!loginResult.Success)
+        {
+            return loginResult;
+        }
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, loginResult.UserId.ToString()),
+            new(ClaimTypes.Name, loginResult.UserName),
+            new(ClaimTypes.Role, loginResult.Role),
+            new("organization_name", loginResult.OrganizationName)
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties
+            {
+                IsPersistent = true,
+                AllowRefresh = true
+            });
+
+        return loginResult;
     }
 }

@@ -68,6 +68,38 @@ public sealed class WorkflowHttpTests
     }
 
     [Fact]
+    public async Task LoginForm_WithoutJavaScript_SetsCookieAndRedirectsToSurveys()
+    {
+        await using var factory = new LoginApplicationFactory();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true,
+            BaseAddress = new Uri("http://localhost")
+        });
+
+        var antiforgery = await GetAntiforgeryTokenAsync(client);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/login-form")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["__RequestVerificationToken"] = antiforgery.Value,
+                ["username"] = "smoke-admin",
+                ["password"] = "SmokePass1!"
+            })
+        };
+        request.Headers.TryAddWithoutValidation("Cookie", antiforgery.Cookie);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/survey", response.Headers.Location?.OriginalString);
+        Assert.Contains(
+            response.Headers.GetValues("Set-Cookie"),
+            value => value.StartsWith($"{AuthenticationCookieName}=", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task AuthenticatedVisitor_RemainsSignedInAfterApplicationRestart()
     {
         string authCookie;

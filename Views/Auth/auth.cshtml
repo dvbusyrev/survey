@@ -73,7 +73,8 @@
     <div id="root">
         <div class="content">
             <div class="inner-container modal-content auth-modal-content">
-                <form id="loginForm" class="auth-modal-form" novalidate>
+                <form id="loginForm" class="auth-modal-form" method="post" action="/auth/login-form" novalidate>
+                    @Html.AntiForgeryToken()
                     <header class="modal-header auth-modal-header">
                         <h1 class="modal-title auth-modal-title">Анкетирование</h1>
                     </header>
@@ -106,7 +107,12 @@
                                     lang="ru"
                                     data-password-field="true"
                                     placeholder="Введите пароль" />
-                                <button type="button" class="password-toggle-btn" aria-label="Показать пароль" title="Показать пароль"></button>
+                                <button type="button" class="password-toggle-btn" aria-label="Показать пароль" title="Показать пароль">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -138,6 +144,6 @@
     <script src="~/js/core/app-validation.js" asp-append-version="true"></script>
     <script src="~/js/core/app-page-lifecycle.js" asp-append-version="true"></script>
     <script src="~/js/core/antiforgery.js" asp-append-version="true"></script>
-    <script type="module" src="~/js/entries/auth-page.js" asp-append-version="true"></script>
+    <script defer src="~/js/dist/auth-page.js" asp-append-version="true"></script>
 </body>
 </html>
