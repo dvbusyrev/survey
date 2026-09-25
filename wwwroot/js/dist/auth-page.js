@@ -5,10 +5,10 @@
     if (!rootElement) {
       return;
     }
-    const loginTemplate = document.getElementById("auth-login-template");
     const eyeOpenTemplate = document.getElementById("auth-eye-open-template");
     const eyeClosedTemplate = document.getElementById("auth-eye-closed-template");
-    if (!loginTemplate?.content?.firstElementChild) {
+    const loginContent = rootElement.querySelector(".content");
+    if (!loginContent) {
       return;
     }
     function parseJsonSafely(value) {
@@ -32,9 +32,6 @@
       const normalizedText = typeof responseText === "string" ? responseText.trim() : "";
       return normalizedText || fallbackMessage;
     }
-    rootElement.innerHTML = "";
-    const loginContent = loginTemplate.content.firstElementChild.cloneNode(true);
-    rootElement.appendChild(loginContent);
     const form = loginContent.querySelector("#loginForm");
     const usernameInput = loginContent.querySelector("#username");
     const passwordInput = loginContent.querySelector("#password");

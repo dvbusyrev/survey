@@ -25,6 +25,35 @@ async function login(page, loginName) {
     await page.waitForLoadState('load');
 }
 
+test('страница авторизации не меняет размер после загрузки', async ({ page }) => {
+    await page.goto('/');
+
+    const panel = page.locator('.auth-modal-content');
+    await expect(panel).toBeVisible();
+    const initialBox = await panel.boundingBox();
+    await page.waitForTimeout(400);
+    const settledBox = await panel.boundingBox();
+
+    expect(initialBox).not.toBeNull();
+    expect(settledBox).not.toBeNull();
+    expect(Math.abs(initialBox.x - settledBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(initialBox.y - settledBox.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(initialBox.width - settledBox.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(initialBox.height - settledBox.height)).toBeLessThanOrEqual(1);
+
+    const viewportState = await page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        innerWidth: window.innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        scrollHeight: document.documentElement.scrollHeight,
+        clientHeight: document.documentElement.clientHeight
+    }));
+
+    expect(viewportState.clientWidth).toBe(viewportState.innerWidth);
+    expect(viewportState.scrollWidth).toBeLessThanOrEqual(viewportState.clientWidth);
+    expect(viewportState.scrollHeight).toBeLessThanOrEqual(viewportState.clientHeight);
+});
+
 async function expectPastEndDateToast(page) {
     const toast = page.locator('.site-toast--error')
         .filter({ hasText: 'Дата конца не может быть раньше сегодняшней даты.' })

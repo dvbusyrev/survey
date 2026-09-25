@@ -42,6 +42,8 @@ var requireHttps = builder.Configuration.GetValue<bool>("TransportSecurity:Requi
 var cookieSecurePolicy = requireHttps
     ? CookieSecurePolicy.Always
     : CookieSecurePolicy.SameAsRequest;
+const string authenticationCookieName = ".AIS.Anketirovanie.Auth.v2";
+const string antiforgeryCookieName = ".AIS.Anketirovanie.Antiforgery.v2";
 
 var configuredUrls = builder.Configuration["urls"];
 builder.WebHost.UseUrls(string.IsNullOrWhiteSpace(configuredUrls)
@@ -74,6 +76,8 @@ builder.Services.AddControllersWithViews(options =>
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "RequestVerificationToken";
+    options.Cookie.Name = antiforgeryCookieName;
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
 });
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -86,7 +90,7 @@ builder.Services
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
-        options.Cookie.Name = ".AIS.Anketirovanie.Auth";
+        options.Cookie.Name = authenticationCookieName;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.EventsType = typeof(ApplicationCookieAuthenticationEvents);

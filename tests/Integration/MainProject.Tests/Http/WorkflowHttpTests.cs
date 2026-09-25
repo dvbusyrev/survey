@@ -29,6 +29,7 @@ namespace MainProject.Tests.Integration.Http;
 public sealed class WorkflowHttpTests
 {
     private const string WorkflowIdentityRole = "csrf-test-user";
+    private const string AuthenticationCookieName = ".AIS.Anketirovanie.Auth.v2";
 
     [Fact]
     public async Task Login_OverHttp_WithAntiforgeryToken_SetsCookieAndRedirectsAuthenticatedVisitor()
@@ -54,7 +55,7 @@ public sealed class WorkflowHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(AppRoles.Admin, payload.RootElement.GetProperty("role").GetString());
         var authCookieHeader = response.Headers.GetValues("Set-Cookie")
-            .Single(value => value.StartsWith(".AIS.Anketirovanie.Auth=", StringComparison.Ordinal));
+            .Single(value => value.StartsWith($"{AuthenticationCookieName}=", StringComparison.Ordinal));
         Assert.Contains("expires=", authCookieHeader, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("; secure", authCookieHeader, StringComparison.OrdinalIgnoreCase);
         var authCookie = authCookieHeader.Split(';', 2)[0];
@@ -88,7 +89,7 @@ public sealed class WorkflowHttpTests
             loginResponse.EnsureSuccessStatusCode();
 
             authCookie = loginResponse.Headers.GetValues("Set-Cookie")
-                .Single(value => value.StartsWith(".AIS.Anketirovanie.Auth=", StringComparison.Ordinal))
+                .Single(value => value.StartsWith($"{AuthenticationCookieName}=", StringComparison.Ordinal))
                 .Split(';', 2)[0];
         }
 
@@ -134,7 +135,7 @@ public sealed class WorkflowHttpTests
         Assert.Equal("/?auth=blocked", protectedResponse.Headers.Location?.OriginalString);
         Assert.Contains(
             protectedResponse.Headers.GetValues("Set-Cookie"),
-            value => value.StartsWith(".AIS.Anketirovanie.Auth=;", StringComparison.Ordinal));
+            value => value.StartsWith($"{AuthenticationCookieName}=;", StringComparison.Ordinal));
     }
 
     [Fact]
